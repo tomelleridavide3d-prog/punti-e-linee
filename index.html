@@ -1660,95 +1660,139 @@ function openStatsWeb() {
 }
 
 // ---- Ciack US (tappa 1: un personaggio con il cappello che cammina su un pavimento isometrico) ----
-const CQ_W = 60, CQ_H = 47, CQ_SPEED = 3.4, CQ_R = 0.3;
-// stanze del set: nome, posizione, misura, colori del pavimento a scacchi, colore dei muri
-const CQ_ROOMS = [
-  { n: 'Palco', x: 2, y: 2, w: 16, h: 12, c: ['#9a7549', '#8b693f'], wc: '#6e5a44' },
-  { n: 'Camerini', x: 20, y: 2, w: 11, h: 12, c: ['#76629a', '#69568b'], wc: '#5e5280' },
-  { n: 'Trucco', x: 33, y: 2, w: 10, h: 12, c: ['#9a627c', '#8b566e'], wc: '#80566a' },
-  { n: 'Corridoio', x: 2, y: 15, w: 56, h: 5, c: ['#586073', '#4c5466'], wc: '#5d6578' },
-  { n: 'Montaggio', x: 2, y: 21, w: 12, h: 12, c: ['#4f8a99', '#457c8b'], wc: '#4a7482' },
-  { n: 'Magazzino', x: 16, y: 21, w: 13, h: 12, c: ['#868659', '#78784e'], wc: '#6e6e4a' },
-  { n: 'Proiezione', x: 31, y: 21, w: 12, h: 12, c: ['#6a5252', '#5c4747'], wc: '#5a4646' },
-  { n: 'Mensa', x: 45, y: 2, w: 13, h: 12, c: ['#b8b0a0', '#aca392'], wc: '#8a7f6a' },
-  { n: 'Effetti speciali', x: 45, y: 21, w: 13, h: 12, c: ['#4f4566', '#463d5c'], wc: '#4a3f60' },
-  { n: 'Set western', x: 2, y: 35, w: 27, h: 11, c: ['#c9a46a', '#bf9a60'], wc: '#8a6a40' },
-  { n: 'Sala regia', x: 31, y: 35, w: 12, h: 11, c: ['#45556a', '#3d4c60'], wc: '#3f4d5c' },
-  { n: 'Parcheggio', x: 45, y: 35, w: 13, h: 11, c: ['#4e5159', '#484b53'], wc: '#5a5d66' }];
-const CQ_DOORS = [[8, 14, 3, 1], [24, 14, 3, 1], [36, 14, 3, 1], [6, 20, 3, 1], [21, 20, 3, 1], [35, 20, 3, 1], [18, 7, 2, 3], [31, 7, 2, 3],
-  [50, 14, 3, 1], [50, 20, 3, 1], [43, 7, 2, 3], [43, 26, 2, 3], [7, 33, 3, 2], [21, 33, 3, 2], [29, 39, 2, 3], [50, 33, 3, 2], [43, 39, 2, 3]];
-// tappeti e segni sul pavimento: x, y, larghezza, altezza, colore
-const CQ_DECALS = [
-  [4, 4, 12, 8, '#7a5a38'], [4.3, 4.3, 11.4, 7.4, '#85623e'],
-  [22, 4, 7, 6, '#4a3e6a'], [22.3, 4.3, 6.4, 5.4, '#574a7a'],
-  [35, 5, 5, 5, '#6a3f55'], [35.3, 5.3, 4.4, 4.4, '#774a63'],
-  [2, 17, 56, 1, '#a02838'], [2, 17.12, 56, 0.76, '#b43446'],
-  [4, 27, 7, 4, '#2f5a66'], [4.3, 27.3, 6.4, 3.4, '#38687a'],
-  [36, 22, 2, 9, '#7a2a35'],
-  [17, 21, 11, 0.18, '#e8d44a'], [17, 32.8, 11, 0.18, '#e8d44a'],
-  [47, 6, 9, 7, '#9a3a3a'], [47.3, 6.3, 8.4, 6.4, '#a84646'],
-  [47, 23, 7, 7, '#2a2438'], [47.2, 23.2, 6.6, 6.6, '#352d48'],
-  [3, 38, 25, 3, '#b08a52'], [3, 38.2, 25, 2.6, '#b8925a'],
-  [33, 40, 8, 4, '#2f3d52'], [33.3, 40.3, 7.4, 3.4, '#36465c']];
-for (const [mx, my] of [[6, 6], [9, 6], [12, 6], [6, 9], [9, 9], [12, 9]]) CQ_DECALS.push([mx + 0.1, my + 0.4, 0.8, 0.12, '#e8d44a'], [mx + 0.44, my + 0.06, 0.12, 0.8, '#e8d44a']);
-for (const x of [46.5, 49.5, 52.5, 55.5]) CQ_DECALS.push([x, 36.5, 0.14, 8, '#e8d44a']);   // righe del parcheggio
-// oggetti di scena [tipo, x, y, opzione]: ognuno occupa una cella e non si attraversa
-const CQ_PROPS = [];
-const pp = (t, x, y, o) => CQ_PROPS.push([t, x, y, o]);
-const prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
-const LOCK = ['#4f7aa8', '#a85a4f', '#4fa87a', '#a89a4f', '#8a4fa8'];
-// Palco
-prow('curtain', 2, 2, 16, 1, 0);
-[[3, 3], [16, 3], [3, 12], [16, 12]].forEach(([x, y]) => pp('lamp', x, y));
-pp('camera', 6, 8); pp('camera', 12, 8); pp('boom', 9, 5); pp('clapper', 9, 10);
-pp('dchair', 14, 6, '#d9c9a0'); pp('dchair', 15, 6, '#c96a5a'); pp('dchair', 3, 8, '#d9c9a0');
-pp('speaker', 2, 13); pp('speaker', 17, 13); pp('reel', 4, 3); pp('reel', 15, 3); pp('plant', 2, 6); pp('plant', 17, 5); pp('crate', 14, 12); pp('crate', 5, 12);
-// Camerini
-prow('locker', 21, 2, 9, 1, 0, i => LOCK[i % 5]); pp('fridge', 30, 2);
-prow('sofa', 22, 6, 3, 1, 0); pp('table', 23, 8); pp('tv', 27, 5); pp('tv', 28, 5);
-pp('rack', 21, 11); pp('rack', 22, 11); pp('rack', 28, 11); pp('plant', 20, 2); pp('plant', 30, 13); pp('plant', 20, 13); pp('dchair', 26, 9, '#7aa0d4'); pp('dchair', 28, 9, '#d4a07a');
-// Trucco
-prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => [['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4], 's']); CQ_PROPS.splice(CQ_PROPS.findIndex(p => p[0] === 'dchair' && p[1] === 37 && p[2] === 3), 1);   // davanti allo specchio del compito si deve poter stare
-pp('rack', 34, 10); pp('rack', 35, 10); pp('rack', 40, 10); pp('rack', 41, 10); pp('table', 37, 11); pp('table', 39, 11); pp('plant', 42, 13); pp('plant', 33, 13); pp('dchair', 37, 7, '#d4a0b8'); pp('dchair', 39, 7, '#d4a0b8');
-// Corridoio
-[[2, 15], [57, 15], [2, 19], [57, 19], [42, 15], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
-pp('crate', 14, 15); pp('crate', 15, 15); pp('crate2', 14, 16); pp('crate', 30, 19); pp('crate2', 31, 19); pp('sofa', 18, 15); pp('sofa', 19, 15); pp('table', 20, 15);
-pp('sofa', 46, 15); pp('sofa', 47, 15); pp('table', 48, 15); pp('crate', 55, 19); pp('crate2', 56, 19);
-// Montaggio
-prow('monitor', 3, 23, 4, 1, 0); prow('monitor', 9, 23, 4, 1, 0); prow('dchair', 3, 24, 4, 1, 0, () => ['#8a96a8', 's']); prow('dchair', 9, 24, 4, 1, 0, () => ['#8a96a8', 's']);
-prow('shelf', 13, 22, 9, 0, 1); pp('reel', 3, 30); pp('reel', 4, 30); pp('reel', 11, 31); pp('table', 6, 29); pp('table', 8, 29); pp('plant', 2, 32); pp('plant', 12, 32); pp('monitor', 2, 28); pp('dchair', 3, 28, ['#8a96a8', 'e']);
-// Magazzino
-pp('crate', 17, 23); pp('crate', 18, 23); pp('crate', 17, 24); pp('crate2', 18, 24); pp('crate', 24, 28); pp('crate2', 25, 28); pp('crate', 24, 29); pp('crate', 25, 29);
-prow('barrel', 17, 30, 3, 1, 0, i => ['#3b6ea5', '#a5493b', '#3ba56e'][i]); pp('barrel', 17, 31, '#a5493b');
-prow('shelf', 28, 22, 9, 0, 1); pp('rack', 22, 31); pp('rack', 23, 31); pp('lamp', 20, 27); pp('lamp', 26, 24); pp('camera', 19, 28); pp('boom', 25, 32); pp('crate', 27, 32); pp('crate', 16, 32);
-// Proiezione
-prow('screen', 33, 32, 8, 1, 0); pp('speaker', 32, 32); pp('speaker', 41, 32);
-for (const yy of [24, 26, 28]) { prow('seat', 33, yy, 3, 1, 0); prow('seat', 38, yy, 3, 1, 0); }
-pp('projector', 31, 22); pp('plant', 42, 22); pp('plant', 42, 32); pp('plant', 31, 32); pp('lamp', 41, 22); pp('lamp', 32, 24);
-pp('fusebox', 33, 15); pp('reel', 21, 24); pp('megaphone', 22, 17);
-// Mensa
-prow('counter', 47, 2, 7, 1, 0); pp('coffee', 54, 2); pp('fridge', 56, 2); pp('fridge', 57, 2);
-for (const [tx, ty] of [[48, 7], [53, 7], [48, 11], [53, 11]]) { pp('table', tx, ty); pp('dchair', tx - 1, ty, ['#c96a5a', 'w']); pp('dchair', tx + 1, ty, ['#5a8ac9', 'e']); }
-pp('plant', 57, 13); pp('plant', 45, 13); pp('plant', 57, 6);
-// Effetti speciali
-pp('cannon', 49, 25); pp('smoke', 54, 24); pp('smoke', 54, 29); prow('greenscreen', 57, 23, 8, 0, 1); pp('lamp', 46, 22); pp('lamp', 56, 32); pp('crate', 46, 31); pp('crate2', 47, 31); pp('camera', 51, 29); pp('barrel', 45, 32, '#e2553a');
-// Set western
-prow('saloon', 11, 35, 8, 1, 0); prow('saloon', 24, 35, 4, 1, 0);
-[[5, 41], [15, 44], [26, 42], [9, 44], [3, 36]].forEach(([x, y]) => pp('cactus', x, y));
-pp('hay', 13, 40); pp('hay', 14, 40); pp('barrel', 20, 43, '#8a5a32'); pp('barrel', 21, 43, '#8a5a32'); pp('camera', 18, 41); pp('lamp', 17, 38); pp('boom', 11, 42); pp('dchair', 19, 43, '#d9c9a0');
-// Sala regia
-prow('monitor', 33, 37, 8, 1, 0); prow('dchair', 33, 38, 8, 1, 0, () => ['#3a3f49', 's']); prow('tv', 33, 35, 8, 1, 0); pp('camdesk', 36, 43); pp('camdesk', 37, 43); pp('plant', 42, 45); pp('plant', 31, 45);
-// Parcheggio
-prow('truck', 47, 37, 5, 0, 1); prow('truck', 48, 37, 4, 0, 1); pp('cab', 48, 41);
-prow('truck', 53, 38, 5, 0, 1); prow('truck', 54, 38, 4, 0, 1); pp('cab', 54, 42);
-[[51, 36], [51, 44], [57, 44], [45, 44]].forEach(([x, y]) => pp('cone', x, y)); pp('pump', 57, 36);
-pp('vending', 57, 9); pp('vending', 42, 43);   // distributori del negozio
-const cqFloor = [], cqSolid = [], cqRoomOf = [];
-(() => {
+const CQ_SPEED = 3.4, CQ_R = 0.3;
+// ---- mappe: ogni mappa e' un "pacchetto" (misure, stanze, porte, tappeti, oggetti, compiti, sabotaggi, telecamere,
+// posti di partenza, pulsante delle riunioni, distributori). La mappa in uso sta in queste variabili, riempite da cqUseMap(id).
+let CQ_W, CQ_H, CQ_ROOMS, CQ_DOORS, CQ_DECALS, CQ_PROPS, CQ_TASKS, CQ_CAMS, CQ_VENDING, CQ_RING, CQ_BUTTON, CQ_SABS, CQ_IN, CQ_HELP, CQ_HALL;
+let cqFloor, cqSolid, cqRoomOf;
+// mappa "Studio": lo studio cinematografico
+function cqMapStudio() {
+  // stanze del set: nome, posizione, misura, colori del pavimento a scacchi, colore dei muri, tipo di pavimento (k)
+  const rooms = [
+    { n: 'Palco', x: 2, y: 2, w: 16, h: 12, c: ['#9a7549', '#8b693f'], wc: '#6e5a44', k: 'wood' },
+    { n: 'Camerini', x: 20, y: 2, w: 11, h: 12, c: ['#76629a', '#69568b'], wc: '#5e5280', k: 'carpet' },
+    { n: 'Trucco', x: 33, y: 2, w: 10, h: 12, c: ['#9a627c', '#8b566e'], wc: '#80566a', k: 'carpet' },
+    { n: 'Corridoio', x: 2, y: 15, w: 56, h: 5, c: ['#586073', '#4c5466'], wc: '#5d6578', k: 'tile' },
+    { n: 'Montaggio', x: 2, y: 21, w: 12, h: 12, c: ['#4f8a99', '#457c8b'], wc: '#4a7482', k: 'tile' },
+    { n: 'Magazzino', x: 16, y: 21, w: 13, h: 12, c: ['#868659', '#78784e'], wc: '#6e6e4a', k: 'concrete' },
+    { n: 'Proiezione', x: 31, y: 21, w: 12, h: 12, c: ['#6a5252', '#5c4747'], wc: '#5a4646', k: 'carpet' },
+    { n: 'Mensa', x: 45, y: 2, w: 13, h: 12, c: ['#b8b0a0', '#aca392'], wc: '#8a7f6a', k: 'tile' },
+    { n: 'Effetti speciali', x: 45, y: 21, w: 13, h: 12, c: ['#4f4566', '#463d5c'], wc: '#4a3f60', k: 'carpet' },
+    { n: 'Set western', x: 2, y: 35, w: 27, h: 11, c: ['#c9a46a', '#bf9a60'], wc: '#8a6a40', k: 'sand' },
+    { n: 'Sala regia', x: 31, y: 35, w: 12, h: 11, c: ['#45556a', '#3d4c60'], wc: '#3f4d5c', k: 'tile' },
+    { n: 'Parcheggio', x: 45, y: 35, w: 13, h: 11, c: ['#4e5159', '#484b53'], wc: '#5a5d66', k: 'asphalt' }];
+  const doors = [[8, 14, 3, 1], [24, 14, 3, 1], [36, 14, 3, 1], [6, 20, 3, 1], [21, 20, 3, 1], [35, 20, 3, 1], [18, 7, 2, 3], [31, 7, 2, 3],
+    [50, 14, 3, 1], [50, 20, 3, 1], [43, 7, 2, 3], [43, 26, 2, 3], [7, 33, 3, 2], [21, 33, 3, 2], [29, 39, 2, 3], [50, 33, 3, 2], [43, 39, 2, 3]];
+  // tappeti e segni sul pavimento: x, y, larghezza, altezza, colore
+  const decals = [
+    [4, 4, 12, 8, '#7a5a38'], [4.3, 4.3, 11.4, 7.4, '#85623e'],
+    [22, 4, 7, 6, '#4a3e6a'], [22.3, 4.3, 6.4, 5.4, '#574a7a'],
+    [35, 5, 5, 5, '#6a3f55'], [35.3, 5.3, 4.4, 4.4, '#774a63'],
+    [2, 17, 56, 1, '#a02838'], [2, 17.12, 56, 0.76, '#b43446'],
+    [4, 27, 7, 4, '#2f5a66'], [4.3, 27.3, 6.4, 3.4, '#38687a'],
+    [36, 22, 2, 9, '#7a2a35'],
+    [17, 21, 11, 0.18, '#e8d44a'], [17, 32.8, 11, 0.18, '#e8d44a'],
+    [47, 6, 9, 7, '#9a3a3a'], [47.3, 6.3, 8.4, 6.4, '#a84646'],
+    [47, 23, 7, 7, '#2a2438'], [47.2, 23.2, 6.6, 6.6, '#352d48'],
+    [3, 38, 25, 3, '#b08a52'], [3, 38.2, 25, 2.6, '#b8925a'],
+    [33, 40, 8, 4, '#2f3d52'], [33.3, 40.3, 7.4, 3.4, '#36465c']];
+  for (const [mx, my] of [[6, 6], [9, 6], [12, 6], [6, 9], [9, 9], [12, 9]]) decals.push([mx + 0.1, my + 0.4, 0.8, 0.12, '#e8d44a'], [mx + 0.44, my + 0.06, 0.12, 0.8, '#e8d44a']);
+  for (const x of [46.5, 49.5, 52.5, 55.5]) decals.push([x, 36.5, 0.14, 8, '#e8d44a']);   // righe del parcheggio
+  // oggetti di scena [tipo, x, y, opzione]: ognuno occupa una cella e non si attraversa
+  const props = [];
+  const pp = (t, x, y, o) => props.push([t, x, y, o]);
+  const prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
+  const LOCK = ['#4f7aa8', '#a85a4f', '#4fa87a', '#a89a4f', '#8a4fa8'];
+  // Palco
+  prow('curtain', 2, 2, 16, 1, 0);
+  [[3, 3], [16, 3], [3, 12], [16, 12]].forEach(([x, y]) => pp('lamp', x, y));
+  pp('camera', 6, 8); pp('camera', 12, 8); pp('boom', 9, 5); pp('clapper', 9, 10);
+  pp('dchair', 14, 6, '#d9c9a0'); pp('dchair', 15, 6, '#c96a5a'); pp('dchair', 3, 8, '#d9c9a0');
+  pp('speaker', 2, 13); pp('speaker', 17, 13); pp('reel', 4, 3); pp('reel', 15, 3); pp('plant', 2, 6); pp('plant', 17, 5); pp('crate', 14, 12); pp('crate', 5, 12);
+  // Camerini
+  prow('locker', 21, 2, 9, 1, 0, i => LOCK[i % 5]); pp('fridge', 30, 2);
+  prow('sofa', 22, 6, 3, 1, 0); pp('table', 23, 8); pp('tv', 27, 5); pp('tv', 28, 5);
+  pp('rack', 21, 11); pp('rack', 22, 11); pp('rack', 28, 11); pp('plant', 20, 2); pp('plant', 30, 13); pp('plant', 20, 13); pp('dchair', 26, 9, '#7aa0d4'); pp('dchair', 28, 9, '#d4a07a');
+  // Trucco
+  prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => [['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4], 's']); props.splice(props.findIndex(p => p[0] === 'dchair' && p[1] === 37 && p[2] === 3), 1);   // davanti allo specchio del compito si deve poter stare
+  pp('rack', 34, 10); pp('rack', 35, 10); pp('rack', 40, 10); pp('rack', 41, 10); pp('table', 37, 11); pp('table', 39, 11); pp('plant', 42, 13); pp('plant', 33, 13); pp('dchair', 37, 7, '#d4a0b8'); pp('dchair', 39, 7, '#d4a0b8');
+  // Corridoio
+  [[2, 15], [57, 15], [2, 19], [57, 19], [42, 15], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
+  pp('crate', 14, 15); pp('crate', 15, 15); pp('crate2', 14, 16); pp('crate', 30, 19); pp('crate2', 31, 19); pp('sofa', 18, 15); pp('sofa', 19, 15); pp('table', 20, 15);
+  pp('sofa', 46, 15); pp('sofa', 47, 15); pp('table', 48, 15); pp('crate', 55, 19); pp('crate2', 56, 19);
+  // Montaggio
+  prow('monitor', 3, 23, 4, 1, 0); prow('monitor', 9, 23, 4, 1, 0); prow('dchair', 3, 24, 4, 1, 0, () => ['#8a96a8', 's']); prow('dchair', 9, 24, 4, 1, 0, () => ['#8a96a8', 's']);
+  prow('shelf', 13, 22, 9, 0, 1); pp('reel', 3, 30); pp('reel', 4, 30); pp('reel', 11, 31); pp('table', 6, 29); pp('table', 8, 29); pp('plant', 2, 32); pp('plant', 12, 32); pp('monitor', 2, 28); pp('dchair', 3, 28, ['#8a96a8', 'e']);
+  // Magazzino
+  pp('crate', 17, 23); pp('crate', 18, 23); pp('crate', 17, 24); pp('crate2', 18, 24); pp('crate', 24, 28); pp('crate2', 25, 28); pp('crate', 24, 29); pp('crate', 25, 29);
+  prow('barrel', 17, 30, 3, 1, 0, i => ['#3b6ea5', '#a5493b', '#3ba56e'][i]); pp('barrel', 17, 31, '#a5493b');
+  prow('shelf', 28, 22, 9, 0, 1); pp('rack', 22, 31); pp('rack', 23, 31); pp('lamp', 20, 27); pp('lamp', 26, 24); pp('camera', 19, 28); pp('boom', 25, 32); pp('crate', 27, 32); pp('crate', 16, 32);
+  // Proiezione
+  prow('screen', 33, 32, 8, 1, 0); pp('speaker', 32, 32); pp('speaker', 41, 32);
+  for (const yy of [24, 26, 28]) { prow('seat', 33, yy, 3, 1, 0); prow('seat', 38, yy, 3, 1, 0); }
+  pp('projector', 31, 22); pp('plant', 42, 22); pp('plant', 42, 32); pp('plant', 31, 32); pp('lamp', 41, 22); pp('lamp', 32, 24);
+  pp('fusebox', 33, 15); pp('reel', 21, 24); pp('megaphone', 22, 17);
+  // Mensa
+  prow('counter', 47, 2, 7, 1, 0); pp('coffee', 54, 2); pp('fridge', 56, 2); pp('fridge', 57, 2);
+  for (const [tx, ty] of [[48, 7], [53, 7], [48, 11], [53, 11]]) { pp('table', tx, ty); pp('dchair', tx - 1, ty, ['#c96a5a', 'w']); pp('dchair', tx + 1, ty, ['#5a8ac9', 'e']); }
+  pp('plant', 57, 13); pp('plant', 45, 13); pp('plant', 57, 6);
+  // Effetti speciali
+  pp('cannon', 49, 25); pp('smoke', 54, 24); pp('smoke', 54, 29); prow('greenscreen', 57, 23, 8, 0, 1); pp('lamp', 46, 22); pp('lamp', 56, 32); pp('crate', 46, 31); pp('crate2', 47, 31); pp('camera', 51, 29); pp('barrel', 45, 32, '#e2553a');
+  // Set western
+  prow('saloon', 11, 35, 8, 1, 0); prow('saloon', 24, 35, 4, 1, 0);
+  [[5, 41], [15, 44], [26, 42], [9, 44], [3, 36]].forEach(([x, y]) => pp('cactus', x, y));
+  pp('hay', 13, 40); pp('hay', 14, 40); pp('barrel', 20, 43, '#8a5a32'); pp('barrel', 21, 43, '#8a5a32'); pp('camera', 18, 41); pp('lamp', 17, 38); pp('boom', 11, 42); pp('dchair', 19, 43, '#d9c9a0');
+  // Sala regia
+  prow('monitor', 33, 37, 8, 1, 0); prow('dchair', 33, 38, 8, 1, 0, () => ['#3a3f49', 's']); prow('tv', 33, 35, 8, 1, 0); pp('camdesk', 36, 43); pp('camdesk', 37, 43); pp('plant', 42, 45); pp('plant', 31, 45);
+  // Parcheggio
+  prow('truck', 47, 37, 5, 0, 1); prow('truck', 48, 37, 4, 0, 1); pp('cab', 48, 41);
+  prow('truck', 53, 38, 5, 0, 1); prow('truck', 54, 38, 4, 0, 1); pp('cab', 54, 42);
+  [[51, 36], [51, 44], [57, 44], [45, 44]].forEach(([x, y]) => pp('cone', x, y)); pp('pump', 57, 36);
+  pp('vending', 57, 9); pp('vending', 42, 43);   // distributori del negozio
+  // compiti: accanto a un oggetto di scena (x, y = cella dell'oggetto); alcuni in piu' passaggi (steps), da portare da una stanza all'altra
+  const tasks = [
+    { id: 'ciak', n: 'Batti il ciak', r: 'Palco', x: 9, y: 10 },
+    { id: 'luci', n: 'Accendi le luci', r: 'Corridoio', x: 33, y: 15 },
+    { id: 'costume', n: 'Prepara il costume', r: 'Camerini', x: 22, y: 11 },
+    { id: 'trucco', n: "Trucca l'attore", r: 'Trucco', x: 37, y: 2 },
+    { id: 'montaggio', n: 'Monta la scena', r: 'Montaggio', x: 10, y: 23 },
+    { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Magazzino', x: 21, y: 24 },
+    { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 },
+    { id: 'caffe', n: 'Prepara il caffè', r: 'Mensa', x: 54, y: 2 },
+    { id: 'cannone', n: 'Carica il cannone dei coriandoli', r: 'Effetti speciali', x: 49, y: 25 },
+    { id: 'sella', n: 'Lucida la sella', r: 'Set western', x: 13, y: 40 },
+    { id: 'cavi', n: 'Collega i cavi', r: 'Sala regia', x: 34, y: 37 },
+    { id: 'pieno', n: 'Fai il pieno al camion', r: 'Parcheggio', x: 57, y: 36 },
+    { id: 'portabobina', n: 'Porta la bobina al Montaggio', steps: [{ n: 'Prendi la bobina', r: 'Magazzino', x: 21, y: 24, game: 'prendi' }, { n: 'Consegna la bobina', r: 'Montaggio', x: 11, y: 31, game: 'consegna' }] },
+    { id: 'portacostume', n: 'Porta il costume al Set western', steps: [{ n: 'Prendi il costume', r: 'Camerini', x: 28, y: 11, game: 'prendi' }, { n: 'Consegna il costume', r: 'Set western', x: 24, y: 35, game: 'consegna' }] },
+    { id: 'portacaffe', n: 'Porta il caffè al regista', steps: [{ n: 'Prendi il caffè', r: 'Mensa', x: 54, y: 2, game: 'prendi' }, { n: 'Porta il caffè in regia', r: 'Sala regia', x: 36, y: 43, game: 'consegna' }] }];
+  return { w: 60, h: 47, rooms, doors, decals, props, tasks,
+    hall: 3,   // stanza di passaggio: le porte prendono il suo pavimento
+    cams: [['Palco', 10, 9], ['Corridoio', 40, 17], ['Magazzino', 22, 27], ['Set western', 15, 40]],   // telecamere (scrivania in Sala regia): stanza, centro dell'inquadratura
+    vending: [[57, 9], [42, 43]],   // distributori: Mensa e Sala regia
+    ring: [[20, 16], [21, 16], [23, 16], [24, 16], [20, 18], [21, 18], [23, 18], [24, 18], [22, 15], [22, 19]],   // posti di partenza, intorno al pulsante delle riunioni
+    button: { x: 22, y: 17 },
+    sabs: { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45 } },
+    inn: { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione', Mensa: 'in Mensa', 'Effetti speciali': 'agli Effetti speciali', 'Set western': 'sul Set western', 'Sala regia': 'in Sala regia', Parcheggio: 'al Parcheggio' },
+    help: '<p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>distributore</b> è in Mensa e in Sala regia.</p>' };
+}
+// mappe da scegliere nella stanza d'attesa (soon = non ancora pronta)
+const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', soon: true } };
+const cqMapIds = () => Object.keys(CQ_MAPS).filter(k => !CQ_MAPS[k].soon);
+// mette in uso una mappa: riempie le variabili della mappa e prepara le celle (pavimento, oggetti, muri)
+function cqUseMap(id) {
+  if (!CQ_MAPS[id] || CQ_MAPS[id].soon) id = 'studio';
+  if (cq.map === id) return;
+  const P = CQ_MAPS[id].pack || (CQ_MAPS[id].pack = CQ_MAPS[id].make());
+  P.tasks.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.id }]; });
+  ({ w: CQ_W, h: CQ_H, rooms: CQ_ROOMS, doors: CQ_DOORS, decals: CQ_DECALS, props: CQ_PROPS, tasks: CQ_TASKS, cams: CQ_CAMS, vending: CQ_VENDING,
+    ring: CQ_RING, button: CQ_BUTTON, sabs: CQ_SABS, inn: CQ_IN, help: CQ_HELP, hall: CQ_HALL } = P);
+  cq.map = id; cq.bg = null;   // la mappa pronta (tessere) si rifa'
+  cqFloor = []; cqSolid = []; cqRoomOf = [];
   for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
   CQ_ROOMS.forEach((r, i) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { cqFloor[y][x] = r.c[(x + y) % 2]; cqRoomOf[y][x] = i; } });
-  const cor = CQ_ROOMS[3].c;
-  CQ_DOORS.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { cqFloor[y][x] = cor[(x + y) % 2]; cqRoomOf[y][x] = 3; } });
+  const cor = CQ_ROOMS[CQ_HALL].c;
+  CQ_DOORS.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { cqFloor[y][x] = cor[(x + y) % 2]; cqRoomOf[y][x] = CQ_HALL; } });
   CQ_PROPS.forEach(([t, x, y, o]) => { cqSolid[y][x] = { prop: t, o }; });
   // muri: ogni cella vuota che tocca un pavimento, del colore della stanza accanto
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) {
@@ -1757,7 +1801,7 @@ const cqFloor = [], cqSolid = [], cqRoomOf = [];
     for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { const r = cqRoomOf[y + dy] && cqRoomOf[y + dy][x + dx]; if (r >= 0) { ri = r; break; } }
     if (ri >= 0) cqSolid[y][x] = { wall: 1, col: CQ_ROOMS[ri].wc };
   }
-})();
+}
 // modo di disegno della mappa: 0 = tessere pronte (normale), 1 = come 0 ma i riquadri dei personaggi composti dal processore, 2 = niente tessere (tutto ridisegnato
 // a ogni fotogramma), 3 = tessere come immagini della pagina mosse dal browser. Si sceglie con ?grafica=N e resta ricordato.
 const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); try { if (q != null) localStorage.setItem('cqGfx2', q); return +(q != null ? q : localStorage.getItem('cqGfx2') || 0) || 0; } catch { return +q || 0; } })();
@@ -1765,6 +1809,7 @@ const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('graf
 // le forme complicate (visto sul Redmi Note 13 Pro). Al chip grafico arrivano solo immagini gia' pronte da incollare.
 const CQ_CPU = { willReadFrequently: true };
 const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
+cqUseMap('studio');
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
   return !cqFloor[cy] || !cqFloor[cy][cx] || !!cqSolid[cy][cx];
@@ -1829,25 +1874,7 @@ function cqOpenPick() {
   };
   requestAnimationFrame(loop);
 }
-// compiti: uno per stanza, accanto a un oggetto di scena (x, y = cella dell'oggetto)
-// compiti: accanto a un oggetto di scena (x, y = cella dell'oggetto); alcuni in piu' passaggi (steps), da portare da una stanza all'altra
-const CQ_TASKS = [
-  { id: 'ciak', n: 'Batti il ciak', r: 'Palco', x: 9, y: 10 },
-  { id: 'luci', n: 'Accendi le luci', r: 'Corridoio', x: 33, y: 15 },
-  { id: 'costume', n: 'Prepara il costume', r: 'Camerini', x: 22, y: 11 },
-  { id: 'trucco', n: "Trucca l'attore", r: 'Trucco', x: 37, y: 2 },
-  { id: 'montaggio', n: 'Monta la scena', r: 'Montaggio', x: 10, y: 23 },
-  { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Magazzino', x: 21, y: 24 },
-  { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 },
-  { id: 'caffe', n: 'Prepara il caffè', r: 'Mensa', x: 54, y: 2 },
-  { id: 'cannone', n: 'Carica il cannone dei coriandoli', r: 'Effetti speciali', x: 49, y: 25 },
-  { id: 'sella', n: 'Lucida la sella', r: 'Set western', x: 13, y: 40 },
-  { id: 'cavi', n: 'Collega i cavi', r: 'Sala regia', x: 34, y: 37 },
-  { id: 'pieno', n: 'Fai il pieno al camion', r: 'Parcheggio', x: 57, y: 36 },
-  { id: 'portabobina', n: 'Porta la bobina al Montaggio', steps: [{ n: 'Prendi la bobina', r: 'Magazzino', x: 21, y: 24, game: 'prendi' }, { n: 'Consegna la bobina', r: 'Montaggio', x: 11, y: 31, game: 'consegna' }] },
-  { id: 'portacostume', n: 'Porta il costume al Set western', steps: [{ n: 'Prendi il costume', r: 'Camerini', x: 28, y: 11, game: 'prendi' }, { n: 'Consegna il costume', r: 'Set western', x: 24, y: 35, game: 'consegna' }] },
-  { id: 'portacaffe', n: 'Porta il caffè al regista', steps: [{ n: 'Prendi il caffè', r: 'Mensa', x: 54, y: 2, game: 'prendi' }, { n: 'Porta il caffè in regia', r: 'Sala regia', x: 36, y: 43, game: 'consegna' }] }];
-CQ_TASKS.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.id }]; });
+// compiti della mappa in uso: CQ_TASKS (nel pacchetto della mappa)
 const cqTask = id => CQ_TASKS.find(t => t.id === id);
 // passo attuale di un compito per un personaggio: { task, id (mini-gioco), n, r, x, y, i, of }
 function cqStep(c, id) {
@@ -1860,8 +1887,7 @@ function cqAdvance(c, id) {
   if (i + 1 < t.steps.length) { c.st[id] = i + 1; return false; }
   return true;
 }
-// telecamere di sorveglianza (in Sala regia): stanza, centro dell'inquadratura
-const CQ_CAMS = [['Palco', 10, 9], ['Corridoio', 40, 17], ['Magazzino', 22, 27], ['Set western', 15, 40]];
+// telecamere di sorveglianza (CQ_CAMS della mappa in uso)
 function cqOpenCams() {
   const box = $('#cqCams'); box.hidden = false; cq.joy = null; cq.keys = {};
   const cvs = box.querySelectorAll('canvas');
@@ -1908,9 +1934,7 @@ const CQ_ITEMS = {
   pistola: { n: 'Pistola', e: '🔫', r: 3, p: 35, d: 'Spari a chi hai vicino: se è un sabotatore è fuori, se è innocente sei fuori tu!', who: 'crew' },
   lente: { n: 'Lente del detective', e: '🔍', r: 4, p: 0, d: 'Guardi chi hai vicino e scopri se è innocente o sabotatore.', who: 'crew', noshop: 1 }
 };
-const CQ_VENDING = [[57, 9], [42, 43]];   // distributori: Mensa e Sala regia
 const CQ_LOOT_PROPS = ['locker', 'shelf', 'crate', 'crate2', 'fridge', 'rack', 'desk', 'counter'];
-const CQ_HELP = '<p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>distributore</b> è in Mensa e in Sala regia.</p>';
 const cqSellPrice = id => CQ_ITEMS[id].noshop ? 40 : Math.max(1, Math.round(CQ_ITEMS[id].p * 0.65));
 const cqCanUse = (id, me) => { const w = CQ_ITEMS[id].who; return !w || (w === 'imp') === me.imp; };
 // salvadanaio e zaino (ricordati come il nome)
@@ -2156,7 +2180,7 @@ function cqNetPlayers() {
 // ---- host: stato della partita da mandare a tutti ----
 function cqNetSnap() {
   const G = cq.g, M = G.meet, f2 = v => Math.round(v * 100) / 100;
-  return { mid: G.mid, e: G.ep, ph: G.phase, t: f2(G.time), bt: G.button, sc: Math.ceil(G.sabCd), opt: G.opt, nt: G.nt,
+  return { mid: G.mid, map: G.map, e: G.ep, ph: G.phase, t: f2(G.time), bt: G.button, sc: Math.ceil(G.sabCd), opt: G.opt, nt: G.nt,
     sab: G.sab && { type: G.sab.type, t: Math.round(G.sab.t * 10) / 10, natural: G.sab.natural },
     bo: G.bodies.map(b => [b.id, f2(b.x), f2(b.y), b.face, b.room, Math.round(b.t)]),
     c: G.chars.map(c => { const me = c === G.me; return [c.id, c.name, cqLookOf(c), f2(me ? cq.x : c.x), f2(me ? cq.y : c.y), me ? cq.face : c.face, (me ? cq.walk : c.walk) ? 1 : 0, c.alive ? 1 : 0, c.imp ? 1 : 0, c.done.size, c.sid || '', c.remote ? c.tasks : 0, c.imp ? Math.ceil(Math.max(0, c.kcd)) : 0, c.killer || '']; }),
@@ -2212,10 +2236,11 @@ function cqNetApply(s) {
   let G = cq.g;
   if (!G || !G.guest || G.mid !== s.mid) {
     const mine = s.c.find(a => a[10] === N.sid); if (!mine) return;   // partita cominciata senza di me
+    cqUseMap(s.map || 'studio');   // la mappa scelta dall'host (versioni vecchie: lo studio)
     const chars = s.c.map(a => ({ id: a[0], name: a[1], look: cqNetLook(a[2]), bot: true, x: a[3], y: a[4], tx: a[3], ty: a[4], face: a[5], walk: 0, alive: !!a[7], imp: !!a[8], done: { size: a[9] }, sid: a[10], st: {}, kcd: 0 }));
     const me = chars[mine[0]];
     me.bot = false; me.tasks = mine[11] || []; me.done = new Set();
-    G = cq.g = { guest: true, mid: s.mid, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
+    G = cq.g = { guest: true, mid: s.mid, map: cq.map, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
     cqShopStart(G);
     cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = ''; cq.ejMe = false;
     cqCloseTask(); $('#cqPick').hidden = true; cqHud(); cqRolePanel();
@@ -2286,16 +2311,12 @@ function cqNetMeet(mt) {
 // ---- partita contro il computer: personaggi guidati dal computer, alcuni (tu compreso) sono sabotatori ----
 const CQ_NAMES = ['Bruno', 'Carla', 'Dario', 'Elena', 'Fabio', 'Gina', 'Ivo', 'Lia', 'Marco', 'Nina', 'Otto', 'Pia'];
 const CQ_VIS = 5;
-const CQ_RING = [[20, 16], [21, 16], [23, 16], [24, 16], [20, 18], [21, 18], [23, 18], [24, 18], [22, 15], [22, 19]];   // intorno al pulsante delle riunioni
-const CQ_BUTTON = { x: 22, y: 17 };
-const CQ_SABS = { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45 } };
-const CQ_IN = { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione', Mensa: 'in Mensa', 'Effetti speciali': 'agli Effetti speciali', 'Set western': 'sul Set western', 'Sala regia': 'in Sala regia', Parcheggio: 'al Parcheggio' };
-// impostazioni della partita (ricordate)
-const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: true, fill: true };
+// impostazioni della partita (ricordate); map = mappa scelta ('rnd' = casuale)
+const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: true, fill: true, map: 'studio' };
 const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
 const cqMaxImps = n => n <= 5 ? 1 : n <= 7 ? 2 : 3;
 const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
-const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return r >= 0 ? CQ_ROOMS[r].n : 'Corridoio'; };
+const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return CQ_ROOMS[r >= 0 ? r : CQ_HALL].n; };
 const cqLookOf = c => c.bot || c.remote ? c.look : cq.g && cq.g.disg && cq.g.disg.until > cq.g.time ? cq.g.chars[cq.g.disg.id].look : cqLook();
 const cqDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const cqPickOne = a => a[Math.floor(Math.random() * a.length)];
@@ -2329,6 +2350,7 @@ function cqLobby() {
   $('#tkTitle').textContent = 'Impostazioni della partita';
   if (cq.net && cq.net.role === 'guest') { cqNetWait(); return; }
   $('#tkBody').innerHTML = `<div id="lbNet"></div><form id="lbF">
+    <div class="row"><div class="lbl">Mappa</div>${seg('map', Object.entries(CQ_MAPS).map(([k, m]) => [k, m.n]).concat([['rnd', 'Casuale']]), CQ_MAPS[o.map] && !CQ_MAPS[o.map].soon || o.map === 'rnd' ? o.map : 'studio')}<div class="hint">${Object.values(CQ_MAPS).filter(m => m.soon).map(m => m.n + ': in arrivo.').join(' ')}</div></div>
     <div class="row"><div class="lbl">Personaggi (tu compreso)</div>${seg('n', [[4, '4'], [6, '6'], [8, '8'], [10, '10']], o.n)}</div>
     <div class="row"><div class="lbl">Sabotatori</div>${seg('imps', [[1, '1'], [2, '2'], [3, '3']], o.imps)}<div class="hint" id="lbImpH"></div></div>
     <div class="row"><div class="lbl">Compiti a testa</div>${seg('tasks', [[3, '3'], [5, '5'], [7, '7']], o.tasks)}</div>
@@ -2339,7 +2361,8 @@ function cqLobby() {
     <div class="row"><div class="lbl">Oggetti da portare (al massimo 2)</div><div class="bagPick" id="lbBag"></div></div>
   </form><button class="btn" id="lbShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn primary go" id="lbGo" type="button">Si gira!</button>`;
   const f = $('#lbF');
-  const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1', fill: d.get('fill') !== '0' }; };
+  const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1', fill: d.get('fill') !== '0', map: d.get('map') || 'studio' }; };
+  f.querySelectorAll('input[name=map]').forEach(i => { if (CQ_MAPS[i.value] && CQ_MAPS[i.value].soon) i.disabled = true; });
   const sync = () => { const r = read(); f.querySelectorAll('input[name=imps]').forEach(i => { i.disabled = +i.value > cqMaxImps(r.n); if (+i.value === r.imps) i.checked = true; }); $('#lbImpH').textContent = r.n <= 5 ? 'Con 4 personaggi c\'è un solo sabotatore.' : r.n <= 7 ? 'Con 6 personaggi al massimo 2 sabotatori.' : ''; };
   f.oninput = sync; sync();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
@@ -2349,6 +2372,7 @@ function cqLobby() {
 }
 function cqNewMatch() {
   const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
+  cqUseMap(O.map === 'rnd' ? cqPickOne(cqMapIds()) : O.map);   // online la sceglie chi ha creato il set
   const me = { id: 0, name: myName, bot: false };
   // amici del set (solo per chi lo ha creato): prendono i primi posti, il resto lo riempie il computer
   const hum = cq.net && cq.net.role === 'host' ? Object.entries(cq.net.pl).filter(([s]) => s !== cq.net.sid).slice(0, 9) : [];
@@ -2366,10 +2390,10 @@ function cqNewMatch() {
   const order = chars.map((c, i) => i).sort(() => Math.random() - 0.5), imps = new Set(order.slice(0, Math.min(O.imps, cqMaxImps(O.n))));
   chars.forEach((c, i) => {
     const [x, y] = CQ_RING[i];
-    Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < 22 ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
+    Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < CQ_BUTTON.x ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
       done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
-  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
+  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid;
   if (cq.net) cqNetList(0);
   cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
@@ -3045,9 +3069,8 @@ function cqTools(g, TW) {
   const lw = Math.max(1, TW / 56);
   const strokes = (list, col, w) => { g.strokeStyle = col; g.lineWidth = w || lw; g.beginPath(); for (const [a, b] of list) { g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } g.stroke(); };
   const speck = (x, y, n, cols, r) => { for (let i = 0; i < n; i++) { const [X, Y] = S(x + 0.1 + 0.8 * hsh(x, y, i * 3), y + 0.1 + 0.8 * hsh(x, y, i * 3 + 1), 0); g.fillStyle = cols[Math.floor(hsh(x, y, i * 3 + 2) * cols.length)]; g.fillRect(X - r / 2, Y - r / 4, r, r / 2); } };
-  const KIND = { Palco: 'wood', Camerini: 'carpet', Trucco: 'carpet', Corridoio: 'tile', Montaggio: 'tile', Magazzino: 'concrete', Proiezione: 'carpet', Mensa: 'tile', 'Effetti speciali': 'carpet', 'Set western': 'sand', 'Sala regia': 'tile', Parcheggio: 'asphalt' };
   const floorTex = (x, y) => {
-    const ri = cqRoomOf[y][x], kind = KIND[CQ_ROOMS[ri].n], P = (u, v) => S(x + u, y + v, 0);
+    const ri = cqRoomOf[y][x], kind = CQ_ROOMS[ri].k, P = (u, v) => S(x + u, y + v, 0);
     if (kind === 'wood') {
       strokes([[P(0, 0.5), P(1, 0.5)]], 'rgba(0,0,0,.2)'); const j = 0.2 + 0.6 * hsh(x, y, 1), h = hsh(x, y, 2) < 0.5 ? 0 : 0.5;
       strokes([[P(j, h), P(j, h + 0.5)]], 'rgba(0,0,0,.2)');
