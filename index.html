@@ -980,14 +980,15 @@ function saveOnline() {
 }
 function loadOnline() { try { return JSON.parse(localStorage.getItem(ONLINE_KEY)); } catch { return null; } }
 function inviteLink() { return (location.protocol === 'file:' ? SITE : location.origin + location.pathname) + '#p=' + net.code; }
-function sendNet(msg) { if (net && net.conn && net.conn.open) try { net.conn.send(msg); } catch {} }
+function sendNet(msg) { if (net && net.conn && net.conn.open) try { const p = net.conn.send(msg); if (p && p.catch) p.catch(() => {}); } catch {} }
 function setConn() { render(); }
 function leaveOnline() {
   if (!net) return;
   sendNet({ t: 'bye' });
   hubClearInvite(); hubLiveClear();
   const n = net; net = null;
-  clearTimeout(n.retryT);
+  clearTimeout(n.retryT); clearTimeout(n.fallbackT);
+  relayClose(n);
   setTimeout(() => { try { n.peer && n.peer.destroy(); } catch {} }, 300);
   try { localStorage.removeItem(ONLINE_KEY); } catch {}
   history.replaceState(null, '', location.pathname + location.search);
@@ -1026,7 +1027,7 @@ function rematch() {
 function onVisible() {
   if (!net || document.visibilityState !== 'visible') return;
   if (net.role === 'host') { if (!net.peer || net.peer.destroyed) createHostPeer(); else if (net.peer.disconnected) net.peer.reconnect(); }
-  else if (!(net.conn && net.conn.open)) connectToHost();
+  else if (!(net.conn && net.conn.open) && window.Peer) connectToHost();
 }
 document.addEventListener('visibilitychange', onVisible);
 window.addEventListener('online', onVisible);
@@ -1039,7 +1040,7 @@ async function hostOnline(resume) {
   if (!resume && pendingChallenge) { net.challenge = pendingChallenge; pendingChallenge = null; }
   history.replaceState(null, '', '#p=' + net.code);
   saveOnline();
-  createHostPeer();
+  createHostPeer(); hostRelay();
   if (net.cfg) startOnlineGame(resume.moves || []); else showLobby();
 }
 function createHostPeer() {
@@ -1133,12 +1134,22 @@ function openJoin(code) {
 }
 function joinStatus(text, cls = '') { const w = $('#jWait'); if (w) { w.className = 'wait ' + cls; w.textContent = text; } }
 async function joinOnline(code, resume) {
-  try { await loadPeerJS(); } catch { joinStatus('Non riesco a caricare la parte online. Controlla la connessione a Internet.', 'bad'); return; }
   net = resume || { role: 'guest', code, token: randCode(12), name: (store.settings.myName || '').trim() || 'Amico', cfg: null };
   net.role = 'guest'; net.synced = false;
   saveOnline();
   if (net.cfg) startOnlineGame(resume.moves || []);
-  createGuestPeer();
+  const n = net;
+  if (await guestRelay()) {
+    // se dall'altra parte c'e' una versione vecchia del sito (solo PeerJS), dopo 8 secondi prova anche il collegamento diretto
+    n.fallbackT = setTimeout(() => { if (net === n && !n.synced) guestPeerJS(); }, 8000);
+    return;
+  }
+  guestPeerJS();
+}
+async function guestPeerJS() {
+  const n = net; if (!n || n.peer) return;
+  try { await loadPeerJS(); } catch { joinStatus('Non riesco a caricare la parte online. Controlla la connessione a Internet.', 'bad'); return; }
+  if (net === n) createGuestPeer();
 }
 function createGuestPeer() {
   if (!net) return;
@@ -1180,6 +1191,57 @@ function guestRecv(d) {
   } else if (d.t === 'move') recvMove(d);
   else if (d.t === 'full') { net.friendLeft = true; joinStatus('Questa partita ha già due giocatori.', 'bad'); }
   else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
+}
+
+// ---- canale delle mosse via Firebase ----
+// Il collegamento diretto di PeerJS spesso non passa tra telefoni su reti mobili diverse (NAT degli operatori):
+// le mosse viaggiano allora nel database, in rooms/<codice>/up (guest -> host, con la chiave del canale k)
+// e rooms/<codice>/down/<k> (host -> guest). Chi riceve un messaggio lo cancella.
+const relayPush = (F, path, v) => F.push(F.ref(F.db, path), Object.assign(v, { ts: Date.now() }));
+async function hostRelay() {
+  const n = net; let F;
+  try { F = await hubLoad(); } catch { return; }
+  if (net !== n || n.relayUnsub) return;
+  const base = 'rooms/' + n.code, conns = {};
+  n.relayUnsub = F.onChildAdded(F.ref(F.db, base + '/up'), s => {
+    const v = s.val(); F.remove(s.ref).catch(() => {});
+    if (net !== n || !v || typeof v.k !== 'string' || typeof v.m !== 'string') return;
+    let d; try { d = JSON.parse(v.m); } catch { return; }
+    const c = conns[v.k] || (conns[v.k] = { open: true, relay: true, send: m => relayPush(F, base + '/down/' + v.k, { m: JSON.stringify(m) }), close() { this.open = false; } });
+    if (d.t === 'hello') c.open = true;
+    else if (c !== n.conn) { c.send({ t: 'rehello' }).catch(() => {}); return; }   // l'host ha ricaricato la pagina: l'amico si ripresenta
+    if (c.open) hostRecv(c, d);
+  }, () => { n.relayUnsub = null; });
+  F.set(F.ref(F.db, base + '/host'), Date.now()).catch(() => {});   // "sono (di nuovo) qui": l'amico si ripresenta
+  if (!n.ready) { n.ready = true; updateLobby(); if (n.challenge && !n.cfg) hubSendInvite(); }
+}
+async function guestRelay() {
+  const n = net; let F;
+  try { F = await Promise.race([hubLoad(), new Promise((_, ko) => setTimeout(() => ko(new Error('lento')), 6000))]); } catch { return false; }
+  if (net !== n) return true;
+  const base = 'rooms/' + n.code, k = randCode(10);
+  const c = { open: true, relay: true };
+  c.send = m => relayPush(F, base + '/up', { k, m: JSON.stringify(m) });
+  c.hello = () => c.send({ t: 'hello', token: n.token, name: n.name, rating: myRating() });
+  const unsub = F.onChildAdded(F.ref(F.db, base + '/down/' + k), s => {
+    const v = s.val(); F.remove(s.ref).catch(() => {});
+    if (!c.open || net !== n || n.conn !== c || !v || typeof v.m !== 'string') return;
+    let d; try { d = JSON.parse(v.m); } catch { return; }
+    if (d.t === 'rehello') c.hello().catch(() => {}); else guestRecv(d);
+  }, () => {});
+  let first = true;
+  const unsubHost = F.onValue(F.ref(F.db, base + '/host'), () => { if (first) { first = false; return; } if (c.open && net === n && n.conn === c) c.hello().catch(() => {}); }, () => {});
+  c.close = () => { c.open = false; try { unsub(); unsubHost(); } catch {} };
+  n.conn = c;
+  try { await c.hello(); } catch { c.close(); if (n.conn === c) n.conn = null; return false; }   // regole del database non aggiornate
+  return true;
+}
+function relayClose(n) {
+  try { n.relayUnsub && n.relayUnsub(); } catch {}
+  n.relayUnsub = null;
+  if (n.conn && n.conn.relay) try { n.conn.close(); } catch {}
+  const F = hub.fb;
+  if (F && n.role === 'host') setTimeout(() => F.remove(F.ref(F.db, 'rooms/' + n.code)).catch(() => {}), 5000);   // dopo il saluto finale
 }
 
 // ---- sala giochi (Firebase): chi e' online, sfide, partite in corso, classifica ----

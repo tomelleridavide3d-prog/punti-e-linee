@@ -35,6 +35,16 @@
         ".validate": "newData.hasChildren(['a', 'b', 'sa', 'sb', 'ts'])"
       }
     },
+    "rooms": {
+      "$code": {
+        ".read": true,
+        ".write": true,
+        "host": { ".validate": "newData.isNumber()" },
+        "up": { "$id": { ".validate": "newData.hasChildren(['k', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 20000" } },
+        "down": { "$k": { "$id": { ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 20000" } } },
+        "$other": { ".validate": false }
+      }
+    },
     "invites": {
       "$key": {
         ".read": true,
