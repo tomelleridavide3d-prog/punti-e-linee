@@ -769,8 +769,7 @@ function openSetup() {
     <div class="row"><div class="lbl">Giocatori online</div><div id="salaList"></div></div>` : ''}
     ${WEB ? '' : `<div class="row"><div class="lbl">Avversario</div>${seg('mode', [['ai', 'Computer'], ['humans', 'Stesso dispositivo'], ['online', 'Amico a distanza']], S.mode)}</div>`}
     <div class="row" data-for="online">${WEB ? '' : `<div class="lbl">Il tuo nome</div><input class="field" name="myname" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}">`}
-      <div class="lbl" style="margin-top:${WEB ? 0 : 14}px">Chi inizia</div>${seg('ofirst', [['me', 'Io'], ['friend', 'Il mio amico'], ['random', 'A caso']], S.ofirst || 'me')}
-      <div class="hint">${WEB ? 'Tocca «Sfida» accanto a un giocatore online, oppure premi «Invita con link» per mandare il link a chi vuoi (WhatsApp, SMS…).' : 'Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte.'}</div></div>
+      <div class="hint"${WEB ? ' style="margin-top:0"' : ''}>${WEB ? 'Tocca «Sfida» accanto a un giocatore online, oppure premi «Invita con link» per mandare il link a chi vuoi (WhatsApp, SMS…). Chi inizia lo decide la sorte.' : 'Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte. Chi inizia lo decide la sorte.'}</div></div>
     <div class="row" data-for="ai"><div class="lbl">Difficoltà</div>${seg('level', LEVELS.map(l => [l.id, l.name]), S.level)}<div class="hint" id="levelDesc"></div></div>
     <div class="row" data-for="ai"><div class="lbl">Chi inizia</div>${seg('first', [['human', 'Tu'], ['ai', 'Computer'], ['random', 'A caso']], S.first)}</div>
     <div class="row" data-for="humans"><div class="lbl">Giocatori</div>${seg('humans', [[2, '2'], [3, '3'], [4, '4']], S.humans)}
@@ -780,7 +779,7 @@ function openSetup() {
     <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">${WEB ? 'Invita con link' : 'Inizia partita'}</button></div>`;
   const sync = () => {
     const fd = new FormData(f);
-    for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule', 'ofirst']) if (fd.get(k) != null) S[k] = fd.get(k);
+    for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule']) if (fd.get(k) != null) S[k] = fd.get(k);
     if (fd.get('myname') != null) S.myName = fd.get('myname');
     for (let i = 0; i < 4; i++) S.names[i] = fd.get('nm' + i) ?? S.names[i];
     f.querySelectorAll('[data-for]').forEach(r => r.hidden = r.dataset.for !== S.mode);
@@ -1008,7 +1007,7 @@ function recvMove(d) {
   makeMove(d.e, true);
 }
 function rematch() {
-  net.cfg.hostFirst = !net.cfg.hostFirst;
+  net.cfg.hostFirst = Math.random() < 0.5;
   net.cfg.gid = randCode(8);
   net.cfg.rh = myRating(); if (Number.isFinite(net.guestRating)) net.cfg.rg = net.guestRating;
   startOnlineGame([]); sendSync();
@@ -1059,7 +1058,7 @@ function hostRecv(conn, d) {
     net.conn = conn; net.guestToken = d.token;
     const guestName = (d.name || '').trim() || 'Amico';
     if (!net.cfg) {
-      const S = store.settings, hostFirst = S.ofirst === 'friend' ? false : S.ofirst === 'random' ? Math.random() < 0.5 : true;
+      const S = store.settings, hostFirst = Math.random() < 0.5;
       net.cfg = { size: +S.size, rule: S.rule, host: net.name, guest: guestName, hostFirst, gid: randCode(8), rh: myRating(), rg: Number.isFinite(d.rating) ? d.rating : 1000 };
       hubClearInvite();
       startOnlineGame([]);
