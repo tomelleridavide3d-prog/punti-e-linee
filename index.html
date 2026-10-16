@@ -142,10 +142,23 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .gcard.soon{opacity:.75}
 .soonTag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:8px;font-weight:600;vertical-align:2px}
 #ciack{position:fixed;inset:0;z-index:6;background:var(--bg);touch-action:none;user-select:none;-webkit-user-select:none}
-#ciack canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#cqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
 #ciack .ctop{position:absolute;left:12px;top:12px;right:12px;display:flex;align-items:center;gap:10px;pointer-events:none}
 #ciack .ctop .btn{pointer-events:auto}
 #ciack .ctop b{font-size:17px}
+#cqPick{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
+#cqPick .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:380px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
+#cqPick h2{margin:0 0 6px;font-size:19px;text-align:center}
+#cqPrev{display:block;margin:0 auto;width:150px;height:150px;background:var(--bg);border-radius:14px}
+#cqPick .lbl{font-size:12px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+#cqPick .seg{margin-top:12px}
+.pkCols{display:flex;flex-wrap:wrap;gap:8px}
+.pkCols button{width:34px;height:34px;border-radius:50%;border:3px solid transparent;outline:1px solid var(--line);cursor:pointer;padding:0}
+.pkCols button.on{border-color:var(--ink)}
+.pkHats{display:flex;flex-wrap:wrap;gap:6px}
+.pkHats .btn{padding:6px 10px;font-size:13px}
+.pkHats .btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+#cqPick .go{width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:16px}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -181,7 +194,15 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 </div></div>
 <div id="ciack" hidden>
   <canvas id="cqCanvas"></canvas>
-  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b></div>
+  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><button class="btn" id="cqLookBtn" type="button" style="margin-left:auto">Personaggio</button></div>
+  <div id="cqPick" hidden><div class="pk">
+    <h2>Scegli il personaggio</h2>
+    <canvas id="cqPrev"></canvas>
+    <div class="seg" id="pkSkin"><label><input type="radio" name="pkskin" value="omino"><span>Omino</span></label><label><input type="radio" name="pkskin" value="procione"><span>Procione</span></label></div>
+    <div id="pkOmino"><div class="lbl">Colore</div><div class="pkCols" id="pkCols"></div><div class="lbl">Cappello</div><div class="pkHats" id="pkHats"></div></div>
+    <p class="hint" id="pkRac" style="text-align:center">Il procione ha il suo cappello nero e lo zaino viola.</p>
+    <button class="btn primary go" id="pkGo" type="button">Entra sul set</button>
+  </div></div>
   <div class="chint">Trascina il dito per muoverti</div>
 </div>
 <dialog id="dSetup"><form method="dialog" class="dlg" id="fSetup"></form></dialog>
@@ -1567,8 +1588,46 @@ function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBl
 function openCiack() {
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
+  cqOpenPick();
 }
-function closeCiack() { cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
+const CQ_HATS = [['borsalino', 'Borsalino'], ['basco', 'Basco'], ['cilindro', 'Cilindro'], ['cappellino', 'Cappellino'], ['cuffie', 'Cuffie'], ['corona', 'Corona'], ['nessuno', 'Nessuno']];
+// aspetto scelto (ricordato come il nome)
+function cqLook() {
+  const L = store.settings.cqLook || {};
+  return { skin: L.skin === 'procione' ? 'procione' : 'omino', col: CQ_COLORS.includes(L.col) ? L.col : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'borsalino' };
+}
+function cqOpenPick() {
+  const L = cqLook(), box = $('#cqPick');
+  const sync = () => {
+    const l = cqLook();
+    box.querySelectorAll('input[name=pkskin]').forEach(i => i.checked = i.value === l.skin);
+    $('#pkOmino').hidden = l.skin !== 'omino'; $('#pkRac').hidden = l.skin !== 'procione';
+    $('#pkCols').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.c === l.col));
+    $('#pkHats').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.h === l.hat));
+  };
+  const set = (k, v) => { store.settings.cqLook = Object.assign(cqLook(), { [k]: v }); saveStore(); sync(); };
+  $('#pkCols').innerHTML = CQ_COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="colore"></button>`).join('');
+  $('#pkHats').innerHTML = CQ_HATS.map(([h, n]) => `<button type="button" class="btn" data-h="${h}">${n}</button>`).join('');
+  $('#pkCols').onclick = e => { const b = e.target.closest('[data-c]'); if (b) set('col', b.dataset.c); };
+  $('#pkHats').onclick = e => { const b = e.target.closest('[data-h]'); if (b) set('hat', b.dataset.h); };
+  box.querySelectorAll('input[name=pkskin]').forEach(i => i.onchange = () => set('skin', i.value));
+  $('#pkGo').onclick = () => { box.hidden = true; cq.picking = false; cq.dirty = true; };
+  store.settings.cqLook = L; sync();
+  box.hidden = false; cq.picking = true; cq.joy = null; cq.keys = {};
+  // anteprima: l'omino cammina sul posto e si gira ogni tanto
+  const c = $('#cqPrev'), dpr = Math.min(window.devicePixelRatio || 1, 2); c.width = 150 * dpr; c.height = 150 * dpr;
+  const t0 = performance.now();
+  const loop = t => {
+    if (box.hidden || !cq.on) return;
+    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, 150, 150);
+    const e = (t - t0) / 1000;
+    cqPlayer(g, 75, 128, 34 * 1.75, cqLook(), e * 9, Math.floor(e / 1.8) % 2 ? -1 : 1);
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+function closeCiack() { $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
@@ -1578,16 +1637,18 @@ function cqResize() {
 function cqInit() {
   const root = $('#ciack');
   window.addEventListener('resize', () => { if (cq.on) cqResize(); });
-  root.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
+  root.addEventListener('pointerdown', e => { if (cq.picking || e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
   root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
   const up = e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy = null; cq.dirty = true; } };
   root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
   window.addEventListener('keydown', e => { if (cq.on) { cq.keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); } });
   window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; cq.dirty = true; });
   $('#cqBack').onclick = closeCiack;
+  $('#cqLookBtn').onclick = cqOpenPick;
 }
 // direzione sullo schermo (sx, sy) -> direzione nel mondo isometrico (la tessera e' larga il doppio dell'altezza)
 function cqDir() {
+  if (cq.picking) return null;
   let sx = 0, sy = 0, k = cq.keys;
   if (cq.joy) { sx = cq.joy.x - cq.joy.x0; sy = cq.joy.y - cq.joy.y0; const m = Math.hypot(sx, sy); if (m < 8) sx = sy = 0; else { sx /= m; sy /= m; } }
   else { sx = ((k.arrowright || k.d) ? 1 : 0) - ((k.arrowleft || k.a) ? 1 : 0); sy = ((k.arrowdown || k.s) ? 1 : 0) - ((k.arrowup || k.w) ? 1 : 0); }
@@ -1738,19 +1799,21 @@ function cqDraw() {
   for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
   // intorno all'omino si ridisegna tutto da capo (pavimento, oggetti dietro, omino, oggetti davanti), solo in un piccolo riquadro
   g.save();
-  const rx = al(tx + X - 0.8 * TW), ry = al(ty + Y - 2 * TW), rw = al(1.6 * TW), rh = al(2.4 * TW);
+  const rx = al(tx + X - 1.2 * TW), ry = al(ty + Y - 2.35 * TW), rw = al(2.4 * TW), rh = al(2.75 * TW);   // contiene coda, zaino e cilindro
   g.beginPath(); g.rect(rx, ry, rw, rh); g.clip(); g.clearRect(rx, ry, rw, rh);
   g.translate(tx, ty);
   const T = cqTools(g, TW), fx = Math.floor(cq.x), fy = Math.floor(cq.y), items = [];
-  for (let y = fy - 7; y <= fy + 8; y++) for (let x = fx - 7; x <= fx + 8; x++) {
+  for (let y = fy - 9; y <= fy + 9; y++) for (let x = fx - 9; x <= fx + 9; x++) {
     T.floor(x, y);
     const o = cqSolid[y] && cqSolid[y][x]; if (o) items.push({ d: x + y + 1, x, y, o });
   }
   T.decals();
   items.push({ d: cq.x + cq.y, me: 1 });
   items.sort((a, b) => a.d - b.d);
-  for (const it of items) { if (it.me) cqPlayer(g, X, Y, TW); else T.cell(it.x, it.y, it.o); }
+  const look = cqLook();
+  for (const it of items) { if (it.me) cqPlayer(g, X, Y, TW, look, cq.walk, cq.face); else T.cell(it.x, it.y, it.o); }
   g.restore();
+  cqName(g, tx + X, ty + Y - TW * (look.skin === 'omino' && look.hat === 'cilindro' ? 2.2 : 1.85), store.settings.myName || '');
   // joystick
   if (cq.joy) {
     const j = cq.joy, dx = j.x - j.x0, dy = j.y - j.y0, m = Math.hypot(dx, dy), k = m > 40 ? 40 / m : 1;
@@ -1758,20 +1821,68 @@ function cqDraw() {
     g.fillStyle = 'rgba(150,160,175,.55)'; g.beginPath(); g.arc(j.x0 + dx * k, j.y0 + dy * k, 16, 0, 7); g.fill();
   }
 }
-function cqPlayer(g, X, Y, TW) {
-  const u = TW / 34, bob = Math.abs(Math.sin(cq.walk)) * 4 * u, f = cq.face;
+function cqName(g, X, Y, name) {
+  if (!name) return;
+  g.font = '600 13px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.65)'; g.strokeText(name, X, Y); g.fillStyle = '#fff'; g.fillText(name, X, Y);
+}
+function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
+// personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
+function cqPlayer(g, X, Y, TW, L, walk, f) {
+  const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, sw = Math.sin(walk) * 4;
   g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill();
   g.save(); g.translate(X, Y - bob); g.scale(u, u);
-  g.fillStyle = '#2a2e35'; const sw = Math.sin(cq.walk) * 4;
-  g.beginPath(); g.ellipse(-6 + sw, -1, 6, 3.5, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(6 - sw, -1, 6, 3.5, 0, 0, 7); g.fill();
-  g.fillStyle = '#e2553a'; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill();
-  g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill();
-  g.fillStyle = '#bfe3f2'; g.beginPath(); g.ellipse(4 * f, -28, 8.5, 6, 0, 0, 7); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.ellipse(6.5 * f, -30, 3, 1.8, 0, 0, 7); g.fill();
-  g.fillStyle = '#2a2e35'; g.beginPath(); g.ellipse(0, -39, 19, 5.5, 0, 0, 7); g.fill();
-  g.fillStyle = '#3a3f49'; g.beginPath(); g.moveTo(-10, -39); g.quadraticCurveTo(-10, -56, 0, -56); g.quadraticCurveTo(10, -56, 10, -39); g.quadraticCurveTo(0, -35, -10, -39); g.fill();
-  g.fillStyle = '#e2553a'; g.fillRect(-10, -44, 20, 4);
+  const rac = L.skin === 'procione', col = rac ? '#8a8f99' : L.col;
+  const ell = (x, y, rx, ry, c, rot) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, rot || 0, 0, 7); g.fill(); };
+  // coda ad anelli (procione), dietro a tutto
+  if (rac) for (let i = 3; i >= 0; i--) ell(-f * (15 + i * 4.5), -9 - i * 1.5, 5.5, 4.5, i % 2 ? '#a8adb6' : '#2f333b', -f * 0.3);
+  // zaino, dalla parte della schiena
+  g.fillStyle = rac ? '#8a4fd0' : cqShade(col, 0.78); cqRR(g, f > 0 ? -20 : 10, -31, 10, 22, 4); g.fill();
+  if (rac) { g.fillStyle = '#6a3aa8'; cqRR(g, f > 0 ? -20 : 10, -22, 10, 5, 2); g.fill(); }
+  // piedi
+  ell(-6 + sw, -1, 6, 3.5, rac ? '#3a3f49' : '#2a2e35'); ell(6 - sw, -1, 6, 3.5, rac ? '#3a3f49' : '#2a2e35');
+  // corpo
+  g.fillStyle = col; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill();
+  if (rac) {
+    // orecchie, pancia chiara, muso con la mascherina
+    for (const s of [-1, 1]) { g.fillStyle = '#6b707a'; g.beginPath(); g.moveTo(s * 12, -33); g.lineTo(s * 11, -46); g.lineTo(s * 4, -38); g.fill(); g.fillStyle = '#d5d8de'; g.beginPath(); g.moveTo(s * 10.5, -36); g.lineTo(s * 10, -43); g.lineTo(s * 6, -38.5); g.fill(); }
+    ell(4 * f, -13, 7, 9, '#c9ccd4');
+    ell(4 * f, -27, 10.5, 8.5, '#e3e5ea');
+    ell(4 * f, -29, 10, 4.2, '#2a2e35');
+    for (const dx of [-3.8, 3.8]) { ell(4 * f + dx, -29.5, 2.4, 2.4, '#fff'); ell(4 * f + dx + f * 0.6, -29.3, 1.2, 1.2, '#111'); }
+    ell(9 * f, -22.5, 5, 3.4, '#f2f3f5'); ell(13 * f, -23.3, 2, 1.6, '#111');
+  } else {
+    ell(4 * f, -28, 8.5, 6, '#bfe3f2'); ell(6.5 * f, -30, 3, 1.8, 'rgba(255,255,255,.7)');
+  }
+  g.fillStyle = 'rgba(0,0,0,.13)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill();
+  cqHat(g, rac ? 'borsalino' : L.hat, f, rac);
   g.restore();
+}
+function cqHat(g, h, f, black) {
+  const ell = (x, y, rx, ry, c, rot) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, rot || 0, 0, 7); g.fill(); };
+  switch (h) {
+    case 'borsalino':
+      ell(0, -39, 19, 5.5, black ? '#15171b' : '#2a2e35');
+      g.fillStyle = black ? '#1f2227' : '#3a3f49'; g.beginPath(); g.moveTo(-10, -39); g.quadraticCurveTo(-10, -56, 0, -56); g.quadraticCurveTo(10, -56, 10, -39); g.quadraticCurveTo(0, -35, -10, -39); g.fill();
+      g.fillStyle = black ? '#3a3f49' : '#e2553a'; g.fillRect(-10, -44, 20, 4); break;
+    case 'basco':
+      ell(f * 2, -41, 15, 6.5, '#b03a46', -f * 0.12); ell(f * 1, -44, 11, 5, '#c44a56', -f * 0.12);
+      g.fillStyle = '#7a2530'; g.fillRect(f * 1 - 1, -51, 2, 4); break;
+    case 'cilindro':
+      ell(0, -39, 17, 4.5, '#15171b');
+      g.fillStyle = '#22252b'; g.fillRect(-10, -66, 20, 27); ell(0, -66, 10, 3, '#2e3138');
+      g.fillStyle = '#e2553a'; g.fillRect(-10, -45, 20, 4); break;
+    case 'cappellino':
+      g.fillStyle = '#3b6fe0'; g.beginPath(); g.ellipse(0, -37, 13.5, 10, 0, Math.PI, 2 * Math.PI); g.fill();
+      ell(f * 11, -37.5, 9, 3, '#2a55b8'); ell(0, -46.5, 2, 1.4, '#f2c230'); break;
+    case 'cuffie':
+      g.strokeStyle = '#2a2e35'; g.lineWidth = 3; g.beginPath(); g.arc(0, -30, 15, Math.PI * 1.05, Math.PI * 1.95); g.stroke();
+      for (const s of [-1, 1]) { g.fillStyle = '#2a2e35'; cqRR(g, s > 0 ? 11 : -17, -34, 6, 12, 2.5); g.fill(); g.fillStyle = '#e2553a'; cqRR(g, s > 0 ? 12 : -16, -32, 4, 8, 1.5); g.fill(); }
+      break;
+    case 'corona':
+      g.fillStyle = '#f2c230'; g.beginPath(); g.moveTo(-10, -39); g.lineTo(-11, -51); g.lineTo(-5.5, -45); g.lineTo(0, -54); g.lineTo(5.5, -45); g.lineTo(11, -51); g.lineTo(10, -39); g.closePath(); g.fill();
+      g.fillStyle = '#d9a514'; g.fillRect(-10, -42, 20, 3); ell(0, -45, 1.8, 1.8, '#e5566a'); ell(-6, -43.5, 1.4, 1.4, '#5aa8e5'); ell(6, -43.5, 1.4, 1.4, '#5aa8e5'); break;
+  }
 }
 
 // ---- versione nuova del sito ----
