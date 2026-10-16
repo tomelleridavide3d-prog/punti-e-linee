@@ -141,6 +141,12 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .gcard .gn.on i{background:var(--p2)}
 .gcard.soon{opacity:.75}
 .soonTag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:8px;font-weight:600;vertical-align:2px}
+#ciack{position:fixed;inset:0;z-index:6;background:var(--bg);touch-action:none;user-select:none;-webkit-user-select:none}
+#ciack canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#ciack .ctop{position:absolute;left:12px;top:12px;right:12px;display:flex;align-items:center;gap:10px;pointer-events:none}
+#ciack .ctop .btn{pointer-events:auto}
+#ciack .ctop b{font-size:17px}
+#ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
 <body>
@@ -170,8 +176,13 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <button class="gcard" id="gDots"><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard soon" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><path d="M13 3 23 8.5v9L13 23 3 17.5v-9z" fill="var(--p1)" opacity=".85"/><path d="M3 8.5 13 14l10-5.5" fill="none" stroke="var(--panel)" stroke-width="1.4"/><path d="M13 14v9" stroke="var(--panel)" stroke-width="1.4"/></svg></span>
-    <span><div class="gt">Ciack US<span class="soonTag">in arrivo</span></div><div class="gs">Sul set del film: stanze isometriche, compiti da svolgere e un impostore da scovare.</div><div class="gn" id="nAmong"></div></span></button>
+    <span><div class="gt">Ciack US<span class="soonTag">in costruzione</span></div><div class="gs">Sul set del film: stanze isometriche, compiti da svolgere e un impostore da scovare.</div><div class="gn" id="nAmong"></div></span></button>
 </div></div>
+<div id="ciack" hidden>
+  <canvas id="cqCanvas"></canvas>
+  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b></div>
+  <div class="chint">Trascina il dito per muoverti</div>
+</div>
 <dialog id="dSetup"><form method="dialog" class="dlg" id="fSetup"></form></dialog>
 <dialog id="dEnd"><div class="dlg" id="endBody"></div></dialog>
 <dialog id="dStats"><div class="dlg" id="statsBody"></div></dialog>
@@ -1477,13 +1488,96 @@ function openStatsWeb() {
   if (!$('#dStats').open) $('#dStats').showModal();
 }
 
+// ---- Ciack US (tappa 1: un personaggio con il cappello che cammina su un pavimento isometrico) ----
+const CQ_N = 14, CQ_SPEED = 3.4;
+const cq = { on: false, x: CQ_N / 2, y: CQ_N / 2, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
+function openCiack() {
+  curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
+  cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
+}
+function closeCiack() { cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function cqResize() {
+  const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
+  cq.w = c.clientWidth; cq.h = c.clientHeight; c.width = Math.round(cq.w * cq.dpr); c.height = Math.round(cq.h * cq.dpr);
+}
+function cqInit() {
+  const root = $('#ciack');
+  window.addEventListener('resize', () => { if (cq.on) cqResize(); });
+  root.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
+  root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
+  const up = e => { if (cq.joy && cq.joy.id === e.pointerId) cq.joy = null; };
+  root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
+  window.addEventListener('keydown', e => { if (cq.on) { cq.keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); } });
+  window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; });
+  $('#cqBack').onclick = closeCiack;
+}
+// direzione sullo schermo (sx, sy) -> direzione nel mondo isometrico (la tessera e' larga il doppio dell'altezza)
+function cqDir() {
+  let sx = 0, sy = 0, k = cq.keys;
+  if (cq.joy) { sx = cq.joy.x - cq.joy.x0; sy = cq.joy.y - cq.joy.y0; const m = Math.hypot(sx, sy); if (m < 8) sx = sy = 0; else { sx /= m; sy /= m; } }
+  else { sx = ((k.arrowright || k.d) ? 1 : 0) - ((k.arrowleft || k.a) ? 1 : 0); sy = ((k.arrowdown || k.s) ? 1 : 0) - ((k.arrowup || k.w) ? 1 : 0); }
+  if (!sx && !sy) return null;
+  const wx = sx + 2 * sy, wy = 2 * sy - sx, m = Math.hypot(wx, wy);
+  return { wx: wx / m, wy: wy / m, sx };
+}
+function cqFrame(t) {
+  if (!cq.on) return;
+  const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
+  const d = cqDir();
+  if (d) {
+    cq.x = Math.max(0.5, Math.min(CQ_N - 0.5, cq.x + d.wx * CQ_SPEED * dt));
+    cq.y = Math.max(0.5, Math.min(CQ_N - 0.5, cq.y + d.wy * CQ_SPEED * dt));
+    if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
+    cq.walk += dt * 11;
+  } else cq.walk = 0;
+  cqDraw();
+  cq.raf = requestAnimationFrame(cqFrame);
+}
+function cqDraw() {
+  const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
+  g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.clearRect(0, 0, W, H);
+  const TW = Math.max(56, Math.min(W, H) / 7), TH = TW / 2;
+  const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
+  g.save(); g.translate(W / 2 - px(cq.x, cq.y), H / 2 - py(cq.x, cq.y) + TH);
+  const tile = (x, y, col) => { g.beginPath(); g.moveTo(px(x, y), py(x, y)); g.lineTo(px(x + 1, y), py(x + 1, y)); g.lineTo(px(x + 1, y + 1), py(x + 1, y + 1)); g.lineTo(px(x, y + 1), py(x, y + 1)); g.closePath(); g.fillStyle = col; g.fill(); };
+  const T = TH * 0.7;   // spessore del pavimento
+  g.fillStyle = '#2b303b'; g.beginPath(); g.moveTo(px(0, CQ_N), py(0, CQ_N)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N) + T); g.lineTo(px(0, CQ_N), py(0, CQ_N) + T); g.fill();
+  g.fillStyle = '#20242c'; g.beginPath(); g.moveTo(px(CQ_N, 0), py(CQ_N, 0)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N) + T); g.lineTo(px(CQ_N, 0), py(CQ_N, 0) + T); g.fill();
+  for (let x = 0; x < CQ_N; x++) for (let y = 0; y < CQ_N; y++) tile(x, y, (x + y) % 2 ? '#586073' : '#4c5466');
+  // personaggio
+  const X = px(cq.x, cq.y), Y = py(cq.x, cq.y), u = TW / 46, bob = Math.abs(Math.sin(cq.walk)) * 4 * u, f = cq.face;
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill();
+  g.translate(X, Y - bob);
+  g.save(); g.scale(u, u);
+  // piedi
+  g.fillStyle = '#2a2e35'; const sw = Math.sin(cq.walk) * 4;
+  g.beginPath(); g.ellipse(-6 + sw, -1, 6, 3.5, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(6 - sw, -1, 6, 3.5, 0, 0, 7); g.fill();
+  // corpo
+  g.fillStyle = '#e2553a'; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill();
+  // visiera
+  g.fillStyle = '#bfe3f2'; g.beginPath(); g.ellipse(4 * f, -28, 8.5, 6, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.ellipse(6.5 * f, -30, 3, 1.8, 0, 0, 7); g.fill();
+  // cappello
+  g.fillStyle = '#2a2e35'; g.beginPath(); g.ellipse(0, -39, 19, 5.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#3a3f49'; g.beginPath(); g.moveTo(-10, -39); g.quadraticCurveTo(-10, -56, 0, -56); g.quadraticCurveTo(10, -56, 10, -39); g.quadraticCurveTo(0, -35, -10, -39); g.fill();
+  g.fillStyle = '#e2553a'; g.fillRect(-10, -44, 20, 4);
+  g.restore(); g.restore();
+  // joystick
+  if (cq.joy) {
+    const j = cq.joy, dx = j.x - j.x0, dy = j.y - j.y0, m = Math.hypot(dx, dy), k = m > 40 ? 40 / m : 1;
+    g.strokeStyle = 'rgba(150,160,175,.55)'; g.lineWidth = 2; g.beginPath(); g.arc(j.x0, j.y0, 40, 0, 7); g.stroke();
+    g.fillStyle = 'rgba(150,160,175,.55)'; g.beginPath(); g.arc(j.x0 + dx * k, j.y0 + dy * k, 16, 0, 7); g.fill();
+  }
+}
+
 // ---- avvio ----
 if (WEB) store.settings.mode = 'online';
 applyPrefs(); render();
 (() => {
   startHub();
   $('#gDots').onclick = openSetup;
-  $('#gAmong').onclick = () => alert('Ciack US è in arrivo: lo stiamo costruendo!');
+  cqInit(); $('#gAmong').onclick = openCiack;
   const code = (location.hash.match(/^#p=([a-z0-9]+)$/) || [])[1];
   const saved = loadOnline();
   if (code) enterDots();
