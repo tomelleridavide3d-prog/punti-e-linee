@@ -48,4 +48,5 @@ Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi =
 - Sul sito (`WEB`) si apre prima una schermata `#home` "Sala giochi" con una scheda per gioco (`gDots`, `gAmong` = segnaposto "in arrivo"). Dalla scheda si entra con `openSetup()`; dentro c'è il tasto "← Giochi" (`showHome()`).
 - `presence/<sid>` ha ora il campo `g` = gioco in cui si trova ('home', 'dots', in futuro 'among'); senza `g` (versione vecchia) vale 'dots'. I conteggi sulle schede e la lista "Giocatori online" dei quadrettini filtrano su `g`.
 - Fatto tappa 1 di Ciack US (`openCiack`, canvas `#cqCanvas`, presenza `g`=among): personaggio con cappello che cammina su pavimento isometrico 14x14, joystick a trascinamento / frecce. Senza tema.
-- Prossimo: proseguire Ciack US (stile Among Us isometrico, a tema set cinematografico) a tappe: 1) mappa e personaggio, 2) compiti + computer, 3) impostore/voto, 4) online con Firebase (4-8 giocatori).
+- Ciack US tappa 2: mappa a stanze (Palco, Camerini, Trucco, Corridoio, Montaggio, Magazzino, Proiezione) con muri bassi, porte, oggetti di scena e collisioni (`CQ_ROOMS`, `CQ_DOORS`, `CQ_PROPS`). Tema: set cinematografico.
+- Prossimo: compiti da svolgere, altri personaggi controllati dal computer, impostore e voto, poi online.

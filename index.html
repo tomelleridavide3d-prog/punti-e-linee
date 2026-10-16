@@ -1489,8 +1489,41 @@ function openStatsWeb() {
 }
 
 // ---- Ciack US (tappa 1: un personaggio con il cappello che cammina su un pavimento isometrico) ----
-const CQ_N = 14, CQ_SPEED = 3.4;
-const cq = { on: false, x: CQ_N / 2, y: CQ_N / 2, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
+const CQ_W = 28, CQ_H = 20, CQ_SPEED = 3.4, CQ_R = 0.3;
+// stanze del set: nome, posizione, misura, due colori del pavimento a scacchi
+const CQ_ROOMS = [
+  { n: 'Palco', x: 2, y: 2, w: 10, h: 6, c: ['#9a7549', '#8b693f'] },
+  { n: 'Camerini', x: 14, y: 2, w: 6, h: 6, c: ['#76629a', '#69568b'] },
+  { n: 'Trucco', x: 21, y: 2, w: 6, h: 6, c: ['#9a627c', '#8b566e'] },
+  { n: 'Corridoio', x: 2, y: 9, w: 25, h: 3, c: ['#586073', '#4c5466'] },
+  { n: 'Montaggio', x: 2, y: 13, w: 7, h: 6, c: ['#4f8a99', '#457c8b'] },
+  { n: 'Magazzino', x: 10, y: 13, w: 8, h: 6, c: ['#868659', '#78784e'] },
+  { n: 'Proiezione', x: 19, y: 13, w: 8, h: 6, c: ['#6a5252', '#5c4747'] }];
+const CQ_DOORS = [[5, 8, 2, 1], [16, 8, 2, 1], [23, 8, 2, 1], [4, 12, 2, 1], [13, 12, 2, 1], [22, 12, 2, 1], [12, 4, 2, 2], [20, 4, 1, 2]];
+// oggetti di scena: ingombrano e non si attraversano [x, y, larghezza, altezza, rialzo, colore]
+const CQ_PROPS = [[4, 3, 2, 2, 0.9, '#d4a62a'], [9, 5, 2, 1, 0.6, '#3d4350'], [15, 3, 1, 3, 0.8, '#b0505a'], [22, 3, 4, 1, 0.7, '#e0e0e8'], [22, 6, 2, 1, 0.7, '#e0e0e8'],
+  [3, 14, 4, 1, 0.7, '#9aa5b5'], [11, 14, 2, 2, 1.0, '#a8793c'], [15, 16, 2, 2, 1.0, '#a8793c'], [12, 17, 1, 1, 0.7, '#a8793c'], [21, 15, 5, 1, 0.55, '#b03a3a'], [21, 17, 5, 1, 0.55, '#b03a3a']];
+const cqFloor = [], cqSolid = [], cqRoomOf = [];
+(() => {
+  for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); }
+  CQ_ROOMS.forEach(r => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) cqFloor[y][x] = r.c[(x + y) % 2]; });
+  const cor = CQ_ROOMS[3].c;
+  CQ_DOORS.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cqFloor[y][x] = cor[(x + y) % 2]; });
+  CQ_PROPS.forEach(([x0, y0, w, h, ht, col]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cqSolid[y][x] = { ht, col, prop: 1 }; });
+  // muri: ogni cella vuota che tocca un pavimento
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) {
+    if (cqFloor[y][x]) continue;
+    let near = false;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (cqFloor[y + dy] && cqFloor[y + dy][x + dx]) near = true;
+    if (near) cqSolid[y][x] = { ht: 0.8, col: '#5d6578', wall: 1 };
+  }
+})();
+const cq = { on: false, x: 14.5, y: 10.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
+function cqBlocked(x, y) {
+  const cx = Math.floor(x), cy = Math.floor(y);
+  return !cqFloor[cy] || !cqFloor[cy][cx] || !!cqSolid[cy][cx];
+}
+function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBlocked(x + r, y - r) || cqBlocked(x - r, y + r) || cqBlocked(x + r, y + r)); }
 function openCiack() {
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
@@ -1525,50 +1558,69 @@ function cqFrame(t) {
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
   const d = cqDir();
   if (d) {
-    cq.x = Math.max(0.5, Math.min(CQ_N - 0.5, cq.x + d.wx * CQ_SPEED * dt));
-    cq.y = Math.max(0.5, Math.min(CQ_N - 0.5, cq.y + d.wy * CQ_SPEED * dt));
+    const nx = cq.x + d.wx * CQ_SPEED * dt, ny = cq.y + d.wy * CQ_SPEED * dt;   // si prova un asse alla volta: lungo i muri si scivola
+    if (cqFree(nx, cq.y)) cq.x = nx;
+    if (cqFree(cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.walk += dt * 11;
   } else cq.walk = 0;
   cqDraw();
   cq.raf = requestAnimationFrame(cqFrame);
 }
+function cqShade(hex, f) {
+  const n = parseInt(hex.slice(1), 16);
+  return 'rgb(' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * f)))).join(',') + ')';
+}
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
   g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const TW = Math.max(56, Math.min(W, H) / 7), TH = TW / 2;
+  const TW = Math.max(48, Math.min(W, H) / 8), TH = TW / 2;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   g.save(); g.translate(W / 2 - px(cq.x, cq.y), H / 2 - py(cq.x, cq.y) + TH);
-  const tile = (x, y, col) => { g.beginPath(); g.moveTo(px(x, y), py(x, y)); g.lineTo(px(x + 1, y), py(x + 1, y)); g.lineTo(px(x + 1, y + 1), py(x + 1, y + 1)); g.lineTo(px(x, y + 1), py(x, y + 1)); g.closePath(); g.fillStyle = col; g.fill(); };
-  const T = TH * 0.7;   // spessore del pavimento
-  g.fillStyle = '#2b303b'; g.beginPath(); g.moveTo(px(0, CQ_N), py(0, CQ_N)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N) + T); g.lineTo(px(0, CQ_N), py(0, CQ_N) + T); g.fill();
-  g.fillStyle = '#20242c'; g.beginPath(); g.moveTo(px(CQ_N, 0), py(CQ_N, 0)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N)); g.lineTo(px(CQ_N, CQ_N), py(CQ_N, CQ_N) + T); g.lineTo(px(CQ_N, 0), py(CQ_N, 0) + T); g.fill();
-  for (let x = 0; x < CQ_N; x++) for (let y = 0; y < CQ_N; y++) tile(x, y, (x + y) % 2 ? '#586073' : '#4c5466');
-  // personaggio
-  const X = px(cq.x, cq.y), Y = py(cq.x, cq.y), u = TW / 46, bob = Math.abs(Math.sin(cq.walk)) * 4 * u, f = cq.face;
-  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill();
-  g.translate(X, Y - bob);
-  g.save(); g.scale(u, u);
-  // piedi
-  g.fillStyle = '#2a2e35'; const sw = Math.sin(cq.walk) * 4;
-  g.beginPath(); g.ellipse(-6 + sw, -1, 6, 3.5, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(6 - sw, -1, 6, 3.5, 0, 0, 7); g.fill();
-  // corpo
-  g.fillStyle = '#e2553a'; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill();
-  g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill();
-  // visiera
-  g.fillStyle = '#bfe3f2'; g.beginPath(); g.ellipse(4 * f, -28, 8.5, 6, 0, 0, 7); g.fill();
-  g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.ellipse(6.5 * f, -30, 3, 1.8, 0, 0, 7); g.fill();
-  // cappello
-  g.fillStyle = '#2a2e35'; g.beginPath(); g.ellipse(0, -39, 19, 5.5, 0, 0, 7); g.fill();
-  g.fillStyle = '#3a3f49'; g.beginPath(); g.moveTo(-10, -39); g.quadraticCurveTo(-10, -56, 0, -56); g.quadraticCurveTo(10, -56, 10, -39); g.quadraticCurveTo(0, -35, -10, -39); g.fill();
-  g.fillStyle = '#e2553a'; g.fillRect(-10, -44, 20, 4);
-  g.restore(); g.restore();
+  const poly = (pts, col) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = col; g.fill(); };
+  const vis = (x, y) => { const sx = W / 2 + px(x, y) - px(cq.x, cq.y), sy = H / 2 + py(x, y) - py(cq.x, cq.y) + TH; return sx > -TW * 2 && sx < W + TW * 2 && sy > -TH * 6 && sy < H + TH * 4; };
+  // pavimento
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) {
+    const col = cqFloor[y][x]; if (!col || !vis(x, y)) continue;
+    poly([[px(x, y), py(x, y)], [px(x + 1, y), py(x + 1, y)], [px(x + 1, y + 1), py(x + 1, y + 1)], [px(x, y + 1), py(x, y + 1)]], col);
+  }
+  // nomi delle stanze
+  g.font = '700 ' + Math.round(TW / 4.2) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.22)';
+  CQ_ROOMS.forEach(r => g.fillText(r.n.toUpperCase(), px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
+  // muri, oggetti e personaggio, dal piu' lontano al piu' vicino
+  const items = [];
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] && vis(x, y)) items.push({ d: x + y + 1, x, y, o: cqSolid[y][x] });
+  items.push({ d: cq.x + cq.y, me: 1 });
+  items.sort((a, b) => a.d - b.d);
+  for (const it of items) {
+    if (it.me) { cqPlayer(g, px(cq.x, cq.y), py(cq.x, cq.y), TW); continue; }
+    const { x, y, o } = it, z = o.ht * TH * 1.15, A = [px(x, y), py(x, y) - z], B = [px(x + 1, y), py(x + 1, y) - z], C = [px(x + 1, y + 1), py(x + 1, y + 1) - z], D = [px(x, y + 1), py(x, y + 1) - z];
+    poly([D, C, [C[0], C[1] + z], [D[0], D[1] + z]], cqShade(o.col, 0.72));
+    poly([C, B, [B[0], B[1] + z], [C[0], C[1] + z]], cqShade(o.col, 0.52));
+    poly([A, B, C, D], cqShade(o.col, o.wall ? 1.12 : 1.05));
+  }
+  g.restore();
   // joystick
   if (cq.joy) {
     const j = cq.joy, dx = j.x - j.x0, dy = j.y - j.y0, m = Math.hypot(dx, dy), k = m > 40 ? 40 / m : 1;
     g.strokeStyle = 'rgba(150,160,175,.55)'; g.lineWidth = 2; g.beginPath(); g.arc(j.x0, j.y0, 40, 0, 7); g.stroke();
     g.fillStyle = 'rgba(150,160,175,.55)'; g.beginPath(); g.arc(j.x0 + dx * k, j.y0 + dy * k, 16, 0, 7); g.fill();
   }
+}
+function cqPlayer(g, X, Y, TW) {
+  const u = TW / 34, bob = Math.abs(Math.sin(cq.walk)) * 4 * u, f = cq.face;
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill();
+  g.save(); g.translate(X, Y - bob); g.scale(u, u);
+  g.fillStyle = '#2a2e35'; const sw = Math.sin(cq.walk) * 4;
+  g.beginPath(); g.ellipse(-6 + sw, -1, 6, 3.5, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(6 - sw, -1, 6, 3.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#e2553a'; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill();
+  g.fillStyle = 'rgba(0,0,0,.15)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill();
+  g.fillStyle = '#bfe3f2'; g.beginPath(); g.ellipse(4 * f, -28, 8.5, 6, 0, 0, 7); g.fill();
+  g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.ellipse(6.5 * f, -30, 3, 1.8, 0, 0, 7); g.fill();
+  g.fillStyle = '#2a2e35'; g.beginPath(); g.ellipse(0, -39, 19, 5.5, 0, 0, 7); g.fill();
+  g.fillStyle = '#3a3f49'; g.beginPath(); g.moveTo(-10, -39); g.quadraticCurveTo(-10, -56, 0, -56); g.quadraticCurveTo(10, -56, 10, -39); g.quadraticCurveTo(0, -35, -10, -39); g.fill();
+  g.fillStyle = '#e2553a'; g.fillRect(-10, -44, 20, 4);
+  g.restore();
 }
 
 // ---- avvio ----
