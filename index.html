@@ -1718,8 +1718,25 @@ function cqPlayer(g, X, Y, TW) {
   g.restore();
 }
 
+// ---- versione nuova del sito ----
+// GitHub Pages fa tenere la pagina in memoria al telefono per 10 minuti: se sul sito c'e' una versione piu' recente
+// di quella aperta, si ricarica da sola (mai durante una partita a distanza).
+async function checkUpdate() {
+  if (!WEB || net) return;
+  try {
+    const r = await fetch(location.pathname + '?chk=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
+    const srv = Date.parse(r.headers.get('last-modified') || ''), mine = Date.parse(document.lastModified);
+    if (!srv || !mine || srv <= mine + 1000) return;
+    if (sessionStorage.getItem('plUpd') === String(srv)) return;   // gia' ricaricato per questa versione
+    sessionStorage.setItem('plUpd', String(srv));
+    if (!net) location.replace(location.pathname + '?v=' + srv + location.hash);
+  } catch {}
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+
 // ---- avvio ----
 if (WEB) store.settings.mode = 'online';
+checkUpdate();
 applyPrefs(); render();
 (() => {
   startHub();

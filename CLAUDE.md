@@ -36,7 +36,7 @@ Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi =
 
 ## Regole di lavoro con l'utente
 - Spiegare prima cosa comparirà (finestre, UAC) e cosa premere; un passo alla volta. L'utente non sa usare terminale/console: i comandi li esegui tu, a lui chiedi solo clic su siti.
-- A fine di ogni serie di modifiche dare **sempre il link del sito** e dire che si aggiorna in circa un minuto (se vede la versione vecchia: aggiungere `?v=N` all'indirizzo).
+- A fine di ogni serie di modifiche dare **sempre il link del sito**. GitHub Pages fa tenere la pagina in cache 10 minuti: `checkUpdate()` confronta il Last-Modified del server con `document.lastModified` e ricarica da sola (allapertura e al ritorno sulla pagina, mai con `net` attivo). Se non basta: aggiungere `?v=N` allindirizzo.
 - Controllare a occhio con uno screenshot (Edge headless) prima di pubblicare; l'estetica la giudica l'utente.
 
 ## Stato (16-10-2026)
