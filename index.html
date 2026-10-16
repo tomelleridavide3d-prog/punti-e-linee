@@ -159,8 +159,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .pkHats .btn{padding:6px 10px;font-size:13px}
 .pkHats .btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 #cqPick .go,#cqTask .go{width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:16px}
-#cqTask,#cqMap{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
-#cqTask .pk,#cqMap .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:400px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
+#cqTask,#cqMap,#cqMeet{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
+#cqTask .pk,#cqMap .pk,#cqMeet .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:400px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
 .tk-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .tk-h b{font-size:18px}
 #tkHint{text-align:center;min-height:20px;margin:10px 0 0}
@@ -202,6 +202,27 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .pbar i{display:block;height:100%;width:0;background:#2fa35a}
 .scr{height:130px;margin:12px 0;border-radius:10px;background:#eef2f6;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;color:#1d2127;letter-spacing:.04em;overflow:hidden}
 #tkRange{width:100%;margin:8px 0}
+#cqKill{position:absolute;right:18px;bottom:142px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:15px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#cqKill.on{background:#e2553a;color:#fff;cursor:pointer}
+#cqSabBtn{position:absolute;left:18px;bottom:96px}
+#cqUse.on.rep{background:#e2553a;color:#fff}
+.cqSab{background:#b0283a;color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;max-width:420px;animation:cqBlink 1s infinite}
+@keyframes cqBlink{50%{opacity:.65}}
+.cqRole{font-size:13px;font-weight:700;padding:4px 10px;border-radius:10px;background:rgba(20,22,26,.72);color:#7be0a0}
+.cqRole.imp{color:#ff8a7a}
+#mtTime{font-variant-numeric:tabular-nums;color:var(--muted)}
+#mtChat{background:var(--bg);border-radius:10px;padding:8px 10px;font-size:14px;line-height:1.45;min-height:80px;max-height:150px;overflow:auto;margin-bottom:10px}
+#mtGrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mc{display:flex;align-items:center;gap:6px;padding:4px 8px;border-radius:10px;border:2px solid var(--line);background:var(--panel);color:var(--ink);font:inherit;font-size:14px;text-align:left;cursor:pointer;min-width:0}
+.mc canvas{width:36px;height:36px;flex:none}
+.mc .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mc.sel{border-color:#f2c230}
+.mc.dead{opacity:.4;cursor:default}
+.mc .vv{margin-left:auto;font-size:12px;color:var(--muted);white-space:nowrap}
+.mc .vv i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-left:2px;border:1px solid rgba(0,0,0,.3)}
+.mtAct{display:flex;gap:8px;margin-top:12px}
+.mtAct .btn{flex:1;justify-content:center;padding:11px}
+#alH{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -246,9 +267,13 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     <p class="hint" id="pkRac" style="text-align:center">Il procione ha il suo cappello nero e lo zaino viola.</p>
     <button class="btn primary go" id="pkGo" type="button">Entra sul set</button>
   </div></div>
-  <div id="cqHud"><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqList" id="cqList"></div></div>
+  <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqList" id="cqList"></div></div>
   <button class="btn" id="cqMapBtn" type="button">Mappa</button>
   <button id="cqUse" type="button">Usa</button>
+  <button id="cqKill" type="button" hidden>Elimina</button>
+  <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
+  <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div id="mtGrid"></div>
+    <div class="mtAct"><button class="btn" id="mtSkip" type="button">Salta</button><button class="btn primary" id="mtVote" type="button" disabled>Vota</button></div><p class="hint" id="mtRes" style="text-align:center;margin:10px 0 0"></p></div></div>
   <div id="cqTask" hidden><div class="pk"><div class="tk-h"><b id="tkTitle"></b><button class="btn" id="tkClose" type="button">Chiudi</button></div><div id="tkBody"></div><p class="hint" id="tkHint"></p></div></div>
   <div id="cqMap" hidden><div class="pk"><div class="tk-h"><b>Mappa del set</b><button class="btn" id="mapClose" type="button">Chiudi</button></div><canvas id="cqMapC"></canvas><p class="hint" style="text-align:center">Punti gialli: i tuoi compiti. Il pallino col bordo bianco sei tu.</p></div></div>
   <div class="chint">Trascina il dito per muoverti</div>
@@ -1596,7 +1621,7 @@ prow('locker', 21, 2, 9, 1, 0, i => LOCK[i % 5]); pp('fridge', 30, 2);
 prow('sofa', 22, 6, 3, 1, 0); pp('table', 23, 8); pp('tv', 27, 5); pp('tv', 28, 5);
 pp('rack', 21, 11); pp('rack', 22, 11); pp('rack', 28, 11); pp('plant', 20, 2); pp('plant', 30, 13); pp('plant', 20, 13); pp('dchair', 26, 9, '#7aa0d4'); pp('dchair', 28, 9, '#d4a07a');
 // Trucco
-prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => [['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4], 's']);
+prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => [['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4], 's']); CQ_PROPS.splice(CQ_PROPS.findIndex(p => p[0] === 'dchair' && p[1] === 37 && p[2] === 3), 1);   // davanti allo specchio del compito si deve poter stare
 pp('rack', 34, 10); pp('rack', 35, 10); pp('rack', 40, 10); pp('rack', 41, 10); pp('table', 37, 11); pp('table', 39, 11); pp('plant', 42, 13); pp('plant', 33, 13); pp('dchair', 37, 7, '#d4a0b8'); pp('dchair', 39, 7, '#d4a0b8');
 // Corridoio
 [[2, 15], [42, 15], [2, 19], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
@@ -1612,7 +1637,7 @@ prow('shelf', 28, 22, 9, 0, 1); pp('rack', 22, 31); pp('rack', 23, 31); pp('lamp
 prow('screen', 33, 32, 8, 1, 0); pp('speaker', 32, 32); pp('speaker', 41, 32);
 for (const yy of [24, 26, 28]) { prow('seat', 33, yy, 3, 1, 0); prow('seat', 38, yy, 3, 1, 0); }
 pp('projector', 31, 22); pp('plant', 42, 22); pp('plant', 42, 32); pp('plant', 31, 32); pp('lamp', 41, 22); pp('lamp', 32, 24);
-pp('fusebox', 33, 15); pp('reel', 21, 24);
+pp('fusebox', 33, 15); pp('reel', 21, 24); pp('megaphone', 22, 17);
 const cqFloor = [], cqSolid = [], cqRoomOf = [];
 (() => {
   for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
@@ -1637,7 +1662,6 @@ function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBl
 function openCiack() {
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
-  if (!cq.tasks) cqNewTasks(); else cqHud();
   cqOpenPick();
 }
 const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
@@ -1662,7 +1686,7 @@ function cqOpenPick() {
   $('#pkCols').onclick = e => { const b = e.target.closest('[data-c]'); if (b) set('col', b.dataset.c); };
   $('#pkHats').onclick = e => { const b = e.target.closest('[data-h]'); if (b) set('hat', b.dataset.h); };
   box.querySelectorAll('input[name=pkskin]').forEach(i => i.onchange = () => set('skin', i.value));
-  $('#pkGo').onclick = () => { box.hidden = true; cq.picking = false; cq.dirty = true; };
+  $('#pkGo').onclick = () => { box.hidden = true; cq.picking = false; if (!cq.g || cq.g.phase === 'end') cqNewMatch(); };
   store.settings.cqLook = L; sync();
   box.hidden = false; cq.picking = true; cq.joy = null; cq.keys = {};
   // anteprima: l'omino cammina sul posto e si gira ogni tanto
@@ -1688,35 +1712,379 @@ const CQ_TASKS = [
   { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 }];
 const CQ_NTASK = 5;
 const cqTask = id => CQ_TASKS.find(t => t.id === id);
-function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden; }
-function cqNewTasks() {
-  cq.tasks = CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, CQ_NTASK);
-  cq.done = new Set(); cq.near = null; cqHud();
+function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden || !$('#cqMeet').hidden; }
+
+// ---- partita contro il computer: 7 personaggi guidati dal computer, uno (tu compreso) e' il sabotatore ----
+const CQ_NAMES = ['Bruno', 'Carla', 'Dario', 'Elena', 'Fabio', 'Gina', 'Ivo', 'Lia', 'Marco', 'Nina', 'Otto', 'Pia'];
+const CQ_BOTS = 7, CQ_KCD = 20, CQ_VIS = 5;
+const CQ_RING = [[20, 16], [21, 16], [23, 16], [24, 16], [20, 18], [21, 18], [23, 18], [24, 18], [22, 15], [22, 19]];   // intorno al pulsante delle riunioni
+const CQ_BUTTON = { x: 22, y: 17 };
+const CQ_SABS = { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45 } };
+const CQ_IN = { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione' };
+const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
+const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return r >= 0 ? CQ_ROOMS[r].n : 'Corridoio'; };
+const cqLookOf = c => c.bot ? c.look : cqLook();
+const cqDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+// cella libera accanto a un oggetto, dove ci si mette per usarlo
+function cqSpot(x, y) {
+  for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) if (cqCellFree(x + dx, y + dy)) return { x: x + dx + 0.5, y: y + dy + 0.5 };
+  return { x: x + 0.5, y: y + 0.5 };
+}
+// percorso a celle (anche in diagonale, senza tagliare gli spigoli) per i personaggi del computer
+function cqPath(sx, sy, ex, ey) {
+  sx = Math.floor(sx); sy = Math.floor(sy); ex = Math.floor(ex); ey = Math.floor(ey);
+  if (!cqCellFree(ex, ey)) return [];
+  const W = CQ_W, s = sy * W + sx, e = ey * W + ex, prev = new Int32Array(W * CQ_H).fill(-1), q = [s]; prev[s] = s;
+  for (let i = 0; i < q.length && prev[e] < 0; i++) {
+    const c = q[i], x = c % W, y = (c / W) | 0;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const nx = x + dx, ny = y + dy, n = ny * W + nx;
+      if (!cqCellFree(nx, ny) || prev[n] >= 0) continue;
+      if (dx && dy && (!cqCellFree(x + dx, y) || !cqCellFree(x, y + dy))) continue;
+      prev[n] = c; q.push(n);
+    }
+  }
+  if (prev[e] < 0 || e === s) return [];
+  const path = []; for (let c = e; c !== s; c = prev[c]) path.push([c % W + 0.5, ((c / W) | 0) + 0.5]);
+  return path.reverse();
+}
+function cqNewMatch() {
+  const myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
+  const me = { id: 0, name: myName, bot: false };
+  const names = CQ_NAMES.filter(n => n.toLowerCase() !== myName.toLowerCase()).sort(() => Math.random() - 0.5);
+  const myL = cqLook(), cols = CQ_COLORS.filter(c => myL.skin === 'procione' || c !== myL.col).sort(() => Math.random() - 0.5);
+  const chars = [me];
+  for (let i = 0; i < CQ_BOTS; i++) chars.push({ id: i + 1, name: names[i], bot: true,
+    look: i === 0 && myL.skin !== 'procione' ? { skin: 'procione', col: '#8a8f99', hat: 'borsalino' } : { skin: 'omino', col: cols[i % cols.length], hat: CQ_HATS[Math.floor(Math.random() * CQ_HATS.length)][0] } });
+  const imp = Math.floor(Math.random() * chars.length);
+  chars.forEach((c, i) => {
+    const [x, y] = CQ_RING[i];
+    Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < 22 ? 1 : -1, walk: 0, alive: true, imp: i === imp, tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, CQ_NTASK),
+      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: 10, think: 0, sus: new Set(), saw: null, seen: {}, eye: Math.random() * 0.5 });
+  });
+  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0 };
+  cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
+  cqHud();
+  cqPanel(me.imp ? 'Sei il SABOTATORE' : 'Sei della TROUPE', me.imp
+    ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme. Intanto fai finta di lavorare!</p>'
+    : '<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi c\'è un <b>sabotatore</b>: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. Il pulsante rosso nel corridoio chiama una riunione (una volta sola).</p>',
+    'Si gira!', () => { cq.g.phase = 'play'; });
+}
+// pannello con un messaggio e un pulsante (ruolo, avvisi)
+function cqPanel(title, html, btn, then) {
+  cqCloseTask();
+  $('#tkTitle').textContent = title;
+  $('#tkBody').innerHTML = html + '<button class="btn primary go" id="tkGo" type="button">' + esc(btn) + '</button>';
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#tkGo').onclick = () => { cqCloseTask(); if (then) then(); };
 }
 function cqHud() {
-  const n = cq.done.size, tot = cq.tasks.length;
-  $('#cqBarTxt').textContent = 'Riprese ' + n + '/' + tot;
-  $('#cqBarFill').style.width = (tot ? n / tot * 100 : 0) + '%';
-  $('#cqList').innerHTML = cq.tasks.map(id => { const t = cqTask(id); return `<div class="${cq.done.has(id) ? 'ok' : cq.near === t ? 'near' : ''}">${esc(t.r)}: ${esc(t.n)}</div>`; }).join('');
-  $('#cqUse').classList.toggle('on', !!cq.near);
+  const G = cq.g; if (!G) return;
+  const me = G.me, crew = G.chars.filter(c => !c.imp), tot = crew.length * CQ_NTASK, n = crew.reduce((a, c) => a + c.done.size, 0);
+  $('#cqBarTxt').textContent = 'Riprese ' + Math.round(n / tot * 100) + '%';
+  $('#cqBarFill').style.width = (n / tot * 100) + '%';
+  const role = $('#cqRole');
+  role.textContent = me.imp ? (me.alive ? 'Sei il sabotatore' : 'Sabotatore espulso') : (me.alive ? 'Sei della troupe' : 'Sei un fantasma: finisci i compiti');
+  role.className = 'cqRole' + (me.imp ? ' imp' : '');
+  $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const t = cqTask(id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near === t ? 'near' : ''}">${esc(t.r)}: ${esc(t.n)}</div>`; }).join('');
+  const a = cq.act, ub = $('#cqUse');
+  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa' }[a.k] : 'Usa';
+  ub.classList.toggle('on', !!a); ub.classList.toggle('rep', !!a && (a.k === 'rep' || a.k === 'btn'));
 }
-// il compito da fare piu' vicino (entro un passo e mezzo dall'oggetto)
-function cqNearCheck() {
-  let best = null, bd = 1.75;
-  for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqTask(id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; best = t; } }
-  if (best !== cq.near) { cq.near = best; cqHud(); }
-}
-function cqUse() { if (cq.near && !cqBusy()) cqOpenTask(cq.near); }
-function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; cq.joy = null; cq.keys = {}; }
-function cqTaskDone(id) {
-  cq.done.add(id); cq.near = null; cqNearCheck(); cqHud();
-  if (cq.done.size === cq.tasks.length) {
-    $('#tkTitle').textContent = 'Riprese completate!';
-    $('#tkBody').innerHTML = '<p class="lead" style="text-align:center">Hai finito tutti i tuoi compiti. Ciak, si gira!</p><button class="btn primary go" id="tkAgain" type="button">Nuovi compiti</button>';
-    $('#tkHint').textContent = ''; $('#cqTask').hidden = false;
-    $('#tkAgain').onclick = () => { cqCloseTask(); cqNewTasks(); };
-    beep(660, 0.12, 0.05); beep(880, 0.12, 0.05, 0.13); beep(1100, 0.2, 0.05, 0.26);
+// cose che cambiano a ogni fotogramma (solo se cambiano davvero)
+function cqHudFast() {
+  const G = cq.g; if (!G) return;
+  const me = G.me, play = G.phase === 'play', kb = $('#cqKill'), sb = $('#cqSabBtn'), ban = $('#cqSab');
+  const showK = me.imp && me.alive && play;
+  if (kb.hidden === showK) kb.hidden = !showK;
+  if (sb.hidden === showK) sb.hidden = !showK;
+  if (showK) {
+    const cd = Math.ceil(Math.max(0, me.kcd)), txt = cd ? 'Elimina ' + cd : 'Elimina', on = !cd && !!cqKillTarget();
+    if (kb.textContent !== txt) kb.textContent = txt;
+    if (kb.classList.contains('on') !== on) kb.classList.toggle('on', on);
+    const sc = Math.ceil(Math.max(0, G.sabCd)), st = G.sab ? 'Sabotaggio in corso' : sc ? 'Sabota ' + sc : 'Sabota';
+    if (sb.textContent !== st) sb.textContent = st;
+    sb.disabled = !!G.sab || sc > 0;
   }
+  let bt = '';
+  if (G.sab && play) bt = G.sab.type === 'luci' ? 'Luci spente! Si ripara al ' + CQ_SABS.luci.where : 'Allarme! La pellicola brucia: ' + Math.ceil(G.sab.t) + ' s. Si ripara al ' + CQ_SABS.allarme.where;
+  if (ban.textContent !== bt) ban.textContent = bt;
+  if (ban.hidden === !!bt) ban.hidden = !bt;
+}
+// cosa fa il pulsante grande: segnalare un corpo, riparare un sabotaggio, chiamare una riunione o fare un compito
+function cqNearCheck() {
+  const G = cq.g; if (!G) return;
+  const me = G.me, pos = { x: cq.x, y: cq.y }; let act = null;
+  if (G.phase === 'play') {
+    if (me.alive) { const b = G.bodies.find(o => cqDist(o, pos) < 1.8); if (b) act = { k: 'rep', body: b }; }
+    if (!act && G.sab && me.alive && !me.imp && cqDist(cqSpot(CQ_SABS[G.sab.type].x, CQ_SABS[G.sab.type].y), pos) < 1.4) act = { k: 'fix' };
+    if (!act && me.alive && G.button > 0 && cqDist({ x: CQ_BUTTON.x + 0.5, y: CQ_BUTTON.y + 0.5 }, pos) < 1.7) act = { k: 'btn' };
+    if (!act && !me.imp) {
+      let bd = 1.75;
+      for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqTask(id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; act = { k: 'task', t }; } }
+    }
+  }
+  cq.near = act && act.k === 'task' ? act.t : null;
+  const key = act ? act.k + (act.t ? act.t.id : '') : '';
+  if (key !== cq.actKey) { cq.act = act; cq.actKey = key; cqHud(); }
+}
+function cqUse() {
+  const G = cq.g, a = cq.act; if (!G || !a || cqBusy() || G.phase !== 'play') return;
+  if (a.k === 'rep') cqMeeting(G.me, a.body);
+  else if (a.k === 'btn') { G.button--; cqMeeting(G.me, null); }
+  else if (a.k === 'fix') cqOpenTask(G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Ripara le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab });
+  else cqOpenTask(a.t);
+}
+function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; $('#tkClose').hidden = false; cq.joy = null; cq.keys = {}; }
+function cqTaskDone(id) {
+  const G = cq.g; if (!G || G.phase !== 'play') return;
+  G.me.done.add(id); cq.actKey = ''; cqNearCheck(); cqHud(); cqCheckWin();
+}
+// ---- personaggi del computer ----
+function cqBots(dt) {
+  const G = cq.g, me = G.me;
+  me.x = cq.x; me.y = cq.y; me.face = cq.face;
+  G.sabCd -= dt; G.time += dt; if (me.imp) me.kcd -= dt;
+  if (G.sab && G.sab.type === 'allarme') { G.sab.t -= dt; if (G.sab.t <= 0) { cqEnd('sab', 'La pellicola è bruciata: le riprese sono rovinate!'); return; } }
+  for (const b of G.chars) {
+    if (G.phase !== 'play') return;
+    if (!b.bot) continue;
+    if (!b.alive) {   // i fantasmi della troupe (invisibili) continuano a fare i compiti
+      if (b.imp || b.done.size >= b.tasks.length) continue;
+      if (b.wait > 0) { b.wait -= dt; if (b.wait <= 0) cqBotArrived(b, true); } else { if (!b.path.length) cqBotPlan(b); cqBotStep(b, dt); }
+      continue;
+    }
+    // ogni mezzo secondo ricorda chi vede intorno e in che stanza
+    if ((b.eye -= dt) <= 0) { b.eye = 0.5; for (const c of G.chars) if (c !== b && c.alive && cqDist(c, b) < 6) b.seen[c.id] = { r: cqRoomName(c.x, c.y), t: G.time }; }
+    if (b.imp) cqImpBrain(b, dt);
+    else { const body = G.bodies.find(o => cqDist(o, b) < 2.5); if (body) { cqMeeting(b, body); return; } }
+    if (G.phase !== 'play' || !b.alive) continue;
+    if (b.wait > 0) { b.wait -= dt; b.walk = 0; if (b.wait <= 0) cqBotArrived(b, true); continue; }
+    if (!b.path.length) cqBotPlan(b);
+    cqBotStep(b, dt);
+  }
+}
+function cqBotPlan(b) {
+  const G = cq.g; let goal;
+  if (G.sab && G.sab.fixer === b.id) { const s = CQ_SABS[G.sab.type]; goal = Object.assign(cqSpot(s.x, s.y), { k: 'fix' }); }
+  else if (b.hunt) return;
+  else {
+    const todo = b.tasks.filter(id => !b.done.has(id));
+    if (todo.length && !(b.imp && Math.random() < 0.3)) { const id = todo[Math.floor(Math.random() * todo.length)], t = cqTask(id); goal = Object.assign(cqSpot(t.x, t.y), { k: 'task', id }); }
+    else { const r = CQ_ROOMS[Math.floor(Math.random() * CQ_ROOMS.length)]; let x, y, n = 0; do { x = r.x + Math.floor(Math.random() * r.w); y = r.y + Math.floor(Math.random() * r.h); } while (!cqCellFree(x, y) && ++n < 30); goal = { x: x + 0.5, y: y + 0.5, k: 'wander' }; }
+  }
+  b.goal = goal; b.path = cqPath(b.x, b.y, goal.x, goal.y);
+  if (!b.path.length) { if (cqDist(b, goal) < 0.7) cqBotArrived(b, false); else { b.goal = null; b.wait = 0.5 + Math.random(); } }
+}
+function cqBotArrived(b, afterWait) {
+  const G = cq.g, k = b.goal && b.goal.k;
+  if (!afterWait) {
+    if (k === 'task') { b.wait = 4 + Math.random() * 4; b.doing = b.goal.id; const t = cqTask(b.doing); b.face = (t.x - t.y) - (b.x - b.y) > 0 ? 1 : -1; }
+    else if (k === 'fix') b.wait = 2;
+    else if (k === 'wander') b.wait = 1 + Math.random() * 2;
+    return;
+  }
+  if (b.doing) { if (!b.imp) { b.done.add(b.doing); cqHud(); } b.doing = null; }
+  if (k === 'fix' && G.sab && G.sab.fixer === b.id) cqFixSab();
+  b.goal = null;
+  cqCheckWin();
+}
+function cqBotStep(b, dt) {
+  const p = b.path[0]; if (!p) return;
+  const dx = p[0] - b.x, dy = p[1] - b.y, d = Math.hypot(dx, dy), sp = CQ_SPEED * 0.8 * dt;
+  if (d <= sp) { b.x = p[0]; b.y = p[1]; b.path.shift(); if (!b.path.length && b.goal && b.goal.k !== 'hunt') cqBotArrived(b, false); }
+  else { b.x += dx / d * sp; b.y += dy / d * sp; }
+  if (Math.abs(dx - dy) > 0.01) b.face = dx - dy > 0 ? 1 : -1;
+  b.walk += dt * 10;
+}
+// il sabotatore del computer: elimina solo chi e' rimasto da solo, ogni tanto sabota
+function cqImpBrain(b, dt) {
+  const G = cq.g; b.kcd -= dt; b.think -= dt;
+  if (b.think > 0) return; b.think = 0.4;
+  if (!G.sab && G.sabCd <= 0 && Math.random() < 0.015) cqStartSab(Math.random() < 0.5 ? 'luci' : 'allarme');
+  const stop = () => { if (b.hunt) { b.hunt = null; b.path = []; b.goal = null; } };
+  if (b.kcd > 0) { stop(); return; }
+  const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS, living = G.chars.filter(c => c.alive && c !== b);
+  let best = null, bd = 10;
+  for (const v of living) {
+    const d = cqDist(v, b); if (d >= bd) continue;
+    if (!living.some(o => o !== v && cqDist(o, b) < R)) { best = v; bd = d; }   // nessun altro che possa vedere
+  }
+  if (!best) { stop(); return; }
+  if (bd < 1.1) { stop(); cqKill(best, b); return; }
+  b.hunt = { x: best.x, y: best.y }; b.wait = 0; b.doing = null; b.goal = { k: 'hunt' }; b.path = cqPath(b.x, b.y, best.x, best.y);
+}
+function cqKillTarget() {
+  const G = cq.g, me = G.me; let best = null, bd = 1.4;
+  for (const c of G.chars) if (c.alive && !c.imp && c !== me) { const d = Math.hypot(c.x - cq.x, c.y - cq.y); if (d < bd) { bd = d; best = c; } }
+  return best;
+}
+function cqMyKill() {
+  const G = cq.g; if (!G || G.phase !== 'play' || cqBusy()) return;
+  const me = G.me; if (!me.imp || !me.alive || me.kcd > 0) return;
+  const v = cqKillTarget(); if (v) cqKill(v, me);
+}
+function cqKill(v, k) {
+  const G = cq.g;
+  v.alive = false; v.path = []; v.wait = 0;
+  G.bodies.push({ id: v.id, x: v.x, y: v.y, face: v.face, look: cqLookOf(v), name: v.name, room: cqRoomName(v.x, v.y), t: G.time });
+  k.kcd = CQ_KCD;
+  const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS;
+  for (const w of G.chars) {
+    if (!w.bot || !w.alive || w.imp) continue;
+    if (cqDist(w, k) <= R) w.saw = { k: k.id, v: v.id };
+    if (cqDist(w, v) <= R + 3) for (const o of G.chars) if (o.alive && o !== w && cqDist(o, v) <= R) w.sus.add(o.id);
+  }
+  if (G.sab && G.sab.fixer === v.id) cqPickFixer();
+  beep(160, 0.3, 0.06);
+  if (v === G.me) { $('#cqMap').hidden = true; cqPanel('Sei stato eliminato!', `<p class="lead">Ti ha eliminato <b>${esc(k.name)}</b>. Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>`, 'Continua'); }
+  cqHud(); cqCheckWin();
+}
+// ---- sabotaggi ----
+function cqStartSab(type) {
+  const G = cq.g; if (!G || G.sab || G.phase !== 'play') return;
+  G.sab = { type, t: CQ_SABS[type].time || 0, fixer: null };
+  cqPickFixer();
+  beep(300, 0.25, 0.05); beep(240, 0.3, 0.05, 0.3);
+  cq.actKey = ''; cqHud();
+}
+function cqPickFixer() {
+  const G = cq.g, s = CQ_SABS[G.sab.type], spot = cqSpot(s.x, s.y); let best = null, bd = 1e9;
+  for (const c of G.chars) if (c.bot && c.alive && !c.imp) { const d = cqDist(c, spot); if (d < bd) { bd = d; best = c; } }
+  G.sab.fixer = best ? best.id : null;
+  if (best) { best.path = []; best.wait = 0; best.doing = null; best.goal = null; }
+}
+function cqFixSab() {
+  const G = cq.g; if (!G || !G.sab) return;
+  const f = G.chars[G.sab.fixer]; if (f) { f.goal = null; f.path = []; }
+  G.sab = null; G.sabCd = 35; cq.actKey = ''; cqHud(); beep(700, 0.1, 0.04); beep(900, 0.12, 0.04, 0.1);
+}
+function cqSabMenu() {
+  const G = cq.g; if (!G || G.phase !== 'play' || G.sab || G.sabCd > 0 || cqBusy()) return;
+  cqCloseTask();
+  $('#tkTitle').textContent = 'Sabota';
+  $('#tkBody').innerHTML = '<p class="lead">Cosa vuoi rovinare?</p><div class="mtAct"><button class="btn primary" id="sbL" type="button">Spegni le luci</button><button class="btn primary" id="sbA" type="button">Fai scattare l\'allarme</button></div>';
+  $('#tkHint').textContent = ''; $('#cqTask').hidden = false;
+  $('#sbL').onclick = () => { cqCloseTask(); cqStartSab('luci'); };
+  $('#sbA').onclick = () => { cqCloseTask(); cqStartSab('allarme'); };
+}
+// ---- vittoria ----
+function cqCheckWin() {
+  const G = cq.g; if (!G || G.phase === 'end') return;
+  const crew = G.chars.filter(c => !c.imp), imp = G.chars.find(c => c.imp);
+  if (crew.reduce((a, c) => a + c.done.size, 0) >= crew.length * CQ_NTASK) { cqEnd('troupe', 'Tutti i compiti sono finiti: il film è pronto!'); return; }
+  if (imp.alive && crew.filter(c => c.alive).length <= 1) cqEnd('sab', `È rimasto un solo membro della troupe: le riprese sono rovinate!`);
+}
+function cqEnd(win, why) {
+  const G = cq.g; if (!G || G.phase === 'end') return;
+  G.phase = 'end'; cqMeetStop(); $('#cqMeet').hidden = true; $('#cqMap').hidden = true; cqCloseTask();
+  const me = G.me, imp = G.chars.find(c => c.imp), won = (win === 'sab') === me.imp;
+  $('#tkTitle').textContent = won ? 'Hai vinto!' : 'Hai perso!';
+  $('#tkBody').innerHTML = `<p class="lead" style="text-align:center"><b>${win === 'sab' ? 'Vince il sabotatore' : 'Vince la troupe'}</b><br>${why}</p>
+    <p class="hint" style="text-align:center">Il sabotatore era <b>${imp === me ? 'tu' : esc(imp.name)}</b>.</p>
+    <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#enHome').onclick = closeCiack;
+  $('#enNew').onclick = () => { cqCloseTask(); cqNewMatch(); };
+  if (won) { beep(660, 0.12, 0.05); beep(880, 0.12, 0.05, 0.13); beep(1100, 0.25, 0.05, 0.26); } else { beep(330, 0.2, 0.05); beep(260, 0.35, 0.05, 0.2); }
+}
+// ---- riunione e voto ----
+function cqMeeting(rep, body) {
+  const G = cq.g; if (!G || G.phase !== 'play') return;
+  G.phase = 'meet'; G.sab = null; cqCloseTask(); $('#cqMap').hidden = true; cq.joy = null; cq.keys = {};
+  beep(520, 0.15, 0.06); beep(520, 0.15, 0.06, 0.25); beep(780, 0.3, 0.06, 0.5);
+  const alive = G.chars.filter(c => c.alive), nm = c => '<b>' + esc(c.name) + '</b>', lines = [], votes = {};
+  const fmt = (c, txt) => `<b style="color:${cqLookOf(c).col}">${esc(c.name)}</b>: ${txt}`;
+  const first = body ? `Ho trovato ${nm(body)} a terra ${CQ_IN[body.room]}!` : 'Ho premuto il pulsante: dobbiamo parlare!';
+  const accusers = [];
+  for (const b of alive) {
+    if (!b.bot || b.imp) continue;
+    const k = b.saw && G.chars[b.saw.k];
+    if (k && k.alive) { lines.push([b, `Ho visto ${nm(k)} eliminare ${nm(G.chars[b.saw.v])}!`]); votes[b.id] = k.id; accusers.push(b); continue; }
+    const sus = [...b.sus].map(id => G.chars[id]).filter(c => c.alive && c !== b);
+    // chi ho visto nella stanza del corpo poco prima
+    const near = body ? G.chars.filter(c => c.alive && c !== b && b.seen[c.id] && b.seen[c.id].r === body.room && Math.abs(b.seen[c.id].t - body.t) < 20) : [];
+    if (sus.length && Math.random() < 0.75) { const s = sus[Math.floor(Math.random() * sus.length)]; lines.push([b, `${nm(s)} era vicino a dove è successo…`]); votes[b.id] = s.id; }
+    else if (near.length && Math.random() < 0.8) { const s = near[Math.floor(Math.random() * near.length)]; lines.push([b, `Poco prima ho visto ${nm(s)} ${CQ_IN[body.room]}.`]); votes[b.id] = s.id; }
+    else {
+      lines.push([b, Math.random() < 0.5 ? `Io ero ${CQ_IN[cqRoomName(b.x, b.y)]} a fare i compiti.` : 'Non ho visto niente.']);
+      const o = alive.filter(c => c !== b); votes[b.id] = Math.random() < 0.25 ? o[Math.floor(Math.random() * o.length)].id : 'skip';
+    }
+  }
+  const imp = G.chars.find(c => c.imp);
+  if (imp.bot && imp.alive) {
+    const acc = accusers.find(a => votes[a.id] === imp.id);
+    if (acc) { lines.push([imp, `Non sono stato io! ${nm(acc)} sta mentendo!`]); votes[imp.id] = acc.id; }
+    else {
+      const tally = {}; for (const t of Object.values(votes)) if (t !== 'skip' && t !== imp.id) tally[t] = (tally[t] || 0) + 1;
+      const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0], crew = alive.filter(c => !c.imp);
+      const t = top != null ? G.chars[top] : crew[Math.floor(Math.random() * crew.length)];
+      if (t) { lines.push([imp, `Secondo me è ${nm(t)}.`]); votes[imp.id] = t.id; } else votes[imp.id] = 'skip';
+    }
+  }
+  const chat = [fmt(rep, first)].concat(lines.sort(() => Math.random() - 0.5).map(([c, t]) => fmt(c, t)));
+  G.meet = { body, votes, lines: chat, timers: [], iv: 0, revealed: false, chatDone: false, myVote: undefined, sel: null, ej: null };
+  cqMeetUI();
+}
+function cqMeetStop() { const M = cq.g && cq.g.meet; if (M) { M.timers.forEach(clearTimeout); clearInterval(M.iv); } }
+function cqMeetUI() {
+  const G = cq.g, M = G.meet, me = G.me;
+  $('#mtTitle').textContent = M.body ? 'Corpo trovato!' : 'Riunione d\'emergenza!';
+  $('#mtChat').innerHTML = '';
+  $('#mtRes').textContent = me.alive ? 'Tocca chi vuoi espellere e premi Vota, oppure Salta.' : 'Sei un fantasma: guardi la votazione.';
+  $('#mtGrid').innerHTML = G.chars.map(c => `<button type="button" class="mc${c.alive ? '' : ' dead'}" data-id="${c.id}"><canvas width="72" height="72"></canvas><span class="nm">${esc(c.name)}${c === me ? ' (tu)' : ''}</span><span class="vv">${c.alive ? '' : 'eliminato'}</span></button>`).join('');
+  $('#mtGrid').querySelectorAll('canvas').forEach((cv, i) => { const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); cqPlayer(g, 18, 34, 17, cqLookOf(G.chars[i]), 0, 1); });
+  $('#mtGrid').onclick = e => {
+    const b = e.target.closest('.mc'); if (!b || M.revealed || M.myVote !== undefined || !me.alive) return;
+    const c = G.chars[+b.dataset.id]; if (!c.alive || c === me) return;
+    M.sel = c.id; $('#mtGrid').querySelectorAll('.mc').forEach(x => x.classList.toggle('sel', x === b)); $('#mtVote').disabled = false;
+  };
+  $('#mtVote').textContent = 'Vota'; $('#mtVote').disabled = true; $('#mtSkip').hidden = !me.alive;
+  $('#mtVote').onclick = () => { if (M.revealed) { cqMeetEnd(); return; } if (M.sel == null) return; M.myVote = M.sel; cqMeetMaybeReveal(); };
+  $('#mtSkip').onclick = () => { if (M.revealed || M.myVote !== undefined) return; M.myVote = 'skip'; cqMeetMaybeReveal(); };
+  M.lines.forEach((l, i) => M.timers.push(setTimeout(() => {
+    const d = document.createElement('div'); d.innerHTML = l; $('#mtChat').appendChild(d); $('#mtChat').scrollTop = 1e6; beep(500, 0.03, 0.02);
+    if (i === M.lines.length - 1) { M.chatDone = true; cqMeetMaybeReveal(); }
+  }, 500 + i * 1100)));
+  let t = 45; $('#mtTime').textContent = t + ' s';
+  M.iv = setInterval(() => { t--; $('#mtTime').textContent = Math.max(0, t) + ' s'; if (t <= 0) { if (M.myVote === undefined) M.myVote = 'skip'; M.chatDone = true; cqMeetMaybeReveal(); } }, 1000);
+  $('#cqMeet').hidden = false;
+}
+function cqMeetMaybeReveal() {
+  const G = cq.g, M = G.meet; if (!M || M.revealed) return;
+  if (G.me.alive && M.myVote === undefined) return;
+  if (!M.chatDone) { $('#mtRes').textContent = 'Voto dato. Aspettiamo che tutti abbiano parlato…'; return; }
+  if (!G.me.alive && !M.wait) { M.wait = 1; M.timers.push(setTimeout(() => cqMeetMaybeReveal(), 2500)); return; }
+  M.revealed = true; clearInterval(M.iv); $('#mtTime').textContent = '';
+  const votes = Object.assign({}, M.votes); if (G.me.alive) votes[0] = M.myVote;
+  const cnt = {}; let skip = 0;
+  for (const [vid, t] of Object.entries(votes)) { if (!G.chars[vid].alive) continue; if (t === 'skip') skip++; else cnt[t] = (cnt[t] || 0) + 1; }
+  $('#mtGrid').querySelectorAll('.mc').forEach(b => {
+    const id = +b.dataset.id; if (!G.chars[id].alive) return;
+    b.querySelector('.vv').innerHTML = Object.entries(votes).filter(([v, t]) => t === id && G.chars[v].alive).map(([v]) => `<i style="background:${cqLookOf(G.chars[v]).col}"></i>`).join('');
+  });
+  let max = 0, top = null, tie = false;
+  for (const [id, n] of Object.entries(cnt)) { if (n > max) { max = n; top = +id; tie = false; } else if (n === max) tie = true; }
+  const ej = !tie && max > skip ? G.chars[top] : null;
+  M.ej = ej;
+  $('#mtRes').innerHTML = (skip ? 'Hanno saltato in ' + skip + '. ' : '') + (ej ? `<b>${esc(ej.name)}</b> è stato espulso. ${ej.imp ? 'Era il sabotatore!' : 'Non era il sabotatore.'}` : 'Nessuno è stato espulso.');
+  $('#mtVote').textContent = 'Continua'; $('#mtVote').disabled = false; $('#mtSkip').hidden = true;
+  if (ej) ej.alive = false;
+  beep(ej ? 300 : 500, 0.25, 0.05);
+}
+function cqMeetEnd() {
+  const G = cq.g, M = G.meet; cqMeetStop(); $('#cqMeet').hidden = true;
+  const ej = M.ej; G.meet = null; G.bodies = [];
+  let i = 0;
+  for (const c of G.chars) {
+    Object.assign(c, { path: [], goal: null, wait: 0, doing: null, hunt: null, saw: null, sus: new Set(), seen: {} });
+    const [x, y] = CQ_RING[i++ % CQ_RING.length]; c.x = x + 0.5; c.y = y + 0.5;
+    if (c.imp) c.kcd = 20;
+  }
+  cq.x = G.me.x; cq.y = G.me.y; G.sabCd = 25; G.phase = 'play'; cq.actKey = ''; cqHud();
+  if (ej && ej.imp) { cqEnd('troupe', ej === G.me ? 'Ti hanno scoperto ed espulso!' : `<b>${esc(ej.name)}</b> era il sabotatore ed è stato espulso.`); return; }
+  if (ej === G.me) cqPanel('Sei stato espulso', '<p class="lead">Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua');
+  cqCheckWin();
 }
 // mini-giochi: ognuno disegna il suo contenuto e chiama ok() quando e' finito
 function cqOpenTask(t) {
@@ -1724,7 +2092,7 @@ function cqOpenTask(t) {
   let alive = true; const timers = [];
   cq.tk = { stop() { alive = false; timers.forEach(clearTimeout); } };
   const later = (fn, ms) => timers.push(setTimeout(() => alive && fn(), ms));
-  const ok = () => { if (!alive) return; alive = false; hint.textContent = 'Fatto!'; beep(880, 0.12, 0.05); beep(1175, 0.16, 0.05, 0.12); setTimeout(() => { cqCloseTask(); cqTaskDone(t.id); }, 650); };
+  const ok = () => { if (!alive) return; alive = false; hint.textContent = 'Fatto!'; beep(880, 0.12, 0.05); beep(1175, 0.16, 0.05, 0.12); setTimeout(() => { cqCloseTask(); (t.fix || cqTaskDone)(t.id); }, 650); };
   const no = () => beep(220, 0.12, 0.05);
   const rnd = (a, b) => a + Math.random() * (b - a);
   $('#tkTitle').textContent = t.n; hint.textContent = '';
@@ -1783,6 +2151,14 @@ function cqOpenTask(t) {
         ang += d; if (d > 0) tot += d; el.style.transform = 'rotate(' + ang + 'rad)'; $('#rlP').style.width = Math.min(100, tot / need * 100) + '%'; if (tot >= need) ok(); };
       el.onpointerup = el.onpointercancel = () => { prev = null; };
       break; }
+    case 'allarme': {
+      body.innerHTML = '<p class="lead">Il proiettore si è surriscaldato: tieni premuto il pulsante finché la barra è piena.</p><button class="btn primary go" id="alH" type="button">Tieni premuto</button><div class="pbar" style="margin-top:12px"><i id="alP"></i></div>';
+      let held = 0, on = false; const hb = $('#alH');
+      hb.onpointerdown = e => { on = true; try { hb.setPointerCapture(e.pointerId); } catch {} }; hb.onpointerup = hb.onpointercancel = () => { on = false; };
+      hb.oncontextmenu = e => e.preventDefault();
+      const tick = () => { held = on ? held + 100 : Math.max(0, held - 150); $('#alP').style.width = Math.min(100, held / 2000 * 100) + '%'; if (held >= 2000) { ok(); return; } later(tick, 100); };
+      later(tick, 100);
+      break; }
     case 'fuoco': {
       const target = Math.round(rnd(15, 85));
       body.innerHTML = '<p class="lead">Il film è sfocato: sposta il cursore finché la scritta diventa nitida, poi tienilo fermo.</p><div class="scr" id="scr">CIACK US</div><input type="range" id="tkRange" min="0" max="100" value="' + (target > 50 ? 5 : 95) + '">';
@@ -1805,11 +2181,12 @@ function cqOpenMap() {
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x], f = cqFloor[y][x]; if (o && o.wall) dia(x, y, '#2a2e35'); else if (f) dia(x, y, o ? cqShade(f, 0.7) : f); }
   g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.85)';
   CQ_ROOMS.forEach(r => g.fillText(r.n, px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
-  for (const id of cq.tasks) { const t = cqTask(id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
+  if (cq.g && cq.g.sab) { const s = CQ_SABS[cq.g.sab.type]; g.fillStyle = '#e2553a'; g.beginPath(); g.arc(px(s.x + 0.5, s.y + 0.5), py(s.x + 0.5, s.y + 0.5), 7, 0, 7); g.fill(); }
+  if (!cq.g || !cq.g.me.imp) for (const id of cq.tasks || []) { const t = cqTask(id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function closeCiack() { cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
@@ -1831,6 +2208,9 @@ function cqInit() {
   $('#cqMapBtn').onclick = cqOpenMap;
   $('#mapClose').onclick = () => { $('#cqMap').hidden = true; };
   $('#tkClose').onclick = cqCloseTask;
+  $('#cqKill').onclick = cqMyKill;
+  $('#cqSabBtn').onclick = cqSabMenu;
+  window.addEventListener('keydown', e => { if (cq.on && (e.key === 'q' || e.key === 'Q')) cqMyKill(); });
   window.addEventListener('keydown', e => { if (cq.on && (e.key === 'e' || e.key === 'E' || e.key === ' ')) { e.preventDefault(); cqUse(); } });
 }
 // direzione sullo schermo (sx, sy) -> direzione nel mondo isometrico (la tessera e' larga il doppio dell'altezza)
@@ -1846,16 +2226,18 @@ function cqDir() {
 function cqFrame(t) {
   if (!cq.on) return;
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
-  const d = cqDir();
+  const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
+  const d = !G || playing ? cqDir() : null;
   if (d) {
     const nx = cq.x + d.wx * CQ_SPEED * dt, ny = cq.y + d.wy * CQ_SPEED * dt;   // si prova un asse alla volta: lungo i muri si scivola
     if (cqFree(nx, cq.y)) cq.x = nx;
     if (cqFree(cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.walk += dt * 11;
-    cqNearCheck();
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
+  if (playing) cqBots(dt);
+  cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
   cq.raf = requestAnimationFrame(cqFrame);
 }
@@ -1935,6 +2317,7 @@ function cqTools(g, TW) {
       case 'screen': bx(x, y + 0.4, x + 1, y + 0.6, 0.2, 3.2, '#14161a'); qL(x + 0.03, x + 0.97, y + 0.6, 0.3, 3.1, '#eef2f6'); qL(x + 0.03, x + 0.97, y + 0.6, 2.2, 3.1, '#fff'); break;
       case 'fusebox': bx(x + 0.15, y + 0.3, x + 0.85, y + 0.7, 0, 1.9, '#8a96a8'); qL(x + 0.2, x + 0.8, y + 0.7, 0.4, 1.8, '#9fabbc'); poly([S(x + 0.5, y + 0.7, 1.62), S(x + 0.38, y + 0.7, 1.38), S(x + 0.62, y + 0.7, 1.38)], '#f2c230');
         for (let k = 0; k < 3; k++) qL(x + 0.27 + k * 0.17, x + 0.35 + k * 0.17, y + 0.7, 0.7, 1.05, k === 1 ? '#e2553a' : '#2a2e35'); break;
+      case 'megaphone': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 0.8, '#444'); cyl(x + 0.5, y + 0.5, 0.42, 0.8, 0.95, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.24, 0.95, 1.05, '#9aa1ac'); cyl(x + 0.5, y + 0.5, 0.18, 1.05, 1.25, '#e2553a'); break;
       case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
     }
   };
@@ -1981,46 +2364,88 @@ function cqBuildBg() {
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
   if (!cq.bg) cqBuildBg();
-  const B = cq.bg, TW = B.TW, TH = TW / 2;
+  const B = cq.bg, TW = B.TW, TH = TW / 2, U = TH * 1.15;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
-  // posizioni allineate ai pixel dello schermo: l'immagine pronta e il riquadro ridisegnato combaciano senza righe
+  // posizioni allineate ai pixel dello schermo: l'immagine pronta e i riquadri ridisegnati combaciano senza righe
   const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
   for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
-  // intorno all'omino si ridisegna tutto da capo (pavimento, oggetti dietro, omino, oggetti davanti), solo in un piccolo riquadro
-  g.save();
-  const rx = al(tx + X - 1.2 * TW), ry = al(ty + Y - 2.35 * TW), rw = al(2.4 * TW), rh = al(2.75 * TW);   // contiene coda, zaino e cilindro
-  g.beginPath(); g.rect(rx, ry, rw, rh); g.clip(); g.clearRect(rx, ry, rw, rh);
-  g.translate(tx, ty);
-  const T = cqTools(g, TW), fx = Math.floor(cq.x), fy = Math.floor(cq.y), items = [];
-  for (let y = fy - 9; y <= fy + 9; y++) for (let x = fx - 9; x <= fx + 9; x++) {
-    T.floor(x, y);
-    const o = cqSolid[y] && cqSolid[y][x]; if (o) items.push({ d: x + y + 1, x, y, o });
+  // personaggi e corpi a terra (con le luci spente si vede solo vicino a se')
+  const G = cq.g, meLook = cqLook(), list = [];
+  const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && G.phase === 'play');
+  const seen = (x, y) => !dark || Math.hypot(x - cq.x, y - cq.y) < 3.3;
+  if (G) {
+    for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face });
+    for (const ch of G.chars) {
+      if (ch === G.me) list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (ch.alive ? '' : ' (fantasma)') });
+      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name });
+    }
+  } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
+  for (const o of list) {
+    o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y);
+    o.r = (o.body ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]).map(al);
+    o.on = o.r[2] > 0 && o.r[0] < W && o.r[3] > 0 && o.r[1] < H;
   }
-  T.decals();
-  items.push({ d: cq.x + cq.y, me: 1 });
-  items.sort((a, b) => a.d - b.d);
-  const look = cqLook();
-  for (const it of items) { if (it.me) cqPlayer(g, X, Y, TW, look, cq.walk, cq.face); else T.cell(it.x, it.y, it.o); }
-  g.restore();
-  const U = TH * 1.15, now = performance.now() / 1000;
-  for (const id of cq.tasks || []) {
-    if (cq.done.has(id)) continue;
-    const t = cqTask(id), mx = tx + px(t.x + 0.5, t.y + 0.5), my = ty + py(t.x + 0.5, t.y + 0.5) - 3.3 * U + Math.sin(now * 3) * 4;
-    if (mx < -40 || mx > W + 40 || my < -40 || my > H + 40) continue;
+  // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
+  const T = cqTools(g, TW);
+  for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list);
+  if (dark) {
+    const gr = g.createRadialGradient(tx + X, ty + Y - TH, TW * 1.5, tx + X, ty + Y - TH, TW * 2.7);
+    gr.addColorStop(0, 'rgba(5,6,8,0)'); gr.addColorStop(1, 'rgba(5,6,8,.94)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
+  }
+  for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * (o.L.skin === 'omino' && o.L.hat === 'cilindro' ? 2.2 : 1.85), o.name);
+  // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
+  const now = performance.now() / 1000;
+  const mark = (x, y, col) => {
+    const mx = tx + px(x + 0.5, y + 0.5), my = ty + py(x + 0.5, y + 0.5) - 3.3 * U + Math.sin(now * 3) * 4;
+    if (mx < -40 || mx > W + 40 || my < -40 || my > H + 40) return;
     g.globalAlpha = 0.75 + 0.25 * Math.sin(now * 6);
-    g.fillStyle = '#f2c230'; g.beginPath(); g.arc(mx, my, 12, 0, 7); g.fill();
+    g.fillStyle = col; g.beginPath(); g.arc(mx, my, 12, 0, 7); g.fill();
     g.beginPath(); g.moveTo(mx - 6, my + 9); g.lineTo(mx + 6, my + 9); g.lineTo(mx, my + 18); g.fill();
     g.globalAlpha = 1; g.fillStyle = '#1d2127'; g.font = '800 15px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', mx, my + 1);
-  }
-  cqName(g, tx + X, ty + Y - TW * (look.skin === 'omino' && look.hat === 'cilindro' ? 2.2 : 1.85), store.settings.myName || '');
+  };
+  if (!G || !G.me.imp) for (const id of cq.tasks || []) if (!cq.done.has(id)) { const t = cqTask(id); mark(t.x, t.y, '#f2c230'); }
+  if (G && G.sab && !G.me.imp) mark(CQ_SABS[G.sab.type].x, CQ_SABS[G.sab.type].y, '#e2553a');
   // joystick
   if (cq.joy) {
     const j = cq.joy, dx = j.x - j.x0, dy = j.y - j.y0, m = Math.hypot(dx, dy), k = m > 40 ? 40 / m : 1;
     g.strokeStyle = 'rgba(150,160,175,.55)'; g.lineWidth = 2; g.beginPath(); g.arc(j.x0, j.y0, 40, 0, 7); g.stroke();
     g.fillStyle = 'rgba(150,160,175,.55)'; g.beginPath(); g.arc(j.x0 + dx * k, j.y0 + dy * k, 16, 0, 7); g.fill();
   }
+}
+// ridisegna da capo un riquadro dello schermo: pavimento, oggetti e personaggi che lo toccano, dal piu' lontano al piu' vicino
+function cqRedraw(g, T, r, tx, ty, TW, list) {
+  const TH = TW / 2, U = TH * 1.15, [x0, y0, x1, y1] = r;
+  g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip(); g.clearRect(x0, y0, x1 - x0, y1 - y0); g.translate(tx, ty);
+  const a0 = x0 - tx, b0 = y0 - ty, a1 = x1 - tx, b1 = y1 - ty, mx = (a0 + a1) / 2, my = (b0 + b1) / 2;
+  const fx = Math.floor(mx / TW + my / TH), fy = Math.floor(my / TH - mx / TW), items = [];
+  for (let y = fy - 10; y <= fy + 10; y++) {
+    if (!cqFloor[y]) continue;
+    for (let x = fx - 10; x <= fx + 10; x++) {
+      const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
+      if (cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
+      const o = cqSolid[y][x];
+      if (o && rr + TW > a0 && l - TW < a1 && bt + TW > b0 && t - 3.5 * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
+    }
+  }
+  T.decals();
+  for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: c.x + c.y, c });
+  items.sort((a, b) => a.d - b.d);
+  for (const it of items) {
+    if (!it.c) { T.cell(it.x, it.y, it.o); continue; }
+    const c = it.c, X = c.sx - tx, Y = c.sy - ty;
+    if (c.body) cqBody(g, X, Y, TW, c.L, c.f);
+    else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y, TW, c.L, c.w, c.f); g.globalAlpha = 1; }
+  }
+  g.restore();
+}
+// personaggio a terra, sdraiato su un fianco
+function cqBody(g, X, Y, TW, L, f) {
+  const u = TW / 34;
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(X, Y, 30 * u, 8 * u, 0, 0, 7); g.fill();
+  g.save(); g.translate(X - f * 26 * u, Y - 8 * u); g.rotate(f * Math.PI / 2); cqPlayer(g, 0, 0, TW, L, 0, f, true); g.restore();
+  g.fillStyle = '#f2c230'; for (const [dx, dy] of [[-8, -26], [4, -32], [14, -24]]) { g.beginPath(); g.arc(X + dx * u, Y + dy * u, 2.4 * u, 0, 7); g.fill(); }
 }
 function cqName(g, X, Y, name) {
   if (!name) return;
@@ -2029,9 +2454,9 @@ function cqName(g, X, Y, name) {
 }
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
-function cqPlayer(g, X, Y, TW, L, walk, f) {
+function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
   const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, sw = Math.sin(walk) * 4;
-  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill();
+  if (!noShadow) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill(); }
   g.save(); g.translate(X, Y - bob); g.scale(u, u);
   const rac = L.skin === 'procione', col = rac ? '#8a8f99' : L.col;
   const ell = (x, y, rx, ry, c, rot) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, rot || 0, 0, 7); g.fill(); };
