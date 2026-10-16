@@ -1669,7 +1669,7 @@ const CQ_SPEED = 3.4, CQ_R = 0.3;
 // posti di partenza, pulsante delle riunioni, distributori). La mappa in uso sta in queste variabili, riempite da cqUseMap(id).
 let CQ_W, CQ_H, CQ_ROOMS, CQ_DOORS, CQ_DECALS, CQ_PROPS, CQ_TASKS, CQ_CAMS, CQ_VENDING, CQ_RING, CQ_BUTTON, CQ_SABS, CQ_IN, CQ_HELP, CQ_HALL;
 let CQ_MAP, CQ_CAMDESK;   // il pacchetto intero (per le cose che hanno solo alcune mappe) e le scrivanie delle telecamere
-let cqFloor, cqSolid, cqRoomOf;
+let cqFloor, cqSolid, cqRoomOf, cqDeco;
 // mappa "Studio": lo studio cinematografico
 function cqMapStudio() {
   // stanze del set: nome, posizione, misura, colori del pavimento a scacchi, colore dei muri, tipo di pavimento (k)
@@ -1783,94 +1783,86 @@ function cqMapStudio() {
     sabTxt: 'Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme.',
     help: '<p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>distributore</b> è in Mensa e in Sala regia.</p>' };
 }
-// mappa "Notte nel bosco": accampamento con il falo', ruscello con due ponti, radura del set, grotta, furgoni della troupe e bosco fitto.
-// Oltre alle riprese bisogna sopravvivere (surv): fame, freddo, fuoco, notti. Gli alberi si piazzano con un seme fisso: la mappa e' uguale per tutti.
+// mappa "Notte nel bosco": foresta sperduta. Si parte da un cerchio di sassi in una radura d'erba: il fuoco e la tenda si costruiscono con la legna
+// degli alberi. Ruscello con due ponti, un piccolo set del film, una grotta. Oltre alle riprese bisogna sopravvivere (surv): fame, freddo, fuoco, notti.
+// Alberi grandi (tree: in trees il tronco, la chioma si disegna sopra a parte e si fa trasparente se ci passi dietro), cespugli di contorno (deco: ci si passa).
+// Tutto si piazza con un seme fisso: la mappa e' uguale per tutti.
 function cqMapBosco() {
-  const W = 62, H = 50, WOOD = ['#9a7a52', '#8f7049'];
-  // nl = niente scritta sul pavimento; lx, ly = dove va la scritta
+  const W = 62, H = 50, WOOD = ['#9a7a52', '#8f7049'], GR = ['#4f7a3a', '#4a7336'];
+  // nl = niente scritta sul pavimento, nm = niente scritta sulla mappa piccola; lx, ly = dove va la scritta
   const rooms = [
-    { n: 'Bosco fitto', x: 0, y: 0, w: W, h: H, c: ['#4f7a3a', '#4a7336'], wc: '#6a6762', k: 'grass', lx: 7, ly: 26 },
-    { n: 'Ruscello', x: 42, y: 0, w: 8, h: H, c: ['#b9a97c', '#b1a174'], wc: '#6a6762', k: 'sand', nl: 1 },
-    { n: 'Accampamento', x: 23, y: 17, w: 15, h: 14, c: ['#8a6a48', '#826444'], wc: '#6a6762', k: 'dirt' },
-    { n: 'Radura del set', x: 50, y: 3, w: 11, h: 22, c: ['#7aa04a', '#749a46'], wc: '#6a6762', k: 'meadow' },
+    { n: 'Bosco fitto', x: 0, y: 0, w: W, h: H, c: GR, wc: '#6a6762', k: 'grass', nl: 1 },
+    { n: 'Ruscello', x: 43, y: 0, w: 6, h: H, c: ['#b9a97c', '#b1a174'], wc: '#6a6762', k: 'sand', nl: 1 },
+    { n: 'Accampamento', x: 26, y: 20, w: 9, h: 9, c: GR, wc: '#6a6762', k: 'grass', nl: 1 },
+    { n: 'Set del film', x: 51, y: 7, w: 8, h: 8, c: ['#7aa04a', '#749a46'], wc: '#6a6762', k: 'meadow' },
     { n: 'Grotta', x: 51, y: 32, w: 9, h: 13, c: ['#5c5854', '#56524e'], wc: '#57534f', k: 'stone' },
-    { n: 'Furgoni', x: 3, y: 3, w: 14, h: 11, c: ['#7a6a52', '#74644c'], wc: '#6a6762', k: 'dirt' },
-    { n: 'Ponte', x: 45, y: 14, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1 },
-    { n: 'Ponte', x: 45, y: 33, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1 }];
+    { n: 'Ponte', x: 45, y: 14, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1, nm: 1 },
+    { n: 'Ponte', x: 45, y: 33, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1, nm: 1 }];
   // buchi senza pavimento: diventano le pareti di roccia della grotta (ingresso a ovest, x 50, y 37-39)
   const holes = [[50, 31, 11, 1], [50, 45, 11, 1], [50, 32, 1, 5], [50, 40, 1, 5], [60, 32, 1, 13]];
-  // sentieri di terra battuta
-  const paths = [[16, 8, 9, 2], [23, 8, 2, 9], [32, 14, 13, 2], [32, 14, 2, 3], [47, 14, 3, 2], [30, 31, 2, 3], [30, 33, 15, 2], [47, 33, 2, 6], [49, 37, 2, 3], [12, 30, 11, 2], [12, 30, 2, 12]];
-  const decals = [];
-  paths.forEach(([x, y, w, h]) => decals.push([x, y, w, h, '#7d6347']));
-  paths.forEach(([x, y, w, h]) => decals.push([x + 0.15, y + 0.15, w - 0.3, h - 0.3, '#86694b']));
-  decals.push([27, 21, 7, 7, '#7a5c3e'], [28, 22, 5, 5, '#6e5236']);   // terra battuta intorno al falo'
-  const props = [], pp = (t, x, y, o) => props.push([t, x, y, o]), prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
-  // Accampamento
-  pp('campfire', 30, 24); pp('bell', 30, 19);
-  pp('tent', 25, 20, '#d9822b'); pp('tent', 25, 24, '#3b8a6a'); pp('tent', 35, 20, '#3b6fe0'); pp('tent', 35, 24, '#c0392b');
-  pp('generator', 37, 18); pp('stove', 24, 29); pp('pot', 36, 27); pp('monitor', 33, 29); pp('dchair', 33, 30, ['#8a96a8', 's']);
-  pp('chest', 27, 17); pp('sack', 28, 17); pp('crate', 36, 30); pp('crate', 37, 30); pp('stump', 27, 26); pp('stump', 33, 22); pp('lantern', 23, 23); pp('lantern', 37, 23);
-  // Furgoni
-  prow('truck', 5, 4, 5, 0, 1); prow('truck', 6, 4, 4, 0, 1); pp('cab', 6, 8); prow('truck', 10, 4, 5, 0, 1); prow('truck', 11, 4, 4, 0, 1); pp('cab', 11, 8);
-  pp('reel', 14, 5); pp('rack', 14, 11); pp('rack', 15, 11); pp('barrel', 8, 12, '#c0392b'); pp('crate', 4, 12); pp('crate', 5, 12); pp('sack', 16, 4); pp('table', 13, 8); pp('dchair', 13, 9, '#d9c9a0'); pp('cone', 9, 10); pp('cone', 3, 3);
-  // Radura del set
-  pp('camera', 54, 10); pp('lamp', 52, 6); pp('lamp', 58, 6); pp('lamp', 59, 14); pp('boom', 57, 11); pp('clapper', 55, 15); pp('dchair', 52, 17, '#d9c9a0'); pp('dchair', 53, 17, '#c96a5a');
-  pp('mirror', 59, 20); pp('fusebox', 51, 22); pp('crate', 60, 4); pp('crate2', 60, 5); pp('camera', 57, 19);
+  const decals = [], props = [], trees = [], deco = [];
+  const pp = (t, x, y, o) => props.push([t, x, y, o]);
+  let s = 20261018; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const taken = new Set(), take = (x, y) => taken.add(x + ',' + y);
+  const tree = (x, y, k) => { const t = { x, y, k: k || (rnd() < 0.55 ? 'pine' : 'oak'), v: Math.floor(rnd() * 3), h: 0.9 + rnd() * 0.25 }; trees.push(t); pp('tree', x, y, t); take(x, y); };
+  // Accampamento: solo il cerchio di sassi, il posto della tenda e il corno per le riunioni (tutto il resto si costruisce)
+  pp('firepit', 30, 24); pp('tentsite', 33, 22); pp('horn', 30, 20);
+  tree(27, 20, 'oak'); tree(34, 20, 'pine'); tree(26, 27, 'pine');   // alberi solo dietro o di lato: davanti coprirebbero il fuoco
+  // Set del film (piccolo)
+  pp('camera', 54, 9); pp('clapper', 57, 12); pp('lamp', 52, 13); pp('boom', 57, 8); pp('barrel', 55, 13, '#3b6ea5');
   // Grotta
-  pp('lantern', 57, 42); pp('rock', 53, 34); pp('rock', 58, 35); pp('rock', 55, 39); pp('rock', 52, 43); pp('chest', 59, 44); pp('chest', 52, 33); pp('sack', 59, 33);
-  // Ruscello: acqua (non si attraversa) tranne i ponti; secchio per l'acqua e qualche sasso sulla riva
+  pp('lantern', 57, 42); pp('rock', 53, 34); pp('rock', 58, 35); pp('rock', 55, 39); pp('rock', 52, 43); pp('chest', 59, 44); pp('chest', 52, 33);
+  // Ruscello: acqua (non si attraversa) tranne i ponti; secchio per l'acqua
   for (let y = 0; y < H; y++) if (y !== 14 && y !== 15 && y !== 33 && y !== 34) { pp('water', 45, y); pp('water', 46, y); }
   pp('bucket', 44, 24); pp('rock', 43, 8); pp('rock', 48, 28); pp('rock', 43, 41);
-  // Bosco fitto: cataste di legna lungo i sentieri, cinepresa caduta nel fango
-  pp('logpile', 14, 36); pp('logpile', 11, 40); pp('logpile', 25, 11); pp('logpile', 38, 13); pp('camera', 12, 43);
-  // alberi: bordo chiuso, poi bosco a caso (seme fisso) lontano da stanze, sentieri e oggetti
-  let s = 20261017; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
-  const inR = (x, y, [rx, ry, rw, rh], m) => x >= rx - m && x < rx + rw + m && y >= ry - m && y < ry + rh + m;
-  const taken = new Set(props.map(p => p[1] + ',' + p[2])), tree = (x, y) => { pp(rnd() < 0.6 ? 'pine' : 'oak', x, y); taken.add(x + ',' + y); };
+  // nel bosco: cose perse dalla troupe (compiti) e zaini abbandonati (da frugare)
+  pp('camera', 12, 40); pp('ribbon', 18, 14); pp('reel', 40, 40); pp('script', 20, 32); pp('sack', 8, 8); pp('sack', 38, 6); pp('sack', 22, 44);
+  props.forEach(p => take(p[1], p[2]));
+  // bordo chiuso da alberi
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !taken.has(x + ',' + y)) tree(x, y);
-  const clear = (x, y) => rooms.some((r, i) => i && inR(x, y, [r.x, r.y, r.w, r.h], i === 2 ? 1 : 0)) || paths.some(p => inR(x, y, p, 1)) || holes.some(h => inR(x, y, h, 0))
-    || props.some(p => p[0] !== 'pine' && p[0] !== 'oak' && p[0] !== 'water' && Math.abs(p[1] - x) <= 1 && Math.abs(p[2] - y) <= 1);
+  // bosco a caso: alberi radi (mai attaccati tra loro), qualche masso, tanti cespugli e felci di contorno
+  const inR = (x, y, [rx, ry, rw, rh], m) => x >= rx - m && x < rx + rw + m && y >= ry - m && y < ry + rh + m;
+  const isHole = (x, y) => holes.some(h => inR(x, y, h, 0));
+  const room = (x, y) => { let k = 0; rooms.forEach((r, i) => { if (inR(x, y, [r.x, r.y, r.w, r.h], 0)) k = i; }); return k; };
+  const nearProp = (x, y) => props.some(p => p[0] !== 'tree' && p[0] !== 'water' && Math.abs(p[1] - x) <= 1 && Math.abs(p[2] - y) <= 1);
+  const nearTree = (x, y) => trees.some(t => Math.abs(t.x - x) <= 1 && Math.abs(t.y - y) <= 1);
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
-    if (taken.has(x + ',' + y) || clear(x, y)) continue;
-    const r = rnd();
-    if (r < 0.17) tree(x, y); else if (r < 0.21) { pp('bush', x, y); taken.add(x + ',' + y); } else if (r < 0.225) { pp('rock', x, y); taken.add(x + ',' + y); } else if (r < 0.24) { pp('stump', x, y); taken.add(x + ',' + y); }
+    if (taken.has(x + ',' + y) || isHole(x, y)) continue;
+    const ri = room(x, y), r = rnd();
+    if (ri === 0 && !nearProp(x, y)) {
+      if (r < 0.13) { if (!nearTree(x, y)) { tree(x, y); continue; } }
+      else if (r < 0.14) { pp('rock', x, y); take(x, y); continue; }
+    }
+    if (ri === 0 || ri === 2) { const d = rnd(); if (d < (ri === 2 ? 0.12 : 0.3)) deco.push([x, y, d < 0.1 ? 'fern' : d < 0.18 ? 'shrub' : d < 0.26 ? 'tuft' : 'mush']); }
   }
-  // le celle libere chiuse tra gli alberi (dove non si arriverebbe) diventano cespugli
-  const isHole = (x, y) => holes.some(h => inR(x, y, h, 0)), free = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !taken.has(x + ',' + y) && !isHole(x, y);
+  // le celle libere chiuse (dove non si arriverebbe) diventano cespugli fitti
+  const free = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !taken.has(x + ',' + y) && !isHole(x, y);
   const seen = new Set(['30,26']), q = [[30, 26]];
   while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + dx) + ',' + (y + dy); if (free(x + dx, y + dy) && !seen.has(k)) { seen.add(k); q.push([x + dx, y + dy]); } } }
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (free(x, y) && !seen.has(x + ',' + y)) { pp('bush', x, y); taken.add(x + ',' + y); }
-  // fiori nella radura
-  for (let i = 0; i < 40; i++) { const x = 50 + rnd() * 10.6, y = 3 + rnd() * 21.6; decals.push([x, y, 0.16, 0.16, ['#f2e27a', '#f07ab8', '#ffffff', '#b070e0'][Math.floor(rnd() * 4)]]); }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (free(x, y) && !seen.has(x + ',' + y)) { pp('bush', x, y); take(x, y); }
+  const deco2 = deco.filter(([x, y]) => !taken.has(x + ',' + y));
+  // fiori nel set
+  for (let i = 0; i < 24; i++) { const x = 51 + rnd() * 7.6, y = 7 + rnd() * 7.6; decals.push([x, y, 0.16, 0.16, ['#f2e27a', '#f07ab8', '#ffffff', '#b070e0'][Math.floor(rnd() * 4)]]); }
   const tasks = [
-    { id: 'ciak', n: 'Batti il ciak', r: 'Radura del set', x: 55, y: 15 },
-    { id: 'fuoco', n: 'Metti a fuoco la cinepresa', r: 'Radura del set', x: 54, y: 10 },
-    { id: 'fari', n: 'Accendi i fari del set', r: 'Radura del set', x: 51, y: 22, game: 'luci', lead: 'Accendi tutti gli interruttori dei fari del set.' },
-    { id: 'trucco', n: "Trucca l'attore", r: 'Radura del set', x: 59, y: 20 },
-    { id: 'costume', n: 'Prepara il costume', r: 'Furgoni', x: 14, y: 11 },
-    { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Furgoni', x: 14, y: 5 },
-    { id: 'tanica', n: 'Riempi la tanica', r: 'Furgoni', x: 8, y: 12, game: 'pieno', lead: 'Tieni premuto finché la tanica di benzina è piena.' },
-    { id: 'montaggio', n: 'Monta la scena', r: 'Accampamento', x: 33, y: 29 },
-    { id: 'cavi', n: 'Collega i cavi del generatore', r: 'Accampamento', x: 37, y: 18 },
-    { id: 'caffe', n: 'Scalda il caffè', r: 'Accampamento', x: 24, y: 29, lead: 'Tieni premuto: il caffè si scalda sul fornelletto.' },
-    { id: 'fango', n: 'Pulisci la cinepresa dal fango', r: 'Bosco fitto', x: 12, y: 43, game: 'sella', lead: 'La cinepresa è caduta nel fango: tocca tutte le macchie per pulirla.' },
-    { id: 'portalanterna', n: 'Porta la lanterna sul set', steps: [{ n: 'Prendi la lanterna', r: 'Grotta', x: 57, y: 42, game: 'prendi' }, { n: 'Appendi la lanterna', r: 'Radura del set', x: 52, y: 6, game: 'consegna' }] },
-    { id: 'portaacqua', n: "Porta l'acqua all'accampamento", steps: [{ n: "Prendi l'acqua", r: 'Ruscello', x: 44, y: 24, game: 'prendi' }, { n: "Versa l'acqua nella pentola", r: 'Accampamento', x: 36, y: 27, game: 'consegna' }] }];
-  return { w: W, h: H, rooms, doors: [], decals, props, tasks, holes, hall: 0, wall: 'rock', surv: true, fire: { x: 30, y: 24 },
+    { id: 'ciak', n: 'Batti il ciak', r: 'Set del film', x: 57, y: 12 },
+    { id: 'fuoco', n: 'Metti a fuoco la cinepresa', r: 'Set del film', x: 54, y: 9 },
+    { id: 'fari', n: 'Accendi il faro del set', r: 'Set del film', x: 52, y: 13, game: 'luci', lead: 'Accendi tutti gli interruttori del faro.' },
+    { id: 'fango', n: 'Pulisci la cinepresa dal fango', r: 'Bosco fitto', x: 12, y: 40, game: 'sella', lead: 'La cinepresa è caduta nel fango: tocca tutte le macchie per pulirla.' },
+    { id: 'nastri', n: 'Lega i nastri del sentiero', r: 'Bosco fitto', x: 18, y: 14, game: 'cavi', lead: 'Lega i nastri colorati per segnare la strada: tocca un nastro a sinistra, poi quello dello stesso colore a destra.' },
+    { id: 'pellicola', n: 'Riavvolgi la pellicola caduta', r: 'Bosco fitto', x: 40, y: 40, game: 'bobina' },
+    { id: 'copione', n: 'Ritrova il copione', r: 'Bosco fitto', x: 20, y: 32, game: 'montaggio', lead: 'Il vento ha sparso il copione: rimetti le pagine in ordine, da 1 a 5.' },
+    { id: 'portalanterna', n: 'Porta la lanterna sul set', steps: [{ n: 'Prendi la lanterna', r: 'Grotta', x: 57, y: 42, game: 'prendi' }, { n: 'Appendi la lanterna alla giraffa', r: 'Set del film', x: 57, y: 8, game: 'consegna' }] },
+    { id: 'portaacqua', n: 'Porta l\'acqua per la pioggia finta', steps: [{ n: 'Prendi l\'acqua', r: 'Ruscello', x: 44, y: 24, game: 'prendi' }, { n: 'Versa l\'acqua nel bidone', r: 'Set del film', x: 55, y: 13, game: 'consegna' }] }];
+  return { w: W, h: H, rooms, doors: [], decals, props, tasks, holes, trees, deco: deco2, hall: 0, wall: 'rock', surv: true, fire: { x: 30, y: 24 }, tent: { x: 33, y: 22 },
     cams: [], vending: [],
-    ring: [[28, 23], [28, 25], [32, 23], [32, 25], [29, 22], [31, 22], [29, 26], [31, 26], [30, 22], [30, 26]],   // posti di partenza, intorno al falo'
-    button: { x: 30, y: 19 },
-    // campo: tenda e fuoco rotti insieme, si rimettono a posto in piu' passaggi (games); fuoco: si spegne e basta, poi si riaccende
-    sabs: { campo: { x: 30, y: 24, where: 'accampamento', lab: 'Distruggi l\'accampamento', steps: 3, games: [
-        { id: 'caffe', n: 'Rialza la tenda', lead: 'Tieni premuto per tirare su il telo della tenda.' },
-        { id: 'montaggio', n: 'Pianta i picchetti', lead: 'Pianta i picchetti in ordine, da 1 a 5.' },
-        { id: 'bobina', n: 'Riaccendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.' }] },
-      fuoco: { x: 30, y: 24, where: 'falò', lab: 'Spegni il fuoco', instant: true } },
-    inn: { 'Bosco fitto': 'nel bosco fitto', Ruscello: 'al ruscello', Accampamento: 'all\'accampamento', 'Radura del set': 'nella radura del set', Grotta: 'nella grotta', Furgoni: 'ai furgoni', Ponte: 'sul ponte' },
-    btnTxt: 'La campana dell\'accampamento chiama una riunione (una volta sola).',
+    ring: [[28, 23], [28, 25], [32, 25], [29, 22], [31, 22], [29, 26], [31, 26], [30, 22], [30, 26], [28, 24]],   // posti di partenza, intorno al cerchio di sassi
+    button: { x: 30, y: 20 },
+    // sabotaggi del bosco: tutti e due immediati (niente da riparare: si ricostruisce con la legna)
+    sabs: { campo: { x: 30, y: 24, where: 'accampamento', lab: 'Distruggi l\'accampamento', instant: true }, fuoco: { x: 30, y: 24, where: 'falò', lab: 'Spegni il fuoco', instant: true } },
+    inn: { 'Bosco fitto': 'nel bosco fitto', Ruscello: 'al ruscello', Accampamento: 'all\'accampamento', 'Set del film': 'sul set', Grotta: 'nella grotta', Ponte: 'sul ponte' },
+    btnTxt: 'Il corno appeso all\'accampamento chiama una riunione (una volta sola).',
     sabTxt: 'Con <b>Sabota</b> spegni il fuoco o distruggi l\'accampamento. Tu non muori di fame né di freddo, ma fai finta!',
-    help: '<p class="hint">🌲 Nel bosco bisogna anche <b>sopravvivere</b>: guarda le barre di fame 🍗 e freddo ❄️. Prendi la legna dalle cataste e portala al fuoco, pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Di notte, lontano dal fuoco, si gela: ogni notte fa più freddo. La tenda ripara chi sta nell\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti!</p>' };
+    help: '<p class="hint">🌲 Siete sperduti nel bosco: bisogna anche <b>sopravvivere</b>. Taglia gli alberi per la legna, porta 3 legna al cerchio di sassi per fare il <b>falò</b> e accendilo, 4 legna per la <b>tenda</b>. Pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Guarda le barre di fame 🍗 e freddo ❄️: di notte, lontano dal fuoco, si gela e ogni notte fa più freddo. La tenda ripara chi sta all\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti!</p>' };
 }
 // mappe da scegliere nella stanza d'attesa (soon = non ancora pronta, solo = per ora solo contro il computer)
 const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco, solo: true } };
@@ -1900,12 +1892,16 @@ function cqUseMap(id) {
     for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { const r = cqRoomOf[y + dy] && cqRoomOf[y + dy][x + dx]; if (r >= 0) { ri = r; break; } }
     if (ri >= 0) cqSolid[y][x] = { wall: 1, col: CQ_ROOMS[ri].wc };
   }
-  // sopravvivenza: dove si pesca (celle libere accanto all'acqua) e dove si prende la legna
+  // sopravvivenza: dove si pesca (celle libere accanto all'acqua)
   if (P.surv && !P.fish) {
     const wet = (x, y) => cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop === 'water';
     P.fish = []; for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x] && !cqSolid[y][x] && (wet(x - 1, y) || wet(x + 1, y) || wet(x, y - 1) || wet(x, y + 1))) P.fish.push([x, y]);
-    P.logs = CQ_PROPS.filter(p => p[0] === 'logpile').map(p => [p[1], p[2]]);
   }
+  // cespugli e felci di contorno: si disegnano col pavimento e ci si passa attraverso
+  cqDeco = P.deco ? cqFloor.map(r => r.map(() => null)) : null;
+  if (P.deco) for (const [x, y, t] of P.deco) cqDeco[y][x] = t;
+  // alberi tagliati (ceppi) di nuovo in piedi quando si rimette la mappa
+  if (P.trees) for (const t of P.trees) { t.cut = 0; t.a = 1; }
 }
 // modo di disegno della mappa: 0 = tessere pronte (normale), 1 = come 0 ma i riquadri dei personaggi composti dal processore, 2 = niente tessere (tutto ridisegnato
 // a ogni fotogramma), 3 = tessere come immagini della pagina mosse dal browser. Si sceglie con ?grafica=N e resta ricordato.
@@ -2543,7 +2539,7 @@ function cqHud() {
   role.className = 'cqRole' + (me.imp ? ' imp' : '');
   $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const s = cqStep(me, id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near && cq.near.task === id ? 'near' : ''}">${esc(s.r)}: ${esc(s.n)}${s.of > 1 ? ' (' + (s.i + 1) + '/' + s.of + ')' : ''}</div>`; }).join('');
   const a = cq.act, ub = $('#cqUse');
-  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio', wood: 'Prendi legna', feed: 'Metti legna', light: 'Accendi', fishing: 'Pesca', cook: 'Cuoci', eat: 'Mangia' }[a.k] : 'Usa';
+  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio', chop: 'Taglia', build: 'Costruisci', pitch: 'Tenda', feed: 'Metti legna', light: 'Accendi', fishing: 'Pesca', cook: 'Cuoci', eat: 'Mangia' }[a.k] : 'Usa';
   ub.classList.toggle('on', !!a); ub.classList.toggle('rep', !!a && (a.k === 'rep' || a.k === 'btn'));
   ub.style.fontSize = ub.textContent.length > 8 ? '13px' : '';
   cqItemsUI();
@@ -2569,7 +2565,7 @@ function cqHudFast() {
   if (S) {
     const bar = (v, c) => `<div class="sb"><i style="width:${Math.round(v)}%;background:${v < 25 ? '#e2553a' : c}"></i></div>`, me = G.me;
     const h = me.alive ? `🍗${bar(me.hun, '#e8a030')}❄️${bar(me.cold, '#59b6e8')}` : '<span style="opacity:.7">Fantasma</span>';
-    const txt = h + `<span>${S.lit && S.camp ? '🔥' + Math.ceil(S.fuel) : '⚫ spento'}</span><span>${S.dark > 0.5 ? '🌙 Notte ' + S.n : '☀️ Giorno ' + (Math.floor(S.t / CQ_DAY) + 1)}</span>` + (me.carry ? `<span>${me.carry === 'wood' ? '🪵' : '🐟'}</span>` : '');
+    const txt = h + `<span>${S.lit ? '🔥' + Math.ceil(S.fuel) : S.fw < CQ_FIREW ? '🔥' + S.fw + '/' + CQ_FIREW : '⚫ spento'}</span>${S.tw < CQ_TENTW ? '<span>⛺' + S.tw + '/' + CQ_TENTW + '</span>' : ''}<span>${S.dark > 0.5 ? '🌙 Notte ' + S.n : '☀️ Giorno ' + (Math.floor(S.t / CQ_DAY) + 1)}</span>` + (me.carry ? `<span>${me.carry === 'wood' ? '🪵' : '🐟'}</span>` : '');
     if (cq.svTxt !== txt) { cq.svTxt = txt; sv.innerHTML = txt; }
   }
   let bt = '';
@@ -2609,7 +2605,7 @@ function cqUse() {
   if (a.k === 'rep') { if (G.guest) cqNetSend({ k: 'rep', b: a.body.id }); else cqMeeting(G.me, a.body); }
   else if (a.k === 'btn') { if (G.guest) cqNetSend({ k: 'btn' }); else { G.button--; cqMeeting(G.me, null); } }
   else if (a.k === 'fix') { const s = CQ_SABS[G.sab.type]; cqOpenTask(s.steps ? Object.assign({}, s.games[G.sab.step], { fix: cqFixStep }) : G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab }); }
-  else if (G.sv && ['wood', 'feed', 'light', 'fishing', 'cook', 'eat'].includes(a.k)) cqSvUse(a.k);
+  else if (G.sv && ['chop', 'build', 'pitch', 'feed', 'light', 'fishing', 'cook', 'eat'].includes(a.k)) cqSvUse(a.k, a);
   else if (a.k === 'cam') cqOpenCams();
   else if (a.k === 'search') cqSearch(a.L);
   else if (a.k === 'shop') cqShop(null);
@@ -2756,8 +2752,13 @@ function cqStartSab(type, natural) {
     if (!G.sv.lit) return;
     G.sv.lit = false; G.sabCd = 30; beep(260, 0.3, 0.05); cqToast('🔥 Il fuoco si è spento all\'improvviso!'); cq.actKey = ''; cqHud(); return;
   }
+  if (type === 'campo') {   // falo' e tenda distrutti: si ricostruiscono con la legna
+    const S = G.sv; if (!S.fw && !S.tw) return;
+    S.fw = 0; S.tw = 0; S.lit = false; S.fuel = 0; G.sabCd = 40;
+    cqBgCell(CQ_MAP.fire.x, CQ_MAP.fire.y); cqBgCell(CQ_MAP.tent.x, CQ_MAP.tent.y);
+    beep(300, 0.25, 0.05); beep(240, 0.3, 0.05, 0.3); cqToast('⛺ Qualcuno ha distrutto l\'accampamento! Bisogna ricostruirlo con la legna.'); cq.actKey = ''; cqHud(); return;
+  }
   G.sab = { type, t: CQ_SABS[type].time || 0, fixer: null, natural: !!natural, step: 0 };
-  if (type === 'campo') { G.sv.camp = false; G.sv.lit = false; cq.bg = null; }   // tende a terra, fuoco spento
   cqPickFixer();
   beep(300, 0.25, 0.05); beep(240, 0.3, 0.05, 0.3);
   cq.actKey = ''; cqHud();
@@ -2772,7 +2773,6 @@ function cqFixSab() {
   const G = cq.g; if (!G || !G.sab) return;
   if (G.guest) { cqNetSend({ k: 'fix' }); return; }
   const f = G.chars[G.sab.fixer]; if (f) { f.goal = null; f.path = []; }
-  if (G.sab.type === 'campo') { G.sv.camp = true; G.sv.lit = true; G.sv.fuel = Math.max(G.sv.fuel, 40); cq.bg = null; cqToast('⛺ Accampamento ricostruito!'); }
   G.sab = null; G.sabCd = 35; cq.actKey = ''; cqHud(); beep(700, 0.1, 0.04); beep(900, 0.12, 0.04, 0.1);
 }
 // un passaggio della riparazione (l'accampamento si ricostruisce in piu' passaggi; gli altri sabotaggi in uno)
@@ -2792,16 +2792,25 @@ function cqSabMenu() {
   $('#tkBody').querySelectorAll('[data-sab]').forEach(b => { b.onclick = () => go(b.dataset.sab); });
 }
 // ---- sopravvivenza nel bosco (solo mappe con surv): fame, freddo, fuoco, giorno e notte ----
-// G.sv = { t: tempo, dark: 0 giorno .. 1 notte, n: notte in corso, fuel: legna nel fuoco 0-100, lit: acceso, camp: tenda e fuoco in piedi }
-// ogni personaggio: hun (fame, 100 = sazio), cold (100 = al caldo), carry ('wood' / 'fish' / null)
+// G.sv = { t: tempo, dark: 0 giorno .. 1 notte, n: notte in corso, fw: legna nel falo' da costruire (3 = fatto), tw: legna della tenda (4 = montata),
+//          fuel: legna che brucia 0-100, lit: acceso }
+// ogni personaggio: hun (fame, 100 = sazio), cold (100 = al caldo), carry ('wood' / 'fish' / null). La legna si fa tagliando gli alberi (ricrescono).
 const CQ_DAY = 180, CQ_DUSK = 100;   // un giro dura 3 minuti: giorno fino a 100 s, poi 10 s di tramonto, notte, 10 s di alba
+const CQ_FIREW = 3, CQ_TENTW = 4, CQ_REGROW = 90;   // legna per il falo', per la tenda; secondi perche' un albero tagliato ricresca
 const cqSeeR = () => { const G = cq.g; return G.sab && G.sab.type === 'luci' ? 2.5 : G.sv && G.sv.dark > 0.5 ? 3.5 : CQ_VIS; };
 const cqFireD = (x, y) => Math.hypot(x - CQ_MAP.fire.x - 0.5, y - CQ_MAP.fire.y - 0.5);
+const cqTentD = (x, y) => Math.hypot(x - CQ_MAP.tent.x - 0.5, y - CQ_MAP.tent.y - 0.5);
 function cqSvStart(G) {
-  G.sv = { t: 0, dark: 0, n: 0, fuel: 80, lit: true, camp: true };
+  G.sv = { t: 0, dark: 0, n: 0, fw: 0, tw: 0, fuel: 0, lit: false };
   for (const c of G.chars) { c.hun = 70 + Math.random() * 15; c.cold = 100; c.carry = null; }
-  cq.bg = null;   // tende di nuovo in piedi
+  for (const t of CQ_MAP.trees) if (t.cut) { t.cut = 0; cqSolid[t.y][t.x] = { prop: 'tree', o: t }; }   // il bosco ricresciuto
+  cq.bg = null;
 }
+// albero tagliato: resta il ceppo, ricresce dopo un po'
+function cqCutTree(t) {
+  t.cut = cq.g.sv.t + CQ_REGROW; cqSolid[t.y][t.x] = { prop: 'stump', o: t }; cqBgCell(t.x, t.y);
+}
+const cqTreeNear = (x, y, r) => { let best = null, bd = r; for (const t of CQ_MAP.trees) if (!t.cut) { const d = Math.hypot(x - t.x - 0.5, y - t.y - 0.5); if (d < bd) { bd = d; best = t; } } return best; };
 function cqSvTick(dt) {
   const G = cq.g, S = G.sv; S.t += dt;
   const ph = S.t % CQ_DAY, lvl = ph < CQ_DUSK ? 0 : ph < CQ_DUSK + 10 ? (ph - CQ_DUSK) / 10 : ph < CQ_DAY - 10 ? 1 : (CQ_DAY - ph) / 10;
@@ -2809,13 +2818,14 @@ function cqSvTick(dt) {
   if (lvl === 0 && S.dark > 0) cqToast('☀️ È mattina: notte ' + S.n + ' superata!');
   S.dark = lvl;
   if (S.lit) { S.fuel -= dt * (0.7 + 0.4 * lvl); if (S.fuel <= 0) { S.fuel = 0; S.lit = false; cqToast('🔥 Il fuoco si è spento: serve legna!'); } }
+  for (const t of CQ_MAP.trees) if (t.cut && S.t >= t.cut) { t.cut = 0; t.a = 0; cqSolid[t.y][t.x] = { prop: 'tree', o: t }; cqBgCell(t.x, t.y); }
   const hard = 1 + 0.4 * Math.max(0, S.n - 1);   // ogni notte piu' dura
   for (const c of G.chars) {
     if (!c.alive) continue;
     const me = c === G.me, x = me ? cq.x : c.x, y = me ? cq.y : c.y, room = cqRoomName(x, y);
     c.hun = Math.max(0, c.hun - dt * 0.4);
-    if (S.lit && S.camp && cqFireD(x, y) < 4.5) c.cold = Math.min(100, c.cold + dt * 6);
-    else c.cold = Math.max(0, c.cold - dt * (0.12 + lvl * 1.0 * hard) * (S.camp && room === 'Accampamento' ? 0.5 : room === 'Grotta' ? 0.7 : 1));
+    if (S.lit && cqFireD(x, y) < 4.5) c.cold = Math.min(100, c.cold + dt * 6);
+    else c.cold = Math.max(0, c.cold - dt * (0.12 + lvl * 1.0 * hard) * (S.tw >= CQ_TENTW && room === 'Accampamento' ? 0.5 : room === 'Grotta' ? 0.7 : 1));
     if (!c.imp && (c.hun <= 0 || c.cold <= 0)) cqSvDie(c, c.cold <= 0 ? 'freddo' : 'fame');
     if (G.phase !== 'play') return;
   }
@@ -2829,53 +2839,68 @@ function cqSvDie(c, why) {
   if (G.sab && G.sab.fixer === c.id) cqPickFixer();
   cqHud(); cqCheckWin();
 }
-// cosa si puo' fare qui (giocatore): legna, fuoco, pesca, cucina
+// legna portata al campo: prima il falo', poi la tenda (se sono li' vicino), poi nel fuoco
+function cqSvWood(c, atTent) {
+  const S = cq.g.sv; c.carry = null;
+  if (atTent && S.tw < CQ_TENTW) { S.tw++; cqBgCell(CQ_MAP.tent.x, CQ_MAP.tent.y); return S.tw >= CQ_TENTW ? '⛺ Tenda montata: ripara chi sta all\'accampamento!' : '⛺ Tenda: ' + S.tw + ' legna su ' + CQ_TENTW; }
+  if (S.fw < CQ_FIREW) { S.fw++; cqBgCell(CQ_MAP.fire.x, CQ_MAP.fire.y); if (S.fw >= CQ_FIREW) { S.fuel = 40; return '🔥 Falò pronto: ora accendilo!'; } return '🪵 Falò: ' + S.fw + ' legna su ' + CQ_FIREW; }
+  S.fuel = Math.min(100, S.fuel + 30); return S.lit ? '🔥 Il fuoco riprende forza.' : '🪵 Legna nel falò: ora accendilo.';
+}
+// cosa si puo' fare qui (giocatore): tagliare, costruire, fuoco, pesca, cucina
 function cqSvAct(me) {
-  const S = cq.g.sv, broken = !S.camp;
-  if (cqFireD(cq.x, cq.y) < 1.9) {
-    if (me.carry === 'wood' && !broken) return { k: 'feed' };
-    if (me.carry === 'fish' && S.lit && !broken) return { k: 'cook' };
-    if (!S.lit && S.fuel > 0 && !broken) return { k: 'light' };
+  const S = cq.g.sv, dF = cqFireD(cq.x, cq.y), dT = cqTentD(cq.x, cq.y);
+  if (me.carry === 'wood') {
+    if (dT < 1.6 && S.tw < CQ_TENTW && (dT < dF || S.fw >= CQ_FIREW)) return { k: 'pitch' };
+    if (dF < 1.9) return { k: S.fw < CQ_FIREW ? 'build' : 'feed' };
+    return null;
+  }
+  if (dF < 1.9) {
+    if (me.carry === 'fish' && S.lit) return { k: 'cook' };
+    if (S.fw >= CQ_FIREW && !S.lit && S.fuel > 0) return { k: 'light' };
   }
   if (me.carry) return null;
-  if (CQ_MAP.logs.some(([x, y]) => Math.hypot(cq.x - x - 0.5, cq.y - y - 0.5) < 1.6)) return { k: 'wood' };
+  const t = cqTreeNear(cq.x, cq.y, 1.5); if (t) return { k: 'chop', t };
   const cx = Math.floor(cq.x), cy = Math.floor(cq.y);
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const o = cqSolid[cy + dy] && cqSolid[cy + dy][cx + dx]; if (o && o.prop === 'water') return { k: 'fishing' }; }
   return null;
 }
-function cqSvUse(k) {
+function cqSvUse(k, a) {
   const G = cq.g, S = G.sv, me = G.me, done = () => { cq.actKey = ''; cqNearCheck(); cqHud(); };
-  if (k === 'wood') { me.carry = 'wood'; beep(500, 0.06, 0.04); cqToast('🪵 Hai la legna: portala al fuoco.'); done(); }
-  else if (k === 'feed') { me.carry = null; S.fuel = Math.min(100, S.fuel + 30); beep(600, 0.08, 0.04); cqToast(S.lit ? '🔥 Il fuoco riprende forza.' : '🪵 Legna pronta: ora accendi il fuoco.'); done(); }
+  if (k === 'chop') cqOpenTask({ id: 'ciak', n: 'Taglia l\'albero', lab: 'TAGLIA!', hits: 3, hitTxt: 'Colpi d\'ascia: ', lead: 'Premi <b>TAGLIA!</b> quando la barretta è sulla zona verde.', fix: () => { if (!a.t.cut) cqCutTree(a.t); me.carry = 'wood'; cqToast('🪵 Hai la legna: portala all\'accampamento.'); done(); } });
+  else if (k === 'build' || k === 'feed' || k === 'pitch') { beep(600, 0.08, 0.04); cqToast(cqSvWood(me, k === 'pitch')); done(); }
   else if (k === 'eat') { me.carry = null; me.hun = Math.min(100, me.hun + 15); beep(400, 0.06, 0.04); cqToast('🐟 Pesce crudo… meglio di niente (+15).'); done(); }
-  else if (k === 'light') cqOpenTask({ id: 'bobina', n: 'Accendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.', fix: () => { if (S.fuel > 0 && S.camp) S.lit = true; done(); } });
+  else if (k === 'light') cqOpenTask({ id: 'bobina', n: 'Accendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.', fix: () => { if (S.fuel > 0 && S.fw >= CQ_FIREW) S.lit = true; done(); } });
   else if (k === 'fishing') cqOpenTask({ id: 'ciak', n: 'Pesca', lab: 'TIRA!', hits: 2, hitTxt: 'Pesci presi: ', lead: 'Premi <b>TIRA!</b> quando il galleggiante è sulla zona verde.', fix: () => { me.carry = 'fish'; cqToast('🐟 Preso! Cuocilo sul fuoco (o mangialo crudo).'); done(); } });
   else if (k === 'cook') cqOpenTask({ id: 'caffe', n: 'Cuoci il pesce', lead: 'Tieni premuto: il pesce cuoce sul fuoco.', fix: () => { me.carry = null; me.hun = Math.min(100, me.hun + 55); cqToast('🍗 Che buono! (+55)'); done(); } });
 }
 // posto vicino al fuoco (per scaldarsi, cuocere, mettere legna)
 const cqFireSpot = () => { const [x, y] = cqPickOne(CQ_RING); return { x: x + 0.5, y: y + 0.5 }; };
-// personaggi del computer: prima sopravvivere, poi i compiti
+// personaggi del computer: prima sopravvivere e costruire, poi i compiti
 function cqSvBotGoal(b) {
-  const G = cq.g, S = G.sv, ok = S.camp;
-  if (b.carry === 'fish') { if (S.lit && ok) return Object.assign(cqFireSpot(), { k: 'cook' }); b.carry = null; b.hun = Math.min(100, b.hun + 15); return null; }
-  if (b.carry === 'wood') return ok ? Object.assign(cqFireSpot(), { k: 'feed' }) : null;
+  const G = cq.g, S = G.sv, built = S.fw >= CQ_FIREW, tent = S.tw >= CQ_TENTW;
+  if (b.carry === 'fish') { if (S.lit) return Object.assign(cqFireSpot(), { k: 'cook' }); b.carry = null; b.hun = Math.min(100, b.hun + 15); return null; }
+  if (b.carry === 'wood') return !built || tent || S.fuel < 50 ? Object.assign(cqFireSpot(), { k: 'feed' }) : Object.assign(cqSpot(CQ_MAP.tent.x, CQ_MAP.tent.y), { k: 'pitch' });
   if (b.hun < 40) { const [x, y] = cqPickOne(CQ_MAP.fish); return { x: x + 0.5, y: y + 0.5, k: 'fishing' }; }
-  if (S.lit && ok && b.cold < (S.dark > 0 ? 60 : 45)) return Object.assign(cqFireSpot(), { k: 'warm' });
+  if (S.lit && b.cold < (S.dark > 0 ? 60 : 45)) return Object.assign(cqFireSpot(), { k: 'warm' });
   const busy = k => G.chars.filter(o => o !== b && o.alive && o.bot && o.goal && o.goal.k === k).length;
-  if (!S.lit && S.fuel > 0 && ok && !busy('light')) return Object.assign(cqFireSpot(), { k: 'light' });
+  if (built && !S.lit && S.fuel > 0 && !busy('light')) return Object.assign(cqFireSpot(), { k: 'light' });
   const carriers = busy('wood') + G.chars.filter(o => o !== b && o.alive && o.carry === 'wood').length;
-  if (ok && S.fuel < 45 && carriers < (S.fuel < 20 ? 2 : 1)) { const [x, y] = cqPickOne(CQ_MAP.logs); return Object.assign(cqSpot(x, y), { k: 'wood' }); }
+  const need = !built ? 3 : !tent ? 2 : S.fuel < 20 ? 2 : S.fuel < 45 ? 1 : 0;
+  if (carriers < need) {   // un albero a caso tra i piu' vicini al campo
+    const F = CQ_MAP.fire, near = CQ_MAP.trees.filter(t => !t.cut && !G.chars.some(o => o.goal && o.goal.t === t)).sort((p, q) => Math.hypot(p.x - F.x, p.y - F.y) - Math.hypot(q.x - F.x, q.y - F.y)).slice(0, 8);
+    const t = cqPickOne(near); if (t) return Object.assign(cqSpot(t.x, t.y), { k: 'wood', t });
+  }
   return null;
 }
 // arrivato: quanto aspetta (prima) e cosa succede (dopo l'attesa)
-function cqSvBotWait(b, k) { return { wood: 1.5, feed: 1, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
+function cqSvBotWait(b, k) { return { wood: 3, feed: 1, pitch: 1.5, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
 function cqSvBotDone(b, k) {
-  const S = cq.g.sv;
-  if (k === 'wood') b.carry = 'wood';
-  else if (k === 'feed' && b.carry === 'wood') { b.carry = null; S.fuel = Math.min(100, S.fuel + 30); }
+  const S = cq.g.sv, goal = b.goal;
+  if (k === 'wood') { if (goal.t && !goal.t.cut) { cqCutTree(goal.t); b.carry = 'wood'; } }
+  else if ((k === 'feed' || k === 'pitch') && b.carry === 'wood') { const m = cqSvWood(b, k === 'pitch'); if (cqDist(b, { x: cq.x, y: cq.y }) < 7 && S.fuel <= 40) cqToast(m); }
   else if (k === 'fishing') b.carry = 'fish';
   else if (k === 'cook' && b.carry === 'fish' && S.lit) { b.carry = null; b.hun = Math.min(100, b.hun + 55); }
-  else if (k === 'light' && S.fuel > 0 && S.camp && !S.lit) { S.lit = true; if (cqDist(b, { x: cq.x, y: cq.y }) < 8) cqToast('🔥 <b>' + esc(b.name) + '</b> ha riacceso il fuoco.'); }
+  else if (k === 'light' && S.fuel > 0 && S.fw >= CQ_FIREW && !S.lit) { S.lit = true; if (cqDist(b, { x: cq.x, y: cq.y }) < 8) cqToast('🔥 <b>' + esc(b.name) + '</b> ha acceso il fuoco.'); }
 }
 // ---- vittoria ----
 function cqCheckWin() {
@@ -3446,7 +3471,7 @@ function cqTools(g, TW) {
         for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, u = 0.5 + Math.cos(a) * 0.36, v = 0.5 + Math.sin(a) * 0.36; bx(x + u - 0.08, y + v - 0.08, x + u + 0.08, y + v + 0.08, 0, 0.14, '#8a8884'); }
         bx(x + 0.3, y + 0.44, x + 0.7, y + 0.56, 0, 0.12, '#4a3020'); bx(x + 0.44, y + 0.3, x + 0.56, y + 0.7, 0.12, 0.24, '#5a3a24'); break; }
       case 'tent': {   // tenda a casetta; se l'accampamento e' distrutto e' a terra
-        const c = o || '#d9822b', down = cq.g && cq.g.sv && !cq.g.sv.camp;
+        const c = o || '#d9822b', down = false;
         if (down) { poly([S(x + 0.05, y + 0.15, 0.02), S(x + 0.95, y + 0.05, 0.02), S(x + 0.9, y + 0.95, 0.08), S(x + 0.1, y + 0.85, 0.12)], cqShade(c, 0.8)); line(S(x + 0.1, y + 0.3, 0.05), S(x + 0.9, y + 0.8, 0.05), '#5a3a24', 2); break; }
         poly([S(x + 0.05, y + 0.1, 0), S(x + 0.5, y + 0.1, 1.3), S(x + 0.5, y + 0.9, 1.3), S(x + 0.05, y + 0.9, 0)], cqShade(c, 1.05));
         poly([S(x + 0.5, y + 0.1, 1.3), S(x + 0.95, y + 0.1, 0), S(x + 0.95, y + 0.9, 0), S(x + 0.5, y + 0.9, 1.3)], cqShade(c, 0.6));
@@ -3463,6 +3488,60 @@ function cqTools(g, TW) {
       case 'lantern': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 1.5, '#3a3f49'); bx(x + 0.33, y + 0.33, x + 0.67, y + 0.67, 1.5, 1.95, '#22262e'); qL(x + 0.37, x + 0.63, y + 0.67, 1.55, 1.9, '#ffd25a'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.95, 2.05, '#22262e'); break;
       case 'chest': bx(x + 0.12, y + 0.22, x + 0.88, y + 0.78, 0, 0.55, '#8a5a32'); bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0.55, 0.75, '#9a6a3a'); qL(x + 0.12, x + 0.88, y + 0.78, 0.48, 0.56, '#d8a830'); qL(x + 0.45, x + 0.55, y + 0.78, 0.3, 0.56, '#d8a830'); break;
       case 'sack': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.6, '#c8b088'); cyl(x + 0.5, y + 0.5, 0.18, 0.6, 0.8, '#b8a078'); cyl(x + 0.5, y + 0.5, 0.1, 0.8, 0.86, '#8a6a48'); break;
+      case 'tree':   // solo il tronco: la chioma si disegna sopra a parte (cqCanopy)
+        if (o.k === 'oak') { bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 0, 2.3 * o.h, '#6b4a2e'); bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0, 0.25, '#5a3e26'); }
+        else { bx(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 0, 1.6 * o.h, '#7a5232'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 0.18, '#5a3e26'); }
+        break;
+      case 'stump': if (o && o.k) { cyl(x + 0.5, y + 0.5, o.k === 'oak' ? 0.3 : 0.24, 0, 0.35, '#6b4a2e'); cyl(x + 0.5, y + 0.5, o.k === 'oak' ? 0.22 : 0.17, 0.35, 0.36, '#d8b07a'); break; }
+        cyl(x + 0.5, y + 0.5, 0.3, 0, 0.42, '#6b4a2e'); cyl(x + 0.5, y + 0.5, 0.22, 0.42, 0.43, '#c8a070'); cyl(x + 0.5, y + 0.5, 0.1, 0.43, 0.44, '#a88050'); break;
+      case 'firepit': {   // cerchio di sassi; con la legna portata (fw 0-3) si alza la catasta del falo'
+        const fw = cq.g && cq.g.sv ? cq.g.sv.fw : 0;
+        for (let i = 0; i < 9; i++) { const a = i * Math.PI * 2 / 9, u = 0.5 + Math.cos(a) * 0.38, v = 0.5 + Math.sin(a) * 0.38; bx(x + u - 0.08, y + v - 0.07, x + u + 0.08, y + v + 0.08, 0, 0.12 + 0.05 * (i % 2), '#8a8884'); }
+        if (fw >= 1) bx(x + 0.28, y + 0.44, x + 0.72, y + 0.56, 0, 0.12, '#6b4a2e');
+        if (fw >= 2) bx(x + 0.44, y + 0.28, x + 0.56, y + 0.72, 0.12, 0.24, '#7a5232');
+        if (fw >= 3) { const t = S(x + 0.5, y + 0.5, 0.75); for (const [u, v] of [[0.3, 0.3], [0.7, 0.3], [0.3, 0.7], [0.7, 0.7]]) line(S(x + u, y + v, 0.2), t, '#5a3a24', Math.max(2, TW / 16)); }
+        break; }
+      case 'tentsite': {   // posto della tenda: picchetti e corda, poi pali, poi la tenda (tw 0-4)
+        const tw = cq.g && cq.g.sv ? cq.g.sv.tw : 0, c = '#d9822b';
+        if (tw >= 4) {
+          poly([S(x + 0.02, y + 0.05, 0), S(x + 0.5, y + 0.05, 1.45), S(x + 0.5, y + 0.95, 1.45), S(x + 0.02, y + 0.95, 0)], cqShade(c, 1.05));
+          poly([S(x + 0.5, y + 0.05, 1.45), S(x + 0.98, y + 0.05, 0), S(x + 0.98, y + 0.95, 0), S(x + 0.5, y + 0.95, 1.45)], cqShade(c, 0.6));
+          poly([S(x + 0.02, y + 0.95, 0), S(x + 0.5, y + 0.95, 1.45), S(x + 0.98, y + 0.95, 0)], cqShade(c, 0.85));
+          poly([S(x + 0.32, y + 0.95, 0), S(x + 0.5, y + 0.95, 0.85), S(x + 0.68, y + 0.95, 0)], '#2a1e14'); break;
+        }
+        const pg = [[0.05, 0.05], [0.95, 0.05], [0.95, 0.95], [0.05, 0.95]];
+        for (const [u, v] of pg) bx(x + u - 0.03, y + v - 0.03, x + u + 0.03, y + v + 0.03, 0, 0.15, '#c8a070');
+        for (let i = 0; i < 4; i++) { const [a, b] = pg[i], [c2, d] = pg[(i + 1) % 4]; line(S(x + a, y + b, 0.12), S(x + c2, y + d, 0.12), 'rgb(230,225,210)', 1); }
+        if (tw >= 1) bx(x + 0.47, y + 0.03, x + 0.53, y + 0.09, 0, 1.45, '#7a5232');
+        if (tw >= 2) bx(x + 0.47, y + 0.91, x + 0.53, y + 0.97, 0, 1.45, '#7a5232');
+        if (tw >= 3) { bx(x + 0.47, y + 0.03, x + 0.53, y + 0.97, 1.4, 1.48, '#7a5232'); poly([S(x + 0.02, y + 0.05, 0), S(x + 0.5, y + 0.05, 1.45), S(x + 0.5, y + 0.95, 1.45), S(x + 0.02, y + 0.95, 0)], cqShade(c, 1.05)); }
+        break; }
+      case 'horn': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 1.6, '#6b4a2e'); bx(x + 0.3, y + 0.45, x + 0.7, y + 0.55, 1.45, 1.52, '#6b4a2e');
+        cyl(x + 0.4, y + 0.5, 0.1, 1.05, 1.4, '#e8dcc0'); cyl(x + 0.55, y + 0.5, 0.14, 0.95, 1.1, '#d8c8a0'); cyl(x + 0.62, y + 0.5, 0.18, 0.88, 0.95, '#b89a60'); break;
+      case 'ribbon': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 1.4, '#7a5232');
+        ['#e2553a', '#3b6fe0', '#f2c230', '#2fa35a'].forEach((c, i) => bx(x + 0.55, y + 0.47, x + 0.75 + 0.05 * i, y + 0.53, 1.25 - i * 0.12, 1.32 - i * 0.12, c)); break;
+      case 'script': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.42, '#6b4a2e'); cyl(x + 0.5, y + 0.5, 0.22, 0.42, 0.43, '#c8a070');
+        bx(x + 0.3, y + 0.32, x + 0.62, y + 0.62, 0.43, 0.47, '#f4f0e6'); bx(x + 0.42, y + 0.4, x + 0.72, y + 0.7, 0.47, 0.5, '#e8e2d2'); bx(x + 0.1, y + 0.75, x + 0.3, y + 0.92, 0, 0.03, '#f4f0e6'); break;
+    }
+  };
+  // contorno calpestabile (deco): felci, cespuglietti, ciuffi d'erba, funghi. Colori pieni (si ridisegnano sopra lo sfondo)
+  const drawDeco = (t, x, y) => {
+    const a = 0.25 + 0.5 * hsh(x, y, 80), b = 0.3 + 0.45 * hsh(x, y, 81);
+    if (t === 'fern') { const c = S(x + a, y + b, 0); for (let i = 0; i < 5; i++) { const ang = i * 1.25 + hsh(x, y, 82), e = S(x + a + Math.cos(ang) * 0.3, y + b + Math.sin(ang) * 0.3, 0.35); g.strokeStyle = i % 2 ? '#3f8a3a' : '#4f9a44'; g.lineWidth = Math.max(2, TW / 14); g.beginPath(); g.moveTo(c[0], c[1]); g.quadraticCurveTo((c[0] + e[0]) / 2, e[1] - TW * 0.08, e[0], e[1]); g.stroke(); } }
+    else if (t === 'shrub') { bx(x + a - 0.2, y + b - 0.2, x + a + 0.2, y + b + 0.2, 0, 0.32, '#3f7a36'); bx(x + a - 0.12, y + b - 0.12, x + a + 0.12, y + b + 0.12, 0.32, 0.45, '#4a8a40'); }
+    else if (t === 'tuft') { const L = []; for (let i = 0; i < 5; i++) { const u = a + (i - 2) * 0.05; L.push([S(x + u, y + b, 0), S(x + u + (i - 2) * 0.04, y + b, 0.22 + 0.06 * (i % 2))]); } strokes(L, '#6a9a48', Math.max(1.5, TW / 26)); }
+    else if (t === 'mush') { cyl(x + a, y + b, 0.04, 0, 0.12, '#efe6d2'); cyl(x + a, y + b, 0.1, 0.12, 0.17, '#c8402a'); dot(x + a, y + b, 0.18, 0.012, '#fff'); }
+  };
+  // chioma di un albero, disegnata come se l'albero fosse nella cella 0,0 (poi si incolla come immagine)
+  const canopy = (k, v, h) => {
+    if (k === 'oak') {
+      const C = [['#4a8a3a', '#56994a', '#62a656'], ['#5a8f34', '#68a040', '#76ae4c'], ['#3f7c3a', '#4b8c46', '#589a52']][v];
+      bx(-0.55, -0.55, 1.55, 1.55, 2.0 * h, 3.3 * h, C[0]); bx(-0.25, -0.25, 1.25, 1.25, 3.3 * h, 4.0 * h, C[1]); bx(0.1, 0.1, 0.9, 0.9, 4.0 * h, 4.35 * h, C[2]);
+      bx(0.95, -0.35, 1.7, 0.45, 2.4 * h, 3.2 * h, C[1]);
+    } else {
+      const C = [['#2f6a3a', '#357a42', '#3d8a4a', '#46985a'], ['#2a5f36', '#30703e', '#387f46', '#418e52'], ['#356f3c', '#3c7f44', '#458e4c', '#4f9c58']][v];
+      bx(-0.45, -0.45, 1.45, 1.45, 1.3 * h, 2.4 * h, C[0]); bx(-0.2, -0.2, 1.2, 1.2, 2.4 * h, 3.4 * h, C[1]);
+      bx(0.05, 0.05, 0.95, 0.95, 3.4 * h, 4.3 * h, C[2]); bx(0.28, 0.28, 0.72, 0.72, 4.3 * h, 5.0 * h, C[3]); bx(0.42, 0.42, 0.58, 0.58, 5.0 * h, 5.4 * h, C[3]);
     }
   };
   return {
@@ -3473,7 +3552,9 @@ function cqTools(g, TW) {
       if (TW < 40) return;
       floorTex(x, y);
       if (cqSolid[y][x] && cqSolid[y][x].prop) poly(q, 'rgba(0,0,0,.22)');   // ombra sotto gli oggetti
+      if (cqDeco && cqDeco[y][x]) drawDeco(cqDeco[y][x], x, y);
     },
+    canopy,
     decals() {
       for (const [x, y, w, h, col] of CQ_DECALS) poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col);
       g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
@@ -3495,7 +3576,7 @@ function cqBuildBg() {
   if (CQ_GFX === 2) { cq.bg = { tiles: [], TW, ox, oy, bw, bh, dpr: sc, none: true }; return; }
   // cosa disegnare, con il rettangolo che occupa (per disegnare in ogni tessera solo quello che la tocca)
   const job = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2, (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) cells.push({ k: 2, d: x + y, x, y, o: cqSolid[y][x], b: [(x - y - 1) * TW / 2 - TW, (x + y) * TH / 2 - 3.5 * U - TW, (x - y + 1) * TW / 2 + TW, (x + y + 2) * TH / 2 + TW] });
@@ -3511,8 +3592,47 @@ function cqBuildBg() {
     }
     tiles.push({ c, x: tx * TS, y: ty * TS, w: c.width / sc, h: c.height / sc });
   }
-  cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc };
+  cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc, can: cqCanopySprites(TW, sc) };
   if (CQ_GFX === 3) cqDomBg(cq.bg);
+}
+// chiome degli alberi: un'immagine per tipo, colore e altezza (disegnata dal processore), incollata sopra a ogni fotogramma da cqCanopies
+function cqCanopySprites(TW, sc) {
+  const can = {}, TH = TW / 2;
+  if (CQ_MAP.trees) for (const k of ['pine', 'oak']) for (let v = 0; v < 3; v++) for (const h of [0.95, 1.1]) {
+    const w = 3.6 * TW, hh = 5.2 * TW, ax = w / 2, ay = 4.6 * TW, c = document.createElement('canvas');
+    c.width = Math.ceil(w * sc); c.height = Math.ceil(hh * sc);
+    const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, ax * sc, (ay - TH / 2) * sc);
+    cqTools(g, TW).canopy(k, v, h);
+    can[k + v + h] = { c, w, h: hh, ax, ay };
+  }
+  return can;
+}
+// chiome sopra a tutto: se sono davanti a me (ci passo dietro o sotto) diventano trasparenti, piano piano
+function cqCanopies(g, B, tx, ty, W, H) {
+  const TW = B.TW, TH = TW / 2, d = cq.x + cq.y, mx = tx + (cq.x - cq.y) * TW / 2, my = ty + d * TH / 2;
+  for (const t of CQ_MAP.trees) {
+    if (t.cut) continue;
+    const sx = tx + (t.x - t.y) * TW / 2, sy = ty + (t.x + t.y + 1) * TH / 2;
+    if (sx < -2 * TW || sx > W + 2 * TW || sy < -TW || sy > H + 5 * TW) continue;
+    const sp = B.can[t.k + t.v + (t.h < 1.02 ? 0.95 : 1.1)]; if (!sp) continue;
+    const behind = d < t.x + t.y + 1.6 && Math.abs(mx - sx) < 1.3 * TW && my > sy - 4.2 * TW && my - 1.9 * TW < sy - 0.8 * TW;
+    t.a += ((behind ? 0.3 : 1) - t.a) * 0.15;
+    g.globalAlpha = t.a; g.drawImage(sp.c, sx - sp.ax, sy - sp.ay, sp.w, sp.h);
+  }
+  g.globalAlpha = 1;
+}
+// ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
+function cqBgCell(x, y) {
+  const B = cq.bg; if (!B || B.none) return;
+  const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
+  const r = [B.ox + (x - y - 1) * TW / 2 - TW, B.oy + (x + y) * TH / 2 - 3.5 * U - TW, B.ox + (x - y + 1) * TW / 2 + TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  for (const t of B.tiles) {
+    const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
+    if (x1 <= x0 || y1 <= y0) continue;
+    const g = t.c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -t.x * sc, -t.y * sc);   // coordinate dell'intera mappa pronta
+    cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 12);
+  }
+  if (CQ_GFX === 3) cqDomBg(B);
 }
 // modo 3: le tessere diventano immagini normali della pagina, sotto il disegno, spostate dal browser
 function cqDomBg(B) {
@@ -3543,7 +3663,7 @@ function cqDraw() {
   const smoky = !!(G && G.phase === 'play' && G.smoke && G.smoke.until > G.time && cqRoomName(cq.x, cq.y) === G.smoke.room), fog = smoky && !G.me.imp;
   const torch = dark && G.opt.torch, la = Math.atan2(cq.ly || 0.5, cq.lx || 1);
   // notte nel bosco: buio (nl) tranne intorno a me e al fuoco acceso (raggio fR, piu' grande con piu' legna)
-  const S = G && G.sv, nl = S && G.phase !== 'end' ? S.dark * (G.me.nv ? 0.3 : 1) : 0, F = S && CQ_MAP.fire, fR = S && S.lit && S.camp ? 3 + 2.5 * Math.min(1, S.fuel / 60) : 0;
+  const S = G && G.sv, nl = S && G.phase !== 'end' ? S.dark * (G.me.nv ? 0.3 : 1) : 0, F = S && CQ_MAP.fire, fR = S && S.lit ? 3 + 2.5 * Math.min(1, S.fuel / 60) : 0;
   // al buio si vede solo vicino a se', oppure nel fascio della torcia
   const seen = (x, y) => {
     if (fog && Math.hypot(x - cq.x, y - cq.y) > 1.5) return false;
@@ -3592,6 +3712,7 @@ function cqDraw() {
       g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
     } }
   }
+  if (CQ_MAP.trees && B.can) cqCanopies(g, B, tx, ty, W, H);
   if (nl > 0) {
     const lights = [[tx + X, ty + Y - TH, 3.4 * TW, 0.8]];
     if (fR) {
