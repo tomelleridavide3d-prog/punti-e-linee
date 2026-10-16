@@ -2651,7 +2651,7 @@ function cqDraw() {
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
   const T = cqTools(g, TW);
   if (B.none) cqRedraw(g, T, [0, 0, W, H], tx, ty, TW, list, Math.ceil((W / TW + H / TH) / 2) + 8);   // modo 2: tutto lo schermo da capo
-  else for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list);
+  else for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list, 10, dom ? null : B);
   if (dark && torch) {
     // buio con il fascio della torcia: due strati, il secondo un po' piu' largo fa la penombra
     const cx = tx + X, cy = ty + Y - TH;
@@ -2688,21 +2688,24 @@ function cqDraw() {
   }
 }
 // ridisegna da capo un riquadro dello schermo: pavimento, oggetti e personaggi che lo toccano, dal piu' lontano al piu' vicino
-function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10) {
+function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
   const TH = TW / 2, U = TH * 1.15, [x0, y0, x1, y1] = r;
-  g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip(); g.clearRect(x0, y0, x1 - x0, y1 - y0); g.translate(tx, ty);
+  g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
+  // con lo sfondo pronto: lo rimetto nel riquadro (mai pixel vuoti ai bordi); altrimenti cancello e rifaccio il pavimento
+  if (B) { const ix = tx - B.ox, iy = ty - B.oy; for (const t of B.tiles) g.drawImage(t.c, ix + t.x, iy + t.y, t.w, t.h); } else g.clearRect(x0, y0, x1 - x0, y1 - y0);
+  g.translate(tx, ty);
   const a0 = x0 - tx, b0 = y0 - ty, a1 = x1 - tx, b1 = y1 - ty, mx = (a0 + a1) / 2, my = (b0 + b1) / 2;
   const fx = Math.floor(mx / TW + my / TH), fy = Math.floor(my / TH - mx / TW), items = [];
   for (let y = fy - rng; y <= fy + rng; y++) {
     if (!cqFloor[y]) continue;
     for (let x = fx - rng; x <= fx + rng; x++) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
-      if (cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
+      if (!B && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x];
       if (o && rr + TW > a0 && l - TW < a1 && bt + TW > b0 && t - 3.5 * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
-  T.decals();
+  if (!B) T.decals();
   for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: c.x + c.y, c });
   items.sort((a, b) => a.d - b.d);
   for (const it of items) {
