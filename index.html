@@ -170,7 +170,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <button class="gcard" id="gDots"><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard soon" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><path d="M13 3 23 8.5v9L13 23 3 17.5v-9z" fill="var(--p1)" opacity=".85"/><path d="M3 8.5 13 14l10-5.5" fill="none" stroke="var(--panel)" stroke-width="1.4"/><path d="M13 14v9" stroke="var(--panel)" stroke-width="1.4"/></svg></span>
-    <span><div class="gt">Tra noi, a tema<span class="soonTag">in arrivo</span></div><div class="gs">Stanze isometriche, compiti e un impostore da scovare.</div><div class="gn" id="nAmong"></div></span></button>
+    <span><div class="gt">Ciack US<span class="soonTag">in arrivo</span></div><div class="gs">Sul set del film: stanze isometriche, compiti da svolgere e un impostore da scovare.</div><div class="gn" id="nAmong"></div></span></button>
 </div></div>
 <dialog id="dSetup"><form method="dialog" class="dlg" id="fSetup"></form></dialog>
 <dialog id="dEnd"><div class="dlg" id="endBody"></div></dialog>
@@ -1483,7 +1483,7 @@ applyPrefs(); render();
 (() => {
   startHub();
   $('#gDots').onclick = openSetup;
-  $('#gAmong').onclick = () => alert('Il gioco a tema è in arrivo: lo stiamo costruendo!');
+  $('#gAmong').onclick = () => alert('Ciack US è in arrivo: lo stiamo costruendo!');
   const code = (location.hash.match(/^#p=([a-z0-9]+)$/) || [])[1];
   const saved = loadOnline();
   if (code) enterDots();
