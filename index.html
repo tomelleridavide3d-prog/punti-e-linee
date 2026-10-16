@@ -1730,9 +1730,12 @@ const cqFloor = [], cqSolid = [], cqRoomOf = [];
     if (ri >= 0) cqSolid[y][x] = { wall: 1, col: CQ_ROOMS[ri].wc };
   }
 })();
-// modo di disegno della mappa: 0 = tessere pronte (normale), 1 = tessere come ImageBitmap, 2 = niente tessere (tutto ridisegnato
+// modo di disegno della mappa: 0 = tessere pronte (normale), 1 = come 0 ma i riquadri dei personaggi composti dal processore, 2 = niente tessere (tutto ridisegnato
 // a ogni fotogramma), 3 = tessere come immagini della pagina mosse dal browser. Si sceglie con ?grafica=N e resta ricordato.
 const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); try { if (q != null) localStorage.setItem('cqGfx2', q); return +(q != null ? q : localStorage.getItem('cqGfx2') || 0) || 0; } catch { return +q || 0; } })();
+// disegno fatto dal processore (willReadFrequently): su alcuni telefoni Android il chip grafico disegna a schegge
+// le forme complicate (visto sul Redmi Note 13 Pro). Al chip grafico arrivano solo immagini gia' pronte da incollare.
+const CQ_CPU = { willReadFrequently: true };
 const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
@@ -1771,7 +1774,7 @@ function cqOpenPick() {
   };
   const set = (k, v) => { const o = Object.assign(cqLook(), { [k]: v }); if (k === 'skin' && v === 'omino' && !CQ_COLORS.includes(o.col)) o.col = CQ_COLORS[0]; store.settings.cqLook = o; saveStore(); sync(); };
   $('#pkSkins').innerHTML = Object.entries(CQ_SKINS).map(([k, v]) => `<button type="button" class="btn" data-s="${k}"><canvas width="88" height="88"></canvas><span>${v.n}</span></button>`).join('');
-  $('#pkSkins').querySelectorAll('button').forEach(b => { const g = b.querySelector('canvas').getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); const k = b.dataset.s; cqPlayer(g, 22, 40, 17, k === 'omino' ? Object.assign(cqLook(), { skin: 'omino' }) : { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' }, 0, 1); });
+  $('#pkSkins').querySelectorAll('button').forEach(b => { const g = b.querySelector('canvas').getContext('2d', CQ_CPU); g.setTransform(2, 0, 0, 2, 0, 0); const k = b.dataset.s; cqPlayer(g, 22, 40, 17, k === 'omino' ? Object.assign(cqLook(), { skin: 'omino' }) : { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' }, 0, 1); });
   $('#pkCols').innerHTML = CQ_COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="colore"></button>`).join('');
   $('#pkHats').innerHTML = CQ_HATS.map(([h, n]) => `<button type="button" class="btn" data-h="${h}">${n}</button>`).join('');
   $('#pkCols').onclick = e => { const b = e.target.closest('[data-c]'); if (b) set('col', b.dataset.c); };
@@ -1785,7 +1788,7 @@ function cqOpenPick() {
   const t0 = performance.now();
   const loop = t => {
     if (box.hidden || !cq.on) return;
-    const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, 150, 150);
+    const g = c.getContext('2d', CQ_CPU); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, 150, 150);
     const e = (t - t0) / 1000;
     cqPlayer(g, 75, 132, 34 * 1.6, cqLook(), e * 9, Math.floor(e / 1.8) % 2 ? -1 : 1);
     requestAnimationFrame(loop);
@@ -1841,7 +1844,7 @@ function cqOpenCams() {
 function cqCamDraw(cv, cx, cy) {
   const w = cv.clientWidth || 160, h = cv.clientHeight || 120, dpr = Math.min(window.devicePixelRatio || 1, 3);
   if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
-  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const g = cv.getContext('2d', CQ_CPU); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
   const TW = 24, TH = 12, px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   const tx = w / 2 - px(cx, cy), ty = h / 2 - py(cx, cy), G = cq.g, list = [];
   if (G) {
@@ -2449,7 +2452,7 @@ function cqMeetUI() {
   $('#mtRes').textContent = me.alive ? 'Scrivi nella chat, poi tocca chi vuoi espellere e premi Vota, oppure Salta.' : 'Sei un fantasma: guardi la votazione.';
   const red = c => me.imp && c.imp && c !== me;
   $('#mtGrid').innerHTML = G.chars.map(c => `<button type="button" class="mc${c.alive ? '' : ' dead'}" data-id="${c.id}"><canvas width="72" height="72"></canvas><span class="nm"${red(c) ? ' style="color:#ff6a5a"' : ''}>${esc(c.name)}${c === me ? ' (tu)' : ''}</span><span class="vv">${c.alive ? '' : 'eliminato'}</span></button>`).join('');
-  $('#mtGrid').querySelectorAll('canvas').forEach((cv, i) => { const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); cqPlayer(g, 18, 34, 17, cqLookOf(G.chars[i]), 0, 1); });
+  $('#mtGrid').querySelectorAll('canvas').forEach((cv, i) => { const g = cv.getContext('2d', CQ_CPU); g.setTransform(2, 0, 0, 2, 0, 0); cqPlayer(g, 18, 34, 17, cqLookOf(G.chars[i]), 0, 1); });
   $('#mtGrid').onclick = e => {
     const b = e.target.closest('.mc'); if (!b || M.revealed || M.myVote !== undefined || !me.alive) return;
     const c = G.chars[+b.dataset.id]; if (!c.alive || c === me) return;
@@ -2613,7 +2616,7 @@ function cqOpenMap() {
   $('#cqMap').hidden = false; cq.joy = null; cq.keys = {};
   const c = $('#cqMapC'), w = c.clientWidth || 340, TW = w * 2 / (CQ_W + CQ_H), TH = TW / 2, h = (CQ_W + CQ_H) * TH / 2 + 10, dpr = Math.min(window.devicePixelRatio || 1, 3);
   c.style.height = h + 'px'; c.width = w * dpr; c.height = h * dpr;
-  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, CQ_H * TW / 2 * dpr, 5 * dpr);
+  const g = c.getContext('2d', CQ_CPU); g.setTransform(dpr, 0, 0, dpr, CQ_H * TW / 2 * dpr, 5 * dpr);
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   const dia = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(px(x, y), py(x, y)); g.lineTo(px(x + 1, y), py(x + 1, y)); g.lineTo(px(x + 1, y + 1), py(x + 1, y + 1)); g.lineTo(px(x, y + 1), py(x, y + 1)); g.fill(); };
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x], f = cqFloor[y][x]; if (o && o.wall) dia(x, y, '#2a2e35'); else if (f) dia(x, y, o ? cqShade(f, 0.7) : f); }
@@ -2879,7 +2882,7 @@ function cqBuildBg() {
   const tiles = [];
   for (let ty = 0; ty * TS < bh; ty++) for (let tx = 0; tx * TS < bw; tx++) {
     const c = document.createElement('canvas'); c.width = Math.min(TP, Math.ceil((bw - tx * TS) * sc)); c.height = Math.min(TP, Math.ceil((bh - ty * TS) * sc));
-    const g = c.getContext('2d'); g.setTransform(sc, 0, 0, sc, (ox - tx * TS) * sc, (oy - ty * TS) * sc);
+    const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, (ox - tx * TS) * sc, (oy - ty * TS) * sc);
     const T = cqTools(g, TW), x0 = tx * TS - ox, y0 = ty * TS - oy, x1 = x0 + c.width / sc, y1 = y0 + c.height / sc;
     for (const j of job) {
       if (j.b[2] < x0 || j.b[0] > x1 || j.b[3] < y0 || j.b[1] > y1) continue;
@@ -2888,7 +2891,6 @@ function cqBuildBg() {
     tiles.push({ c, x: tx * TS, y: ty * TS, w: c.width / sc, h: c.height / sc });
   }
   cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc };
-  if (CQ_GFX === 1 && window.createImageBitmap) tiles.forEach(t => createImageBitmap(t.c).then(b => { t.c = b; }).catch(() => {}));
   if (CQ_GFX === 3) cqDomBg(cq.bg);
 }
 // modo 3: le tessere diventano immagini normali della pagina, sotto il disegno, spostate dal browser
@@ -2952,7 +2954,18 @@ function cqDraw() {
       const a = rs[i], b = rs[j];
       if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { a[0] = Math.min(a[0], b[0]); a[1] = Math.min(a[1], b[1]); a[2] = Math.max(a[2], b[2]); a[3] = Math.max(a[3], b[3]); rs.splice(j, 1); j = i; }
     }
-    for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 6, dom ? null : B);
+    // modo 1: ogni riquadro si compone a parte (disegnato dal processore) e poi si incolla sullo schermo (piu' lento, di riserva)
+    if (CQ_GFX !== 1) for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 6, dom ? null : B);
+    else { const rc = cq.rc || (cq.rc = document.createElement('canvas')), rg = cq.rg || (cq.rg = rc.getContext('2d', CQ_CPU));
+    for (const q of rs) {
+      const x0 = Math.max(0, q[0]), y0 = Math.max(0, q[1]), x1 = Math.min(W, q[2]), y1 = Math.min(H, q[3]);
+      if (x1 <= x0 || y1 <= y0) continue;
+      const pw = Math.round((x1 - x0) * dp), ph = Math.round((y1 - y0) * dp);
+      if (rc.width < pw || rc.height < ph) { rc.width = Math.max(rc.width, pw); rc.height = Math.max(rc.height, ph); }
+      rg.setTransform(dp, 0, 0, dp, -x0 * dp, -y0 * dp);
+      cqRedraw(rg, cqTools(rg, TW), [x0, y0, x1, y1], tx, ty, TW, list, Math.ceil(((x1 - x0) / TW + (y1 - y0) / TH) / 2) + 6, dom ? null : B);
+      g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
+    } }
   }
   if (dark && torch) {
     // buio con il fascio della torcia: due strati, il secondo un po' piu' largo fa la penombra
@@ -3001,7 +3014,7 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
   const TH = TW / 2, U = TH * 1.15, [x0, y0, x1, y1] = r;
   g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
   // con lo sfondo pronto: lo rimetto nel riquadro (mai pixel vuoti ai bordi); altrimenti cancello e rifaccio il pavimento
-  if (B) { const ix = tx - B.ox, iy = ty - B.oy; for (const t of B.tiles) g.drawImage(t.c, ix + t.x, iy + t.y, t.w, t.h); } else g.clearRect(x0, y0, x1 - x0, y1 - y0);
+  if (B) { const ix = tx - B.ox, iy = ty - B.oy; for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < x1 && dy < y1 && dx + t.w > x0 && dy + t.h > y0) g.drawImage(t.c, dx, dy, t.w, t.h); } } else g.clearRect(x0, y0, x1 - x0, y1 - y0);
   g.translate(tx, ty);
   const a0 = x0 - tx, b0 = y0 - ty, a1 = x1 - tx, b1 = y1 - ty, mx = (a0 + a1) / 2, my = (b0 + b1) / 2;
   const fx = Math.floor(mx / TW + my / TH), fy = Math.floor(my / TH - mx / TW), items = [];
