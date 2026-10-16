@@ -43,3 +43,8 @@ Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi =
 - Fatto: sala giochi, sfide dirette, partite in corso, punteggio e classifica, statistiche online, mosse via Firebase.
 - Provato dall'utente su telefoni diversi a distanza: funziona. Regole con `rooms` pubblicate.
 - Prossimo: aggiungere un secondo minigioco (vedi la richiesta dell'utente nella nuova chat). Il gioco attuale è un solo `index.html`: valutare con l'utente se serve una schermata di scelta del gioco e come riusare sala giochi, nomi, classifica e canale Firebase.
+
+## Lista giochi (16-10-2026)
+- Sul sito (`WEB`) si apre prima una schermata `#home` "Sala giochi" con una scheda per gioco (`gDots`, `gAmong` = segnaposto "in arrivo"). Dalla scheda si entra con `openSetup()`; dentro c'è il tasto "← Giochi" (`showHome()`).
+- `presence/<sid>` ha ora il campo `g` = gioco in cui si trova ('home', 'dots', in futuro 'among'); senza `g` (versione vecchia) vale 'dots'. I conteggi sulle schede e la lista "Giocatori online" dei quadrettini filtrano su `g`.
+- Prossimo: costruire il gioco a tema (stile Among Us isometrico) a tappe: 1) mappa e personaggio, 2) compiti + computer, 3) impostore/voto, 4) online con Firebase (4-8 giocatori).
