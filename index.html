@@ -1732,7 +1732,7 @@ const cqFloor = [], cqSolid = [], cqRoomOf = [];
 })();
 // modo di disegno della mappa: 0 = tessere pronte (normale), 1 = tessere come ImageBitmap, 2 = niente tessere (tutto ridisegnato
 // a ogni fotogramma), 3 = tessere come immagini della pagina mosse dal browser. Si sceglie con ?grafica=N e resta ricordato.
-const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); try { if (q != null) localStorage.setItem('cqGfx', q); return +(q != null ? q : localStorage.getItem('cqGfx') || 0) || 0; } catch { return +q || 0; } })();
+const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); try { if (q != null) localStorage.setItem('cqGfx2', q); return +(q != null ? q : localStorage.getItem('cqGfx2') || 0) || 0; } catch { return +q || 0; } })();
 const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
@@ -1781,7 +1781,7 @@ function cqOpenPick() {
   store.settings.cqLook = L; sync();
   box.hidden = false; cq.picking = true; cq.joy = null; cq.keys = {};
   // anteprima: il personaggio cammina sul posto e si gira ogni tanto
-  const c = $('#cqPrev'), dpr = Math.min(window.devicePixelRatio || 1, 2); c.width = 150 * dpr; c.height = 150 * dpr;
+  const c = $('#cqPrev'), dpr = Math.min(window.devicePixelRatio || 1, 3); c.width = 150 * dpr; c.height = 150 * dpr;
   const t0 = performance.now();
   const loop = t => {
     if (box.hidden || !cq.on) return;
@@ -1839,7 +1839,7 @@ function cqOpenCams() {
 }
 // una inquadratura: la stanza vista dall'alto in piccolo, con chi c'e' dentro in quel momento
 function cqCamDraw(cv, cx, cy) {
-  const w = cv.clientWidth || 160, h = cv.clientHeight || 120, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const w = cv.clientWidth || 160, h = cv.clientHeight || 120, dpr = Math.min(window.devicePixelRatio || 1, 3);
   if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
   const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
   const TW = 24, TH = 12, px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
@@ -2611,7 +2611,7 @@ function cqOpenTask(t) {
 }
 function cqOpenMap() {
   $('#cqMap').hidden = false; cq.joy = null; cq.keys = {};
-  const c = $('#cqMapC'), w = c.clientWidth || 340, TW = w * 2 / (CQ_W + CQ_H), TH = TW / 2, h = (CQ_W + CQ_H) * TH / 2 + 10, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const c = $('#cqMapC'), w = c.clientWidth || 340, TW = w * 2 / (CQ_W + CQ_H), TH = TW / 2, h = (CQ_W + CQ_H) * TH / 2 + 10, dpr = Math.min(window.devicePixelRatio || 1, 3);
   c.style.height = h + 'px'; c.width = w * dpr; c.height = h * dpr;
   const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, CQ_H * TW / 2 * dpr, 5 * dpr);
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
@@ -2627,18 +2627,23 @@ function cqOpenMap() {
 }
 function closeCiack() { if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
-  const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const w = c.clientWidth, h = c.clientHeight;
+  // la tela deve avere esattamente i pixel veri dello schermo: se il telefono la ingrandisce anche di poco
+  // (es. Redmi con 2,75 pixel per punto) i bordi scuri tremano mentre ci si muove
+  const c = $('#cqCanvas'), w = c.clientWidth, h = c.clientHeight;
+  const dr = Math.min(window.devicePixelRatio || 1, 3), ok = cq.devW && w && Math.abs(cq.devW - w * dr) < 3;   // la misura vera vale solo se e' coerente
+  cq.dpr = ok ? cq.devW / w : dr;
   // la mappa pronta si rifa' solo se cambia davvero lo zoom: sul telefono la barra dell'indirizzo che compare e sparisce
   // cambia di poco l'altezza a ogni trascinamento, e rifarla ogni volta dava scatti e schermo nero
   if (cq.bg && (cq.bg.TW !== Math.max(48, Math.min(w, h) / 8) || cq.bg.dpr !== cq.dpr)) cq.bg = null;
   cq.w = w; cq.h = h;
-  const pw = Math.round(w * cq.dpr), ph = Math.round(h * cq.dpr);
+  const pw = ok ? cq.devW : Math.round(w * cq.dpr), ph = ok && cq.devH ? cq.devH : Math.round(h * cq.dpr);
   if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
 }
 function cqInit() {
   const root = $('#ciack');
   window.addEventListener('resize', () => { if (cq.on) cqResize(); });
+  // misura in pixel veri della tela, data dal browser
+  try { new ResizeObserver(en => { const b = en[0].devicePixelContentBoxSize && en[0].devicePixelContentBoxSize[0]; if (!b) return; cq.devW = b.inlineSize; cq.devH = b.blockSize; if (cq.on) cqResize(); }).observe($('#cqCanvas'), { box: 'device-pixel-content-box' }); } catch {}
   root.addEventListener('pointerdown', e => { if (cqBusy() || e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
   root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
   const up = e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy = null; cq.dirty = true; } };
@@ -2940,7 +2945,15 @@ function cqDraw() {
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
   const T = cqTools(g, TW);
   if (B.none) cqRedraw(g, T, [0, 0, W, H], tx, ty, TW, list, Math.ceil((W / TW + H / TH) / 2) + 8);   // modo 2: tutto lo schermo da capo
-  else for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list, 10, dom ? null : B);
+  else {
+    // riquadri che si toccano diventano uno solo: con tanti personaggi vicini ognuno si disegna una volta sola
+    const rs = list.filter(o => o.on).map(o => o.r.slice());
+    for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
+      const a = rs[i], b = rs[j];
+      if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { a[0] = Math.min(a[0], b[0]); a[1] = Math.min(a[1], b[1]); a[2] = Math.max(a[2], b[2]); a[3] = Math.max(a[3], b[3]); rs.splice(j, 1); j = i; }
+    }
+    for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 6, dom ? null : B);
+  }
   if (dark && torch) {
     // buio con il fascio della torcia: due strati, il secondo un po' piu' largo fa la penombra
     const cx = tx + X, cy = ty + Y - TH;
