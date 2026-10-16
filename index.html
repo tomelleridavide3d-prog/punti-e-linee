@@ -2380,7 +2380,7 @@ function cqClap(then) {
   B.classList.remove('hit'); el.style.opacity = 1; el.hidden = false;
   $('#clapSc').textContent = 'SCENA ' + (1 + Math.floor(Math.random() * 12)) + ' · RIPRESA ' + (1 + Math.floor(Math.random() * 4));
   $('#clapDir').textContent = 'Regia: ' + ((store.settings.myName || 'Tu').trim() || 'Tu');
-  T.push(setTimeout(() => { B.classList.add('hit'); thud(0.6, 900); beep(220, 0.1, 0.1, 0, 'square'); beep(1400, 0.03, 0.04); }, 800));
+  T.push(setTimeout(() => { B.classList.add('hit'); beep(180, 0.09, 0.1); beep(90, 0.14, 0.08, 0.02); beep(1400, 0.03, 0.04); }, 800));
   T.push(setTimeout(() => { el.style.opacity = 0; }, 1700));
   T.push(setTimeout(() => { el.hidden = true; if (then) then(); }, 2100));
   el.onclick = () => { T.forEach(clearTimeout); el.hidden = true; if (then) then(); then = null; };
