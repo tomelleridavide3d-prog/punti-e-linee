@@ -208,6 +208,28 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #cqKill{position:absolute;right:18px;bottom:142px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:15px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqKill.on{background:#e2553a;color:#fff;cursor:pointer}
 #cqSabBtn{position:absolute;left:18px;bottom:96px}
+.cqCoin{margin-left:auto;background:rgba(20,22,26,.72);color:#f2c230;font-weight:800;font-size:14px;padding:6px 10px;border-radius:10px}
+.cqCoin:empty{display:none}
+#cqItems{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;display:flex;flex-wrap:wrap-reverse;justify-content:center;gap:8px;max-width:160px}
+#cqItems button{width:58px;height:58px;border-radius:14px;border:2px solid rgba(242,194,48,.6);background:rgba(20,22,26,.8);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:2px}
+#cqItems small{font-size:8.5px;font-weight:700;line-height:1.05;max-width:54px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
+#cqToast{position:absolute;left:50%;top:38%;transform:translateX(-50%);background:rgba(20,22,26,.9);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;text-align:center;max-width:82%;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.rar{font-size:11px;font-weight:700;opacity:.9}
+.shTop{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.shTop .coin{font-weight:800;color:#e0a800;font-size:20px}
+.shTabs{display:flex;gap:4px}
+.shTabs button{font:inherit;font-size:13px;font-weight:700;padding:6px 10px;border-radius:9px;border:0;background:rgba(127,127,127,.15);color:inherit;cursor:pointer}
+.shTabs button.on{background:#f2c230;color:#1d2127}
+.shMsg{margin:8px 0}
+.shList{max-height:50vh;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.shRow{display:flex;gap:10px;align-items:center;padding:8px;border-radius:10px;background:rgba(127,127,127,.12)}
+.shRow>div{flex:1;min-width:0}
+.shRow .hint{margin:2px 0 0;font-size:12px}
+.shRow .btn{white-space:nowrap;font-size:13px;padding:6px 10px}
+.shE{font-size:28px}
+.bagPick{display:flex;flex-wrap:wrap;gap:6px}
+.bagPick button{border-radius:999px;padding:6px 10px;border:2px solid transparent;background:rgba(127,127,127,.15);font:inherit;font-size:13px;cursor:pointer;color:inherit}
+.bagPick button.on{border-color:#f2c230;background:rgba(242,194,48,.2)}
 #cqUse.on.rep{background:#e2553a;color:#fff}
 .cqSab{background:#b0283a;color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:700;max-width:420px;animation:cqBlink 1s infinite}
 @keyframes cqBlink{50%{opacity:.65}}
@@ -280,7 +302,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 <div id="ciack" hidden>
   <div id="cqBgL"><div id="cqBgMove"></div></div>
   <canvas id="cqCanvas"></canvas>
-  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><button class="btn" id="cqLookBtn" type="button" style="margin-left:auto">Personaggio</button></div>
+  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
   <div id="cqPick" hidden><div class="pk">
     <h2>Scegli il personaggio</h2>
     <canvas id="cqPrev"></canvas>
@@ -294,6 +316,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <button id="cqUse" type="button">Usa</button>
   <div id="cqCams" hidden><div class="pk"><div class="tk-h"><b>Telecamere di sorveglianza</b><button class="btn" id="camClose" type="button">Chiudi</button></div>
     <div class="camG"><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div></div></div></div>
+  <div id="cqItems"></div>
+  <div id="cqToast" hidden></div>
   <button id="cqKill" type="button" hidden>Elimina</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
   <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
@@ -1690,6 +1714,7 @@ prow('monitor', 33, 37, 8, 1, 0); prow('dchair', 33, 38, 8, 1, 0, () => ['#3a3f4
 prow('truck', 47, 37, 5, 0, 1); prow('truck', 48, 37, 4, 0, 1); pp('cab', 48, 41);
 prow('truck', 53, 38, 5, 0, 1); prow('truck', 54, 38, 4, 0, 1); pp('cab', 54, 42);
 [[51, 36], [51, 44], [57, 44], [45, 44]].forEach(([x, y]) => pp('cone', x, y)); pp('pump', 57, 36);
+pp('vending', 57, 9); pp('vending', 42, 43);   // distributori del negozio
 const cqFloor = [], cqSolid = [], cqRoomOf = [];
 (() => {
   for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
@@ -1829,6 +1854,173 @@ function cqCamDraw(cv, cx, cy) {
 }
 function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden || !$('#cqMeet').hidden || !$('#cqCams').hidden; }
 
+// ---- monete, oggetti, cassetti da frugare, negozio e baratto ----
+// rarita': w = quanto spesso esce frugando
+const CQ_RAR = [{ n: 'Comune', c: '#9aa1ac', w: 50 }, { n: 'Raro', c: '#4f8fd9', w: 28 }, { n: 'Epico', c: '#b070e0', w: 14 }, { n: 'Molto raro', c: '#e8a030', w: 6 }, { n: 'Leggendario', c: '#f2c230', w: 2 }];
+// who: 'crew' solo troupe, 'imp' solo sabotatore, niente = tutti. noshop: non si compra, si trova soltanto
+const CQ_ITEMS = {
+  megafono: { n: 'Megafono', e: '📣', r: 0, p: 8, d: 'Chiami una riunione da qualsiasi punto del set.' },
+  scarpe: { n: 'Scarpe veloci', e: '⚡', r: 0, p: 10, d: 'Corri molto più veloce per 10 secondi.' },
+  radar: { n: 'Radar', e: '📻', r: 1, p: 14, d: 'Per 10 secondi vedi sulla mappa dove sono tutti.' },
+  giubbotto: { n: 'Giubbotto', e: '🛡️', r: 1, p: 18, d: 'Ti salva da un\'eliminazione (una volta) e scopri chi ci ha provato.', who: 'crew' },
+  ciak: { n: 'Ciak magico', e: '🎬', r: 1, p: 16, d: 'Completa subito il compito più vicino, anche se è in più passaggi.', who: 'crew' },
+  clone: { n: 'Clone', e: '👥', r: 2, p: 22, d: 'Una tua copia gira per 8 secondi: confonde i sabotatori e ti fa da alibi.' },
+  fumo: { n: 'Fumogeno', e: '💨', r: 2, p: 20, d: 'Riempi di fumo la stanza per 10 secondi: chi è dentro non vede niente.', who: 'imp' },
+  trave: { n: 'Travestimento', e: '🎭', r: 2, p: 24, d: 'Per 15 secondi sembri un altro personaggio: i testimoni accuseranno lui.', who: 'imp' },
+  visore: { n: 'Visore notturno', e: '🥽', r: 3, p: 30, d: 'Al buio vedi come se fosse luce, per tutta la partita.', who: 'crew' },
+  pistola: { n: 'Pistola', e: '🔫', r: 3, p: 35, d: 'Spari a chi hai vicino: se è un sabotatore è fuori, se è innocente sei fuori tu!', who: 'crew' },
+  lente: { n: 'Lente del detective', e: '🔍', r: 4, p: 0, d: 'Guardi chi hai vicino e scopri se è innocente o sabotatore.', who: 'crew', noshop: 1 }
+};
+const CQ_VENDING = [[57, 9], [42, 43]];   // distributori: Mensa e Sala regia
+const CQ_LOOT_PROPS = ['locker', 'shelf', 'crate', 'crate2', 'fridge', 'rack', 'desk', 'counter'];
+const CQ_HELP = '<p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>distributore</b> è in Mensa e in Sala regia.</p>';
+const cqSellPrice = id => CQ_ITEMS[id].noshop ? 40 : Math.max(1, Math.round(CQ_ITEMS[id].p * 0.65));
+const cqCanUse = (id, me) => { const w = CQ_ITEMS[id].who; return !w || (w === 'imp') === me.imp; };
+// salvadanaio e zaino (ricordati come il nome)
+function cqBank() {
+  const b = store.settings.cqBank || (store.settings.cqBank = { coins: 0, inv: {} });
+  if (!b.inv) b.inv = {};
+  for (const id of Object.keys(b.inv)) if (!CQ_ITEMS[id] || !(b.inv[id] > 0)) delete b.inv[id];
+  return b;
+}
+function cqInvAdd(id, n) { const b = cqBank(); b.inv[id] = (b.inv[id] || 0) + n; if (b.inv[id] <= 0) delete b.inv[id]; saveStore(); }
+function cqCoins(n) {
+  const b = cqBank(); b.coins = Math.max(0, b.coins + n); saveStore();
+  if (cq.g && n > 0) cq.g.earn = (cq.g.earn || 0) + n;
+  const el = $('#cqCoin'); if (el) el.textContent = '🪙 ' + b.coins;
+}
+function cqToast(html) {
+  const t = $('#cqToast'); t.innerHTML = html; t.hidden = false;
+  clearTimeout(cq.toastT); cq.toastT = setTimeout(() => { t.hidden = true; }, 2800);
+}
+const cqItemTag = id => { const it = CQ_ITEMS[id], R = CQ_RAR[it.r]; return `${it.e} <b>${esc(it.n)}</b> <span class="rar" style="color:${R.c}">${R.n}</span>`; };
+// all'inizio della partita: gli oggetti scelti vanno nello zaino della partita, e si nascondono monete e oggetti nei mobili
+function cqShopStart(G) {
+  const B = cqBank(), pack = (store.settings.cqPack || []).filter(id => B.inv[id]).slice(0, 2);
+  G.bag = []; for (const id of pack) { G.bag.push(id); B.inv[id]--; if (!B.inv[id]) delete B.inv[id]; }
+  saveStore();
+  const seen = new Set(), spots = [];
+  for (const [t, x, y] of CQ_PROPS) if (CQ_LOOT_PROPS.includes(t) && !seen.has(x + ',' + y)) { seen.add(x + ',' + y); spots.push({ x, y, done: false }); }
+  G.loot = spots.sort(() => Math.random() - 0.5).slice(0, 18);
+  G.earn = 0; G.known = {}; G.clone = null; G.disg = null; G.smoke = null; G.fast = 0; G.radar = 0;
+}
+// gli oggetti non usati tornano nello zaino
+function cqBagReturn() { const G = cq.g; if (!G || !G.bag) return; for (const id of G.bag) cqInvAdd(id, 1); G.bag = []; }
+// frugare in un mobile: niente, qualche moneta, oppure un oggetto (piu' raro = piu' difficile)
+function cqSearch(L) {
+  const G = cq.g; if (!G || L.done) return;
+  L.done = true; cq.actKey = '';
+  const r = Math.random();
+  if (r < 0.3) { cqToast('Niente, solo polvere…'); beep(260, 0.08, 0.03); return; }
+  if (r < 0.75) { const n = 1 + Math.floor(Math.random() * 3); cqCoins(n); cqToast('Hai trovato <b>' + n + ' 🪙</b>'); beep(1200, 0.06, 0.04); beep(1500, 0.08, 0.04, 0.07); return; }
+  let k = Math.random() * CQ_RAR.reduce((a, R) => a + R.w, 0), rar = 0;
+  while (k >= CQ_RAR[rar].w) { k -= CQ_RAR[rar].w; rar++; }
+  const id = cqPickOne(Object.keys(CQ_ITEMS).filter(i => CQ_ITEMS[i].r === rar));
+  if (G.bag.length < 4) G.bag.push(id); else cqInvAdd(id, 1);
+  cqToast('Hai trovato: ' + cqItemTag(id) + '!');
+  beep(880, 0.08, 0.05); beep(1320, 0.12, 0.05, 0.1); if (rar >= 3) beep(1760, 0.2, 0.05, 0.22);
+  cqHud();
+}
+// barra degli oggetti in partita (solo quelli che puoi usare col tuo ruolo)
+function cqItemsUI() {
+  const G = cq.g, box = $('#cqItems'); if (!G) return;
+  const me = G.me, el = $('#cqCoin'); if (el) el.textContent = '🪙 ' + cqBank().coins;
+  const h = G.phase === 'play' && me.alive ? (G.bag || []).map((id, i) => cqCanUse(id, me) ? `<button type="button" data-i="${i}">${CQ_ITEMS[id].e}<small>${esc(CQ_ITEMS[id].n)}</small></button>` : '').join('') : '';
+  if (box._h !== h) { box._h = h; box.innerHTML = h; }
+}
+const cqNearest = (r, filt) => { const G = cq.g; let best = null, bd = r; for (const c of G.chars) if (c !== G.me && c.alive && (!filt || filt(c))) { const d = Math.hypot(c.x - cq.x, c.y - cq.y); if (d < bd) { bd = d; best = c; } } return best; };
+function cqUseItem(i) {
+  const G = cq.g; if (!G || G.phase !== 'play' || cqBusy()) return;
+  const me = G.me, id = G.bag[i]; if (!id || !me.alive || !cqCanUse(id, me)) return;
+  const used = () => { G.bag.splice(i, 1); cqHud(); };
+  switch (id) {
+    case 'megafono': used(); cqMeeting(me, null); return;
+    case 'scarpe': G.fast = G.time + 10; cqToast('⚡ Scarpe veloci: corri!'); break;
+    case 'radar': {
+      G.radar = G.time + 10; used(); cqOpenMap();
+      const iv = setInterval(() => { if ($('#cqMap').hidden || !cq.g || cq.g.radar < cq.g.time) { clearInterval(iv); return; } cqOpenMap(); }, 400);
+      return; }
+    case 'giubbotto': if (me.shield) { cqToast('Hai già il giubbotto addosso.'); return; } me.shield = true; cqToast('🛡️ Giubbotto indossato: ti salva da un\'eliminazione.'); break;
+    case 'ciak': {
+      let best = null, bd = 1e9;
+      for (const t of cq.tasks) { if (cq.done.has(t)) continue; const s = cqStep(me, t), d = Math.hypot(cq.x - s.x, cq.y - s.y); if (d < bd) { bd = d; best = t; } }
+      if (!best) { cqToast('Non hai più compiti da fare.'); return; }
+      used(); me.st[best] = cqTask(best).steps.length - 1; cqToast('🎬 Fatto: ' + esc(cqTask(best).n) + '!'); cqTaskDone(best); return; }
+    case 'clone': G.clone = { x: cq.x, y: cq.y, dx: cq.wdx || 1, dy: cq.wdy || 0, face: cq.face, walk: 0, until: G.time + 8 }; cqToast('👥 Ecco il tuo clone!'); break;
+    case 'fumo': G.smoke = { room: cqRoomName(cq.x, cq.y), until: G.time + 10 }; cqToast('💨 Fumo ' + CQ_IN[G.smoke.room] + '!'); break;
+    case 'trave': { const o = G.chars.filter(c => c.alive && c !== me); if (!o.length) return; const c = cqPickOne(o); G.disg = { id: c.id, until: G.time + 15 }; cqToast('🎭 Ora sembri <b>' + esc(c.name) + '</b> per 15 secondi.'); break; }
+    case 'visore': me.nv = true; cqToast('🥽 Visore acceso: il buio non ti ferma più.'); break;
+    case 'pistola': {
+      const v = cqNearest(1.8); if (!v) { cqToast('Nessuno abbastanza vicino per sparare.'); return; }
+      used(); beep(120, 0.15, 0.08); beep(90, 0.2, 0.06, 0.05);
+      if (v.imp) { v.alive = false; v.path = []; cqToast('🔫 Hai colpito <b>' + esc(v.name) + '</b>: era un sabotatore!'); }
+      else { me.alive = false; cqPanel('Hai sparato a un innocente!', `<p class="lead"><b>${esc(v.name)}</b> era della troupe. Sei fuori: ora sei un fantasma e puoi ancora finire i compiti.</p>`, 'Continua'); }
+      cqHud(); cqCheckWin(); return; }
+    case 'lente': {
+      const v = cqNearest(2.6); if (!v) { cqToast('Avvicinati a qualcuno per guardarlo con la lente.'); return; }
+      G.known[v.id] = v.imp; cqToast('🔍 <b>' + esc(v.name) + '</b> ' + (v.imp ? 'è un <b style="color:#ff6a5a">SABOTATORE</b>!' : 'è <b style="color:#7be0a0">innocente</b>.')); break; }
+  }
+  used();
+}
+// il clone cammina da solo e cambia strada quando sbatte
+function cqCloneStep(dt) {
+  const G = cq.g, C = G && G.clone; if (!C) return;
+  if (G.time > C.until) { G.clone = null; return; }
+  const sp = CQ_SPEED * 0.9 * dt, nx = C.x + C.dx * sp, ny = C.y + C.dy * sp; let moved = false;
+  if (cqFree(nx, C.y)) { C.x = nx; moved = true; }
+  if (cqFree(C.x, ny)) { C.y = ny; moved = true; }
+  if (!moved || Math.random() < dt * 0.4) { const a = Math.random() * 6.283; C.dx = Math.cos(a); C.dy = Math.sin(a); }
+  if (Math.abs(C.dx - C.dy) > 0.05) C.face = C.dx - C.dy > 0 ? 1 : -1;
+  C.walk += dt * 10;
+}
+// scelta degli oggetti da portare (nella stanza d'attesa)
+function cqBagPick() {
+  const B = cqBank(), box = $('#lbBag'); if (!box) return;
+  let pack = (store.settings.cqPack || []).filter(id => B.inv[id]);
+  const ids = Object.keys(B.inv);
+  box.innerHTML = ids.length ? ids.map(id => `<button type="button" data-id="${id}" class="${pack.includes(id) ? 'on' : ''}">${CQ_ITEMS[id].e} ${esc(CQ_ITEMS[id].n)}${B.inv[id] > 1 ? ' ×' + B.inv[id] : ''}</button>`).join('') : '<span class="hint">Zaino vuoto: trova oggetti nei cassetti o comprali al negozio.</span>';
+  box.onclick = e => { const b = e.target.closest('button'); if (!b) return; const id = b.dataset.id; pack = pack.includes(id) ? pack.filter(x => x !== id) : pack.concat(id).slice(-2); store.settings.cqPack = pack; saveStore(); cqBagPick(); };
+}
+// negozio (prima e dopo la partita) e distributore (durante): compra e baratta
+function cqShop(back) {
+  const G = cq.g, inMatch = !!(G && G.phase === 'play');
+  let tab = 'buy', msg = '';
+  cqCloseTask();
+  $('#tkTitle').textContent = inMatch ? 'Distributore' : 'Negozio';
+  const body = $('#tkBody');
+  const row = (id, btn, n) => { const it = CQ_ITEMS[id], R = CQ_RAR[it.r]; return `<div class="shRow"><span class="shE">${it.e}</span><div><b>${esc(it.n)}${n > 1 ? ' ×' + n : ''}</b> <span class="rar" style="color:${R.c}">${R.n}</span>${it.who ? ' <span class="rar">· solo ' + (it.who === 'imp' ? 'sabotatore' : 'troupe') + '</span>' : ''}<div class="hint">${esc(it.d)}</div></div>${btn}</div>`; };
+  const draw = () => {
+    const B = cqBank();
+    let h = `<div class="shTop"><span class="coin">🪙 ${B.coins}</span><div class="shTabs"><button type="button" data-t="buy" class="${tab === 'buy' ? 'on' : ''}">Compra</button><button type="button" data-t="inv" class="${tab === 'inv' ? 'on' : ''}">Zaino e baratto</button></div></div>`;
+    h += `<p class="hint shMsg">${msg || (tab === 'buy' ? (inMatch ? 'Quello che compri qui finisce subito nella barra degli oggetti.' : 'Quello che compri va nello zaino: scegli poi cosa portare in partita (massimo 2).') : 'Baratta gli oggetti che non ti servono in cambio di monete.')}</p><div class="shList">`;
+    if (tab === 'buy') { for (const id of Object.keys(CQ_ITEMS)) if (!CQ_ITEMS[id].noshop) h += row(id, `<button class="btn primary" type="button" data-buy="${id}"${B.coins < CQ_ITEMS[id].p ? ' disabled' : ''}>🪙 ${CQ_ITEMS[id].p}</button>`); }
+    else {
+      const inv = Object.entries(B.inv);
+      if (!inv.length) h += '<p class="hint">Lo zaino è vuoto: fruga nei cassetti durante le partite!</p>';
+      for (const [id, n] of inv) h += row(id, `<button class="btn" type="button" data-sell="${id}">Baratta<br>🪙 ${cqSellPrice(id)}</button>`, n);
+    }
+    h += '</div>' + (back ? '<button class="btn primary go" id="shBack" type="button">Indietro</button>' : '');
+    body.innerHTML = h;
+    body.querySelector('.shTabs').onclick = e => { const b = e.target.closest('button'); if (b) { tab = b.dataset.t; msg = ''; draw(); } };
+    body.querySelector('.shList').onclick = e => {
+      const b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.buy) {
+        const id = b.dataset.buy, p = CQ_ITEMS[id].p; if (cqBank().coins < p) return;
+        cqCoins(-p);
+        if (inMatch && cq.g.bag.length < 4) { cq.g.bag.push(id); msg = 'Comprato: ' + cqItemTag(id) + '. È nella barra degli oggetti.'; } else { cqInvAdd(id, 1); msg = 'Comprato: ' + cqItemTag(id) + '. È nello zaino.'; }
+        beep(1200, 0.06, 0.04); beep(1500, 0.08, 0.04, 0.07);
+      } else if (b.dataset.sell) {
+        const id = b.dataset.sell; if (!cqBank().inv[id]) return;
+        cqInvAdd(id, -1); cqCoins(cqSellPrice(id)); if (cq.g) cq.g.earn -= cqSellPrice(id);   // il baratto non conta come guadagno della partita
+        msg = 'Barattato: ' + cqItemTag(id) + ' per ' + cqSellPrice(id) + ' 🪙.'; beep(900, 0.06, 0.04);
+      }
+      draw(); if (cq.g) cqHud();
+    };
+    if (back) $('#shBack').onclick = () => { cqCloseTask(); back(); };
+  };
+  draw();
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = !!back; $('#cqTask').hidden = false;
+}
 // ---- partita contro il computer: personaggi guidati dal computer, alcuni (tu compreso) sono sabotatori ----
 const CQ_NAMES = ['Bruno', 'Carla', 'Dario', 'Elena', 'Fabio', 'Gina', 'Ivo', 'Lia', 'Marco', 'Nina', 'Otto', 'Pia'];
 const CQ_VIS = 5;
@@ -1842,7 +2034,7 @@ const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
 const cqMaxImps = n => n <= 5 ? 1 : n <= 7 ? 2 : 3;
 const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
 const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return r >= 0 ? CQ_ROOMS[r].n : 'Corridoio'; };
-const cqLookOf = c => c.bot ? c.look : cqLook();
+const cqLookOf = c => c.bot ? c.look : cq.g && cq.g.disg && cq.g.disg.until > cq.g.time ? cq.g.chars[cq.g.disg.id].look : cqLook();
 const cqDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const cqPickOne = a => a[Math.floor(Math.random() * a.length)];
 // cella libera accanto a un oggetto, dove ci si mette per usarlo
@@ -1880,13 +2072,16 @@ function cqLobby() {
     <div class="row"><div class="lbl">Attesa tra un'eliminazione e l'altra</div>${seg('kcd', [[20, '20 s'], [30, '30 s'], [45, '45 s']], o.kcd)}</div>
     <div class="row"><div class="lbl">Blackout casuali</div>${seg('blackout', [[1, 'Sì'], [0, 'No']], o.blackout ? 1 : 0)}<div class="hint">Ogni tanto salta la luce da sola: qualcuno deve riaccendere gli interruttori.</div></div>
     <div class="row"><div class="lbl">Torcia al buio</div>${seg('torch', [[1, 'Sì'], [0, 'No']], o.torch ? 1 : 0)}<div class="hint">Al buio vedi un fascio di luce davanti a te invece di un piccolo cerchio.</div></div>
-  </form><button class="btn primary go" id="lbGo" type="button">Si gira!</button>`;
+    <div class="row"><div class="lbl">Oggetti da portare (al massimo 2)</div><div class="bagPick" id="lbBag"></div></div>
+  </form><button class="btn" id="lbShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn primary go" id="lbGo" type="button">Si gira!</button>`;
   const f = $('#lbF');
   const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1' }; };
   const sync = () => { const r = read(); f.querySelectorAll('input[name=imps]').forEach(i => { i.disabled = +i.value > cqMaxImps(r.n); if (+i.value === r.imps) i.checked = true; }); $('#lbImpH').textContent = r.n <= 5 ? 'Con 4 personaggi c\'è un solo sabotatore.' : r.n <= 7 ? 'Con 6 personaggi al massimo 2 sabotatori.' : ''; };
   f.oninput = sync; sync();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#lbGo').onclick = () => { store.settings.cqOpt = read(); saveStore(); cqCloseTask(); cqNewMatch(); };
+  $('#lbShop').onclick = () => { store.settings.cqOpt = read(); saveStore(); cqShop(cqLobby); };
+  cqBagPick();
 }
 function cqNewMatch() {
   const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
@@ -1904,13 +2099,14 @@ function cqNewMatch() {
       done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
   cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
+  cqShopStart(cq.g);
   cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
   cqHud();
   const mates = chars.filter(c => c.imp && c !== me), nImp = imps.size;
-  cqPanel(me.imp ? 'Sei un SABOTATORE' : 'Sei della TROUPE', me.imp
+  cqPanel(me.imp ? 'Sei un SABOTATORE' : 'Sei della TROUPE', (me.imp
     ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme. Intanto fai finta di lavorare!</p>' + (mates.length ? `<p class="lead">I tuoi complici (nome in rosso): <b>${mates.map(c => esc(c.name)).join(', ')}</b>.</p>` : '')
-    : `<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi ${nImp > 1 ? 'ci sono <b>' + nImp + ' sabotatori</b>' : 'c\'è un <b>sabotatore</b>'}: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. Il pulsante rosso nel corridoio chiama una riunione (una volta sola).</p>`,
-    'Si gira!', () => { cq.g.phase = 'play'; });
+    : `<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi ${nImp > 1 ? 'ci sono <b>' + nImp + ' sabotatori</b>' : 'c\'è un <b>sabotatore</b>'}: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. Il pulsante rosso nel corridoio chiama una riunione (una volta sola).</p>`
+    ) + CQ_HELP, 'Si gira!', () => { cq.g.phase = 'play'; });
 }
 // pannello con un messaggio e un pulsante (ruolo, avvisi)
 function cqPanel(title, html, btn, then) {
@@ -1930,9 +2126,10 @@ function cqHud() {
   role.className = 'cqRole' + (me.imp ? ' imp' : '');
   $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const s = cqStep(me, id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near && cq.near.task === id ? 'near' : ''}">${esc(s.r)}: ${esc(s.n)}${s.of > 1 ? ' (' + (s.i + 1) + '/' + s.of + ')' : ''}</div>`; }).join('');
   const a = cq.act, ub = $('#cqUse');
-  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere' }[a.k] : 'Usa';
+  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio' }[a.k] : 'Usa';
   ub.classList.toggle('on', !!a); ub.classList.toggle('rep', !!a && (a.k === 'rep' || a.k === 'btn'));
   ub.style.fontSize = ub.textContent.length > 8 ? '13px' : '';
+  cqItemsUI();
 }
 // cose che cambiano a ogni fotogramma (solo se cambiano davvero)
 function cqHudFast() {
@@ -1967,10 +2164,15 @@ function cqNearCheck() {
       for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqStep(me, id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; act = { k: 'task', t }; } }
     }
   }
+  // mobili da frugare e distributori
+  if (!act && G.phase === 'play' && me.alive) {
+    for (const L of G.loot) if (!L.done && Math.hypot(cq.x - (L.x + 0.5), cq.y - (L.y + 0.5)) < 1.6) { act = { k: 'search', L }; break; }
+    if (!act && CQ_VENDING.some(([x, y]) => Math.hypot(cq.x - (x + 0.5), cq.y - (y + 0.5)) < 1.7)) act = { k: 'shop' };
+  }
   // telecamere di sorveglianza: la scrivania con i monitor in Sala regia
   if (!act && G.phase === 'play' && (Math.hypot(cq.x - 36.5, cq.y - 43.5) < 1.7 || Math.hypot(cq.x - 37.5, cq.y - 43.5) < 1.7)) act = { k: 'cam' };
   cq.near = act && act.k === 'task' ? act.t : null;
-  const key = act ? act.k + (act.t ? act.t.task + act.t.i : '') : '';
+  const key = act ? act.k + (act.t ? act.t.task + act.t.i : '') + (act.L ? act.L.x + ',' + act.L.y : '') : '';
   if (key !== cq.actKey) { cq.act = act; cq.actKey = key; cqHud(); }
 }
 function cqUse() {
@@ -1979,12 +2181,19 @@ function cqUse() {
   else if (a.k === 'btn') { G.button--; cqMeeting(G.me, null); }
   else if (a.k === 'fix') cqOpenTask(G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab });
   else if (a.k === 'cam') cqOpenCams();
+  else if (a.k === 'search') cqSearch(a.L);
+  else if (a.k === 'shop') cqShop(null);
   else cqOpenTask(a.t);
 }
 function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; $('#tkClose').hidden = false; cq.joy = null; cq.keys = {}; }
 function cqTaskDone(id) {
   const G = cq.g; if (!G || G.phase !== 'play') return;
-  if (cqAdvance(G.me, id)) G.me.done.add(id); cq.actKey = ''; cqNearCheck(); cqHud(); cqCheckWin();
+  if (cqAdvance(G.me, id)) {   // compito finito: 0, 1 o 2 monete
+    G.me.done.add(id);
+    const r = Math.random(), n = r < 0.3 ? 0 : r < 0.75 ? 1 : 2;
+    if (n) { cqCoins(n); cqToast('+' + n + ' 🪙'); }
+  }
+  cq.actKey = ''; cqNearCheck(); cqHud(); cqCheckWin();
 }
 // ---- personaggi del computer ----
 function cqBots(dt) {
@@ -2003,7 +2212,7 @@ function cqBots(dt) {
       continue;
     }
     // ogni mezzo secondo ricorda chi vede intorno e in che stanza
-    if ((b.eye -= dt) <= 0) { b.eye = 0.5; for (const c of G.chars) if (c !== b && c.alive && cqDist(c, b) < 6) b.seen[c.id] = { r: cqRoomName(c.x, c.y), t: G.time }; }
+    if ((b.eye -= dt) <= 0) { b.eye = 0.5; for (const c of G.chars) if (c !== b && c.alive && cqDist(c, b) < 6) b.seen[c.id] = { r: cqRoomName(c.x, c.y), t: G.time }; if (G.clone && cqDist(G.clone, b) < 6) b.seen[0] = { r: cqRoomName(G.clone.x, G.clone.y), t: G.time }; }
     if (b.imp) cqImpBrain(b, dt);
     else { const body = G.bodies.find(o => cqDist(o, b) < 2.5); if (body) { cqMeeting(b, body); return; } }
     if (G.phase !== 'play' || !b.alive) continue;
@@ -2062,6 +2271,12 @@ function cqImpBrain(b, dt) {
     if (!living.some(o => o !== v && !o.imp && cqDist(o, b) < R + (G.chars.filter(c => c.imp).length > 1 ? 2 : 0))) { best = v; bd = d; }   // nessun altro che possa vedere (in gruppo piu' prudenti)
   }
   if (!best) { stop(); return; }
+  // il clone del giocatore li inganna: vanno dietro a lui
+  if (best === G.me && G.clone) {
+    const C = G.clone;
+    if (cqDist(C, b) < 1.1) { G.clone = null; b.kcd = 8; stop(); cqToast('👥 Qualcuno ha attaccato il tuo clone ' + CQ_IN[cqRoomName(C.x, C.y)] + '!'); return; }
+    b.hunt = { x: C.x, y: C.y }; b.wait = 0; b.doing = null; b.goal = { k: 'hunt' }; b.path = cqPath(b.x, b.y, C.x, C.y); return;
+  }
   if (bd < 1.1) { stop(); cqKill(best, b); return; }
   b.hunt = { x: best.x, y: best.y }; b.wait = 0; b.doing = null; b.goal = { k: 'hunt' }; b.path = cqPath(b.x, b.y, best.x, best.y);
 }
@@ -2077,13 +2292,22 @@ function cqMyKill() {
 }
 function cqKill(v, k) {
   const G = cq.g;
+  if (v.shield) {   // il giubbotto salva una volta, e si scopre chi ci ha provato
+    v.shield = false; k.kcd = G.opt.kcd * 0.5; beep(900, 0.08, 0.05);
+    if (v === G.me) cqToast('🛡️ Il giubbotto ti ha salvato! Ti ha attaccato <b style="color:#ff6a5a">' + esc(k.name) + '</b>.');
+    cqHud(); return;
+  }
+  if (k === G.me) cqCoins(2);
   v.alive = false; v.path = []; v.wait = 0; v.doing = null;
   G.bodies.push({ id: v.id, x: v.x, y: v.y, face: v.face, look: cqLookOf(v), name: v.name, room: cqRoomName(v.x, v.y), t: G.time });
   k.kcd = G.opt.kcd * (1 + 0.6 * (G.chars.filter(c => c.imp).length - 1));   // con piu' sabotatori ognuno aspetta di piu'
   const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS;
+  // travestimento: i testimoni accusano chi sembravi; fumo: chi e' nella stanza non vede niente
+  const dg = k === G.me && G.disg && G.disg.until > G.time && G.disg.id !== v.id ? G.disg.id : k.id, fog = G.smoke && G.smoke.until > G.time ? G.smoke.room : null;
   for (const w of G.chars) {
     if (!w.bot || !w.alive || w.imp) continue;
-    if (cqDist(w, k) <= R) w.saw = { k: k.id, v: v.id };
+    if (fog && cqRoomName(w.x, w.y) === fog) continue;
+    if (cqDist(w, k) <= R) w.saw = { k: dg, v: v.id };
     if (cqDist(w, v) <= R + 3) for (const o of G.chars) if (o.alive && o !== w && cqDist(o, v) <= R) w.sus.add(o.id);
   }
   if (G.sab && G.sab.fixer === v.id) cqPickFixer();
@@ -2132,11 +2356,14 @@ function cqEnd(win, why) {
   const G = cq.g; if (!G || G.phase === 'end') return;
   G.phase = 'end'; cqMeetStop(); $('#cqMeet').hidden = true; $('#cqMap').hidden = true; cqCloseTask();
   const me = G.me, imps = G.chars.filter(c => c.imp), won = (win === 'sab') === me.imp;
+  cqCoins(won ? 5 : 1); cqBagReturn(); cqHud();
   const who = imps.map(c => c === me ? 'tu' : esc(c.name)).join(', ');
   $('#tkTitle').textContent = won ? 'Hai vinto!' : 'Hai perso!';
   $('#tkBody').innerHTML = `<p class="lead" style="text-align:center"><b>${win === 'sab' ? (imps.length > 1 ? 'Vincono i sabotatori' : 'Vince il sabotatore') : 'Vince la troupe'}</b><br>${why}</p>
     <p class="hint" style="text-align:center">${imps.length > 1 ? 'I sabotatori erano' : 'Il sabotatore era'} <b>${who}</b>.</p>
-    <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
+    <p class="hint" style="text-align:center">🪙 Monete guadagnate: <b>+${G.earn}</b> (bonus ${won ? 'vittoria 5' : 'partecipazione 1'}) · ne hai <b>${cqBank().coins}</b></p>
+    <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn" id="enShop" type="button">🪙 Negozio</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
+  $('#enShop').onclick = () => cqShop(cqLobby);
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#enHome').onclick = closeCiack;
   $('#enNew').onclick = () => { cqCloseTask(); cqLobby(); };
@@ -2146,7 +2373,7 @@ function cqEnd(win, why) {
 const cqFmt = (c, txt) => `<b style="color:${cqLookOf(c).col}">${esc(c.name)}</b>: ${txt}`;
 function cqMeeting(rep, body) {
   const G = cq.g; if (!G || G.phase !== 'play') return;
-  G.phase = 'meet'; G.sab = null; cqCloseTask(); $('#cqMap').hidden = true; cq.joy = null; cq.keys = {};
+  G.phase = 'meet'; G.sab = null; G.clone = null; G.disg = null; G.smoke = null; cqCloseTask(); $('#cqMap').hidden = true; cq.joy = null; cq.keys = {};
   beep(520, 0.15, 0.06); beep(520, 0.15, 0.06, 0.25); beep(780, 0.3, 0.06, 0.5);
   const alive = G.chars.filter(c => c.alive), nm = c => '<b>' + esc(c.name) + '</b>', lines = [], votes = {}, firm = new Set();
   const first = body ? `Ho trovato ${nm(body)} a terra ${CQ_IN[body.room]}!` : 'Ho premuto il pulsante: dobbiamo parlare!';
@@ -2394,10 +2621,11 @@ function cqOpenMap() {
   CQ_ROOMS.forEach(r => g.fillText(r.n, px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
   if (cq.g && cq.g.sab) { const s = CQ_SABS[cq.g.sab.type]; g.fillStyle = '#e2553a'; g.beginPath(); g.arc(px(s.x + 0.5, s.y + 0.5), py(s.x + 0.5, s.y + 0.5), 7, 0, 7); g.fill(); }
   if (!cq.g || !cq.g.me.imp) for (const id of cq.tasks || []) { const t = cqStep(cq.g && cq.g.me, id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
+  if (cq.g && cq.g.radar > cq.g.time) for (const c of cq.g.chars) if (c.alive && c !== cq.g.me) { g.fillStyle = cqLookOf(c).col; g.strokeStyle = '#111'; g.lineWidth = 1.5; g.beginPath(); g.arc(px(c.x, c.y), py(c.x, c.y), 5, 0, 7); g.fill(); g.stroke(); }
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function closeCiack() { if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
@@ -2426,6 +2654,7 @@ function cqInit() {
   $('#cqKill').onclick = cqMyKill;
   $('#cqSabBtn').onclick = cqSabMenu;
   $('#camClose').onclick = () => { $('#cqCams').hidden = true; };
+  $('#cqItems').onclick = e => { const b = e.target.closest('button'); if (b) cqUseItem(+b.dataset.i); };
   window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'q' || e.key === 'Q')) cqMyKill(); });
   window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'e' || e.key === 'E' || e.key === ' ')) { e.preventDefault(); cqUse(); } });
 }
@@ -2445,7 +2674,7 @@ function cqFrame(t) {
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
   const d = !G || playing ? cqDir() : null;
   if (d) {
-    const nx = cq.x + d.wx * CQ_SPEED * dt, ny = cq.y + d.wy * CQ_SPEED * dt;   // si prova un asse alla volta: lungo i muri si scivola
+    const sp = CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
     if (cqFree(nx, cq.y)) cq.x = nx;
     if (cqFree(cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
@@ -2453,7 +2682,7 @@ function cqFrame(t) {
     cq.walk += dt * 11;
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
-  if (playing) cqBots(dt);
+  if (playing) { cqBots(dt); cqCloneStep(dt); }
   cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
   cq.raf = requestAnimationFrame(cqFrame);
@@ -2600,6 +2829,11 @@ function cqTools(g, TW) {
       case 'cab': bx(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, 0.35, '#2a2e35'); bx(x, y, x + 1, y + 1, 0.35, 1.6, '#c0392b'); qL(x + 0.1, x + 0.9, y + 1, 1.05, 1.5, '#9fd0e8'); dot(x + 0.2, y + 1, 0.6, 0.05, '#f2e27a'); dot(x + 0.8, y + 1, 0.6, 0.05, '#f2e27a'); break;
       case 'cone': bx(x + 0.28, y + 0.28, x + 0.72, y + 0.72, 0, 0.08, '#e2553a'); poly([S(x + 0.5, y + 0.5, 0.95), S(x + 0.36, y + 0.5, 0.08), S(x + 0.64, y + 0.5, 0.08)], '#f08a24'); poly([S(x + 0.45, y + 0.5, 0.55), S(x + 0.55, y + 0.5, 0.55), S(x + 0.58, y + 0.5, 0.4), S(x + 0.42, y + 0.5, 0.4)], '#fff'); break;
       case 'pump': bx(x + 0.25, y + 0.25, x + 0.75, y + 0.75, 0, 1.7, '#c0392b'); qL(x + 0.32, x + 0.68, y + 0.75, 1.15, 1.5, '#e8ecef'); bx(x + 0.25, y + 0.25, x + 0.75, y + 0.75, 1.7, 1.85, '#e8ecef'); line(S(x + 0.75, y + 0.6, 1.2), S(x + 0.9, y + 0.8, 0.2), '#222', 2); break;
+      case 'vending': { bx(x + 0.1, y + 0.15, x + 0.9, y + 0.85, 0, 2.4, '#2a5fb0'); qL(x + 0.16, x + 0.64, y + 0.85, 0.85, 2.2, '#1b2430');
+        const vc = ['#e2553a', '#f2c230', '#2fa35a', '#59b6e8', '#f07ab8'];
+        for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) qL(x + 0.2 + k * 0.14, x + 0.3 + k * 0.14, y + 0.85, 0.95 + r * 0.31, 1.13 + r * 0.31, vc[(r * 3 + k) % 5]);
+        qL(x + 0.68, x + 0.86, y + 0.85, 1.4, 2.1, '#c9ccd4'); qL(x + 0.73, x + 0.81, y + 0.85, 1.8, 1.9, '#222'); qL(x + 0.71, x + 0.83, y + 0.85, 1.5, 1.62, '#4ad08a');
+        qL(x + 0.18, x + 0.62, y + 0.85, 0.3, 0.6, '#111'); qL(x + 0.12, x + 0.88, y + 0.85, 2.22, 2.36, '#f2c230'); glow(x + 0.4, y + 1.1, 1.5, 0.7, 'rgba(120,190,255,.25)'); break; }
       case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
     }
   };
@@ -2676,11 +2910,13 @@ function cqDraw() {
   if (dom) { const tr = 'translate3d(' + ix + 'px,' + iy + 'px,0)'; if (cq.domTr !== tr) { cq.domTr = tr; $('#cqBgMove').style.transform = tr; } }
   else for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
   // personaggi e corpi a terra (con le luci spente si vede solo vicino a se')
-  const G = cq.g, meLook = cqLook(), list = [];
-  const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && G.phase === 'play');
+  const G = cq.g, meLook = G ? cqLookOf(G.me) : cqLook(), list = [];
+  const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && !G.me.nv && G.phase === 'play');
+  const smoky = !!(G && G.phase === 'play' && G.smoke && G.smoke.until > G.time && cqRoomName(cq.x, cq.y) === G.smoke.room), fog = smoky && !G.me.imp;
   const torch = dark && G.opt.torch, la = Math.atan2(cq.ly || 0.5, cq.lx || 1);
   // al buio si vede solo vicino a se', oppure nel fascio della torcia
   const seen = (x, y) => {
+    if (fog && Math.hypot(x - cq.x, y - cq.y) > 1.5) return false;
     if (!dark) return true;
     if (!torch) return Math.hypot(x - cq.x, y - cq.y) < 3.3;
     const sx = px(x, y) - X, sy = py(x, y) - Y, d = Math.hypot(sx, sy) / TW;
@@ -2691,9 +2927,10 @@ function cqDraw() {
   if (G) {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face });
     for (const ch of G.chars) {
-      if (ch === G.me) list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (ch.alive ? '' : ' (fantasma)') });
-      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, red: G.me.imp && ch.imp });
+      if (ch === G.me) list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
+      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
+    if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
   for (const o of list) {
     o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y);
@@ -2719,7 +2956,8 @@ function cqDraw() {
     const gr = g.createRadialGradient(tx + X, ty + Y - TH, TW * 1.5, tx + X, ty + Y - TH, TW * 2.7);
     gr.addColorStop(0, 'rgba(5,6,8,0)'); gr.addColorStop(1, 'rgba(5,6,8,.94)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   }
-  for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : '#fff');
+  if (smoky) { g.fillStyle = fog ? 'rgba(200,204,212,.84)' : 'rgba(200,204,212,.3)'; g.fillRect(0, 0, W, H); }
+  for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff');
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
   const mark = (x, y, col) => {
@@ -2732,6 +2970,12 @@ function cqDraw() {
   };
   if (!G || !G.me.imp) for (const id of cq.tasks || []) if (!cq.done.has(id)) { const t = cqStep(G && G.me, id); mark(t.x, t.y, '#f2c230'); }
   if (G && G.sab && !G.me.imp) mark(CQ_SABS[G.sab.type].x, CQ_SABS[G.sab.type].y, '#e2553a');
+  // stelline sui mobili dove si puo' frugare
+  if (G && G.phase === 'play' && G.me.alive) for (const L of G.loot) {
+    if (L.done || Math.abs(L.x - cq.x) + Math.abs(L.y - cq.y) > 14 || !seen(L.x + 0.5, L.y + 0.5)) continue;
+    const sx = tx + px(L.x + 0.5, L.y + 0.5), sy = ty + py(L.x + 0.5, L.y + 0.5) - 2.2 * U, s = TW * (0.1 + 0.04 * Math.sin(now * 5 + L.x * 1.7)), q = s * 0.28;
+    g.fillStyle = '#fff4b8'; g.globalAlpha = 0.85; g.beginPath(); g.moveTo(sx, sy - s); g.lineTo(sx + q, sy - q); g.lineTo(sx + s, sy); g.lineTo(sx + q, sy + q); g.lineTo(sx, sy + s); g.lineTo(sx - q, sy + q); g.lineTo(sx - s, sy); g.lineTo(sx - q, sy - q); g.closePath(); g.fill(); g.globalAlpha = 1;
+  }
   // joystick
   if (cq.joy) {
     const j = cq.joy, dx = j.x - j.x0, dy = j.y - j.y0, m = Math.hypot(dx, dy), k = m > 40 ? 40 / m : 1;
