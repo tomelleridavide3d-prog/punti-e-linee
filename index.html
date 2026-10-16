@@ -162,8 +162,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .pkHats .btn{padding:6px 10px;font-size:13px}
 .pkHats .btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 #cqPick .go,#cqTask .go{width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:16px}
-#cqTask,#cqMap,#cqMeet{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
-#cqTask .pk,#cqMap .pk,#cqMeet .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:400px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
+#cqTask,#cqMap,#cqMeet,#cqCams{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
+#cqTask .pk,#cqMap .pk,#cqMeet .pk,#cqCams .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:400px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
 .tk-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
 .tk-h b{font-size:18px}
 #tkHint{text-align:center;min-height:20px;margin:10px 0 0}
@@ -233,6 +233,17 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .seg input:disabled+span{opacity:.35}
 .mtIn{display:flex;gap:6px;margin-bottom:10px}
 .mtIn .field{flex:1;min-width:0;padding:8px 10px}
+.camG{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.cam{position:relative;background:#0b0c0f;border-radius:8px;overflow:hidden}
+.cam canvas{display:block;width:100%;height:130px}
+.cam span{position:absolute;left:6px;top:4px;font-size:11px;color:#fff;font-weight:700;text-shadow:0 1px 2px #000}
+.cam span::before{content:'';display:inline-block;width:7px;height:7px;border-radius:50%;background:#e2553a;margin-right:4px;animation:cqBlink 1s infinite}
+.cv{display:flex;justify-content:space-between;margin:16px 24px}
+.cv div{display:flex;flex-direction:column;gap:14px}
+.cv button{width:60px;height:30px;border-radius:8px;border:3px solid transparent;cursor:pointer;padding:0}
+.cv button.sel{border-color:var(--ink)}
+.cv button.ok{opacity:.3}
+.face.sella{background:#8a5a32;border-radius:48% 48% 30% 30%;box-shadow:inset -12px -12px 0 rgba(0,0,0,.15)}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -281,6 +292,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqList" id="cqList"></div></div>
   <button class="btn" id="cqMapBtn" type="button">Mappa</button>
   <button id="cqUse" type="button">Usa</button>
+  <div id="cqCams" hidden><div class="pk"><div class="tk-h"><b>Telecamere di sorveglianza</b><button class="btn" id="camClose" type="button">Chiudi</button></div>
+    <div class="camG"><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
   <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
@@ -1595,27 +1608,38 @@ function openStatsWeb() {
 }
 
 // ---- Ciack US (tappa 1: un personaggio con il cappello che cammina su un pavimento isometrico) ----
-const CQ_W = 44, CQ_H = 34, CQ_SPEED = 3.4, CQ_R = 0.3;
+const CQ_W = 60, CQ_H = 47, CQ_SPEED = 3.4, CQ_R = 0.3;
 // stanze del set: nome, posizione, misura, colori del pavimento a scacchi, colore dei muri
 const CQ_ROOMS = [
   { n: 'Palco', x: 2, y: 2, w: 16, h: 12, c: ['#9a7549', '#8b693f'], wc: '#6e5a44' },
   { n: 'Camerini', x: 20, y: 2, w: 11, h: 12, c: ['#76629a', '#69568b'], wc: '#5e5280' },
   { n: 'Trucco', x: 33, y: 2, w: 10, h: 12, c: ['#9a627c', '#8b566e'], wc: '#80566a' },
-  { n: 'Corridoio', x: 2, y: 15, w: 41, h: 5, c: ['#586073', '#4c5466'], wc: '#5d6578' },
+  { n: 'Corridoio', x: 2, y: 15, w: 56, h: 5, c: ['#586073', '#4c5466'], wc: '#5d6578' },
   { n: 'Montaggio', x: 2, y: 21, w: 12, h: 12, c: ['#4f8a99', '#457c8b'], wc: '#4a7482' },
   { n: 'Magazzino', x: 16, y: 21, w: 13, h: 12, c: ['#868659', '#78784e'], wc: '#6e6e4a' },
-  { n: 'Proiezione', x: 31, y: 21, w: 12, h: 12, c: ['#6a5252', '#5c4747'], wc: '#5a4646' }];
-const CQ_DOORS = [[8, 14, 3, 1], [24, 14, 3, 1], [36, 14, 3, 1], [6, 20, 3, 1], [21, 20, 3, 1], [35, 20, 3, 1], [18, 7, 2, 3], [31, 7, 2, 3]];
+  { n: 'Proiezione', x: 31, y: 21, w: 12, h: 12, c: ['#6a5252', '#5c4747'], wc: '#5a4646' },
+  { n: 'Mensa', x: 45, y: 2, w: 13, h: 12, c: ['#b8b0a0', '#aca392'], wc: '#8a7f6a' },
+  { n: 'Effetti speciali', x: 45, y: 21, w: 13, h: 12, c: ['#4f4566', '#463d5c'], wc: '#4a3f60' },
+  { n: 'Set western', x: 2, y: 35, w: 27, h: 11, c: ['#c9a46a', '#bf9a60'], wc: '#8a6a40' },
+  { n: 'Sala regia', x: 31, y: 35, w: 12, h: 11, c: ['#45556a', '#3d4c60'], wc: '#3f4d5c' },
+  { n: 'Parcheggio', x: 45, y: 35, w: 13, h: 11, c: ['#4e5159', '#484b53'], wc: '#5a5d66' }];
+const CQ_DOORS = [[8, 14, 3, 1], [24, 14, 3, 1], [36, 14, 3, 1], [6, 20, 3, 1], [21, 20, 3, 1], [35, 20, 3, 1], [18, 7, 2, 3], [31, 7, 2, 3],
+  [50, 14, 3, 1], [50, 20, 3, 1], [43, 7, 2, 3], [43, 26, 2, 3], [7, 33, 3, 2], [21, 33, 3, 2], [29, 39, 2, 3], [50, 33, 3, 2], [43, 39, 2, 3]];
 // tappeti e segni sul pavimento: x, y, larghezza, altezza, colore
 const CQ_DECALS = [
   [4, 4, 12, 8, '#7a5a38'], [4.3, 4.3, 11.4, 7.4, '#85623e'],
   [22, 4, 7, 6, '#4a3e6a'], [22.3, 4.3, 6.4, 5.4, '#574a7a'],
   [35, 5, 5, 5, '#6a3f55'], [35.3, 5.3, 4.4, 4.4, '#774a63'],
-  [2, 17, 41, 1, '#a02838'], [2, 17.12, 41, 0.76, '#b43446'],
+  [2, 17, 56, 1, '#a02838'], [2, 17.12, 56, 0.76, '#b43446'],
   [4, 27, 7, 4, '#2f5a66'], [4.3, 27.3, 6.4, 3.4, '#38687a'],
   [36, 22, 2, 9, '#7a2a35'],
-  [17, 21, 11, 0.18, '#e8d44a'], [17, 32.8, 11, 0.18, '#e8d44a']];
+  [17, 21, 11, 0.18, '#e8d44a'], [17, 32.8, 11, 0.18, '#e8d44a'],
+  [47, 6, 9, 7, '#9a3a3a'], [47.3, 6.3, 8.4, 6.4, '#a84646'],
+  [47, 23, 7, 7, '#2a2438'], [47.2, 23.2, 6.6, 6.6, '#352d48'],
+  [3, 38, 25, 3, '#b08a52'], [3, 38.2, 25, 2.6, '#b8925a'],
+  [33, 40, 8, 4, '#2f3d52'], [33.3, 40.3, 7.4, 3.4, '#36465c']];
 for (const [mx, my] of [[6, 6], [9, 6], [12, 6], [6, 9], [9, 9], [12, 9]]) CQ_DECALS.push([mx + 0.1, my + 0.4, 0.8, 0.12, '#e8d44a'], [mx + 0.44, my + 0.06, 0.12, 0.8, '#e8d44a']);
+for (const x of [46.5, 49.5, 52.5, 55.5]) CQ_DECALS.push([x, 36.5, 0.14, 8, '#e8d44a']);   // righe del parcheggio
 // oggetti di scena [tipo, x, y, opzione]: ognuno occupa una cella e non si attraversa
 const CQ_PROPS = [];
 const pp = (t, x, y, o) => CQ_PROPS.push([t, x, y, o]);
@@ -1635,8 +1659,9 @@ pp('rack', 21, 11); pp('rack', 22, 11); pp('rack', 28, 11); pp('plant', 20, 2); 
 prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => [['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4], 's']); CQ_PROPS.splice(CQ_PROPS.findIndex(p => p[0] === 'dchair' && p[1] === 37 && p[2] === 3), 1);   // davanti allo specchio del compito si deve poter stare
 pp('rack', 34, 10); pp('rack', 35, 10); pp('rack', 40, 10); pp('rack', 41, 10); pp('table', 37, 11); pp('table', 39, 11); pp('plant', 42, 13); pp('plant', 33, 13); pp('dchair', 37, 7, '#d4a0b8'); pp('dchair', 39, 7, '#d4a0b8');
 // Corridoio
-[[2, 15], [42, 15], [2, 19], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
+[[2, 15], [57, 15], [2, 19], [57, 19], [42, 15], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
 pp('crate', 14, 15); pp('crate', 15, 15); pp('crate2', 14, 16); pp('crate', 30, 19); pp('crate2', 31, 19); pp('sofa', 18, 15); pp('sofa', 19, 15); pp('table', 20, 15);
+pp('sofa', 46, 15); pp('sofa', 47, 15); pp('table', 48, 15); pp('crate', 55, 19); pp('crate2', 56, 19);
 // Montaggio
 prow('monitor', 3, 23, 4, 1, 0); prow('monitor', 9, 23, 4, 1, 0); prow('dchair', 3, 24, 4, 1, 0, () => ['#8a96a8', 's']); prow('dchair', 9, 24, 4, 1, 0, () => ['#8a96a8', 's']);
 prow('shelf', 13, 22, 9, 0, 1); pp('reel', 3, 30); pp('reel', 4, 30); pp('reel', 11, 31); pp('table', 6, 29); pp('table', 8, 29); pp('plant', 2, 32); pp('plant', 12, 32); pp('monitor', 2, 28); pp('dchair', 3, 28, ['#8a96a8', 'e']);
@@ -1649,6 +1674,22 @@ prow('screen', 33, 32, 8, 1, 0); pp('speaker', 32, 32); pp('speaker', 41, 32);
 for (const yy of [24, 26, 28]) { prow('seat', 33, yy, 3, 1, 0); prow('seat', 38, yy, 3, 1, 0); }
 pp('projector', 31, 22); pp('plant', 42, 22); pp('plant', 42, 32); pp('plant', 31, 32); pp('lamp', 41, 22); pp('lamp', 32, 24);
 pp('fusebox', 33, 15); pp('reel', 21, 24); pp('megaphone', 22, 17);
+// Mensa
+prow('counter', 47, 2, 7, 1, 0); pp('coffee', 54, 2); pp('fridge', 56, 2); pp('fridge', 57, 2);
+for (const [tx, ty] of [[48, 7], [53, 7], [48, 11], [53, 11]]) { pp('table', tx, ty); pp('dchair', tx - 1, ty, ['#c96a5a', 'w']); pp('dchair', tx + 1, ty, ['#5a8ac9', 'e']); }
+pp('plant', 57, 13); pp('plant', 45, 13); pp('plant', 57, 6);
+// Effetti speciali
+pp('cannon', 49, 25); pp('smoke', 54, 24); pp('smoke', 54, 29); prow('greenscreen', 57, 23, 8, 0, 1); pp('lamp', 46, 22); pp('lamp', 56, 32); pp('crate', 46, 31); pp('crate2', 47, 31); pp('camera', 51, 29); pp('barrel', 45, 32, '#e2553a');
+// Set western
+prow('saloon', 11, 35, 8, 1, 0); prow('saloon', 24, 35, 4, 1, 0);
+[[5, 41], [15, 44], [26, 42], [9, 44], [3, 36]].forEach(([x, y]) => pp('cactus', x, y));
+pp('hay', 13, 40); pp('hay', 14, 40); pp('barrel', 20, 43, '#8a5a32'); pp('barrel', 21, 43, '#8a5a32'); pp('camera', 18, 41); pp('lamp', 17, 38); pp('boom', 11, 42); pp('dchair', 19, 43, '#d9c9a0');
+// Sala regia
+prow('monitor', 33, 37, 8, 1, 0); prow('dchair', 33, 38, 8, 1, 0, () => ['#3a3f49', 's']); prow('tv', 33, 35, 8, 1, 0); pp('camdesk', 36, 43); pp('camdesk', 37, 43); pp('plant', 42, 45); pp('plant', 31, 45);
+// Parcheggio
+prow('truck', 47, 37, 5, 0, 1); prow('truck', 48, 37, 4, 0, 1); pp('cab', 48, 41);
+prow('truck', 53, 38, 5, 0, 1); prow('truck', 54, 38, 4, 0, 1); pp('cab', 54, 42);
+[[51, 36], [51, 44], [57, 44], [45, 44]].forEach(([x, y]) => pp('cone', x, y)); pp('pump', 57, 36);
 const cqFloor = [], cqSolid = [], cqRoomOf = [];
 (() => {
   for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
@@ -1727,6 +1768,7 @@ function cqOpenPick() {
   requestAnimationFrame(loop);
 }
 // compiti: uno per stanza, accanto a un oggetto di scena (x, y = cella dell'oggetto)
+// compiti: accanto a un oggetto di scena (x, y = cella dell'oggetto); alcuni in piu' passaggi (steps), da portare da una stanza all'altra
 const CQ_TASKS = [
   { id: 'ciak', n: 'Batti il ciak', r: 'Palco', x: 9, y: 10 },
   { id: 'luci', n: 'Accendi le luci', r: 'Corridoio', x: 33, y: 15 },
@@ -1734,9 +1776,58 @@ const CQ_TASKS = [
   { id: 'trucco', n: "Trucca l'attore", r: 'Trucco', x: 37, y: 2 },
   { id: 'montaggio', n: 'Monta la scena', r: 'Montaggio', x: 10, y: 23 },
   { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Magazzino', x: 21, y: 24 },
-  { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 }];
+  { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 },
+  { id: 'caffe', n: 'Prepara il caffè', r: 'Mensa', x: 54, y: 2 },
+  { id: 'cannone', n: 'Carica il cannone dei coriandoli', r: 'Effetti speciali', x: 49, y: 25 },
+  { id: 'sella', n: 'Lucida la sella', r: 'Set western', x: 13, y: 40 },
+  { id: 'cavi', n: 'Collega i cavi', r: 'Sala regia', x: 34, y: 37 },
+  { id: 'pieno', n: 'Fai il pieno al camion', r: 'Parcheggio', x: 57, y: 36 },
+  { id: 'portabobina', n: 'Porta la bobina al Montaggio', steps: [{ n: 'Prendi la bobina', r: 'Magazzino', x: 21, y: 24, game: 'prendi' }, { n: 'Consegna la bobina', r: 'Montaggio', x: 11, y: 31, game: 'consegna' }] },
+  { id: 'portacostume', n: 'Porta il costume al Set western', steps: [{ n: 'Prendi il costume', r: 'Camerini', x: 28, y: 11, game: 'prendi' }, { n: 'Consegna il costume', r: 'Set western', x: 24, y: 35, game: 'consegna' }] },
+  { id: 'portacaffe', n: 'Porta il caffè al regista', steps: [{ n: 'Prendi il caffè', r: 'Mensa', x: 54, y: 2, game: 'prendi' }, { n: 'Porta il caffè in regia', r: 'Sala regia', x: 36, y: 43, game: 'consegna' }] }];
+CQ_TASKS.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.id }]; });
 const cqTask = id => CQ_TASKS.find(t => t.id === id);
-function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden || !$('#cqMeet').hidden; }
+// passo attuale di un compito per un personaggio: { task, id (mini-gioco), n, r, x, y, i, of }
+function cqStep(c, id) {
+  const t = cqTask(id), i = (c && c.st && c.st[id]) || 0, s = t.steps[i];
+  return { task: id, id: s.game, n: s.n, r: s.r, x: s.x, y: s.y, i, of: t.steps.length };
+}
+// un passo fatto: si passa al successivo, o il compito e' finito
+function cqAdvance(c, id) {
+  const t = cqTask(id), i = (c.st[id] || 0);
+  if (i + 1 < t.steps.length) { c.st[id] = i + 1; return false; }
+  return true;
+}
+// telecamere di sorveglianza (in Sala regia): stanza, centro dell'inquadratura
+const CQ_CAMS = [['Palco', 10, 9], ['Corridoio', 40, 17], ['Magazzino', 22, 27], ['Set western', 15, 40]];
+function cqOpenCams() {
+  const box = $('#cqCams'); box.hidden = false; cq.joy = null; cq.keys = {};
+  const cvs = box.querySelectorAll('canvas');
+  box.querySelectorAll('.cam span').forEach((s, i) => s.textContent = CQ_CAMS[i][0]);
+  let last = 0;
+  const loop = t => {
+    if (box.hidden || !cq.on) return;
+    if (t - last > 90) { last = t; cvs.forEach((cv, i) => cqCamDraw(cv, CQ_CAMS[i][1], CQ_CAMS[i][2])); }
+    requestAnimationFrame(loop);
+  };
+  requestAnimationFrame(loop);
+}
+// una inquadratura: la stanza vista dall'alto in piccolo, con chi c'e' dentro in quel momento
+function cqCamDraw(cv, cx, cy) {
+  const w = cv.clientWidth || 160, h = cv.clientHeight || 120, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
+  const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, w, h);
+  const TW = 24, TH = 12, px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
+  const tx = w / 2 - px(cx, cy), ty = h / 2 - py(cx, cy), G = cq.g, list = [];
+  if (G) {
+    for (const b of G.bodies) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face });
+    for (const c of G.chars) if (c.alive) { const me = c === G.me; list.push({ x: me ? cq.x : c.x, y: me ? cq.y : c.y, L: cqLookOf(c), w: me ? cq.walk : c.walk, f: me ? cq.face : c.face }); }
+  }
+  for (const o of list) { o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y); o.r = o.body ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]; }
+  cqRedraw(g, cqTools(g, TW), [0, 0, w, h], tx, ty, TW, list, Math.ceil((w / TW + h / TH) / 2) + 8);
+  g.fillStyle = 'rgba(140,255,170,.06)'; for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1);
+}
+function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden || !$('#cqMeet').hidden || !$('#cqCams').hidden; }
 
 // ---- partita contro il computer: personaggi guidati dal computer, alcuni (tu compreso) sono sabotatori ----
 const CQ_NAMES = ['Bruno', 'Carla', 'Dario', 'Elena', 'Fabio', 'Gina', 'Ivo', 'Lia', 'Marco', 'Nina', 'Otto', 'Pia'];
@@ -1744,7 +1835,7 @@ const CQ_VIS = 5;
 const CQ_RING = [[20, 16], [21, 16], [23, 16], [24, 16], [20, 18], [21, 18], [23, 18], [24, 18], [22, 15], [22, 19]];   // intorno al pulsante delle riunioni
 const CQ_BUTTON = { x: 22, y: 17 };
 const CQ_SABS = { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45 } };
-const CQ_IN = { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione' };
+const CQ_IN = { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione', Mensa: 'in Mensa', 'Effetti speciali': 'agli Effetti speciali', 'Set western': 'sul Set western', 'Sala regia': 'in Sala regia', Parcheggio: 'al Parcheggio' };
 // impostazioni della partita (ricordate)
 const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: true };
 const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
@@ -1810,7 +1901,7 @@ function cqNewMatch() {
   chars.forEach((c, i) => {
     const [x, y] = CQ_RING[i];
     Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < 22 ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
-      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, eye: Math.random() * 0.5 });
+      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
   cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
@@ -1837,10 +1928,11 @@ function cqHud() {
   const role = $('#cqRole');
   role.textContent = me.imp ? (me.alive ? 'Sei un sabotatore' : 'Sabotatore espulso') : (me.alive ? 'Sei della troupe' : 'Sei un fantasma: finisci i compiti');
   role.className = 'cqRole' + (me.imp ? ' imp' : '');
-  $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const t = cqTask(id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near === t ? 'near' : ''}">${esc(t.r)}: ${esc(t.n)}</div>`; }).join('');
+  $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const s = cqStep(me, id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near && cq.near.task === id ? 'near' : ''}">${esc(s.r)}: ${esc(s.n)}${s.of > 1 ? ' (' + (s.i + 1) + '/' + s.of + ')' : ''}</div>`; }).join('');
   const a = cq.act, ub = $('#cqUse');
-  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa' }[a.k] : 'Usa';
+  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere' }[a.k] : 'Usa';
   ub.classList.toggle('on', !!a); ub.classList.toggle('rep', !!a && (a.k === 'rep' || a.k === 'btn'));
+  ub.style.fontSize = ub.textContent.length > 8 ? '13px' : '';
 }
 // cose che cambiano a ogni fotogramma (solo se cambiano davvero)
 function cqHudFast() {
@@ -1872,11 +1964,13 @@ function cqNearCheck() {
     if (!act && me.alive && G.button > 0 && cqDist({ x: CQ_BUTTON.x + 0.5, y: CQ_BUTTON.y + 0.5 }, pos) < 1.7) act = { k: 'btn' };
     if (!act && !me.imp) {
       let bd = 1.75;
-      for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqTask(id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; act = { k: 'task', t }; } }
+      for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqStep(me, id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; act = { k: 'task', t }; } }
     }
   }
+  // telecamere di sorveglianza: la scrivania con i monitor in Sala regia
+  if (!act && G.phase === 'play' && (Math.hypot(cq.x - 36.5, cq.y - 43.5) < 1.7 || Math.hypot(cq.x - 37.5, cq.y - 43.5) < 1.7)) act = { k: 'cam' };
   cq.near = act && act.k === 'task' ? act.t : null;
-  const key = act ? act.k + (act.t ? act.t.id : '') : '';
+  const key = act ? act.k + (act.t ? act.t.task + act.t.i : '') : '';
   if (key !== cq.actKey) { cq.act = act; cq.actKey = key; cqHud(); }
 }
 function cqUse() {
@@ -1884,12 +1978,13 @@ function cqUse() {
   if (a.k === 'rep') cqMeeting(G.me, a.body);
   else if (a.k === 'btn') { G.button--; cqMeeting(G.me, null); }
   else if (a.k === 'fix') cqOpenTask(G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab });
+  else if (a.k === 'cam') cqOpenCams();
   else cqOpenTask(a.t);
 }
 function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; $('#tkClose').hidden = false; cq.joy = null; cq.keys = {}; }
 function cqTaskDone(id) {
   const G = cq.g; if (!G || G.phase !== 'play') return;
-  G.me.done.add(id); cq.actKey = ''; cqNearCheck(); cqHud(); cqCheckWin();
+  if (cqAdvance(G.me, id)) G.me.done.add(id); cq.actKey = ''; cqNearCheck(); cqHud(); cqCheckWin();
 }
 // ---- personaggi del computer ----
 function cqBots(dt) {
@@ -1917,13 +2012,14 @@ function cqBots(dt) {
     cqBotStep(b, dt);
   }
 }
+// ogni tanto anche la troupe gira per il set invece di lavorare
 function cqBotPlan(b) {
   const G = cq.g; let goal;
   if (G.sab && G.sab.fixer === b.id) { const s = CQ_SABS[G.sab.type]; goal = Object.assign(cqSpot(s.x, s.y), { k: 'fix' }); }
   else if (b.hunt) return;
   else {
     const todo = b.tasks.filter(id => !b.done.has(id));
-    if (todo.length && !(b.imp && Math.random() < 0.3)) { const id = cqPickOne(todo), t = cqTask(id); goal = Object.assign(cqSpot(t.x, t.y), { k: 'task', id }); }
+    if (todo.length && Math.random() > (b.imp ? 0.3 : 0.35)) { const id = cqPickOne(todo), t = cqStep(b, id); goal = Object.assign(cqSpot(t.x, t.y), { k: 'task', id }); }
     else { const r = cqPickOne(CQ_ROOMS); let x, y, n = 0; do { x = r.x + Math.floor(Math.random() * r.w); y = r.y + Math.floor(Math.random() * r.h); } while (!cqCellFree(x, y) && ++n < 30); goal = { x: x + 0.5, y: y + 0.5, k: 'wander' }; }
   }
   b.goal = goal; b.path = cqPath(b.x, b.y, goal.x, goal.y);
@@ -1932,12 +2028,12 @@ function cqBotPlan(b) {
 function cqBotArrived(b, afterWait) {
   const G = cq.g, k = b.goal && b.goal.k;
   if (!afterWait) {
-    if (k === 'task') { b.wait = 4 + Math.random() * 4; b.doing = b.goal.id; b.doT = b.wait; const t = cqTask(b.doing); b.face = (t.x - t.y) - (b.x - b.y) > 0 ? 1 : -1; }
+    if (k === 'task') { b.wait = 4 + Math.random() * 4; b.doing = b.goal.id; b.doT = b.wait; const t = cqStep(b, b.doing); b.face = (t.x - t.y) - (b.x - b.y) > 0 ? 1 : -1; }
     else if (k === 'fix') b.wait = 2;
     else if (k === 'wander') b.wait = 1 + Math.random() * 2;
     return;
   }
-  if (b.doing) { if (!b.imp) { b.done.add(b.doing); cqHud(); } b.doing = null; }
+  if (b.doing) { if (cqAdvance(b, b.doing) && !b.imp) b.done.add(b.doing); cqHud(); b.doing = null; }
   if (k === 'fix' && G.sab && G.sab.fixer === b.id) cqFixSab();
   b.goal = null;
   cqCheckWin();
@@ -1957,13 +2053,13 @@ function cqImpBrain(b, dt) {
   if (!G.sab && G.sabCd <= 0 && Math.random() < 0.015) cqStartSab(Math.random() < 0.5 ? 'luci' : 'allarme');
   const stop = () => { if (b.hunt) { b.hunt = null; b.path = []; b.goal = null; } };
   if (b.kcd > 0) { stop(); return; }
-  if (!b.hunt && Math.random() < (G.chars.filter(c => c.imp).length > 1 ? 0.95 : 0.2)) return;   // non si butta subito (in gruppo ancora meno): fa ancora un po' finta di lavorare
+  if (!b.hunt && Math.random() < (G.chars.filter(c => c.imp).length > 1 ? 0.95 : 0)) return;   // non si butta subito (in gruppo ancora meno): fa ancora un po' finta di lavorare
   const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS, living = G.chars.filter(c => c.alive && c !== b);
   let best = null, bd = 10;
   for (const v of living) {
     if (v.imp) continue;
     const d = cqDist(v, b); if (d >= bd) continue;
-    if (!living.some(o => o !== v && !o.imp && cqDist(o, b) < R)) { best = v; bd = d; }   // nessun altro che possa vedere
+    if (!living.some(o => o !== v && !o.imp && cqDist(o, b) < R + (G.chars.filter(c => c.imp).length > 1 ? 2 : 0))) { best = v; bd = d; }   // nessun altro che possa vedere (in gruppo piu' prudenti)
   }
   if (!best) { stop(); return; }
   if (bd < 1.1) { stop(); cqKill(best, b); return; }
@@ -1983,7 +2079,7 @@ function cqKill(v, k) {
   const G = cq.g;
   v.alive = false; v.path = []; v.wait = 0; v.doing = null;
   G.bodies.push({ id: v.id, x: v.x, y: v.y, face: v.face, look: cqLookOf(v), name: v.name, room: cqRoomName(v.x, v.y), t: G.time });
-  k.kcd = G.opt.kcd;
+  k.kcd = G.opt.kcd * (1 + 0.6 * (G.chars.filter(c => c.imp).length - 1));   // con piu' sabotatori ognuno aspetta di piu'
   const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS;
   for (const w of G.chars) {
     if (!w.bot || !w.alive || w.imp) continue;
@@ -2189,15 +2285,16 @@ function cqOpenTask(t) {
   let alive = true; const timers = [];
   cq.tk = { stop() { alive = false; timers.forEach(clearTimeout); } };
   const later = (fn, ms) => timers.push(setTimeout(() => alive && fn(), ms));
-  const ok = () => { if (!alive) return; alive = false; hint.textContent = 'Fatto!'; beep(880, 0.12, 0.05); beep(1175, 0.16, 0.05, 0.12); setTimeout(() => { cqCloseTask(); (t.fix || cqTaskDone)(t.id); }, 650); };
+  const ok = () => { if (!alive) return; alive = false; hint.textContent = 'Fatto!'; beep(880, 0.12, 0.05); beep(1175, 0.16, 0.05, 0.12); setTimeout(() => { cqCloseTask(); if (t.fix) t.fix(); else cqTaskDone(t.task || t.id); }, 650); };
   const no = () => beep(220, 0.12, 0.05);
   const rnd = (a, b) => a + Math.random() * (b - a);
   $('#tkTitle').textContent = t.n; hint.textContent = '';
   switch (t.id) {
-    case 'ciak': {
-      body.innerHTML = '<p class="lead">Premi <b>CIAK!</b> quando la barretta è sulla zona verde.</p><div class="tg-track" id="tgT"><div class="tg-zone" id="tgZ"></div><div class="tg-mark" id="tgM"></div></div><button class="btn primary go" id="tgB" type="button">CIAK!</button>';
+    case 'cannone': case 'ciak': {
+      const can = t.id === 'cannone', lab = can ? 'FUOCO!' : 'CIAK!';
+      body.innerHTML = '<p class="lead">Premi <b>' + lab + '</b> quando la barretta è sulla zona verde.</p><div class="tg-track" id="tgT"><div class="tg-zone" id="tgZ"></div><div class="tg-mark" id="tgM"></div></div><button class="btn primary go" id="tgB" type="button">' + lab + '</button>';
       let hits = 0, z0 = 0, z1 = 0, pos = 0, dir = 1;
-      const zone = () => { z0 = rnd(12, 66); z1 = z0 + 20; $('#tgZ').style.left = z0 + '%'; $('#tgZ').style.width = '20%'; hint.textContent = 'Ciak ' + hits + ' di 3'; };
+      const zone = () => { z0 = rnd(12, 66); z1 = z0 + 20; $('#tgZ').style.left = z0 + '%'; $('#tgZ').style.width = '20%'; hint.textContent = (can ? 'Colpo ' : 'Ciak ') + hits + ' di 3'; };
       zone();
       let last = performance.now();
       const loop = now => { if (!alive) return; pos += dir * (now - last) * (0.07 + hits * 0.025); last = now; if (pos > 100) { pos = 100; dir = -1; } if (pos < 0) { pos = 0; dir = 1; } $('#tgM').style.left = pos + '%'; requestAnimationFrame(loop); };
@@ -2224,10 +2321,11 @@ function cqOpenTask(t) {
       body.querySelector('.sq4').onclick = e => { const b = e.target.closest('[data-i]'); if (!b || !input || !alive) return; const v = +b.dataset.i;
         if (v === seq[k]) { beep(440 + v * 110, 0.12, 0.04); k++; if (k === seq.length) ok(); } else { no(); hint.textContent = 'Sbagliato, guarda di nuovo'; later(show, 700); input = false; } };
       break; }
-    case 'trucco': {
+    case 'sella': case 'trucco': {
+      const sel = t.id === 'sella';
       const n = 6, pts = [];
       while (pts.length < n) { const a = rnd(0, Math.PI * 2), r = rnd(20, 95), x = 115 + Math.cos(a) * r, y = 115 + Math.sin(a) * r; if (y > 70 && y < 98) continue; if (pts.every(q => Math.hypot(q[0] - x, q[1] - y) > 34)) pts.push([x, y]); }
-      body.innerHTML = '<p class="lead">Il viso dell\'attore luccica sotto i fari: tocca tutte le macchie lucide per incipriarle.</p><div class="face"><span class="ey" style="left:62px"></span><span class="ey" style="left:142px"></span><span class="mo"></span>' + pts.map(([x, y]) => `<button type="button" class="sp" style="left:${x}px;top:${y}px"></button>`).join('') + '</div>';
+      body.innerHTML = (sel ? '<p class="lead">La sella è piena di polvere: tocca tutte le macchie per lucidarla.</p><div class="face sella">' : '<p class="lead">Il viso dell\'attore luccica sotto i fari: tocca tutte le macchie lucide per incipriarle.</p><div class="face"><span class="ey" style="left:62px"></span><span class="ey" style="left:142px"></span><span class="mo"></span>') + pts.map(([x, y]) => `<button type="button" class="sp" style="left:${x}px;top:${y}px"></button>`).join('') + '</div>';
       let left = n; hint.textContent = 'Macchie: ' + left;
       body.querySelector('.face').onclick = e => { const b = e.target.closest('.sp'); if (!b || b.classList.contains('gone') || !alive) return; b.classList.add('gone'); left--; beep(900 - left * 60, 0.06, 0.04); hint.textContent = 'Macchie: ' + left; if (!left) ok(); };
       break; }
@@ -2248,13 +2346,29 @@ function cqOpenTask(t) {
         ang += d; if (d > 0) tot += d; el.style.transform = 'rotate(' + ang + 'rad)'; $('#rlP').style.width = Math.min(100, tot / need * 100) + '%'; if (tot >= need) ok(); };
       el.onpointerup = el.onpointercancel = () => { prev = null; };
       break; }
-    case 'allarme': {
-      body.innerHTML = '<p class="lead">Il proiettore si è surriscaldato: tieni premuto il pulsante finché la barra è piena.</p><button class="btn primary go" id="alH" type="button">Tieni premuto</button><div class="pbar" style="margin-top:12px"><i id="alP"></i></div>';
+    case 'caffe': case 'pieno': case 'allarme': {
+      body.innerHTML = '<p class="lead">' + ({ caffe: 'Tieni premuto per riempire la tazza di caffè.', pieno: 'Tieni premuta la pompa finché il serbatoio del camion è pieno.' }[t.id] || 'Il proiettore si è surriscaldato: tieni premuto il pulsante finché la barra è piena.') + '</p><button class="btn primary go" id="alH" type="button">Tieni premuto</button><div class="pbar" style="margin-top:12px"><i id="alP"></i></div>';
       let held = 0, on = false; const hb = $('#alH');
       hb.onpointerdown = e => { on = true; try { hb.setPointerCapture(e.pointerId); } catch {} }; hb.onpointerup = hb.onpointercancel = () => { on = false; };
       hb.oncontextmenu = e => e.preventDefault();
       const tick = () => { held = on ? held + 100 : Math.max(0, held - 150); $('#alP').style.width = Math.min(100, held / 2000 * 100) + '%'; if (held >= 2000) { ok(); return; } later(tick, 100); };
       later(tick, 100);
+      break; }
+    case 'cavi': {
+      const C = ['#e2553a', '#3b6fe0', '#f2c230', '#2fa35a'], R = [0, 1, 2, 3].sort(() => Math.random() - 0.5);
+      body.innerHTML = '<p class="lead">Collega i cavi: tocca un attacco a sinistra, poi quello dello stesso colore a destra.</p><div class="cv"><div>' + C.map((c, i) => `<button type="button" data-l="${i}" style="background:${c}"></button>`).join('') + '</div><div>' + R.map(i => `<button type="button" data-r="${i}" style="background:${C[i]}"></button>`).join('') + '</div></div>';
+      let sel = null, nOk = 0;
+      body.querySelector('.cv').onclick = e => {
+        const b = e.target.closest('button'); if (!b || !alive || b.classList.contains('ok')) return;
+        if (b.dataset.l != null) { sel = b; body.querySelectorAll('[data-l]').forEach(x => x.classList.toggle('sel', x === b)); return; }
+        if (!sel) return;
+        if (b.dataset.r === sel.dataset.l) { b.classList.add('ok'); sel.classList.add('ok'); sel.classList.remove('sel'); sel = null; nOk++; beep(600 + nOk * 100, 0.07, 0.04); if (nOk === 4) ok(); }
+        else { no(); sel.classList.remove('sel'); sel = null; }
+      };
+      break; }
+    case 'prendi': case 'consegna': {
+      body.innerHTML = '<p class="lead">' + (t.id === 'prendi' ? 'Prendilo e portalo dove serve: lo trovi scritto nella lista dei compiti.' : 'Eccoci: consegnalo qui.') + '</p><button class="btn primary go" id="pkB" type="button">' + esc(t.n) + '</button>';
+      $('#pkB').onclick = () => { if (alive) ok(); };
       break; }
     case 'fuoco': {
       const target = Math.round(rnd(15, 85));
@@ -2279,11 +2393,11 @@ function cqOpenMap() {
   g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.85)';
   CQ_ROOMS.forEach(r => g.fillText(r.n, px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
   if (cq.g && cq.g.sab) { const s = CQ_SABS[cq.g.sab.type]; g.fillStyle = '#e2553a'; g.beginPath(); g.arc(px(s.x + 0.5, s.y + 0.5), py(s.x + 0.5, s.y + 0.5), 7, 0, 7); g.fill(); }
-  if (!cq.g || !cq.g.me.imp) for (const id of cq.tasks || []) { const t = cqTask(id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
+  if (!cq.g || !cq.g.me.imp) for (const id of cq.tasks || []) { const t = cqStep(cq.g && cq.g.me, id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function closeCiack() { $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
@@ -2311,6 +2425,7 @@ function cqInit() {
   $('#tkClose').onclick = cqCloseTask;
   $('#cqKill').onclick = cqMyKill;
   $('#cqSabBtn').onclick = cqSabMenu;
+  $('#camClose').onclick = () => { $('#cqCams').hidden = true; };
   window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'q' || e.key === 'Q')) cqMyKill(); });
   window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'e' || e.key === 'E' || e.key === ' ')) { e.preventDefault(); cqUse(); } });
 }
@@ -2420,6 +2535,25 @@ function cqTools(g, TW) {
       case 'fusebox': bx(x + 0.15, y + 0.3, x + 0.85, y + 0.7, 0, 1.9, '#8a96a8'); qL(x + 0.2, x + 0.8, y + 0.7, 0.4, 1.8, '#9fabbc'); poly([S(x + 0.5, y + 0.7, 1.62), S(x + 0.38, y + 0.7, 1.38), S(x + 0.62, y + 0.7, 1.38)], '#f2c230');
         for (let k = 0; k < 3; k++) qL(x + 0.27 + k * 0.17, x + 0.35 + k * 0.17, y + 0.7, 0.7, 1.05, k === 1 ? '#e2553a' : '#2a2e35'); break;
       case 'megaphone': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 0.8, '#444'); cyl(x + 0.5, y + 0.5, 0.42, 0.8, 0.95, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.24, 0.95, 1.05, '#9aa1ac'); cyl(x + 0.5, y + 0.5, 0.18, 1.05, 1.25, '#e2553a'); break;
+      case 'counter': bx(x, y + 0.1, x + 1, y + 0.8, 0, 1.0, '#8a5a32'); bx(x - 0.02, y + 0.05, x + 1.02, y + 0.85, 1.0, 1.1, '#d8cbb0'); break;
+      case 'coffee': bx(x, y + 0.1, x + 1, y + 0.8, 0, 1.0, '#8a5a32'); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.6, 1.0, 1.95, '#c0392b'); qL(x + 0.3, x + 0.7, y + 0.6, 1.25, 1.55, '#222'); cyl(x + 0.5, y + 0.7, 0.1, 1.0, 1.15, '#fff'); dot(x + 0.62, y + 0.6, 1.75, 0.03, '#7be0a0'); break;
+      case 'cannon': bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 0.4, '#5a4630'); cyl(x + 0.25, y + 0.5, 0.2, 0.1, 0.3, '#2a2e35'); cyl(x + 0.75, y + 0.5, 0.2, 0.1, 0.3, '#2a2e35'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0.4, 1.3, '#4a505c'); cyl(x + 0.5, y + 0.5, 0.24, 1.3, 1.4, '#2a2e35');
+        for (const [a, b, c] of [[0.4, 0.4, '#e2553a'], [0.6, 0.45, '#f2c230'], [0.5, 0.6, '#3b6fe0'], [0.45, 0.5, '#2fa35a']]) dot(x + a, y + b, 1.45, 0.025, c); break;
+      case 'smoke': bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0, 0.7, '#2a2e35'); qL(x + 0.3, x + 0.7, y + 0.8, 0.3, 0.5, '#e2553a'); dot(x + 0.5, y + 0.5, 1.0, 0.16, 'rgba(220,222,230,.55)'); dot(x + 0.4, y + 0.5, 1.35, 0.2, 'rgba(220,222,230,.4)'); dot(x + 0.6, y + 0.45, 1.7, 0.22, 'rgba(220,222,230,.3)'); break;
+      case 'greenscreen': bx(x + 0.3, y, x + 0.5, y + 1, 0, 2.6, '#2fb84a'); break;
+      case 'saloon': bx(x, y + 0.2, x + 1, y + 0.5, 0, 2.8, '#9a6a3a'); for (let k = 0; k < 4; k++) qL(x + 0.02 + k * 0.25, x + 0.05 + k * 0.25, y + 0.5, 0, 2.8, '#7a4e26');
+        if (x % 2) qL(x + 0.25, x + 0.75, y + 0.5, 1.3, 2.0, '#f2d27a'); else { qL(x + 0.3, x + 0.7, y + 0.5, 0, 1.5, '#4a2e1a'); qL(x + 0.3, x + 0.7, y + 0.5, 0.75, 1.15, '#6a442a'); }
+        bx(x - 0.02, y + 0.15, x + 1.02, y + 0.6, 2.8, 2.95, '#7a4e26'); break;
+      case 'cactus': cyl(x + 0.5, y + 0.5, 0.17, 0, 1.6, '#3a8a4a'); bx(x + 0.15, y + 0.45, x + 0.35, y + 0.55, 0.7, 0.85, '#3a8a4a'); bx(x + 0.15, y + 0.45, x + 0.25, y + 0.55, 0.85, 1.3, '#3a8a4a');
+        bx(x + 0.65, y + 0.45, x + 0.85, y + 0.55, 0.9, 1.05, '#3a8a4a'); bx(x + 0.75, y + 0.45, x + 0.85, y + 0.55, 1.05, 1.5, '#3a8a4a'); dot(x + 0.5, y + 0.5, 1.65, 0.05, '#f07ab8'); break;
+      case 'hay': bx(x + 0.05, y + 0.15, x + 0.95, y + 0.85, 0, 0.75, '#d8b84a'); bx(x + 0.3, y + 0.14, x + 0.36, y + 0.86, 0, 0.77, '#a8862a'); bx(x + 0.64, y + 0.14, x + 0.7, y + 0.86, 0, 0.77, '#a8862a');
+        if (x === 13) { bx(x + 0.2, y + 0.3, x + 0.8, y + 0.7, 0.75, 0.95, '#6a3a1a'); bx(x + 0.42, y + 0.3, x + 0.58, y + 0.7, 0.95, 1.12, '#5a2e12'); } break;
+      case 'camdesk': desk(x, y); bx(x + 0.1, y + 0.4, x + 0.45, y + 0.5, 0.85, 1.28, '#1b222c'); qL(x + 0.13, x + 0.42, y + 0.5, 0.9, 1.24, '#4ad08a'); bx(x + 0.55, y + 0.4, x + 0.9, y + 0.5, 0.85, 1.28, '#1b222c'); qL(x + 0.58, x + 0.87, y + 0.5, 0.9, 1.24, '#59b6e8');
+        bx(x + 0.1, y + 0.4, x + 0.45, y + 0.5, 1.3, 1.73, '#1b222c'); qL(x + 0.13, x + 0.42, y + 0.5, 1.35, 1.69, '#59b6e8'); bx(x + 0.55, y + 0.4, x + 0.9, y + 0.5, 1.3, 1.73, '#1b222c'); qL(x + 0.58, x + 0.87, y + 0.5, 1.35, 1.69, '#4ad08a'); dot(x + 0.15, y + 0.5, 1.66, 0.025, '#e2553a'); break;
+      case 'truck': bx(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, 0.35, '#2a2e35'); bx(x, y, x + 1, y + 1, 0.35, 2.1, '#e8ecef'); qL(x, x + 1, y + 1, 1.2, 1.45, '#c0392b'); break;
+      case 'cab': bx(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0, 0.35, '#2a2e35'); bx(x, y, x + 1, y + 1, 0.35, 1.6, '#c0392b'); qL(x + 0.1, x + 0.9, y + 1, 1.05, 1.5, '#9fd0e8'); dot(x + 0.2, y + 1, 0.6, 0.05, '#f2e27a'); dot(x + 0.8, y + 1, 0.6, 0.05, '#f2e27a'); break;
+      case 'cone': bx(x + 0.28, y + 0.28, x + 0.72, y + 0.72, 0, 0.08, '#e2553a'); poly([S(x + 0.5, y + 0.5, 0.95), S(x + 0.36, y + 0.5, 0.08), S(x + 0.64, y + 0.5, 0.08)], '#f08a24'); poly([S(x + 0.45, y + 0.5, 0.55), S(x + 0.55, y + 0.5, 0.55), S(x + 0.58, y + 0.5, 0.4), S(x + 0.42, y + 0.5, 0.4)], '#fff'); break;
+      case 'pump': bx(x + 0.25, y + 0.25, x + 0.75, y + 0.75, 0, 1.7, '#c0392b'); qL(x + 0.32, x + 0.68, y + 0.75, 1.15, 1.5, '#e8ecef'); bx(x + 0.25, y + 0.25, x + 0.75, y + 0.75, 1.7, 1.85, '#e8ecef'); line(S(x + 0.75, y + 0.6, 1.2), S(x + 0.9, y + 0.8, 0.2), '#222', 2); break;
       case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
     }
   };
@@ -2544,7 +2678,7 @@ function cqDraw() {
     g.beginPath(); g.moveTo(mx - 6, my + 9); g.lineTo(mx + 6, my + 9); g.lineTo(mx, my + 18); g.fill();
     g.globalAlpha = 1; g.fillStyle = '#1d2127'; g.font = '800 15px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', mx, my + 1);
   };
-  if (!G || !G.me.imp) for (const id of cq.tasks || []) if (!cq.done.has(id)) { const t = cqTask(id); mark(t.x, t.y, '#f2c230'); }
+  if (!G || !G.me.imp) for (const id of cq.tasks || []) if (!cq.done.has(id)) { const t = cqStep(G && G.me, id); mark(t.x, t.y, '#f2c230'); }
   if (G && G.sab && !G.me.imp) mark(CQ_SABS[G.sab.type].x, CQ_SABS[G.sab.type].y, '#e2553a');
   // joystick
   if (cq.joy) {
