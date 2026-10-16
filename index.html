@@ -124,7 +124,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .rk tr.me td{font-weight:700;color:var(--p0)}
 .you{font-size:13px;color:var(--muted);margin:2px 0 0}
 .you button{border:none;background:none;color:var(--p0);font:inherit;font-size:13px;padding:0;cursor:pointer;text-decoration:underline}
-@media (max-width:520px){ .app{padding:12px} .btn .t{display:none} .card{min-width:0;flex:1;padding:8px 12px} .card .score{font-size:24px} h1{font-size:18px} }
+@media (max-width:520px){ .app{padding:12px} .btn .t{display:none} .btn.keep .t{display:inline} .card{min-width:0;flex:1;padding:8px 12px} .card .score{font-size:24px} h1{font-size:18px} }
 </style>
 </head>
 <body>
@@ -136,6 +136,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     </h1>
     <div class="tools">
       <button class="btn" id="bUndo" title="Annulla l'ultima mossa"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg><span class="t">Annulla</span></button>
+      <button class="btn keep" id="bQuit" title="Abbandona la partita" hidden><svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg><span class="t">Abbandona</span></button>
       <button class="btn" id="bNew" title="Nuova partita"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="t">Nuova</span></button>
       <button class="btn" id="bStats" title="Statistiche"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="t">Statistiche</span></button>
       <button class="btn icon" id="bSound" title="Suoni"></button>
@@ -700,6 +701,7 @@ const U = 64, MG = 30;
 function render() {
   renderScores(); renderStatus();
   $('#bUndo').disabled = !game || game.over || game.online || !game.history.length;
+  $('#bQuit').hidden = !(game && game.online && !game.over);
   if (!game) { svg.setAttribute('viewBox', '0 0 300 120'); svg.innerHTML = `<text x="150" y="60" text-anchor="middle" fill="var(--muted)" font-size="14">Scegli le impostazioni per iniziare</text>`; return; }
   const T = game.T, W = T.C * U + 2 * MG, H = T.R * U + 2 * MG;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -812,7 +814,8 @@ function showEnd(delta) {
   if (!game || !game.over) return;
   const ps = game.players, best = Math.max(...game.scores), win = ps.filter((_, i) => game.scores[i] === best);
   let title;
-  if (win.length > 1) title = 'Pareggio!';
+  if (game.forfeit != null) title = ps[game.forfeit].kind === 'human' ? 'Hai abbandonato' : 'Hai vinto!';
+  else if (win.length > 1) title = 'Pareggio!';
   else if (game.vsAI) title = win[0].kind === 'human' ? 'Hai vinto!' : 'Ha vinto il computer';
   else if (game.online) title = win[0].kind === 'human' ? 'Hai vinto!' : `Vince ${esc(win[0].name)}`;
   else title = `Vince ${esc(win[0].name)}!`;
@@ -824,6 +827,7 @@ function showEnd(delta) {
     if (s.ddOk + s.ddMiss) items.push(['Doppi incroci giocati / mancati', `${s.ddOk} / ${s.ddMiss}`]);
     if (s.endTot) items.push(['Catene aperte nel modo migliore', `${s.endOk} su ${s.endTot}`]);
   }
+  if (game.forfeit != null && ps[game.forfeit].kind === 'remote') items.push(['Motivo', `${esc(ps[game.forfeit].name)} ha abbandonato la partita`]);
   if (game.elo) items.push(['Il tuo punteggio', `${game.elo.rating} (${game.elo.delta >= 0 ? '+' : ''}${game.elo.delta})`]);
   if (delta) items.push(['Forza del computer adattivo', `${Math.round(delta[0])} → ${delta[1]}`]);
   if (game.stats.undo) items.push(['Mosse annullate', game.stats.undo]);
@@ -832,6 +836,7 @@ function showEnd(delta) {
     <div class="actions"><button class="btn" id="eSet">Impostazioni</button><button class="btn primary" id="eAgain">Rivincita</button></div>`;
   if (game.online) {
     $('#eSet').textContent = 'Esci';
+    if (net && net.friendLeft) $('#eAgain').hidden = true;
     $('#eSet').onclick = () => { $('#dEnd').close(); leaveOnline(); openSetup(); };
     $('#eAgain').onclick = () => {
       if (net.role === 'host') rematch();
@@ -883,7 +888,7 @@ function recordOnline() {
   if (!gid || O.seen.includes(gid)) return;
   O.seen.push(gid); if (O.seen.length > 300) O.seen.shift();
   const me = game.players.findIndex(p => p.kind === 'human'), op = 1 - me;
-  const a = game.scores[me], b = game.scores[op], opp = game.players[op].name, res = a > b ? 'w' : a < b ? 'l' : 'd';
+  const a = game.scores[me], b = game.scores[op], opp = game.players[op].name, res = game.forfeit != null ? (game.forfeit === me ? 'l' : 'w') : a > b ? 'w' : a < b ? 'l' : 'd';
   const v = O.vs[opp] || (O.vs[opp] = { w: 0, l: 0, d: 0, pf: 0, pa: 0 });
   v[res]++; v.pf += a; v.pa += b;
   O.games.unshift({ t: Date.now(), opp, a, b, res, size: game.T.R });
@@ -941,6 +946,28 @@ function applyPrefs() {
 $('#bTheme').onclick = () => { const o = ['auto', 'light', 'dark']; store.settings.theme = o[(o.indexOf(store.settings.theme) + 1) % 3]; saveStore(); applyPrefs(); };
 $('#bSound').onclick = () => { store.settings.sound = !store.settings.sound; saveStore(); applyPrefs(); };
 $('#bNew').onclick = openSetup;
+// Abbandona: conta come sconfitta (e vittoria per l'avversario); senza mosse fatte si esce e basta.
+function quitGame() {
+  if (!game || !game.online || game.over || !net) return;
+  const me = game.players.findIndex(p => p.kind === 'human'), opp = game.players[1 - me].name;
+  if (!game.history.length) {
+    if (!confirm('Uscire dalla partita? Non è stata fatta nessuna mossa, quindi non perdi punti.')) return;
+    leaveOnline(); render(); openSetup(); return;
+  }
+  if (!confirm('Abbandonare la partita? Conta come sconfitta per te e ' + opp + ' vince.')) return;
+  game.forfeit = me;
+  sendNet({ t: 'forfeit' });
+  endGame();
+  leaveOnline(); render(); openSetup();
+}
+$('#bQuit').onclick = quitGame;
+function recvForfeit() {
+  if (!game || !game.online || game.over) return;
+  game.forfeit = game.players.findIndex(p => p.kind === 'remote');
+  net.friendLeft = true;
+  try { localStorage.removeItem(ONLINE_KEY); } catch {}
+  endGame(); hubLive(); render();
+}
 $('#bUndo').onclick = undo;
 $('#bStats').onclick = openStats;
 svg.addEventListener('click', ev => {
@@ -1077,7 +1104,8 @@ function hostRecv(conn, d) {
   else if (d.t === 'need') sendSync();
   else if (d.t === 'rating') { if (Number.isFinite(d.r)) net.guestRating = d.r; }
   else if (d.t === 'rematch' && game && game.over) rematch();
-  else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
+  else if (d.t === 'forfeit') recvForfeit();
+  else if (d.t === 'bye') { net.friendLeft = true; render(); if (!(game && game.forfeit != null)) alert('Il tuo amico è uscito dalla partita.'); }
 }
 function showLobby() {
   const ch = net.challenge;
@@ -1179,8 +1207,9 @@ function guestRecv(d) {
     if ($('#dLobby').open) $('#dLobby').close();
     if (game.over) showEnd(null);
   } else if (d.t === 'move') recvMove(d);
+  else if (d.t === 'forfeit') recvForfeit();
   else if (d.t === 'full') { net.friendLeft = true; joinStatus('Questa partita ha già due giocatori.', 'bad'); }
-  else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
+  else if (d.t === 'bye') { net.friendLeft = true; render(); if (!(game && game.forfeit != null)) alert('Il tuo amico è uscito dalla partita.'); }
 }
 
 // ---- canale delle mosse via Firebase ----
