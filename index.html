@@ -293,7 +293,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 </div>
 
 <div id="home" hidden><div class="hw">
-  <h1><span>Sala giochi<small>di Tomelleri Davide per RH group</small></span></h1>
+  <h1><span>Sviluppo software<small>di Tomelleri Davide per RH group</small></span></h1>
   <p class="you" id="homeYou"></p>
   <button class="gcard" id="gDots"><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
@@ -965,7 +965,7 @@ function openSetup() {
   const S = store.settings, f = $('#fSetup');
   S.rule = 'classic';
   f.innerHTML = `
-    <h2>${WEB ? 'Sala giochi' : 'Nuova partita'}</h2>
+    <h2>${WEB ? 'Sviluppo software' : 'Nuova partita'}</h2>
     <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
     ${WEB ? `<p class="you">Giochi come <b>${esc(S.myName || '')}</b> · <span id="myRat"></span> · <button type="button" id="bRename">non sei tu?</button></p>
     <div class="row"><div class="lbl">Giocatori online</div><div id="salaList"></div></div>` : ''}
