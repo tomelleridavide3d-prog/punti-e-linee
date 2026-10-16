@@ -1489,36 +1489,75 @@ function openStatsWeb() {
 }
 
 // ---- Ciack US (tappa 1: un personaggio con il cappello che cammina su un pavimento isometrico) ----
-const CQ_W = 28, CQ_H = 20, CQ_SPEED = 3.4, CQ_R = 0.3;
-// stanze del set: nome, posizione, misura, due colori del pavimento a scacchi
+const CQ_W = 44, CQ_H = 34, CQ_SPEED = 3.4, CQ_R = 0.3;
+// stanze del set: nome, posizione, misura, colori del pavimento a scacchi, colore dei muri
 const CQ_ROOMS = [
-  { n: 'Palco', x: 2, y: 2, w: 10, h: 6, c: ['#9a7549', '#8b693f'] },
-  { n: 'Camerini', x: 14, y: 2, w: 6, h: 6, c: ['#76629a', '#69568b'] },
-  { n: 'Trucco', x: 21, y: 2, w: 6, h: 6, c: ['#9a627c', '#8b566e'] },
-  { n: 'Corridoio', x: 2, y: 9, w: 25, h: 3, c: ['#586073', '#4c5466'] },
-  { n: 'Montaggio', x: 2, y: 13, w: 7, h: 6, c: ['#4f8a99', '#457c8b'] },
-  { n: 'Magazzino', x: 10, y: 13, w: 8, h: 6, c: ['#868659', '#78784e'] },
-  { n: 'Proiezione', x: 19, y: 13, w: 8, h: 6, c: ['#6a5252', '#5c4747'] }];
-const CQ_DOORS = [[5, 8, 2, 1], [16, 8, 2, 1], [23, 8, 2, 1], [4, 12, 2, 1], [13, 12, 2, 1], [22, 12, 2, 1], [12, 4, 2, 2], [20, 4, 1, 2]];
-// oggetti di scena: ingombrano e non si attraversano [x, y, larghezza, altezza, rialzo, colore]
-const CQ_PROPS = [[4, 3, 2, 2, 0.9, '#d4a62a'], [9, 5, 2, 1, 0.6, '#3d4350'], [15, 3, 1, 3, 0.8, '#b0505a'], [22, 3, 4, 1, 0.7, '#e0e0e8'], [22, 6, 2, 1, 0.7, '#e0e0e8'],
-  [3, 14, 4, 1, 0.7, '#9aa5b5'], [11, 14, 2, 2, 1.0, '#a8793c'], [15, 16, 2, 2, 1.0, '#a8793c'], [12, 17, 1, 1, 0.7, '#a8793c'], [21, 15, 5, 1, 0.55, '#b03a3a'], [21, 17, 5, 1, 0.55, '#b03a3a']];
+  { n: 'Palco', x: 2, y: 2, w: 16, h: 12, c: ['#9a7549', '#8b693f'], wc: '#6e5a44' },
+  { n: 'Camerini', x: 20, y: 2, w: 11, h: 12, c: ['#76629a', '#69568b'], wc: '#5e5280' },
+  { n: 'Trucco', x: 33, y: 2, w: 10, h: 12, c: ['#9a627c', '#8b566e'], wc: '#80566a' },
+  { n: 'Corridoio', x: 2, y: 15, w: 41, h: 5, c: ['#586073', '#4c5466'], wc: '#5d6578' },
+  { n: 'Montaggio', x: 2, y: 21, w: 12, h: 12, c: ['#4f8a99', '#457c8b'], wc: '#4a7482' },
+  { n: 'Magazzino', x: 16, y: 21, w: 13, h: 12, c: ['#868659', '#78784e'], wc: '#6e6e4a' },
+  { n: 'Proiezione', x: 31, y: 21, w: 12, h: 12, c: ['#6a5252', '#5c4747'], wc: '#5a4646' }];
+const CQ_DOORS = [[8, 14, 3, 1], [24, 14, 3, 1], [36, 14, 3, 1], [6, 20, 3, 1], [21, 20, 3, 1], [35, 20, 3, 1], [18, 7, 2, 3], [31, 7, 2, 3]];
+// tappeti e segni sul pavimento: x, y, larghezza, altezza, colore
+const CQ_DECALS = [
+  [4, 4, 12, 8, '#7a5a38'], [4.3, 4.3, 11.4, 7.4, '#85623e'],
+  [22, 4, 7, 6, '#4a3e6a'], [22.3, 4.3, 6.4, 5.4, '#574a7a'],
+  [35, 5, 5, 5, '#6a3f55'], [35.3, 5.3, 4.4, 4.4, '#774a63'],
+  [2, 17, 41, 1, '#a02838'], [2, 17.12, 41, 0.76, '#b43446'],
+  [4, 27, 7, 4, '#2f5a66'], [4.3, 27.3, 6.4, 3.4, '#38687a'],
+  [36, 22, 2, 9, '#7a2a35'],
+  [17, 21, 11, 0.18, '#e8d44a'], [17, 32.8, 11, 0.18, '#e8d44a']];
+for (const [mx, my] of [[6, 6], [9, 6], [12, 6], [6, 9], [9, 9], [12, 9]]) CQ_DECALS.push([mx + 0.1, my + 0.4, 0.8, 0.12, '#e8d44a'], [mx + 0.44, my + 0.06, 0.12, 0.8, '#e8d44a']);
+// oggetti di scena [tipo, x, y, opzione]: ognuno occupa una cella e non si attraversa
+const CQ_PROPS = [];
+const pp = (t, x, y, o) => CQ_PROPS.push([t, x, y, o]);
+const prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
+const LOCK = ['#4f7aa8', '#a85a4f', '#4fa87a', '#a89a4f', '#8a4fa8'];
+// Palco
+prow('curtain', 2, 2, 16, 1, 0);
+[[3, 3], [16, 3], [3, 12], [16, 12]].forEach(([x, y]) => pp('lamp', x, y));
+pp('camera', 6, 8); pp('camera', 12, 8); pp('boom', 9, 5); pp('clapper', 9, 10);
+pp('dchair', 14, 6, '#d9c9a0'); pp('dchair', 15, 6, '#c96a5a'); pp('dchair', 3, 8, '#d9c9a0');
+pp('speaker', 2, 13); pp('speaker', 17, 13); pp('reel', 4, 3); pp('reel', 15, 3); pp('plant', 2, 6); pp('plant', 17, 5); pp('crate', 14, 12); pp('crate', 5, 12);
+// Camerini
+prow('locker', 21, 2, 9, 1, 0, i => LOCK[i % 5]); pp('fridge', 30, 2);
+prow('sofa', 22, 6, 3, 1, 0); pp('table', 23, 8); pp('tv', 27, 5); pp('tv', 28, 5);
+pp('rack', 21, 11); pp('rack', 22, 11); pp('rack', 28, 11); pp('plant', 20, 2); pp('plant', 30, 13); pp('plant', 20, 13); pp('dchair', 26, 9, '#7aa0d4'); pp('dchair', 28, 9, '#d4a07a');
+// Trucco
+prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => ['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4]);
+pp('rack', 34, 10); pp('rack', 35, 10); pp('rack', 40, 10); pp('rack', 41, 10); pp('table', 37, 11); pp('table', 39, 11); pp('plant', 42, 13); pp('plant', 33, 13); pp('dchair', 37, 7, '#d4a0b8'); pp('dchair', 39, 7, '#d4a0b8');
+// Corridoio
+[[2, 15], [42, 15], [2, 19], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
+pp('crate', 14, 15); pp('crate', 15, 15); pp('crate2', 14, 16); pp('crate', 30, 19); pp('crate2', 31, 19); pp('sofa', 18, 15); pp('sofa', 19, 15); pp('table', 20, 15);
+// Montaggio
+prow('monitor', 3, 23, 4, 1, 0); prow('monitor', 9, 23, 4, 1, 0); prow('dchair', 3, 24, 4, 1, 0, () => '#8a96a8'); prow('dchair', 9, 24, 4, 1, 0, () => '#8a96a8');
+prow('shelf', 13, 22, 9, 0, 1); pp('reel', 3, 30); pp('reel', 4, 30); pp('reel', 11, 31); pp('table', 6, 29); pp('table', 8, 29); pp('plant', 2, 32); pp('plant', 12, 32); pp('monitor', 2, 28); pp('dchair', 3, 28, '#8a96a8');
+// Magazzino
+pp('crate', 17, 23); pp('crate', 18, 23); pp('crate', 17, 24); pp('crate2', 18, 24); pp('crate', 24, 28); pp('crate2', 25, 28); pp('crate', 24, 29); pp('crate', 25, 29);
+prow('barrel', 17, 30, 3, 1, 0, i => ['#3b6ea5', '#a5493b', '#3ba56e'][i]); pp('barrel', 17, 31, '#a5493b');
+prow('shelf', 28, 22, 9, 0, 1); pp('rack', 22, 31); pp('rack', 23, 31); pp('lamp', 20, 27); pp('lamp', 26, 24); pp('camera', 19, 28); pp('boom', 25, 32); pp('crate', 27, 32); pp('crate', 16, 32);
+// Proiezione
+prow('screen', 33, 32, 8, 1, 0); pp('speaker', 32, 32); pp('speaker', 41, 32);
+for (const yy of [24, 26, 28]) { prow('seat', 33, yy, 3, 1, 0); prow('seat', 38, yy, 3, 1, 0); }
+pp('projector', 31, 22); pp('plant', 42, 22); pp('plant', 42, 32); pp('plant', 31, 32); pp('lamp', 41, 22); pp('lamp', 32, 24);
 const cqFloor = [], cqSolid = [], cqRoomOf = [];
 (() => {
-  for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); }
-  CQ_ROOMS.forEach(r => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) cqFloor[y][x] = r.c[(x + y) % 2]; });
+  for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
+  CQ_ROOMS.forEach((r, i) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { cqFloor[y][x] = r.c[(x + y) % 2]; cqRoomOf[y][x] = i; } });
   const cor = CQ_ROOMS[3].c;
-  CQ_DOORS.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cqFloor[y][x] = cor[(x + y) % 2]; });
-  CQ_PROPS.forEach(([x0, y0, w, h, ht, col]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) cqSolid[y][x] = { ht, col, prop: 1 }; });
-  // muri: ogni cella vuota che tocca un pavimento
+  CQ_DOORS.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { cqFloor[y][x] = cor[(x + y) % 2]; cqRoomOf[y][x] = 3; } });
+  CQ_PROPS.forEach(([t, x, y, o]) => { cqSolid[y][x] = { prop: t, o }; });
+  // muri: ogni cella vuota che tocca un pavimento, del colore della stanza accanto
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) {
     if (cqFloor[y][x]) continue;
-    let near = false;
-    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) if (cqFloor[y + dy] && cqFloor[y + dy][x + dx]) near = true;
-    if (near) cqSolid[y][x] = { ht: 0.8, col: '#5d6578', wall: 1 };
+    let ri = -1;
+    for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { const r = cqRoomOf[y + dy] && cqRoomOf[y + dy][x + dx]; if (r >= 0) { ri = r; break; } }
+    if (ri >= 0) cqSolid[y][x] = { wall: 1, col: CQ_ROOMS[ri].wc };
   }
 })();
-const cq = { on: false, x: 14.5, y: 10.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
+const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
   return !cqFloor[cy] || !cqFloor[cy][cx] || !!cqSolid[cy][cx];
@@ -1568,25 +1607,82 @@ function cqFrame(t) {
   cq.raf = requestAnimationFrame(cqFrame);
 }
 function cqShade(hex, f) {
-  const n = parseInt(hex.slice(1), 16);
-  return 'rgb(' + [n >> 16, (n >> 8) & 255, n & 255].map(v => Math.max(0, Math.min(255, Math.round(v * f)))).join(',') + ')';
+  const n = parseInt(hex.slice(1), 16), v = hex[0] === '#' ? [n >> 16, (n >> 8) & 255, n & 255] : hex.match(/\d+/g).map(Number);
+  return 'rgb(' + v.map(v => Math.max(0, Math.min(255, Math.round(v * f)))).join(',') + ')';
 }
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
   g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const TW = Math.max(48, Math.min(W, H) / 8), TH = TW / 2;
+  const TW = Math.max(48, Math.min(W, H) / 8), TH = TW / 2, U = TH * 1.15;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
+  const S = (x, y, z) => [px(x, y), py(x, y) - z * U];
   g.save(); g.translate(W / 2 - px(cq.x, cq.y), H / 2 - py(cq.x, cq.y) + TH);
   const poly = (pts, col) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = col; g.fill(); };
-  const vis = (x, y) => { const sx = W / 2 + px(x, y) - px(cq.x, cq.y), sy = H / 2 + py(x, y) - py(cq.x, cq.y) + TH; return sx > -TW * 2 && sx < W + TW * 2 && sy > -TH * 6 && sy < H + TH * 4; };
+  const vis = (x, y) => { const sx = W / 2 + px(x, y) - px(cq.x, cq.y), sy = H / 2 + py(x, y) - py(cq.x, cq.y) + TH; return sx > -TW * 2 && sx < W + TW * 2 && sy > -TH * 8 && sy < H + TH * 4; };
+  // forme di base: scatola, facce piane, cilindro, punto
+  const bx = (x0, y0, x1, y1, z0, z1, col) => {
+    poly([S(x0, y1, z1), S(x1, y1, z1), S(x1, y1, z0), S(x0, y1, z0)], cqShade(col, 0.74));
+    poly([S(x1, y1, z1), S(x1, y0, z1), S(x1, y0, z0), S(x1, y1, z0)], cqShade(col, 0.52));
+    poly([S(x0, y0, z1), S(x1, y0, z1), S(x1, y1, z1), S(x0, y1, z1)], cqShade(col, 1.08));
+  };
+  const qL = (x0, x1, y, z0, z1, col) => poly([S(x0, y, z1), S(x1, y, z1), S(x1, y, z0), S(x0, y, z0)], col);
+  const cyl = (cx, cy, r, z0, z1, col) => {
+    const [X0, Y0] = S(cx, cy, z0), [X1, Y1] = S(cx, cy, z1), rx = r * TW * 0.707, ry = r * TH * 0.707;
+    g.fillStyle = cqShade(col, 0.72); g.fillRect(X0 - rx, Y1, rx * 2, Y0 - Y1);
+    g.beginPath(); g.ellipse(X0, Y0, rx, ry, 0, 0, 7); g.fill();
+    g.fillStyle = cqShade(col, 1.08); g.beginPath(); g.ellipse(X1, Y1, rx, ry, 0, 0, 7); g.fill();
+  };
+  const dot = (x, y, z, r, col) => { const [X, Y] = S(x, y, z); g.fillStyle = col; g.beginPath(); g.arc(X, Y, r * TW, 0, 7); g.fill(); };
+  const line = (a, b, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); };
+  const glow = (x, y, z, r, col) => { const [X, Y] = S(x, y, z), gr = g.createRadialGradient(X, Y, 0, X, Y, r * TW); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,230,140,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X, Y, r * TW, 0, 7); g.fill(); };
+  const desk = (x, y) => {
+    for (const [a, b] of [[0.08, 0.16], [0.82, 0.16], [0.08, 0.74], [0.82, 0.74]]) bx(x + a, y + b, x + a + 0.1, y + b + 0.1, 0, 0.7, '#6b5238');
+    bx(x + 0.02, y + 0.1, x + 0.98, y + 0.9, 0.7, 0.85, '#b99a72');
+  };
   // pavimento
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) {
     const col = cqFloor[y][x]; if (!col || !vis(x, y)) continue;
-    poly([[px(x, y), py(x, y)], [px(x + 1, y), py(x + 1, y)], [px(x + 1, y + 1), py(x + 1, y + 1)], [px(x, y + 1), py(x, y + 1)]], col);
+    poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], col);
   }
-  // nomi delle stanze
-  g.font = '700 ' + Math.round(TW / 4.2) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.22)';
-  CQ_ROOMS.forEach(r => g.fillText(r.n.toUpperCase(), px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
+  for (const [x, y, w, h, col] of CQ_DECALS) { if (!vis(x + w / 2, y + h / 2) && !vis(x, y) && !vis(x + w, y + h)) continue; poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col); }
+  g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
+  CQ_ROOMS.forEach(r => { const [X, Y] = S(r.x + r.w / 2, r.y + r.h - 1.4, 0); g.fillText(r.n.toUpperCase(), X, Y); });
+  // oggetti di scena
+  const drawProp = (t, x, y, o) => {
+    switch (t) {
+      case 'crate': bx(x + 0.08, y + 0.08, x + 0.92, y + 0.92, 0, 0.9, '#a8793c'); bx(x + 0.08, y + 0.44, x + 0.92, y + 0.56, 0.9, 0.93, '#7a5428'); bx(x + 0.44, y + 0.08, x + 0.56, y + 0.92, 0.9, 0.93, '#7a5428'); break;
+      case 'crate2': bx(x + 0.08, y + 0.08, x + 0.92, y + 0.92, 0, 0.9, '#a8793c'); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0.9, 1.6, '#b88a4c'); bx(x + 0.2, y + 0.46, x + 0.8, y + 0.54, 1.6, 1.63, '#7a5428'); break;
+      case 'barrel': cyl(x + 0.5, y + 0.5, 0.34, 0, 1.1, o || '#3b6ea5'); cyl(x + 0.5, y + 0.5, 0.355, 0.35, 0.45, '#222'); cyl(x + 0.5, y + 0.5, 0.355, 0.7, 0.8, '#222'); break;
+      case 'desk': desk(x, y); break;
+      case 'monitor': desk(x, y); bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0.85, 0.95, '#333'); bx(x + 0.2, y + 0.45, x + 0.8, y + 0.55, 0.95, 1.8, '#1b222c'); qL(x + 0.24, x + 0.76, y + 0.55, 1.03, 1.72, '#59b6e8'); qL(x + 0.28, x + 0.5, y + 0.55, 1.5, 1.66, '#a8dcf4'); bx(x + 0.25, y + 0.66, x + 0.75, y + 0.84, 0.85, 0.9, '#2a2e35'); break;
+      case 'dchair': { const c = o || '#d9c9a0'; bx(x + 0.22, y + 0.16, x + 0.78, y + 0.26, 0.5, 1.3, c); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0.35, 0.55, c); bx(x + 0.2, y + 0.2, x + 0.28, y + 0.28, 0, 0.35, '#5a4630'); bx(x + 0.72, y + 0.2, x + 0.8, y + 0.28, 0, 0.35, '#5a4630'); bx(x + 0.2, y + 0.72, x + 0.28, y + 0.8, 0, 0.35, '#5a4630'); bx(x + 0.72, y + 0.72, x + 0.8, y + 0.8, 0, 0.35, '#5a4630'); break; }
+      case 'seat': bx(x + 0.12, y + 0.1, x + 0.88, y + 0.3, 0.5, 1.3, '#b03a46'); bx(x + 0.12, y + 0.3, x + 0.88, y + 0.88, 0, 0.5, '#9a2f3a'); bx(x + 0.05, y + 0.3, x + 0.14, y + 0.88, 0.5, 0.78, '#6a2028'); bx(x + 0.86, y + 0.3, x + 0.95, y + 0.88, 0.5, 0.78, '#6a2028'); break;
+      case 'lamp': bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 0.1, '#222'); bx(x + 0.46, y + 0.46, x + 0.54, y + 0.54, 0.1, 2.1, '#3a3f49'); glow(x + 0.5, y + 0.8, 2.35, 0.9, 'rgba(255,230,140,.35)'); bx(x + 0.22, y + 0.28, x + 0.78, y + 0.72, 2.0, 2.7, '#22262e'); qL(x + 0.26, x + 0.74, y + 0.72, 2.08, 2.62, '#ffe58a'); break;
+      case 'camera': { const a = S(x + 0.5, y + 0.5, 1.6); line(a, S(x + 0.1, y + 0.85, 0), '#444', 3); line(a, S(x + 0.9, y + 0.85, 0), '#444', 3); line(a, S(x + 0.5, y + 0.1, 0), '#444', 3);
+        bx(x + 0.25, y + 0.3, x + 0.75, y + 0.7, 1.5, 2.3, '#2f343d'); bx(x + 0.75, y + 0.4, x + 1.0, y + 0.6, 1.65, 2.1, '#15181d'); cyl(x + 0.38, y + 0.5, 0.2, 2.3, 2.42, '#c9ccd4'); cyl(x + 0.62, y + 0.5, 0.2, 2.3, 2.42, '#c9ccd4'); bx(x + 0.3, y + 0.7, x + 0.7, y + 0.78, 1.7, 2.1, '#e2553a'); break; }
+      case 'mirror': bx(x + 0.05, y + 0.1, x + 0.95, y + 0.7, 0, 0.8, '#efe7dd'); bx(x + 0.1, y + 0.08, x + 0.9, y + 0.2, 0.8, 2.1, '#2a2e35'); qL(x + 0.15, x + 0.85, y + 0.2, 0.9, 2.0, '#bfe3f2'); qL(x + 0.2, x + 0.4, y + 0.2, 1.4, 1.9, '#e8f6fc');
+        for (let i = 0; i < 5; i++) dot(x + 0.2 + 0.15 * i, y + 0.2, 2.05, 0.03, '#fff3b0'); for (let z = 1.0; z < 2.0; z += 0.33) { dot(x + 0.12, y + 0.2, z, 0.03, '#fff3b0'); dot(x + 0.88, y + 0.2, z, 0.03, '#fff3b0'); }
+        bx(x + 0.2, y + 0.4, x + 0.3, y + 0.5, 0.8, 1.05, '#e5566a'); bx(x + 0.6, y + 0.4, x + 0.68, y + 0.48, 0.8, 0.98, '#5aa8e5'); bx(x + 0.75, y + 0.45, x + 0.85, y + 0.55, 0.8, 0.9, '#f2d24a'); break;
+      case 'rack': { const cs = ['#d9534f', '#4f8fd9', '#e8c24a', '#5cb87a', '#a05cc8']; bx(x + 0.08, y + 0.4, x + 0.16, y + 0.5, 0, 2.0, '#8a8f99'); bx(x + 0.84, y + 0.4, x + 0.92, y + 0.5, 0, 2.0, '#8a8f99');
+        for (let k = 0; k < 5; k++) bx(x + 0.18 + 0.13 * k, y + 0.37, x + 0.28 + 0.13 * k, y + 0.53, 0.7, 1.9, cs[(k + x) % 5]); bx(x + 0.08, y + 0.4, x + 0.92, y + 0.5, 1.9, 2.0, '#8a8f99'); break; }
+      case 'sofa': bx(x, y + 0.02, x + 1, y + 0.32, 0.5, 1.4, '#8a4668'); bx(x, y + 0.32, x + 1, y + 0.95, 0, 0.55, '#7a3b5c'); bx(x + 0.08, y + 0.4, x + 0.92, y + 0.92, 0.55, 0.78, '#97507a'); break;
+      case 'plant': cyl(x + 0.5, y + 0.5, 0.26, 0, 0.6, '#8a4b2a'); dot(x + 0.5, y + 0.5, 1.2, 0.2, '#2f8a4a'); dot(x + 0.36, y + 0.56, 1.5, 0.17, '#3aa05a'); dot(x + 0.64, y + 0.44, 1.6, 0.17, '#2a7a40'); dot(x + 0.5, y + 0.5, 2.0, 0.16, '#46b86a'); break;
+      case 'reel': for (let i = 0; i < 4; i++) cyl(x + 0.5, y + 0.5, 0.38, i * 0.24, i * 0.24 + 0.2, '#2f343d'); cyl(x + 0.5, y + 0.5, 0.12, 0.96, 1.0, '#c9ccd4'); break;
+      case 'shelf': { bx(x + 0.05, y + 0.15, x + 0.95, y + 0.85, 0, 2.3, '#6b4a2e'); const ic = ['#d9534f', '#4f8fd9', '#e8c24a', '#5cb87a', '#c9ccd4'];
+        for (let l = 0; l < 3; l++) { const z = 0.2 + l * 0.7; qL(x + 0.1, x + 0.9, y + 0.85, z, z + 0.58, '#2c2018'); for (let j = 0; j < 4; j++) qL(x + 0.14 + 0.2 * j, x + 0.26 + 0.2 * j, y + 0.85, z + 0.03, z + 0.2 + ((j + l) % 3) * 0.14, ic[(j + l * 2 + x + y) % 5]); } break; }
+      case 'locker': bx(x + 0.05, y + 0.1, x + 0.95, y + 0.9, 0, 2.3, o); qL(x + 0.09, x + 0.48, y + 0.9, 0.1, 2.2, cqShade(o, 0.88)); qL(x + 0.52, x + 0.91, y + 0.9, 0.1, 2.2, cqShade(o, 0.8)); qL(x + 0.14, x + 0.42, y + 0.9, 1.9, 2.0, '#222'); qL(x + 0.58, x + 0.86, y + 0.9, 1.9, 2.0, '#222'); dot(x + 0.44, y + 0.9, 1.1, 0.025, '#ddd'); dot(x + 0.56, y + 0.9, 1.1, 0.025, '#ddd'); break;
+      case 'fridge': bx(x + 0.1, y + 0.1, x + 0.9, y + 0.9, 0, 2.3, '#e8ecef'); qL(x + 0.12, x + 0.88, y + 0.9, 1.45, 1.5, '#aab'); qL(x + 0.7, x + 0.76, y + 0.9, 1.6, 2.1, '#556'); qL(x + 0.7, x + 0.76, y + 0.9, 0.5, 1.3, '#556'); break;
+      case 'tv': bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0, 0.7, '#5a4630'); bx(x + 0.15, y + 0.4, x + 0.85, y + 0.55, 0.7, 1.7, '#15181d'); qL(x + 0.19, x + 0.81, y + 0.55, 0.78, 1.62, '#4aa3d6'); qL(x + 0.19, x + 0.5, y + 0.55, 1.2, 1.62, '#7cc4ec'); break;
+      case 'table': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 0.8, '#444'); cyl(x + 0.5, y + 0.5, 0.42, 0.8, 0.92, '#b99a72'); cyl(x + 0.4, y + 0.45, 0.07, 0.92, 1.1, '#fff'); cyl(x + 0.62, y + 0.56, 0.07, 0.92, 1.05, '#e5566a'); break;
+      case 'clapper': desk(x, y); bx(x + 0.2, y + 0.35, x + 0.8, y + 0.6, 0.85, 1.6, '#1b1d22'); qL(x + 0.22, x + 0.78, y + 0.6, 0.9, 1.5, '#262a31'); qL(x + 0.28, x + 0.72, y + 0.6, 1.1, 1.14, '#eee'); qL(x + 0.28, x + 0.6, y + 0.6, 1.25, 1.29, '#eee'); qL(x + 0.28, x + 0.66, y + 0.6, 1.0, 1.04, '#eee');
+        bx(x + 0.2, y + 0.35, x + 0.8, y + 0.6, 1.6, 1.74, '#f5f5f5'); for (let k = 0; k < 4; k += 2) bx(x + 0.2 + 0.15 * k, y + 0.35, x + 0.275 + 0.15 * k + 0.075, y + 0.6, 1.6, 1.74, '#111'); break;
+      case 'boom': bx(x + 0.25, y + 0.25, x + 0.75, y + 0.75, 0, 0.12, '#222'); bx(x + 0.46, y + 0.46, x + 0.54, y + 0.54, 0.12, 2.8, '#333'); bx(x + 0.1, y + 0.46, x + 0.95, y + 0.54, 2.7, 2.78, '#444'); cyl(x + 0.88, y + 0.5, 0.13, 2.45, 2.75, '#6a6e78'); break;
+      case 'speaker': bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 1.7, '#1a1c21'); dot(x + 0.5, y + 0.85, 0.5, 0.15, '#2c3038'); dot(x + 0.5, y + 0.85, 0.5, 0.08, '#555a66'); dot(x + 0.5, y + 0.85, 1.25, 0.07, '#40454f'); break;
+      case 'projector': bx(x + 0.1, y + 0.1, x + 0.9, y + 0.9, 0, 1.0, '#3a3f49'); bx(x + 0.2, y + 0.25, x + 0.8, y + 0.75, 1.0, 1.7, '#22262e'); bx(x + 0.8, y + 0.4, x + 1.0, y + 0.6, 1.2, 1.5, '#111'); cyl(x + 0.35, y + 0.5, 0.24, 1.7, 1.8, '#c9ccd4'); cyl(x + 0.65, y + 0.5, 0.24, 1.7, 1.8, '#c9ccd4'); glow(x + 1.05, y + 0.5, 1.35, 0.5, 'rgba(255,240,180,.5)'); break;
+      case 'screen': bx(x, y + 0.4, x + 1, y + 0.6, 0.2, 3.2, '#14161a'); qL(x + 0.03, x + 0.97, y + 0.6, 0.3, 3.1, '#eef2f6'); qL(x + 0.03, x + 0.97, y + 0.6, 2.2, 3.1, '#fff'); break;
+      case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
+    }
+  };
   // muri, oggetti e personaggio, dal piu' lontano al piu' vicino
   const items = [];
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] && vis(x, y)) items.push({ d: x + y + 1, x, y, o: cqSolid[y][x] });
@@ -1594,10 +1690,9 @@ function cqDraw() {
   items.sort((a, b) => a.d - b.d);
   for (const it of items) {
     if (it.me) { cqPlayer(g, px(cq.x, cq.y), py(cq.x, cq.y), TW); continue; }
-    const { x, y, o } = it, z = o.ht * TH * 1.15, A = [px(x, y), py(x, y) - z], B = [px(x + 1, y), py(x + 1, y) - z], C = [px(x + 1, y + 1), py(x + 1, y + 1) - z], D = [px(x, y + 1), py(x, y + 1) - z];
-    poly([D, C, [C[0], C[1] + z], [D[0], D[1] + z]], cqShade(o.col, 0.72));
-    poly([C, B, [B[0], B[1] + z], [C[0], C[1] + z]], cqShade(o.col, 0.52));
-    poly([A, B, C, D], cqShade(o.col, o.wall ? 1.12 : 1.05));
+    const { x, y, o } = it;
+    if (o.wall) { bx(x, y, x + 1, y + 1, 0, 0.9, o.col); bx(x, y, x + 1, y + 1, 0.82, 0.9, cqShade(o.col, 1.3)); }
+    else drawProp(o.prop, x, y, o.o);
   }
   g.restore();
   // joystick
