@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Punti e Linee</title>
+<meta name="theme-color" content="#f5f4f0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' rx='6' fill='%23fff'/%3E%3Cpath d='M5 5H21V21' stroke='%232f6fe4' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M5 5V21H21' stroke='%23e2553a' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
 :root{
   --bg:#f5f4f0; --panel:#ffffff; --ink:#1d2127; --muted:#6b7280; --line:#e4e2dc; --dot:#2a2e35; --ghost:#9aa3af;
@@ -50,7 +53,7 @@ h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em;display:flex;al
 .halo{stroke-width:16;stroke-linecap:round;stroke-opacity:.18}
 .ghost{stroke:var(--cur);stroke-width:6;stroke-linecap:round;opacity:0;transition:opacity .1s}
 #board:not(.locked) .edge-free:hover .ghost{opacity:.45}
-.hit{stroke:transparent;stroke-width:22;stroke-linecap:round;cursor:pointer}
+.hit{stroke:transparent;stroke-width:26;stroke-linecap:round;cursor:pointer}
 #board.locked .hit{cursor:default}
 .c0{stroke:var(--p0)} .c1{stroke:var(--p1)} .c2{stroke:var(--p2)} .c3{stroke:var(--p3)}
 .box rect{fill-opacity:.15;stroke:none}
@@ -98,7 +101,17 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .insight{font-size:14px;line-height:1.5;background:var(--bg);border-radius:10px;padding:10px 12px;margin-top:8px}
 .spark{width:100%;height:60px;margin-top:6px}
 .chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted);margin-left:6px}
-@media (max-width:520px){ .btn .t{display:none} .card{min-width:0;flex:1} }
+.field{font:inherit;font-size:15px;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);width:100%}
+.linkbox{display:flex;gap:6px;margin-top:12px}
+.linkbox input{flex:1;min-width:0}
+.wait{display:flex;align-items:center;gap:10px;margin-top:16px;font-size:14px;color:var(--muted)}
+.wait::before{content:"";width:10px;height:10px;border-radius:50%;background:var(--p0);animation:pulse 1.2s ease-in-out infinite}
+.wait.ok::before{background:var(--p2);animation:none}
+.wait.bad::before{background:var(--p1)}
+@keyframes pulse{50%{opacity:.25}}
+.net{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;background:var(--p2)}
+.net.off{background:var(--p1)}
+@media (max-width:520px){ .app{padding:12px} .btn .t{display:none} .card{min-width:0;flex:1;padding:8px 12px} .card .score{font-size:24px} h1{font-size:18px} }
 </style>
 </head>
 <body>
@@ -124,6 +137,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 <dialog id="dSetup"><form method="dialog" class="dlg" id="fSetup"></form></dialog>
 <dialog id="dEnd"><div class="dlg" id="endBody"></div></dialog>
 <dialog id="dStats"><div class="dlg" id="statsBody"></div></dialog>
+<dialog id="dLobby"><div class="dlg" id="lobbyBody"></div></dialog>
 
 <script>
 // ==ENGINE==
@@ -576,16 +590,20 @@ function startGame() {
   } else {
     players = S.names.slice(0, +S.humans).map((nm, i) => ({ name: (nm || '').trim() || `Giocatore ${i + 1}`, kind: 'human', color: i }));
   }
-  game = {
-    T, st: newState(T), edgeBy: new Int8Array(T.E).fill(-1), boxBy: new Int8Array(T.B).fill(-1),
-    scores: players.map(() => 0), turn: 0, players, rule: S.rule, history: [], over: false,
-    lastEdge: -1, newBoxes: [], vsAI: S.mode === 'ai', level: S.level, startStrength: store.profile.strength,
-    stats: { give: 0, ddOk: 0, ddMiss: 0, endOk: 0, endTot: 0, undo: 0 }, ctrlRecorded: false,
-  };
-  aiToken++; clearTimeout(aiTimer);
+  createGame(T, players, S.rule, { vsAI: S.mode === 'ai', level: S.level });
   render(); scheduleAI();
 }
-function makeMove(e) {
+function createGame(T, players, rule, extra) {
+  game = Object.assign({
+    T, st: newState(T), edgeBy: new Int8Array(T.E).fill(-1), boxBy: new Int8Array(T.B).fill(-1),
+    scores: players.map(() => 0), turn: 0, players, rule, history: [], over: false,
+    lastEdge: -1, newBoxes: [], vsAI: false, online: false, level: null, startStrength: store.profile.strength,
+    stats: { give: 0, ddOk: 0, ddMiss: 0, endOk: 0, endTot: 0, undo: 0 }, ctrlRecorded: false,
+  }, extra);
+  aiToken++; clearTimeout(aiTimer);
+}
+// remote: mossa arrivata dall'altro telefono; silent: ricostruzione della partita senza suoni.
+function makeMove(e, remote = false, silent = false) {
   if (!game || game.over || game.st.ed[e]) return;
   const p = game.turn;
   if (game.vsAI && game.players[p].kind === 'human') observe(e);
@@ -596,12 +614,15 @@ function makeMove(e) {
     const b = game.T.eb[e * 2 + i];
     if (b >= 0 && game.st.cnt[b] === 4) { game.boxBy[b] = p; game.scores[p]++; done.push(b); }
   }
+  if (game.online && !remote) sendNet({ t: 'move', e, n: game.history.length });
   game.history.push({ e, p, done });
   if (!(game.rule === 'classic' && done.length)) game.turn = (p + 1) % game.players.length;
   game.lastEdge = e; game.newBoxes = done;
-  if (done.length) { beep(660, 0.1, 0.05); beep(880, 0.14, 0.04, 0.07); } else beep(440, 0.05, 0.025);
+  if (game.online) saveOnline();
   if (game.st.free === 0) endGame();
   else if (game.vsAI) checkControl();
+  if (silent) return;
+  if (done.length) { beep(660, 0.1, 0.05); beep(880, 0.14, 0.04, 0.07); } else beep(440, 0.05, 0.025);
   render(); scheduleAI();
 }
 function scheduleAI() {
@@ -618,7 +639,7 @@ function scheduleAI() {
   }, 420);
 }
 function undo() {
-  if (!game || game.over || !game.history.length) return;
+  if (!game || game.over || game.online || !game.history.length) return;
   aiToken++; clearTimeout(aiTimer);
   const popOne = () => {
     const h = game.history.pop();
@@ -658,13 +679,13 @@ function endGame() {
 const U = 64, MG = 30;
 function render() {
   renderScores(); renderStatus();
-  $('#bUndo').disabled = !game || game.over || !game.history.length;
+  $('#bUndo').disabled = !game || game.over || game.online || !game.history.length;
   if (!game) { svg.setAttribute('viewBox', '0 0 300 120'); svg.innerHTML = `<text x="150" y="60" text-anchor="middle" fill="var(--muted)" font-size="14">Scegli le impostazioni per iniziare</text>`; return; }
   const T = game.T, W = T.C * U + 2 * MG, H = T.R * U + 2 * MG;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
   const cur = game.players[game.turn].color;
   svg.style.setProperty('--cur', `var(--p${cur})`);
-  const locked = game.over || game.players[game.turn].kind !== 'human';
+  const locked = game.over || game.players[game.turn].kind !== 'human' || (game.online && !netReady());
   svg.classList.toggle('locked', locked);
   let out = '';
   for (let b = 0; b < T.B; b++) {
@@ -688,7 +709,7 @@ function renderScores() {
   const el = $('#scores');
   if (!game) { el.innerHTML = ''; return; }
   el.innerHTML = game.players.map((p, i) => {
-    let sub = p.kind === 'ai' ? levelById(game.level).name : (game.vsAI ? 'Giocatore' : '');
+    let sub = p.kind === 'ai' ? levelById(game.level).name : game.online ? (p.kind === 'human' ? 'Tu' : 'Amico') : game.vsAI ? 'Giocatore' : '';
     if (p.kind === 'ai' && game.level === 'adaptive') sub += ` · forza ${Math.round(store.profile.strength)}`;
     return `<div class="card${i === game.turn && !game.over ? ' active' : ''}" style="--pc:var(--p${p.color})">
       <span class="sw"></span><div><div class="nm">${esc(p.name)}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
@@ -698,9 +719,18 @@ function renderScores() {
 function renderStatus() {
   const el = $('#status');
   if (!game) { el.textContent = ''; return; }
-  if (game.over) { el.innerHTML = `<b>Partita finita</b>`; return; }
   const p = game.players[game.turn], last = game.history[game.history.length - 1];
   const again = last && last.p === game.turn && last.done.length && game.rule === 'classic';
+  if (game.online) {
+    const friend = esc((game.players.find(q => q.kind === 'remote') || {}).name || 'il tuo amico');
+    if (!netReady()) { el.innerHTML = `<span class="net off"></span><b>Connessione persa</b>: attendo ${friend}, riprovo da solo…`; return; }
+    const dot = '<span class="net"></span>';
+    if (game.over) el.innerHTML = dot + '<b>Partita finita</b>';
+    else if (p.kind === 'remote') el.innerHTML = dot + (again ? `<b>${friend}</b> ha chiuso un quadrato e rigioca…` : `Tocca a <b>${friend}</b>…`);
+    else el.innerHTML = dot + (again ? '<b>Quadrato!</b> Tocca ancora a te' : '<b>Tocca a te</b>');
+    return;
+  }
+  if (game.over) { el.innerHTML = `<b>Partita finita</b>`; return; }
   if (p.kind === 'ai') el.textContent = again ? 'Il computer ha chiuso un quadrato e rigioca…' : 'Il computer sta pensando…';
   else if (game.vsAI) el.innerHTML = again ? '<b>Quadrato!</b> Tocca ancora a te' : '<b>Tocca a te</b>: traccia una linea tra due punti vicini';
   else el.innerHTML = again ? `<b>${esc(p.name)}</b> ha chiuso un quadrato e rigioca` : `Tocca a <b>${esc(p.name)}</b>`;
@@ -715,7 +745,10 @@ function openSetup() {
   f.innerHTML = `
     <h2>Nuova partita</h2>
     <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
-    <div class="row"><div class="lbl">Avversario</div>${seg('mode', [['ai', 'Computer'], ['humans', 'Amici sullo stesso PC']], S.mode)}</div>
+    <div class="row"><div class="lbl">Avversario</div>${seg('mode', [['ai', 'Computer'], ['humans', 'Stesso dispositivo'], ['online', 'Amico a distanza']], S.mode)}</div>
+    <div class="row" data-for="online"><div class="lbl">Il tuo nome</div><input class="field" name="myname" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}">
+      <div class="lbl" style="margin-top:14px">Chi inizia</div>${seg('ofirst', [['me', 'Io'], ['friend', 'Il mio amico'], ['random', 'A caso']], S.ofirst || 'me')}
+      <div class="hint">Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte.</div></div>
     <div class="row" data-for="ai"><div class="lbl">Difficoltà</div>${seg('level', LEVELS.map(l => [l.id, l.name]), S.level)}<div class="hint" id="levelDesc"></div></div>
     <div class="row" data-for="ai"><div class="lbl">Chi inizia</div>${seg('first', [['human', 'Tu'], ['ai', 'Computer'], ['random', 'A caso']], S.first)}</div>
     <div class="row" data-for="humans"><div class="lbl">Giocatori</div>${seg('humans', [[2, '2'], [3, '3'], [4, '4']], S.humans)}
@@ -732,7 +765,8 @@ function openSetup() {
     <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">Inizia partita</button></div>`;
   const sync = () => {
     const fd = new FormData(f);
-    for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule']) if (fd.get(k) != null) S[k] = fd.get(k);
+    for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule', 'ofirst']) if (fd.get(k) != null) S[k] = fd.get(k);
+    if (fd.get('myname') != null) S.myName = fd.get('myname');
     for (let i = 0; i < 4; i++) S.names[i] = fd.get('nm' + i) ?? S.names[i];
     f.querySelectorAll('[data-for]').forEach(r => r.hidden = r.dataset.for !== S.mode);
     f.querySelectorAll('.names input').forEach((inp, i) => inp.hidden = i >= +S.humans);
@@ -741,16 +775,22 @@ function openSetup() {
     $('#ruleDesc').textContent = S.rule === 'classic' ? 'Se chiudi un quadrato tocca di nuovo a te (la regola più diffusa).' : 'Il turno passa sempre all\'avversario, anche dopo aver chiuso un quadrato.';
   };
   f.oninput = sync; sync();
-  $('#dSetup').onclose = () => { if ($('#dSetup').returnValue === 'ok') { saveStore(); startGame(); } else render(); };
+  $('#dSetup').onclose = () => {
+    if ($('#dSetup').returnValue !== 'ok') { render(); return; }
+    saveStore();
+    if (net) leaveOnline();
+    if (S.mode === 'online') hostOnline(); else startGame();
+  };
   $('#dSetup').returnValue = '';
   $('#dSetup').showModal();
 }
 function showEnd(delta) {
-  if (!game) return;
+  if (!game || !game.over) return;
   const ps = game.players, best = Math.max(...game.scores), win = ps.filter((_, i) => game.scores[i] === best);
   let title;
   if (win.length > 1) title = 'Pareggio!';
   else if (game.vsAI) title = win[0].kind === 'human' ? 'Hai vinto!' : 'Ha vinto il computer';
+  else if (game.online) title = win[0].kind === 'human' ? 'Hai vinto!' : `Vince ${esc(win[0].name)}`;
   else title = `Vince ${esc(win[0].name)}!`;
   const score = ps.map((p, i) => `<span style="color:var(--p${p.color})">${game.scores[i]}</span>`).join(' – ');
   const items = [];
@@ -765,9 +805,18 @@ function showEnd(delta) {
   $('#endBody').innerHTML = `<h2>${title}</h2><div class="big">${score}</div>
     ${items.length ? `<ul class="list">${items.map(([a, b]) => `<li><span>${a}</span><span>${b}</span></li>`).join('')}</ul>` : ''}
     <div class="actions"><button class="btn" id="eSet">Impostazioni</button><button class="btn primary" id="eAgain">Rivincita</button></div>`;
-  $('#eAgain').onclick = () => { $('#dEnd').close(); startGame(); };
-  $('#eSet').onclick = () => { $('#dEnd').close(); openSetup(); };
-  $('#dEnd').showModal();
+  if (game.online) {
+    $('#eSet').textContent = 'Esci';
+    $('#eSet').onclick = () => { $('#dEnd').close(); leaveOnline(); openSetup(); };
+    $('#eAgain').onclick = () => {
+      if (net.role === 'host') rematch();
+      else { sendNet({ t: 'rematch' }); $('#eAgain').textContent = 'In attesa…'; $('#eAgain').disabled = true; }
+    };
+  } else {
+    $('#eAgain').onclick = () => { $('#dEnd').close(); startGame(); };
+    $('#eSet').onclick = () => { $('#dEnd').close(); openSetup(); };
+  }
+  if (!$('#dEnd').open) $('#dEnd').showModal();
 }
 function openStats() {
   const P = store.profile, M = P.metrics;
@@ -823,10 +872,232 @@ $('#bUndo').onclick = undo;
 $('#bStats').onclick = openStats;
 svg.addEventListener('click', ev => {
   const g = ev.target.closest('.edge-free');
-  if (!g || !game || game.over || game.players[game.turn].kind !== 'human') return;
+  if (!g || !game || game.over || game.players[game.turn].kind !== 'human' || (game.online && !netReady())) return;
   makeMove(+g.dataset.e);
 });
-applyPrefs(); render(); openSetup();
+// ---- partita a distanza (PeerJS: i due telefoni si collegano direttamente) ----
+// Il telefono che crea la partita ("host") tiene la versione ufficiale; l'altro ("guest") si riallinea su di lui.
+const SITE = 'https://tomelleridavide3d-prog.github.io/punti-e-linee/';
+const ONLINE_KEY = 'puntiLinee.online', PEER_PREFIX = 'pel26-';
+let net = null;
+const netReady = () => !!(net && net.conn && net.conn.open && net.synced);
+function randCode(n = 6) { const a = 'abcdefghjkmnpqrstuvwxyz23456789'; let s = ''; for (let i = 0; i < n; i++) s += a[Math.floor(Math.random() * a.length)]; return s; }
+function loadPeerJS() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = 'peerjs.min.js'; s.onload = ok; s.onerror = () => ko(new Error('peerjs'));
+    document.head.appendChild(s);
+  });
+}
+function saveOnline() {
+  if (!net) return;
+  const moves = game && game.online ? game.history.map(h => h.e) : [];
+  try { localStorage.setItem(ONLINE_KEY, JSON.stringify({ role: net.role, code: net.code, token: net.token, name: net.name, cfg: net.cfg, guestToken: net.guestToken, moves })); } catch {}
+}
+function loadOnline() { try { return JSON.parse(localStorage.getItem(ONLINE_KEY)); } catch { return null; } }
+function inviteLink() { return (location.protocol === 'file:' ? SITE : location.origin + location.pathname) + '#p=' + net.code; }
+function sendNet(msg) { if (net && net.conn && net.conn.open) try { net.conn.send(msg); } catch {} }
+function setConn() { render(); }
+function leaveOnline() {
+  if (!net) return;
+  sendNet({ t: 'bye' });
+  const n = net; net = null;
+  clearTimeout(n.retryT);
+  setTimeout(() => { try { n.peer && n.peer.destroy(); } catch {} }, 300);
+  try { localStorage.removeItem(ONLINE_KEY); } catch {}
+  history.replaceState(null, '', location.pathname + location.search);
+  if (game && game.online) game = null;
+  if ($('#dLobby').open) $('#dLobby').close();
+}
+function startOnlineGame(moves) {
+  const c = net.cfg, T = makeTopo(c.size, c.size);
+  const hostP = { name: c.host, color: 0 }, guestP = { name: c.guest || 'Amico', color: 1 };
+  const me = net.role === 'host' ? hostP : guestP;
+  for (const p of [hostP, guestP]) p.kind = p === me ? 'human' : 'remote';
+  createGame(T, c.hostFirst ? [hostP, guestP] : [guestP, hostP], c.rule, { online: true });
+  for (const e of moves) makeMove(e, true, true);
+  if (!game.over && $('#dEnd').open) $('#dEnd').close();
+  saveOnline(); render();
+}
+function sendSync() { if (game && game.online) sendNet({ t: 'sync', cfg: net.cfg, moves: game.history.map(h => h.e) }); }
+function recvMove(d) {
+  if (!game || !game.online) return;
+  if (d.n < game.history.length) return;
+  if (d.n > game.history.length || game.players[game.turn].kind !== 'remote' || game.st.ed[d.e]) {
+    if (net.role === 'host') sendSync(); else sendNet({ t: 'need' });
+    return;
+  }
+  makeMove(d.e, true);
+}
+function rematch() {
+  net.cfg.hostFirst = !net.cfg.hostFirst;
+  startOnlineGame([]); sendSync();
+  if ($('#dEnd').open) $('#dEnd').close();
+}
+function onVisible() {
+  if (!net || document.visibilityState !== 'visible') return;
+  if (net.role === 'host') { if (!net.peer || net.peer.destroyed) createHostPeer(); else if (net.peer.disconnected) net.peer.reconnect(); }
+  else if (!(net.conn && net.conn.open)) connectToHost();
+}
+document.addEventListener('visibilitychange', onVisible);
+window.addEventListener('online', onVisible);
+
+// -- host --
+async function hostOnline(resume) {
+  try { await loadPeerJS(); } catch { alert('Non riesco a caricare la parte online del gioco. Controlla la connessione a Internet.'); return; }
+  net = resume || { role: 'host', code: randCode(), name: (store.settings.myName || '').trim() || 'Giocatore 1', cfg: null, guestToken: null };
+  net.role = 'host'; net.synced = false;
+  history.replaceState(null, '', '#p=' + net.code);
+  saveOnline();
+  createHostPeer();
+  if (net.cfg) startOnlineGame(resume.moves || []); else showLobby();
+}
+function createHostPeer() {
+  if (!net) return;
+  if (net.peer && !net.peer.destroyed) net.peer.destroy();
+  const peer = new Peer(PEER_PREFIX + net.code);
+  net.peer = peer; net.ready = false;
+  const mine = () => net && net.peer === peer;
+  peer.on('open', () => { if (mine()) { net.ready = true; updateLobby(); } });
+  peer.on('connection', conn => {
+    conn.on('data', d => { if (mine()) hostRecv(conn, d); });
+    conn.on('close', () => { if (mine() && net.conn === conn) { net.conn = null; net.synced = false; setConn(); } });
+  });
+  peer.on('disconnected', () => setTimeout(() => { if (mine() && !peer.destroyed && peer.disconnected) peer.reconnect(); }, 1500));
+  peer.on('error', err => {
+    if (!mine()) return;
+    if (err.type === 'unavailable-id') { net.ready = false; updateLobby(); setTimeout(() => { if (mine()) createHostPeer(); }, 4000); }
+    else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(err.type))
+      setTimeout(() => { if (!mine()) return; if (peer.destroyed) createHostPeer(); else if (peer.disconnected) peer.reconnect(); }, 3000);
+  });
+}
+function hostRecv(conn, d) {
+  if (d.t === 'hello') {
+    if (net.guestToken && d.token !== net.guestToken) { conn.send({ t: 'full' }); setTimeout(() => conn.close(), 500); return; }
+    if (net.conn && net.conn !== conn) try { net.conn.close(); } catch {}
+    net.conn = conn; net.guestToken = d.token;
+    const guestName = (d.name || '').trim() || 'Amico';
+    if (!net.cfg) {
+      const S = store.settings, hostFirst = S.ofirst === 'friend' ? false : S.ofirst === 'random' ? Math.random() < 0.5 : true;
+      net.cfg = { size: +S.size, rule: S.rule, host: net.name, guest: guestName, hostFirst };
+      startOnlineGame([]);
+      if ($('#dLobby').open) $('#dLobby').close();
+      beep(660, 0.1, 0.05);
+    } else if (net.cfg.guest !== guestName) {
+      net.cfg.guest = guestName;
+      startOnlineGame(game.history.map(h => h.e));
+    }
+    net.synced = true; sendSync(); saveOnline(); setConn();
+    return;
+  }
+  if (conn !== net.conn) return;
+  if (d.t === 'move') recvMove(d);
+  else if (d.t === 'need') sendSync();
+  else if (d.t === 'rematch' && game && game.over) rematch();
+  else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
+}
+function showLobby() {
+  $('#lobbyBody').innerHTML = `<h2>Invita il tuo amico</h2>
+    <p class="lead">Manda questo link al tuo amico. La partita inizia appena lo apre dal suo telefono.</p>
+    <div class="linkbox"><input class="field" id="lkInput" readonly value="${esc(inviteLink())}"><button class="btn" id="lkCopy">Copia</button></div>
+    <div class="wait" id="lkWait"></div>
+    <div class="actions"><button class="btn" id="lkCancel">Annulla</button>${navigator.share ? '<button class="btn primary" id="lkShare">Condividi link</button>' : ''}</div>`;
+  $('#lkCopy').onclick = async () => {
+    try { await navigator.clipboard.writeText(inviteLink()); } catch { $('#lkInput').select(); document.execCommand('copy'); }
+    $('#lkCopy').textContent = 'Copiato!';
+  };
+  if (navigator.share) $('#lkShare').onclick = () => navigator.share({ title: 'Punti e Linee', text: `${net.name} ti sfida a Punti e Linee!`, url: inviteLink() }).catch(() => {});
+  $('#lkCancel').onclick = () => { leaveOnline(); render(); openSetup(); };
+  $('#dLobby').oncancel = ev => ev.preventDefault();
+  updateLobby();
+  if (!$('#dLobby').open) $('#dLobby').showModal();
+}
+function updateLobby() {
+  const w = $('#lkWait'); if (!w || !net) return;
+  w.className = 'wait';
+  w.textContent = net.ready ? 'In attesa che il tuo amico apra il link…' : 'Preparazione della partita…';
+}
+
+// -- guest --
+function openJoin(code) {
+  const S = store.settings;
+  $('#lobbyBody').innerHTML = `<h2>Sei stato invitato!</h2>
+    <p class="lead">Un amico ti sfida a <b>Punti e Linee</b>: unite i punti a turno, chi chiude un quadrato lo conquista.</p>
+    <div class="row"><div class="lbl">Il tuo nome</div><input class="field" id="jName" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}"></div>
+    <div class="wait" id="jWait" hidden></div>
+    <div class="actions"><button class="btn" id="jCancel">No, grazie</button><button class="btn primary" id="jGo">Entra nella partita</button></div>`;
+  $('#jGo').onclick = () => {
+    S.myName = $('#jName').value; saveStore();
+    $('#jGo').disabled = true; $('#jWait').hidden = false; joinStatus('Collegamento in corso…');
+    joinOnline(code);
+  };
+  $('#jCancel').onclick = () => { leaveOnline(); $('#dLobby').close(); history.replaceState(null, '', location.pathname); openSetup(); };
+  $('#dLobby').oncancel = ev => ev.preventDefault();
+  if (!$('#dLobby').open) $('#dLobby').showModal();
+}
+function joinStatus(text, cls = '') { const w = $('#jWait'); if (w) { w.className = 'wait ' + cls; w.textContent = text; } }
+async function joinOnline(code, resume) {
+  try { await loadPeerJS(); } catch { joinStatus('Non riesco a caricare la parte online. Controlla la connessione a Internet.', 'bad'); return; }
+  net = resume || { role: 'guest', code, token: randCode(12), name: (store.settings.myName || '').trim() || 'Amico', cfg: null };
+  net.role = 'guest'; net.synced = false;
+  saveOnline();
+  if (net.cfg) startOnlineGame(resume.moves || []);
+  createGuestPeer();
+}
+function createGuestPeer() {
+  if (!net) return;
+  if (net.peer && !net.peer.destroyed) net.peer.destroy();
+  const peer = new Peer();
+  net.peer = peer;
+  const mine = () => net && net.peer === peer;
+  peer.on('open', () => { if (mine()) connectToHost(); });
+  peer.on('disconnected', () => setTimeout(() => { if (mine() && !peer.destroyed && peer.disconnected) peer.reconnect(); }, 1500));
+  peer.on('error', err => {
+    if (!mine()) return;
+    if (err.type === 'peer-unavailable') joinStatus('Il tuo amico non è raggiungibile in questo momento. Riprovo da solo…', 'bad');
+    scheduleRetry();
+  });
+}
+function connectToHost() {
+  if (!net || net.role !== 'guest') return;
+  const peer = net.peer;
+  if (!peer || peer.destroyed) { createGuestPeer(); return; }
+  if (peer.disconnected) { peer.reconnect(); scheduleRetry(); return; }
+  if (!peer.open) return;
+  const conn = peer.connect(PEER_PREFIX + net.code, { reliable: true });
+  conn.on('open', () => { if (net && net.peer === peer) { net.conn = conn; conn.send({ t: 'hello', token: net.token, name: net.name }); } });
+  conn.on('data', d => { if (net && net.conn === conn) guestRecv(d); });
+  conn.on('close', () => { if (net && net.conn === conn) { net.conn = null; net.synced = false; setConn(); scheduleRetry(); } });
+  conn.on('error', () => scheduleRetry());
+  setTimeout(() => { if (net && net.conn !== conn && !conn.open) { try { conn.close(); } catch {} scheduleRetry(); } }, 10000);
+}
+function scheduleRetry() {
+  if (!net || net.role !== 'guest' || net.retryT || net.friendLeft) return;
+  net.retryT = setTimeout(() => { if (!net) return; net.retryT = 0; if (!(net.conn && net.conn.open)) connectToHost(); }, 3000);
+}
+function guestRecv(d) {
+  if (d.t === 'sync') {
+    net.cfg = d.cfg; net.synced = true;
+    startOnlineGame(d.moves);
+    if ($('#dLobby').open) $('#dLobby').close();
+    if (game.over) showEnd(null);
+  } else if (d.t === 'move') recvMove(d);
+  else if (d.t === 'full') { net.friendLeft = true; joinStatus('Questa partita ha già due giocatori.', 'bad'); }
+  else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
+}
+
+// ---- avvio ----
+applyPrefs(); render();
+(() => {
+  const code = (location.hash.match(/^#p=([a-z0-9]+)$/) || [])[1];
+  const saved = loadOnline();
+  if (code && saved && saved.code === code && saved.cfg) {
+    if (saved.role === 'host') hostOnline(saved); else joinOnline(code, saved);
+  } else if (code && saved && saved.code === code && saved.role === 'host') hostOnline(saved);
+  else if (code) openJoin(code);
+  else openSetup();
+})();
 </script>
 </body>
 </html>
