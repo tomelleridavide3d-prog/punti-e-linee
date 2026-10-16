@@ -1,0 +1,48 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+    "players": {
+      ".read": true,
+      "$k": {
+        ".write": true,
+        ".validate": "$k.length <= 14 && newData.hasChildren(['name', 'rating'])",
+        "name": { ".validate": "newData.isString() && newData.val().length <= 14" },
+        "rating": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 10000" },
+        "w": { ".validate": "newData.isNumber()" },
+        "l": { ".validate": "newData.isNumber()" },
+        "d": { ".validate": "newData.isNumber()" },
+        "pf": { ".validate": "newData.isNumber()" },
+        "pa": { ".validate": "newData.isNumber()" },
+        "hist": { "$i": { ".validate": "newData.isNumber()" } },
+        "vs": { "$o": { ".validate": "newData.hasChildren(['name'])" } },
+        "games": { "$g": { ".validate": "newData.hasChildren(['t', 'opp', 'res'])" } },
+        "seen": { "$g": { ".validate": "newData.isNumber()" } },
+        "$other": { ".validate": false }
+      }
+    },
+    "presence": {
+      ".read": true,
+      "$sid": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['name', 'key', 'st', 'ts']) && newData.child('name').isString() && newData.child('name').val().length <= 14"
+      }
+    },
+    "live": {
+      ".read": true,
+      "$code": {
+        ".write": true,
+        ".validate": "newData.hasChildren(['a', 'b', 'sa', 'sb', 'ts'])"
+      }
+    },
+    "invites": {
+      "$key": {
+        ".read": true,
+        "$id": {
+          ".write": true,
+          ".validate": "newData.hasChildren(['from', 'code', 'ts']) && newData.child('code').isString() && newData.child('code').val().length <= 16"
+        }
+      }
+    }
+  }
+}

@@ -113,6 +113,20 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 @keyframes pulse{50%{opacity:.25}}
 .net{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:6px;vertical-align:middle;background:var(--p2)}
 .net.off{background:var(--p1)}
+.pl{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line);font-size:15px}
+.pl:first-child{border-top:none}
+.pl .dot2{width:9px;height:9px;border-radius:50%;background:var(--p2);flex:none}
+.pl .dot2.busy{background:var(--p3)}
+.pl .nm2{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pl .st2{font-size:13px;color:var(--muted)}
+.pl .btn{padding:5px 12px;font-size:14px}
+.liveitem{font-size:14px;color:var(--muted);padding:4px 0}
+.liveitem b{color:var(--ink)}
+.rk td:first-child{width:28px;color:var(--muted)}
+.rk td:nth-child(2){text-align:left}
+.rk tr.me td{font-weight:700;color:var(--p0)}
+.you{font-size:13px;color:var(--muted);margin:2px 0 0}
+.you button{border:none;background:none;color:var(--p0);font:inherit;font-size:13px;padding:0;cursor:pointer;text-decoration:underline}
 @media (max-width:520px){ .app{padding:12px} .btn .t{display:none} .card{min-width:0;flex:1;padding:8px 12px} .card .score{font-size:24px} h1{font-size:18px} }
 </style>
 </head>
@@ -140,6 +154,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 <dialog id="dEnd"><div class="dlg" id="endBody"></div></dialog>
 <dialog id="dStats"><div class="dlg" id="statsBody"></div></dialog>
 <dialog id="dLobby"><div class="dlg" id="lobbyBody"></div></dialog>
+<dialog id="dInvite"><div class="dlg" id="inviteBody"></div></dialog>
 
 <script>
 // ==ENGINE==
@@ -625,7 +640,7 @@ function makeMove(e, remote = false, silent = false) {
   game.history.push({ e, p, done });
   if (!(game.rule === 'classic' && done.length)) game.turn = (p + 1) % game.players.length;
   game.lastEdge = e; game.newBoxes = done;
-  if (game.online) saveOnline();
+  if (game.online) { saveOnline(); if (!silent) hubLive(); }
   if (game.st.free === 0) endGame();
   else if (game.vsAI) checkControl();
   if (silent) return;
@@ -751,12 +766,14 @@ const seg = (name, opts, val) => `<div class="seg">${opts.map(([v, l]) =>
 function openSetup() {
   const S = store.settings, f = $('#fSetup');
   f.innerHTML = `
-    <h2>Nuova partita</h2>
-    <p class="lead">${WEB && S.myName ? `Ciao <b>${esc(S.myName)}</b>! ` : ''}Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
+    <h2>${WEB ? 'Sala giochi' : 'Nuova partita'}</h2>
+    <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
+    ${WEB ? `<p class="you">Giochi come <b>${esc(S.myName || '')}</b> · <span id="myRat"></span> · <button type="button" id="bRename">non sei tu?</button></p>
+    <div class="row"><div class="lbl">Giocatori online</div><div id="salaList"></div></div>` : ''}
     ${WEB ? '' : `<div class="row"><div class="lbl">Avversario</div>${seg('mode', [['ai', 'Computer'], ['humans', 'Stesso dispositivo'], ['online', 'Amico a distanza']], S.mode)}</div>`}
-    <div class="row" data-for="online"><div class="lbl">Il tuo nome</div><input class="field" name="myname" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}">
-      <div class="lbl" style="margin-top:14px">Chi inizia</div>${seg('ofirst', [['me', 'Io'], ['friend', 'Il mio amico'], ['random', 'A caso']], S.ofirst || 'me')}
-      <div class="hint">Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte.</div></div>
+    <div class="row" data-for="online">${WEB ? '' : `<div class="lbl">Il tuo nome</div><input class="field" name="myname" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}">`}
+      <div class="lbl" style="margin-top:${WEB ? 0 : 14}px">Chi inizia</div>${seg('ofirst', [['me', 'Io'], ['friend', 'Il mio amico'], ['random', 'A caso']], S.ofirst || 'me')}
+      <div class="hint">${WEB ? 'Tocca «Sfida» accanto a un giocatore online, oppure premi «Invita con link» per mandare il link a chi vuoi (WhatsApp, SMS…).' : 'Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte.'}</div></div>
     <div class="row" data-for="ai"><div class="lbl">Difficoltà</div>${seg('level', LEVELS.map(l => [l.id, l.name]), S.level)}<div class="hint" id="levelDesc"></div></div>
     <div class="row" data-for="ai"><div class="lbl">Chi inizia</div>${seg('first', [['human', 'Tu'], ['ai', 'Computer'], ['random', 'A caso']], S.first)}</div>
     <div class="row" data-for="humans"><div class="lbl">Giocatori</div>${seg('humans', [[2, '2'], [3, '3'], [4, '4']], S.humans)}
@@ -770,7 +787,7 @@ function openSetup() {
         <li><b>Catene</b>: verso la fine i quadrati formano corridoi. Chi è costretto ad aprirne uno li regala tutti.</li>
         <li><b>Doppio incrocio</b>: quando l'avversario ti apre una catena lunga, prendi tutti i quadrati tranne gli ultimi 2 e chiudi il lato in fondo. Lui prende quei 2 ma poi deve aprire la catena successiva.</li>
       </ul></details>
-    <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">Inizia partita</button></div>`;
+    <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">${WEB ? 'Invita con link' : 'Inizia partita'}</button></div>`;
   const sync = () => {
     const fd = new FormData(f);
     for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule', 'ofirst']) if (fd.get(k) != null) S[k] = fd.get(k);
@@ -783,6 +800,15 @@ function openSetup() {
     $('#ruleDesc').textContent = S.rule === 'classic' ? 'Se chiudi un quadrato tocca di nuovo a te (la regola più diffusa).' : 'Il turno passa sempre all\'avversario, anche dopo aver chiuso un quadrato.';
   };
   f.oninput = sync; sync();
+  if (WEB) {
+    $('#bRename').onclick = () => { $('#dSetup').close('cancel'); stopHub(); store.settings.myName = ''; saveStore(); askName(() => { startHub(); openSetup(); }); };
+    $('#salaList').onclick = ev => {
+      const b = ev.target.closest('[data-ch]'); if (!b) return;
+      pendingChallenge = { key: b.dataset.ch, name: b.dataset.nm };
+      saveStore(); $('#dSetup').close('ok');
+    };
+    hubRender();
+  }
   $('#dSetup').onclose = () => {
     if ($('#dSetup').returnValue !== 'ok') { render(); return; }
     saveStore();
@@ -808,6 +834,7 @@ function showEnd(delta) {
     if (s.ddOk + s.ddMiss) items.push(['Doppi incroci giocati / mancati', `${s.ddOk} / ${s.ddMiss}`]);
     if (s.endTot) items.push(['Catene aperte nel modo migliore', `${s.endOk} su ${s.endTot}`]);
   }
+  if (game.elo) items.push(['Il tuo punteggio', `${game.elo.rating} (${game.elo.delta >= 0 ? '+' : ''}${game.elo.delta})`]);
   if (delta) items.push(['Forza del computer adattivo', `${Math.round(delta[0])} → ${delta[1]}`]);
   if (game.stats.undo) items.push(['Mosse annullate', game.stats.undo]);
   $('#endBody').innerHTML = `<h2>${title}</h2><div class="big">${score}</div>
@@ -827,6 +854,7 @@ function showEnd(delta) {
   if (!$('#dEnd').open) $('#dEnd').showModal();
 }
 function openStats() {
+  if (WEB && hub.ok && hub.players[hub.key]) { openStatsWeb(); return; }
   const P = store.profile, M = P.metrics;
   const hist = P.history, n = hist.length;
   const pts = hist.map((v, i) => `${n === 1 ? 150 : i / (n - 1) * 300},${56 - v / 100 * 52}`).join(' ');
@@ -871,6 +899,13 @@ function recordOnline() {
   O.games.unshift({ t: Date.now(), opp, a, b, res, size: game.T.R });
   if (O.games.length > 50) O.games.length = 50;
   saveStore();
+  const c = net.cfg, host = net.role === 'host', rm = host ? c.rh : c.rg, ro = host ? c.rg : c.rh;
+  if (typeof rm === 'number' && typeof ro === 'number') {
+    const exp = 1 / (1 + Math.pow(10, (ro - rm) / 400)), sc = res === 'w' ? 1 : res === 'd' ? 0.5 : 0;
+    const delta = Math.round(32 * (sc - exp));
+    game.elo = { delta, rating: Math.max(0, rm + delta) };
+  }
+  hubRecord({ gid, opp, a, b, res, size: game.T.R, delta: game.elo ? game.elo.delta : 0 });
 }
 function onlineStatsHtml() {
   const O = store.online, names = Object.keys(O.vs);
@@ -950,6 +985,7 @@ function setConn() { render(); }
 function leaveOnline() {
   if (!net) return;
   sendNet({ t: 'bye' });
+  hubClearInvite(); hubLiveClear();
   const n = net; net = null;
   clearTimeout(n.retryT);
   setTimeout(() => { try { n.peer && n.peer.destroy(); } catch {} }, 300);
@@ -957,6 +993,7 @@ function leaveOnline() {
   history.replaceState(null, '', location.pathname + location.search);
   if (game && game.online) game = null;
   if ($('#dLobby').open) $('#dLobby').close();
+  hubPresence();
 }
 function startOnlineGame(moves) {
   const c = net.cfg, T = makeTopo(c.size, c.size);
@@ -967,6 +1004,7 @@ function startOnlineGame(moves) {
   for (const e of moves) makeMove(e, true, true);
   if (!game.over && $('#dEnd').open) $('#dEnd').close();
   saveOnline(); render();
+  hubPresence(); hubLive();
 }
 function sendSync() { if (game && game.online) sendNet({ t: 'sync', cfg: net.cfg, moves: game.history.map(h => h.e) }); }
 function recvMove(d) {
@@ -981,6 +1019,7 @@ function recvMove(d) {
 function rematch() {
   net.cfg.hostFirst = !net.cfg.hostFirst;
   net.cfg.gid = randCode(8);
+  net.cfg.rh = myRating(); if (Number.isFinite(net.guestRating)) net.cfg.rg = net.guestRating;
   startOnlineGame([]); sendSync();
   if ($('#dEnd').open) $('#dEnd').close();
 }
@@ -997,6 +1036,7 @@ async function hostOnline(resume) {
   try { await loadPeerJS(); } catch { alert('Non riesco a caricare la parte online del gioco. Controlla la connessione a Internet.'); return; }
   net = resume || { role: 'host', code: randCode(), name: (store.settings.myName || '').trim() || 'Giocatore 1', cfg: null, guestToken: null };
   net.role = 'host'; net.synced = false;
+  if (!resume && pendingChallenge) { net.challenge = pendingChallenge; pendingChallenge = null; }
   history.replaceState(null, '', '#p=' + net.code);
   saveOnline();
   createHostPeer();
@@ -1008,7 +1048,7 @@ function createHostPeer() {
   const peer = new Peer(PEER_PREFIX + net.code);
   net.peer = peer; net.ready = false;
   const mine = () => net && net.peer === peer;
-  peer.on('open', () => { if (mine()) { net.ready = true; updateLobby(); } });
+  peer.on('open', () => { if (mine()) { net.ready = true; updateLobby(); if (net.challenge && !net.cfg) hubSendInvite(); } });
   peer.on('connection', conn => {
     conn.on('data', d => { if (mine()) hostRecv(conn, d); });
     conn.on('close', () => { if (mine() && net.conn === conn) { net.conn = null; net.synced = false; setConn(); } });
@@ -1029,7 +1069,8 @@ function hostRecv(conn, d) {
     const guestName = (d.name || '').trim() || 'Amico';
     if (!net.cfg) {
       const S = store.settings, hostFirst = S.ofirst === 'friend' ? false : S.ofirst === 'random' ? Math.random() < 0.5 : true;
-      net.cfg = { size: +S.size, rule: S.rule, host: net.name, guest: guestName, hostFirst, gid: randCode(8) };
+      net.cfg = { size: +S.size, rule: S.rule, host: net.name, guest: guestName, hostFirst, gid: randCode(8), rh: myRating(), rg: Number.isFinite(d.rating) ? d.rating : 1000 };
+      hubClearInvite();
       startOnlineGame([]);
       if ($('#dLobby').open) $('#dLobby').close();
       beep(660, 0.1, 0.05);
@@ -1043,12 +1084,14 @@ function hostRecv(conn, d) {
   if (conn !== net.conn) return;
   if (d.t === 'move') recvMove(d);
   else if (d.t === 'need') sendSync();
+  else if (d.t === 'rating') { if (Number.isFinite(d.r)) net.guestRating = d.r; }
   else if (d.t === 'rematch' && game && game.over) rematch();
   else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
 }
 function showLobby() {
-  $('#lobbyBody').innerHTML = `<h2>Invita il tuo amico</h2>
-    <p class="lead">Manda questo link al tuo amico. La partita inizia appena lo apre dal suo telefono.</p>
+  const ch = net.challenge;
+  $('#lobbyBody').innerHTML = `<h2>${ch ? 'Sfida a ' + esc(ch.name) : 'Invita il tuo amico'}</h2>
+    <p class="lead">${ch ? esc(ch.name) + ' riceve subito la sfida sul suo schermo: appena accetta la partita inizia. Se non la vede, puoi mandargli anche questo link.' : 'Manda questo link al tuo amico. La partita inizia appena lo apre dal suo telefono.'}</p>
     <div class="linkbox"><input class="field" id="lkInput" readonly value="${esc(inviteLink())}"><button class="btn" id="lkCopy">Copia</button></div>
     <div class="wait" id="lkWait"></div>
     <div class="actions"><button class="btn" id="lkCancel">Annulla</button>${navigator.share ? '<button class="btn primary" id="lkShare">Condividi link</button>' : ''}</div>`;
@@ -1065,7 +1108,9 @@ function showLobby() {
 function updateLobby() {
   const w = $('#lkWait'); if (!w || !net) return;
   w.className = 'wait';
-  w.textContent = net.ready ? 'In attesa che il tuo amico apra il link…' : 'Preparazione della partita…';
+  const who = net.challenge ? esc(net.challenge.name) : 'il tuo amico';
+  if (net.declined) { w.className = 'wait bad'; w.innerHTML = '<b>' + who + '</b> non ha accettato. Puoi annullare o mandargli il link.'; return; }
+  w.textContent = net.ready ? (net.challenge ? 'In attesa che ' + net.challenge.name + ' accetti…' : 'In attesa che il tuo amico apra il link…') : 'Preparazione della partita…';
 }
 
 // -- guest --
@@ -1077,7 +1122,8 @@ function openJoin(code) {
     <div class="wait" id="jWait" hidden></div>
     <div class="actions"><button class="btn" id="jCancel">No, grazie</button><button class="btn primary" id="jGo">Entra nella partita</button></div>`;
   $('#jGo').onclick = () => {
-    S.myName = $('#jName').value; saveStore();
+    S.myName = $('#jName').value.trim(); if (WEB && !S.myName) { $('#jName').focus(); return; }
+    saveStore(); startHub();
     $('#jGo').disabled = true; $('#jWait').hidden = false; joinStatus('Collegamento in corso…');
     joinOnline(code);
   };
@@ -1115,7 +1161,7 @@ function connectToHost() {
   if (peer.disconnected) { peer.reconnect(); scheduleRetry(); return; }
   if (!peer.open) return;
   const conn = peer.connect(PEER_PREFIX + net.code, { reliable: true });
-  conn.on('open', () => { if (net && net.peer === peer) { net.conn = conn; conn.send({ t: 'hello', token: net.token, name: net.name }); } });
+  conn.on('open', () => { if (net && net.peer === peer) { net.conn = conn; conn.send({ t: 'hello', token: net.token, name: net.name, rating: myRating() }); } });
   conn.on('data', d => { if (net && net.conn === conn) guestRecv(d); });
   conn.on('close', () => { if (net && net.conn === conn) { net.conn = null; net.synced = false; setConn(); scheduleRetry(); } });
   conn.on('error', () => scheduleRetry());
@@ -1136,17 +1182,184 @@ function guestRecv(d) {
   else if (d.t === 'bye') { net.friendLeft = true; render(); alert('Il tuo amico è uscito dalla partita.'); }
 }
 
+// ---- sala giochi (Firebase): chi e' online, sfide, partite in corso, classifica ----
+const FB_V = '10.12.2';
+const FB_CFG = { apiKey: 'AIzaSyDwInmHS5mOs3I5NrcrPiZhFW4WEV3-6ng', authDomain: 'linee-quadrettini-rh-f9552.firebaseapp.com',
+  databaseURL: 'https://linee-quadrettini-rh-f9552-default-rtdb.europe-west1.firebasedatabase.app', projectId: 'linee-quadrettini-rh-f9552', appId: '1:409429206316:web:0439bfc33c5e2aa0463889' };
+const nameKey = n => String(n || '').toLowerCase().normalize('NFD').replace(/[^a-z0-9]/g, '').slice(0, 14) || 'x';
+const hub = { fb: null, loading: null, key: '', started: false, ok: false, sid: randCode(10), unsubs: [], online: {}, live: {}, players: {}, queue: [] };
+let pendingChallenge = null, statsTab = 'me';
+const myRating = () => { const p = hub.players[hub.key]; return p && Number.isFinite(p.rating) ? Math.round(p.rating) : 1000; };
+function hubLoad() {
+  if (hub.fb) return Promise.resolve(hub.fb);
+  if (!hub.loading) hub.loading = (async () => {
+    const [A, D] = await Promise.all([import(`https://www.gstatic.com/firebasejs/${FB_V}/firebase-app.js`), import(`https://www.gstatic.com/firebasejs/${FB_V}/firebase-database.js`)]);
+    hub.fb = Object.assign({ db: D.getDatabase(A.initializeApp(FB_CFG)) }, D);
+    return hub.fb;
+  })().catch(e => { hub.loading = null; throw e; });
+  return hub.loading;
+}
+async function startHub() {
+  if (!WEB) return;
+  const nm = (store.settings.myName || '').trim(); if (!nm) return;
+  const key = nameKey(nm);
+  if (hub.started && hub.key === key) return;
+  stopHub();
+  hub.key = key; hub.started = true;
+  let F; try { F = await hubLoad(); } catch { hub.ok = false; hub.failed = true; hubRender(); return; }
+  if (hub.key !== key) return;
+  const { db, ref, onValue, onDisconnect, runTransaction, onChildAdded } = F;
+  hub.ok = true;
+  runTransaction(ref(db, 'players/' + key), cur => cur || { name: nm, rating: 1000, w: 0, l: 0, d: 0, pf: 0, pa: 0, hist: [1000] }).catch(() => {});
+  hub.unsubs.push(onValue(ref(db, '.info/connected'), s => { if (s.val() !== true || hub.key !== key) return; onDisconnect(ref(db, 'presence/' + hub.sid)).remove(); hubPresence(); }));
+  hub.unsubs.push(onValue(ref(db, 'presence'), s => { hub.online = s.val() || {}; hubRender(); }));
+  hub.unsubs.push(onValue(ref(db, 'live'), s => { hub.live = s.val() || {}; hubRender(); }));
+  hub.unsubs.push(onValue(ref(db, 'players'), s => { hub.players = s.val() || {}; hubRender(); if ($('#dStats').open) openStats(); }));
+  hub.unsubs.push(onChildAdded(ref(db, 'invites/' + key), s => hubInvite(s.key, s.val())));
+}
+function stopHub() {
+  const F = hub.fb;
+  hub.unsubs.forEach(u => { try { u(); } catch {} }); hub.unsubs = [];
+  if (F && hub.started) try { F.remove(F.ref(F.db, 'presence/' + hub.sid)); } catch {}
+  hub.key = ''; hub.started = false; hub.ok = false; hub.failed = false; hub.online = {}; hub.live = {}; hub.players = {}; hub.queue = [];
+}
+function hubPresence() {
+  const F = hub.fb; if (!F || !hub.ok || !hub.key) return;
+  F.set(F.ref(F.db, 'presence/' + hub.sid), { name: (store.settings.myName || '').trim().slice(0, 14), key: hub.key, st: net && net.cfg ? 'playing' : 'free', ts: Date.now() }).catch(() => {});
+}
+function hubLive() {
+  const F = hub.fb; if (!F || !hub.ok || !net || net.role !== 'host' || !net.cfg || !game || !game.online) return;
+  const r = F.ref(F.db, 'live/' + net.code);
+  if (game.over) { F.remove(r).catch(() => {}); return; }
+  const hi = game.players.findIndex(p => p.kind === 'human'), gi = 1 - hi;
+  F.onDisconnect(r).remove();
+  F.set(r, { a: net.cfg.host, b: net.cfg.guest, sa: game.scores[hi], sb: game.scores[gi], size: net.cfg.size, ts: Date.now() }).catch(() => {});
+}
+function hubLiveClear() { const F = hub.fb; if (F && net && net.role === 'host') F.remove(F.ref(F.db, 'live/' + net.code)).catch(() => {}); }
+function hubSendInvite() {
+  const F = hub.fb, c = net.challenge; if (!F || !hub.ok || !c || net.invRef) return;
+  const S = store.settings, r = F.ref(F.db, `invites/${c.key}/${randCode(8)}`);
+  net.invRef = r;
+  F.onDisconnect(r).remove();
+  F.set(r, { from: net.name, code: net.code, size: +S.size, rule: S.rule, ts: Date.now() }).catch(() => {});
+  net.invUnsub = F.onValue(r, s => {
+    if (s.exists() || !net || net.invRef !== r || net.cfg || net.declT) return;
+    const n = net;   // se l'invitato ha accettato, entro pochi secondi arriva il collegamento
+    n.declT = setTimeout(() => { n.declT = 0; if (net === n && !n.cfg) { n.declined = true; updateLobby(); } }, 12000);
+  });
+}
+function hubClearInvite() {
+  const F = hub.fb; if (!net || !net.invRef) return;
+  clearTimeout(net.declT);
+  try { net.invUnsub && net.invUnsub(); } catch {}
+  if (F) F.remove(net.invRef).catch(() => {});
+  net.invRef = null;
+}
+function hubInvite(id, v) {
+  const F = hub.fb, rm = () => F.remove(F.ref(F.db, `invites/${hub.key}/${id}`)).catch(() => {});
+  if (!v || !v.code) { rm(); return; }
+  if (net && net.cfg && !(game && game.over)) { rm(); return; }   // gia' in partita
+  hub.queue.push({ id, v, rm }); showInvite();
+}
+function showInvite() {
+  if ($('#dInvite').open || !hub.queue.length) return;
+  const { v, rm } = hub.queue.shift();
+  $('#inviteBody').innerHTML = `<h2>${esc(v.from)} ti sfida!</h2>
+    <p class="lead">Griglia ${+v.size || 4}×${+v.size || 4} · ${v.rule === 'alt' ? 'turni sempre alterni' : 'chi chiude un quadrato rigioca'}.</p>
+    <div class="actions"><button class="btn" id="ivNo">Rifiuta</button><button class="btn primary" id="ivYes">Accetta</button></div>`;
+  $('#ivNo').onclick = () => { rm(); $('#dInvite').close(); };
+  $('#ivYes').onclick = () => { rm(); $('#dInvite').close(); acceptInvite(String(v.code)); };
+  $('#dInvite').oncancel = ev => ev.preventDefault();
+  $('#dInvite').onclose = () => setTimeout(showInvite, 300);
+  beep(660, 0.1, 0.05); beep(880, 0.14, 0.04, 0.1);
+  $('#dInvite').showModal();
+}
+function acceptInvite(code) {
+  if (!/^[a-z0-9]+$/.test(code)) return;
+  for (const d of ['#dSetup', '#dStats', '#dEnd']) if ($(d).open) $(d).close('cancel');
+  if (net) leaveOnline();
+  history.replaceState(null, '', '#p=' + code);
+  openJoin(code);
+  $('#jGo').click();
+}
+function hubRender() {
+  const el = document.getElementById('salaList');
+  const rat = document.getElementById('myRat');
+  if (rat) rat.textContent = hub.ok && hub.players[hub.key] ? myRating() + ' punti' : '';
+  if (!el) return;
+  if (!hub.ok) { el.innerHTML = '<div class="hint">' + (hub.started && !hub.failed ? 'Sto cercando i giocatori online…' : 'Elenco giocatori non disponibile: puoi comunque invitare con un link.') + '</div>'; return; }
+  const seen = new Set(), others = [];
+  for (const p of Object.values(hub.online)) if (p.key !== hub.key && !seen.has(p.key)) { seen.add(p.key); others.push(p); }
+  others.sort((a, b) => (a.st === 'free' ? 0 : 1) - (b.st === 'free' ? 0 : 1) || a.name.localeCompare(b.name));
+  let h = others.length ? others.map(p => `<div class="pl"><span class="dot2${p.st === 'free' ? '' : ' busy'}"></span><span class="nm2">${esc(p.name)}</span>${p.st === 'free' ? `<button type="button" class="btn" data-ch="${esc(p.key)}" data-nm="${esc(p.name)}">Sfida</button>` : '<span class="st2">in partita</span>'}</div>`).join('')
+    : '<div class="hint">Nessun altro giocatore online in questo momento. Puoi invitare qualcuno con un link.</div>';
+  const lv = Object.values(hub.live).filter(g => Date.now() - g.ts < 6 * 3600e3);
+  if (lv.length) h += '<div class="lbl" style="margin-top:14px">Partite in corso</div>' + lv.map(g => `<div class="liveitem"><b>${esc(g.a)}</b> contro <b>${esc(g.b)}</b> · ${g.sa}–${g.sb}</div>`).join('');
+  el.innerHTML = h;
+}
+function hubRecord(r) {
+  const F = hub.fb; if (!F || !hub.ok || !hub.key) return;
+  const ok = nameKey(r.opp), me = (store.settings.myName || '').trim().slice(0, 14);
+  F.runTransaction(F.ref(F.db, 'players/' + hub.key), cur => {
+    cur = cur || { name: me, rating: 1000, w: 0, l: 0, d: 0, pf: 0, pa: 0 };
+    if (cur.seen && cur.seen[r.gid]) return;   // partita gia' contata
+    cur[r.res] = (cur[r.res] || 0) + 1; cur.pf = (cur.pf || 0) + r.a; cur.pa = (cur.pa || 0) + r.b;
+    cur.rating = Math.max(0, Math.round((Number.isFinite(cur.rating) ? cur.rating : 1000) + r.delta));
+    cur.hist = (Array.isArray(cur.hist) ? cur.hist.slice() : Object.values(cur.hist || {})).concat(cur.rating).slice(-60);
+    const v = (cur.vs = cur.vs || {})[ok] || { name: r.opp, w: 0, l: 0, d: 0, pf: 0, pa: 0 };
+    v[r.res]++; v.pf += r.a; v.pa += r.b; cur.vs[ok] = v;
+    const g = (cur.games = cur.games || {}); g[r.gid] = { t: Date.now(), opp: r.opp, a: r.a, b: r.b, res: r.res, size: r.size, r: cur.rating };
+    const gk = Object.keys(g).sort((x, y) => g[x].t - g[y].t); while (gk.length > 50) delete g[gk.shift()];
+    const sn = (cur.seen = cur.seen || {}); sn[r.gid] = Date.now();
+    const sk = Object.keys(sn).sort((x, y) => sn[x] - sn[y]); while (sk.length > 40) delete sn[sk.shift()];
+    return cur;
+  }).then(res => {
+    const val = res && res.snapshot && res.snapshot.val();
+    if (val && net && net.role === 'guest') sendNet({ t: 'rating', r: val.rating });
+  }).catch(() => {});
+}
+function openStatsWeb() {
+  const P = hub.players, me = P[hub.key], mn = esc((store.settings.myName || '').trim());
+  const list = Object.keys(P).map(k => Object.assign({ k }, P[k])).sort((a, b) => b.rating - a.rating || (b.w || 0) - (a.w || 0));
+  const onlineKeys = new Set(Object.values(hub.online).map(p => p.key));
+  const tabs = `<div class="seg" style="margin:10px 0 4px"><label><input type="radio" name="stab" value="me"${statsTab === 'me' ? ' checked' : ''}><span>Le mie</span></label><label><input type="radio" name="stab" value="rank"${statsTab === 'rank' ? ' checked' : ''}><span>Classifica</span></label></div>`;
+  let body;
+  if (statsTab === 'rank') {
+    body = `<table class="rk"><tr><th>#</th><th>Giocatore</th><th>Punti</th><th>V</th><th>P</th><th>Pa</th></tr>${list.map((p, i) =>
+      `<tr class="${p.k === hub.key ? 'me' : ''}"><td>${i + 1}</td><td>${onlineKeys.has(p.k) ? '<span class="net"></span>' : ''}${esc(p.name)}</td><td>${Math.round(p.rating)}</td><td>${p.w || 0}</td><td>${p.l || 0}</td><td>${p.d || 0}</td></tr>`).join('')}</table>
+      <div class="hint">V = vinte, P = perse, Pa = pareggi. Il pallino verde indica chi è online adesso.</div>`;
+  } else {
+    const hist = Object.values(me.hist || {}), n = hist.length;
+    const lo = Math.min(...hist, 1000) - 20, hi = Math.max(...hist, 1000) + 20;
+    const pts = hist.map((v, i) => `${n === 1 ? 150 : i / (n - 1) * 300},${56 - (v - lo) / (hi - lo) * 52}`).join(' ');
+    const rank = list.findIndex(p => p.k === hub.key) + 1;
+    const vs = Object.values(me.vs || {}).sort((a, b) => (b.w + b.l + b.d) - (a.w + a.l + a.d));
+    const RES = { w: 'Vinta', l: 'Persa', d: 'Pari' };
+    const last = Object.values(me.games || {}).sort((a, b) => b.t - a.t).slice(0, 10);
+    body = `<div class="row"><div class="lbl">Il tuo punteggio</div><div class="big">${Math.round(me.rating)}<span style="font-size:16px;color:var(--muted)"> punti · ${rank}° su ${list.length}</span></div>
+      ${n > 1 ? `<svg class="spark" viewBox="0 0 300 60" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--p0)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg><div class="hint">Sale quando vinci e scende quando perdi: battere chi è più forte di te vale di più.</div>` : '<div class="hint">La curva dei tuoi progressi apparirà dopo le prime partite.</div>'}</div>
+      <div class="row"><div class="lbl">Partite</div><div class="big">${me.w || 0}<span style="font-size:16px;color:var(--muted)"> vinte · ${me.l || 0} perse · ${me.d || 0} pari</span></div></div>
+      ${vs.length ? `<div class="row"><div class="lbl">Contro i tuoi avversari</div><table><tr><th>Avversario</th><th>Vinte</th><th>Perse</th><th>Pari</th><th>Quadrati</th></tr>${vs.map(v => `<tr><td>${esc(v.name)}</td><td>${v.w}</td><td>${v.l}</td><td>${v.d}</td><td>${v.pf}–${v.pa}</td></tr>`).join('')}</table></div>` : ''}
+      ${last.length ? `<div class="row"><div class="lbl">Ultime partite</div><ul class="list">${last.map(g => `<li><span>${new Date(g.t).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} · contro ${esc(g.opp)} · ${g.size}×${g.size}</span><span>${g.a}–${g.b} ${RES[g.res]}</span></li>`).join('')}</ul></div>` : ''}`;
+  }
+  $('#statsBody').innerHTML = `<h2>${statsTab === 'rank' ? 'Classifica' : 'Statistiche di ' + mn}</h2>${tabs}${body}<div class="actions"><button class="btn primary" id="sClose">Chiudi</button></div>`;
+  $('#statsBody').querySelectorAll('input[name=stab]').forEach(i => i.onchange = () => { statsTab = i.value; openStatsWeb(); });
+  $('#sClose').onclick = () => $('#dStats').close();
+  if (!$('#dStats').open) $('#dStats').showModal();
+}
+
 // ---- avvio ----
 if (WEB) store.settings.mode = 'online';
 applyPrefs(); render();
 (() => {
+  startHub();
   const code = (location.hash.match(/^#p=([a-z0-9]+)$/) || [])[1];
   const saved = loadOnline();
   if (code && saved && saved.code === code && saved.cfg) {
     if (saved.role === 'host') hostOnline(saved); else joinOnline(code, saved);
   } else if (code && saved && saved.code === code && saved.role === 'host') hostOnline(saved);
   else if (code) openJoin(code);
-  else if (WEB && !(store.settings.myName || '').trim()) askName(openSetup);
+  else if (WEB && !(store.settings.myName || '').trim()) askName(() => { startHub(); openSetup(); });
   else openSetup();
 })();
 </script>
