@@ -723,12 +723,28 @@ const svg = $('#board');
 
 // ---- suoni ----
 let actx = null;
-function beep(f, d = 0.07, v = 0.04, delay = 0) {
+// passo: breve fruscio filtrato (si sente anche dagli altoparlanti piccoli)
+let noiseBuf = null;
+function thud(v = 0.35, fq = 700) {
   if (!store.settings.sound) return;
   try {
     actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    if (!noiseBuf) { noiseBuf = actx.createBuffer(1, Math.floor(actx.sampleRate * 0.08), actx.sampleRate); const d = noiseBuf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1; }
+    const t = actx.currentTime, src = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = noiseBuf; fl.type = 'bandpass'; fl.frequency.value = fq; fl.Q.value = 0.9;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.075);
+    src.connect(fl).connect(g).connect(actx.destination); src.start(t);
+  } catch {}
+}
+function beep(f, d = 0.07, v = 0.04, delay = 0, type) {
+  if (!store.settings.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    if (actx.state === 'suspended') actx.resume();
+    v = Math.min(0.5, v * 3);   // gli altoparlanti dei telefoni sono deboli: tutto un po' piu' forte
     const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
-    o.type = 'sine'; o.frequency.value = f;
+    o.type = type || 'sine'; o.frequency.value = f;
     g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
     o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d);
   } catch {}
@@ -2364,7 +2380,7 @@ function cqClap(then) {
   B.classList.remove('hit'); el.style.opacity = 1; el.hidden = false;
   $('#clapSc').textContent = 'SCENA ' + (1 + Math.floor(Math.random() * 12)) + ' · RIPRESA ' + (1 + Math.floor(Math.random() * 4));
   $('#clapDir').textContent = 'Regia: ' + ((store.settings.myName || 'Tu').trim() || 'Tu');
-  T.push(setTimeout(() => { B.classList.add('hit'); beep(180, 0.09, 0.1); beep(90, 0.14, 0.08, 0.02); beep(1400, 0.03, 0.04); }, 800));
+  T.push(setTimeout(() => { B.classList.add('hit'); thud(0.6, 900); beep(220, 0.1, 0.1, 0, 'square'); beep(1400, 0.03, 0.04); }, 800));
   T.push(setTimeout(() => { el.style.opacity = 0; }, 1700));
   T.push(setTimeout(() => { el.hidden = true; if (then) then(); }, 2100));
   el.onclick = () => { T.forEach(clearTimeout); el.hidden = true; if (then) then(); then = null; };
@@ -2975,7 +2991,7 @@ function cqFrame(t) {
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.lx = d.wx - d.wy; cq.ly = (d.wx + d.wy) / 2;   // dove guardo, sullo schermo
     cq.walk += dt * 11;
-    if (G && playing && (cq.stT = (cq.stT || 0) - dt) <= 0) { cq.stT = 0.3; beep(90 + Math.random() * 40, 0.05, 0.014); }   // passi
+    if (G && playing && (cq.stT = (cq.stT || 0) - dt) <= 0) { cq.stT = 0.3; thud(0.3, 600 + Math.random() * 300); }   // passi
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
   if (playing) { if (!G.guest) cqBots(dt); cqCloneStep(dt); }
@@ -2983,7 +2999,7 @@ function cqFrame(t) {
   // musichetta di sottofondo (si spegne col pulsante o con i suoni)
   if (G && playing && store.settings.music !== false && store.settings.sound && (cq.mT = (cq.mT || 0) - dt) <= 0) {
     const sab = !!G.sab, N = sab ? [0, 1, 0, 3, 0, 1, 6, 1] : [0, 4, 7, 12, 7, 4, 9, 7]; cq.mT = sab ? 0.3 : 0.45; cq.mI = ((cq.mI || 0) + 1) % 8;
-    beep(220 * Math.pow(2, N[cq.mI] / 12), 0.32, 0.009); if (cq.mI % 4 === 0) beep(sab ? 82 : 110, 0.5, 0.014);
+    beep(330 * Math.pow(2, N[cq.mI] / 12), 0.3, 0.012, 0, 'triangle'); if (cq.mI % 4 === 0) beep(sab ? 165 : 196, 0.45, 0.014, 0, 'triangle');
   }
   cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
