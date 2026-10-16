@@ -177,6 +177,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard soon" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><path d="M13 3 23 8.5v9L13 23 3 17.5v-9z" fill="var(--p1)" opacity=".85"/><path d="M3 8.5 13 14l10-5.5" fill="none" stroke="var(--panel)" stroke-width="1.4"/><path d="M13 14v9" stroke="var(--panel)" stroke-width="1.4"/></svg></span>
     <span><div class="gt">Ciack US<span class="soonTag">in costruzione</span></div><div class="gs">Sul set del film: stanze isometriche, compiti da svolgere e un impostore da scovare.</div><div class="gn" id="nAmong"></div></span></button>
+  <p class="you" id="appVer" style="text-align:center;margin-top:8px;font-size:12px"></p>
 </div></div>
 <div id="ciack" hidden>
   <canvas id="cqCanvas"></canvas>
@@ -1526,14 +1527,14 @@ prow('locker', 21, 2, 9, 1, 0, i => LOCK[i % 5]); pp('fridge', 30, 2);
 prow('sofa', 22, 6, 3, 1, 0); pp('table', 23, 8); pp('tv', 27, 5); pp('tv', 28, 5);
 pp('rack', 21, 11); pp('rack', 22, 11); pp('rack', 28, 11); pp('plant', 20, 2); pp('plant', 30, 13); pp('plant', 20, 13); pp('dchair', 26, 9, '#7aa0d4'); pp('dchair', 28, 9, '#d4a07a');
 // Trucco
-prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => ['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4]);
+prow('mirror', 34, 2, 8, 1, 0); prow('dchair', 34, 3, 8, 1, 0, i => [['#e8c8d4', '#d4e8c8', '#c8d4e8', '#e8e0c8'][i % 4], 's']);
 pp('rack', 34, 10); pp('rack', 35, 10); pp('rack', 40, 10); pp('rack', 41, 10); pp('table', 37, 11); pp('table', 39, 11); pp('plant', 42, 13); pp('plant', 33, 13); pp('dchair', 37, 7, '#d4a0b8'); pp('dchair', 39, 7, '#d4a0b8');
 // Corridoio
 [[2, 15], [42, 15], [2, 19], [42, 19]].forEach(([x, y]) => pp('plant', x, y));
 pp('crate', 14, 15); pp('crate', 15, 15); pp('crate2', 14, 16); pp('crate', 30, 19); pp('crate2', 31, 19); pp('sofa', 18, 15); pp('sofa', 19, 15); pp('table', 20, 15);
 // Montaggio
-prow('monitor', 3, 23, 4, 1, 0); prow('monitor', 9, 23, 4, 1, 0); prow('dchair', 3, 24, 4, 1, 0, () => '#8a96a8'); prow('dchair', 9, 24, 4, 1, 0, () => '#8a96a8');
-prow('shelf', 13, 22, 9, 0, 1); pp('reel', 3, 30); pp('reel', 4, 30); pp('reel', 11, 31); pp('table', 6, 29); pp('table', 8, 29); pp('plant', 2, 32); pp('plant', 12, 32); pp('monitor', 2, 28); pp('dchair', 3, 28, '#8a96a8');
+prow('monitor', 3, 23, 4, 1, 0); prow('monitor', 9, 23, 4, 1, 0); prow('dchair', 3, 24, 4, 1, 0, () => ['#8a96a8', 's']); prow('dchair', 9, 24, 4, 1, 0, () => ['#8a96a8', 's']);
+prow('shelf', 13, 22, 9, 0, 1); pp('reel', 3, 30); pp('reel', 4, 30); pp('reel', 11, 31); pp('table', 6, 29); pp('table', 8, 29); pp('plant', 2, 32); pp('plant', 12, 32); pp('monitor', 2, 28); pp('dchair', 3, 28, ['#8a96a8', 'e']);
 // Magazzino
 pp('crate', 17, 23); pp('crate', 18, 23); pp('crate', 17, 24); pp('crate2', 18, 24); pp('crate', 24, 28); pp('crate2', 25, 28); pp('crate', 24, 29); pp('crate', 25, 29);
 prow('barrel', 17, 30, 3, 1, 0, i => ['#3b6ea5', '#a5493b', '#3ba56e'][i]); pp('barrel', 17, 31, '#a5493b');
@@ -1605,8 +1606,7 @@ function cqFrame(t) {
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.walk += dt * 11;
   } else cq.walk = 0;
-  if (d || cq.joy || cq.dirty || cq.moving) cqDraw();   // fermo e senza dito sullo schermo: niente da ridisegnare
-  cq.moving = !!d; cq.dirty = false;
+  cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
   cq.raf = requestAnimationFrame(cqFrame);
 }
 const cqShadeMemo = new Map();
@@ -1650,7 +1650,15 @@ function cqTools(g, TW) {
       case 'barrel': cyl(x + 0.5, y + 0.5, 0.34, 0, 1.1, o || '#3b6ea5'); cyl(x + 0.5, y + 0.5, 0.355, 0.35, 0.45, '#222'); cyl(x + 0.5, y + 0.5, 0.355, 0.7, 0.8, '#222'); break;
       case 'desk': desk(x, y); break;
       case 'monitor': desk(x, y); bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0.85, 0.95, '#333'); bx(x + 0.2, y + 0.45, x + 0.8, y + 0.55, 0.95, 1.8, '#1b222c'); qL(x + 0.24, x + 0.76, y + 0.55, 1.03, 1.72, '#59b6e8'); qL(x + 0.28, x + 0.5, y + 0.55, 1.5, 1.66, '#a8dcf4'); bx(x + 0.25, y + 0.66, x + 0.75, y + 0.84, 0.85, 0.9, '#2a2e35'); break;
-      case 'dchair': { const c = o || '#d9c9a0'; bx(x + 0.22, y + 0.16, x + 0.78, y + 0.26, 0.5, 1.3, c); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0.35, 0.55, c); bx(x + 0.2, y + 0.2, x + 0.28, y + 0.28, 0, 0.35, '#5a4630'); bx(x + 0.72, y + 0.2, x + 0.8, y + 0.28, 0, 0.35, '#5a4630'); bx(x + 0.2, y + 0.72, x + 0.28, y + 0.8, 0, 0.35, '#5a4630'); bx(x + 0.72, y + 0.72, x + 0.8, y + 0.8, 0, 0.35, '#5a4630'); break; }
+      case 'dchair': {   // o = colore, oppure [colore, lato dello schienale n/s/e/w]
+        const [c, b] = Array.isArray(o) ? o : [o || '#d9c9a0', 'n'];
+        const back = { n: [0.22, 0.16, 0.78, 0.26], s: [0.22, 0.74, 0.78, 0.84], w: [0.16, 0.22, 0.26, 0.78], e: [0.74, 0.22, 0.84, 0.78] }[b];
+        const bk = () => bx(x + back[0], y + back[1], x + back[2], y + back[3], 0.5, 1.3, c);
+        for (const [a, d] of [[0.2, 0.2], [0.72, 0.2], [0.2, 0.72], [0.72, 0.72]]) bx(x + a, y + d, x + a + 0.08, y + d + 0.08, 0, 0.35, '#5a4630');
+        if (b === 'n' || b === 'w') bk();   // schienale lontano: prima lo schienale, poi il sedile davanti
+        bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0.35, 0.5, c);
+        if (b === 's' || b === 'e') bk();
+        break; }
       case 'seat': bx(x + 0.12, y + 0.1, x + 0.88, y + 0.3, 0.5, 1.3, '#b03a46'); bx(x + 0.12, y + 0.3, x + 0.88, y + 0.88, 0, 0.5, '#9a2f3a'); bx(x + 0.05, y + 0.3, x + 0.14, y + 0.88, 0.5, 0.78, '#6a2028'); bx(x + 0.86, y + 0.3, x + 0.95, y + 0.88, 0.5, 0.78, '#6a2028'); break;
       case 'lamp': bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 0.1, '#222'); bx(x + 0.46, y + 0.46, x + 0.54, y + 0.54, 0.1, 2.1, '#3a3f49'); glow(x + 0.5, y + 0.8, 2.35, 0.9, 'rgba(255,230,140,.35)'); bx(x + 0.22, y + 0.28, x + 0.78, y + 0.72, 2.0, 2.7, '#22262e'); qL(x + 0.26, x + 0.74, y + 0.72, 2.08, 2.62, '#ffe58a'); break;
       case 'camera': { const a = S(x + 0.5, y + 0.5, 1.6); line(a, S(x + 0.1, y + 0.85, 0), '#444', 3); line(a, S(x + 0.9, y + 0.85, 0), '#444', 3); line(a, S(x + 0.5, y + 0.1, 0), '#444', 3);
@@ -1694,18 +1702,29 @@ function cqTools(g, TW) {
 }
 // la mappa ferma si disegna una volta sola in un'immagine (si rifa' solo se cambia la misura dello schermo)
 function cqBuildBg() {
-  const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), TH = TW / 2;
-  const ox = CQ_H * TW / 2 + TW, oy = 3.6 * TH * 1.15 + TW;
+  const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), TH = TW / 2, U = TH * 1.15;
+  const ox = CQ_H * TW / 2 + TW, oy = 3.6 * U + TW;
   const bw = (CQ_W + CQ_H) * TW / 2 + 2 * TW, bh = (CQ_W + CQ_H) * TH / 2 + oy + TW;
-  let sc = cq.dpr; if (bw * bh * sc * sc > 11e6) sc = Math.sqrt(11e6 / (bw * bh));   // limite di memoria dei telefoni
-  if (sc !== cq.dpr) sc = Math.floor(sc * 8) / 8;
-  const c = document.createElement('canvas'); c.width = Math.ceil(bw * sc); c.height = Math.ceil(bh * sc);
-  const g = c.getContext('2d'); g.setTransform(sc, 0, 0, sc, ox * sc, oy * sc);
-  const T = cqTools(g, TW), cells = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { T.floor(x, y); if (cqSolid[y][x]) cells.push([x + y, x, y, cqSolid[y][x]]); }
-  T.decals();
-  cells.sort((a, b) => a[0] - b[0]).forEach(([, x, y, o]) => T.cell(x, y, o));
-  cq.bg = { c, TW, ox, oy, bw, bh };
+  const sc = cq.dpr, TP = 1024, TS = TP / sc;   // tessere da 1024 pixel veri
+  // cosa disegnare, con il rettangolo che occupa (per disegnare in ogni tessera solo quello che la tocca)
+  const job = [];
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2, (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
+  job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
+  const cells = [];
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) cells.push({ k: 2, d: x + y, x, y, o: cqSolid[y][x], b: [(x - y - 1) * TW / 2 - TW, (x + y) * TH / 2 - 3.5 * U - TW, (x - y + 1) * TW / 2 + TW, (x + y + 2) * TH / 2 + TW] });
+  cells.sort((a, b) => a.d - b.d); job.push(...cells);
+  const tiles = [];
+  for (let ty = 0; ty * TS < bh; ty++) for (let tx = 0; tx * TS < bw; tx++) {
+    const c = document.createElement('canvas'); c.width = Math.min(TP, Math.ceil((bw - tx * TS) * sc)); c.height = Math.min(TP, Math.ceil((bh - ty * TS) * sc));
+    const g = c.getContext('2d'); g.setTransform(sc, 0, 0, sc, (ox - tx * TS) * sc, (oy - ty * TS) * sc);
+    const T = cqTools(g, TW), x0 = tx * TS - ox, y0 = ty * TS - oy, x1 = x0 + c.width / sc, y1 = y0 + c.height / sc;
+    for (const j of job) {
+      if (j.b[2] < x0 || j.b[0] > x1 || j.b[3] < y0 || j.b[1] > y1) continue;
+      if (j.k === 0) T.floor(j.x, j.y); else if (j.k === 1) T.decals(); else T.cell(j.x, j.y, j.o);
+    }
+    tiles.push({ c, x: tx * TS, y: ty * TS, w: c.width / sc, h: c.height / sc });
+  }
+  cq.bg = { tiles, TW, ox, oy, bw, bh };
 }
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
@@ -1716,7 +1735,7 @@ function cqDraw() {
   const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
-  g.drawImage(B.c, ix, iy, B.bw, B.bh);
+  for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
   // intorno all'omino si ridisegna tutto da capo (pavimento, oggetti dietro, omino, oggetti davanti), solo in un piccolo riquadro
   g.save();
   const rx = al(tx + X - 0.8 * TW), ry = al(ty + Y - 2 * TW), rw = al(1.6 * TW), rh = al(2.4 * TW);
@@ -1770,6 +1789,8 @@ async function checkUpdate() {
   } catch {}
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
+setInterval(() => { if (document.visibilityState === 'visible') checkUpdate(); }, 60000);
+(() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); })();
 
 // ---- avvio ----
 if (WEB) store.settings.mode = 'online';
