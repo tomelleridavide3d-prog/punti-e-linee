@@ -511,6 +511,9 @@ store.settings = Object.assign({
 }, store.settings || {});
 store.profile = Object.assign(defaultProfile(), store.profile || {});
 store.profile.metrics = Object.assign(defaultProfile().metrics, store.profile.metrics);
+// Registro delle partite a distanza su questo dispositivo: storico e bilancio per avversario.
+const defaultOnline = () => ({ games: [], vs: {}, seen: [] });
+store.online = Object.assign(defaultOnline(), store.online || {});
 
 let game = null, aiTimer = 0, aiToken = 0;
 const svg = $('#board');
@@ -661,6 +664,7 @@ function undo() {
 }
 function endGame() {
   game.over = true;
+  if (game.online) recordOnline();
   let delta = null;
   if (game.vsAI) {
     const P = store.profile, hi = game.players.findIndex(p => p.kind === 'human'), ai = 1 - hi;
@@ -748,7 +752,7 @@ function openSetup() {
   const S = store.settings, f = $('#fSetup');
   f.innerHTML = `
     <h2>Nuova partita</h2>
-    <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
+    <p class="lead">${WEB && S.myName ? `Ciao <b>${esc(S.myName)}</b>! ` : ''}Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
     ${WEB ? '' : `<div class="row"><div class="lbl">Avversario</div>${seg('mode', [['ai', 'Computer'], ['humans', 'Stesso dispositivo'], ['online', 'Amico a distanza']], S.mode)}</div>`}
     <div class="row" data-for="online"><div class="lbl">Il tuo nome</div><input class="field" name="myname" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}">
       <div class="lbl" style="margin-top:14px">Chi inizia</div>${seg('ofirst', [['me', 'Io'], ['friend', 'Il mio amico'], ['random', 'A caso']], S.ofirst || 'me')}
@@ -838,7 +842,7 @@ function openStats() {
   if (M.ctrl.n >= 3 && M.ctrl.v < 0.4) tips.push('Arrivi spesso al finale senza il controllo: conta le catene lunghe (3 o più quadrati) prima che finiscano le mosse sicure.');
   if (!tips.length) tips.push(P.games ? 'Nessun punto debole evidente per ora: continua a giocare e il computer si adatterà.' : 'Gioca qualche partita contro il computer: qui vedrai cosa ha imparato del tuo stile.');
   const rows = LEVELS.map(l => { const r = P.rec[l.id]; return r ? `<tr><td>${l.name}</td><td>${r.w}</td><td>${r.l}</td><td>${r.d}</td></tr>` : ''; }).join('');
-  $('#statsBody').innerHTML = `<h2>Statistiche</h2>
+  const ai = WEB ? '' : `
     <div class="row"><div class="lbl">Forza del computer adattivo</div><div class="big">${Math.round(P.strength)}<span style="font-size:16px;color:var(--muted)"> / 100</span></div>
       <svg class="spark" viewBox="0 0 300 60" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--p0)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
       <div class="hint">Sale quando vinci e scende quando perdi, per tenere le partite equilibrate.</div></div>
@@ -848,11 +852,51 @@ function openStats() {
       ${metric(M.dd, 'Doppio incrocio', 'Quanto lo usi quando conviene', false)}
       ${metric(M.end, 'Finale', 'Quanto spesso apri la catena giusta', false)}
       ${metric(M.ctrl, 'Controllo', 'Quanto spesso arrivi al finale in vantaggio', false)}
-      ${tips.map(t => `<div class="insight">${t}</div>`).join('')}</div>
-    <div class="actions"><button class="btn" id="sReset">Azzera profilo</button><button class="btn primary" id="sClose">Chiudi</button></div>`;
+      ${tips.map(t => `<div class="insight">${t}</div>`).join('')}</div>`;
+  $('#statsBody').innerHTML = `<h2>Statistiche${store.settings.myName ? ' di ' + esc(store.settings.myName) : ''}</h2>${onlineStatsHtml()}${ai}
+    <div class="actions"><button class="btn" id="sReset">Azzera</button><button class="btn primary" id="sClose">Chiudi</button></div>`;
   $('#sClose').onclick = () => $('#dStats').close();
-  $('#sReset').onclick = () => { if (confirm('Azzerare forza, statistiche e profilo appreso?')) { store.profile = defaultProfile(); saveStore(); openStats(); render(); } };
+  $('#sReset').onclick = () => { if (confirm(WEB ? 'Cancellare il registro delle tue partite?' : 'Cancellare registro delle partite, forza del computer e profilo appreso?')) { store.online = defaultOnline(); if (!WEB) store.profile = defaultProfile(); saveStore(); openStats(); render(); } };
   if (!$('#dStats').open) $('#dStats').showModal();
+}
+
+function recordOnline() {
+  const gid = net && net.cfg && net.cfg.gid, O = store.online;
+  if (!gid || O.seen.includes(gid)) return;
+  O.seen.push(gid); if (O.seen.length > 300) O.seen.shift();
+  const me = game.players.findIndex(p => p.kind === 'human'), op = 1 - me;
+  const a = game.scores[me], b = game.scores[op], opp = game.players[op].name, res = a > b ? 'w' : a < b ? 'l' : 'd';
+  const v = O.vs[opp] || (O.vs[opp] = { w: 0, l: 0, d: 0, pf: 0, pa: 0 });
+  v[res]++; v.pf += a; v.pa += b;
+  O.games.unshift({ t: Date.now(), opp, a, b, res, size: game.T.R });
+  if (O.games.length > 50) O.games.length = 50;
+  saveStore();
+}
+function onlineStatsHtml() {
+  const O = store.online, names = Object.keys(O.vs);
+  if (!names.length) return `<div class="row"><div class="lbl">Partite a distanza</div><div class="hint">Ancora nessuna partita con un amico a distanza. Quando ne giochi una, qui trovi il bilancio contro ogni avversario.</div></div>`;
+  let w = 0, l = 0, d = 0;
+  for (const k of names) { w += O.vs[k].w; l += O.vs[k].l; d += O.vs[k].d; }
+  const rows = names.sort((x, y) => (O.vs[y].w + O.vs[y].l + O.vs[y].d) - (O.vs[x].w + O.vs[x].l + O.vs[x].d))
+    .map(k => { const v = O.vs[k]; return `<tr><td>${esc(k)}</td><td>${v.w}</td><td>${v.l}</td><td>${v.d}</td><td>${v.pf}–${v.pa}</td></tr>`; }).join('');
+  const RES = { w: 'Vinta', l: 'Persa', d: 'Pari' };
+  const last = O.games.slice(0, 10).map(g => { const dt = new Date(g.t);
+    return `<li><span>${dt.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} · contro ${esc(g.opp)} · ${g.size}×${g.size}</span><span>${g.a}–${g.b} ${RES[g.res]}</span></li>`; }).join('');
+  return `<div class="row"><div class="lbl">Partite a distanza</div><div class="big">${w}<span style="font-size:16px;color:var(--muted)"> vinte · ${l} perse · ${d} pari</span></div></div>
+    <div class="row"><div class="lbl">Contro i tuoi avversari</div><table><tr><th>Avversario</th><th>Vinte</th><th>Perse</th><th>Pari</th><th>Quadrati</th></tr>${rows}</table></div>
+    <div class="row"><div class="lbl">Ultime partite</div><ul class="list">${last}</ul></div>`;
+}
+// Prima visita sul sito: chiede il nome una volta sola e lo ricorda.
+function askName(then) {
+  $('#lobbyBody').innerHTML = `<h2>Benvenuto!</h2>
+    <p class="lead">Come ti chiami? Il gioco se lo ricorda: le prossime volte entri già con il tuo nome e trovi lo storico delle tue partite.</p>
+    <div class="row"><input class="field" id="nmFirst" maxlength="14" placeholder="Il tuo nome"></div>
+    <div class="actions"><button class="btn primary" id="nmOk">Continua</button></div>`;
+  const go = () => { const v = $('#nmFirst').value.trim(); if (!v) { $('#nmFirst').focus(); return; } store.settings.myName = v; saveStore(); $('#dLobby').close(); then(); };
+  $('#nmOk').onclick = go;
+  $('#nmFirst').onkeydown = e => { if (e.key === 'Enter') go(); };
+  $('#dLobby').oncancel = ev => ev.preventDefault();
+  $('#dLobby').showModal();
 }
 
 // ---- tema e suoni ----
@@ -936,6 +980,7 @@ function recvMove(d) {
 }
 function rematch() {
   net.cfg.hostFirst = !net.cfg.hostFirst;
+  net.cfg.gid = randCode(8);
   startOnlineGame([]); sendSync();
   if ($('#dEnd').open) $('#dEnd').close();
 }
@@ -984,7 +1029,7 @@ function hostRecv(conn, d) {
     const guestName = (d.name || '').trim() || 'Amico';
     if (!net.cfg) {
       const S = store.settings, hostFirst = S.ofirst === 'friend' ? false : S.ofirst === 'random' ? Math.random() < 0.5 : true;
-      net.cfg = { size: +S.size, rule: S.rule, host: net.name, guest: guestName, hostFirst };
+      net.cfg = { size: +S.size, rule: S.rule, host: net.name, guest: guestName, hostFirst, gid: randCode(8) };
       startOnlineGame([]);
       if ($('#dLobby').open) $('#dLobby').close();
       beep(660, 0.1, 0.05);
@@ -1092,7 +1137,7 @@ function guestRecv(d) {
 }
 
 // ---- avvio ----
-if (WEB) { store.settings.mode = 'online'; $('#bStats').hidden = true; }
+if (WEB) store.settings.mode = 'online';
 applyPrefs(); render();
 (() => {
   const code = (location.hash.match(/^#p=([a-z0-9]+)$/) || [])[1];
@@ -1101,6 +1146,7 @@ applyPrefs(); render();
     if (saved.role === 'host') hostOnline(saved); else joinOnline(code, saved);
   } else if (code && saved && saved.code === code && saved.role === 'host') hostOnline(saved);
   else if (code) openJoin(code);
+  else if (WEB && !(store.settings.myName || '').trim()) askName(openSetup);
   else openSetup();
 })();
 </script>
