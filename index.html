@@ -82,9 +82,6 @@ dialog::backdrop{background:rgba(12,14,18,.5)}
 .hint{font-size:13px;color:var(--muted);margin-top:8px;min-height:18px}
 .names{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
 .names input{font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0}
-details{margin-top:14px;font-size:14px;color:var(--muted)}
-details summary{cursor:pointer;color:var(--ink);font-weight:600}
-details p,details li{line-height:1.5}
 .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
 .big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;margin:6px 0}
 .list{margin:12px 0 0;padding:0;list-style:none}
@@ -780,13 +777,6 @@ function openSetup() {
       <div class="names">${[0, 1, 2, 3].map(i => `<input name="nm${i}" maxlength="14" value="${esc(S.names[i])}" style="border-left:4px solid var(--p${i})">`).join('')}</div></div>
     <div class="row"><div class="lbl">Griglia</div>${seg('size', [[3, '3×3'], [4, '4×4'], [5, '5×5'], [6, '6×6']], S.size)}</div>
     <div class="row"><div class="lbl">Regole</div>${seg('rule', [['classic', 'Chi chiude rigioca'], ['alt', 'Turni sempre alterni']], S.rule)}<div class="hint" id="ruleDesc"></div></div>
-    <details><summary>Come si gioca e qualche consiglio</summary>
-      <p>A turno ogni giocatore traccia una linea orizzontale o verticale tra due punti vicini non ancora collegati. Chi chiude il quarto lato di un quadrato lo conquista. Quando tutte le linee sono tracciate vince chi ha più quadrati.</p>
-      <ul>
-        <li><b>Non tracciare il terzo lato</b> di un quadrato se puoi evitarlo: regaleresti il quadrato all'avversario.</li>
-        <li><b>Catene</b>: verso la fine i quadrati formano corridoi. Chi è costretto ad aprirne uno li regala tutti.</li>
-        <li><b>Doppio incrocio</b>: quando l'avversario ti apre una catena lunga, prendi tutti i quadrati tranne gli ultimi 2 e chiudi il lato in fondo. Lui prende quei 2 ma poi deve aprire la catena successiva.</li>
-      </ul></details>
     <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">${WEB ? 'Invita con link' : 'Inizia partita'}</button></div>`;
   const sync = () => {
     const fd = new FormData(f);
