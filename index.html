@@ -1762,6 +1762,8 @@ const CQ_SKINS = {
   tonno: { n: 'Tonno', col: '#5a8ab0', d: 'Un tonno spadaccino, armato di fioretto.' },
   giraffa: { n: 'Giraffa', col: '#e8b84a', d: 'Una giraffa intellettuale: dolcevita e pipa.' },
   polipo: { n: 'Polipo', col: '#d8608a', d: 'Un polipo con la collana d\'oro. Elegantissimo.' },
+  bassotto: { n: 'Bassotto', col: '#a0582a', d: 'Un bassotto con gli stivaletti rossi. Ti sta osservando.' },
+  palma: { n: 'Palma', col: '#3a9a4a', d: 'Una palma. Nessuno sa come cammini. Sospetta di tutti.' },
   bruco: { n: 'Bruco', col: '#5ab03c', d: 'Un bruco col cappello da cowboy. Non si fida di nessuno.' }
 };
 function cqLook() {
@@ -3312,7 +3314,7 @@ function cqName(g, X, Y, name, col) {
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
 // altezza del nome sopra la testa (in larghezze di tessera), secondo il personaggio
-const cqTop = L => L.skin === 'giraffa' ? 2.4 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' ? 2.0 : 1.9;
+const cqTop = L => L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' ? 2.0 : 1.9;
 function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
   const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, sw = Math.sin(walk) * 4;
   if (!noShadow) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill(); }
@@ -3324,7 +3326,43 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
   const tri = (pts, c) => { g.fillStyle = c; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
   const line = (x0, y0, x1, y1, c, w) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
   const s = L.skin;
-  if (s === 'gatto') {
+  // occhio sospettoso: palpebra mezza chiusa del colore della pelle, pupilla di lato
+  const susEye = (x, y, r, lid) => { ell(x, y, r, r * 1.15, '#fff'); ell(x + f * r * 0.5, y + r * 0.3, r * 0.5, r * 0.6, '#111'); ell(x, y - r * 0.62, r * 1.12, r * 0.75, lid); };
+  if (s === 'bassotto') {
+    // bassotto lungo e basso, stivaletti rossi
+    line(-f * 16, -13, -f * 24, -20 + sw * 0.3, '#8a4a20', 2.6);
+    for (const [x, k] of [[-13, 1], [-7, -1], [5, 1], [10, -1]]) {
+      const ox = x * f + k * sw * 0.6;
+      g.fillStyle = '#8a4a20'; g.fillRect(x * f - 1.6, -9, 3.2, 5);
+      g.fillStyle = '#d0303a'; cqRR(g, ox - 2.4, -5.5, 4.8, 4.5, 1.5); g.fill(); ell(ox + f * 1.4, -1.2, 3, 1.6, '#d0303a'); g.fillStyle = '#f2f2f2'; g.fillRect(ox - 2.4, -5.5, 4.8, 1.1);
+    }
+    ell(-f * 3, -12, 17, 6.8, '#a0582a'); ell(f * 1, -9, 12, 3, '#c07a40');
+    ell(f * 13, -20, 7, 6.5, '#a0582a'); ell(f * 19.5, -17.5, 6, 3.4, '#b06a35'); ell(f * 25, -18, 1.8, 1.6, '#111');
+    line(f * 18, -15.2, f * 22.5, -15.8, '#5a2e12', 1);
+    susEye(f * 12.5, -22, 2.2, '#a0582a'); susEye(f * 16.5, -22.2, 2.2, '#a0582a');
+    line(f * 10.3, -25.6, f * 14, -24.6, '#3a1e0a', 1.2); line(f * 15.2, -25.2, f * 18.8, -26.6, '#3a1e0a', 1.2);
+    ell(f * 9.5, -16, 3, 6.5, '#6a3618', f * 0.35);
+  } else if (s === 'palma') {
+    // palma che cammina sulle radici, ondeggia e guarda male tutti
+    g.rotate(Math.sin(performance.now() / 700) * 0.04 + Math.sin(walk) * 0.05);
+    ell(-5 + sw, -1, 5, 2.6, '#6a4220'); ell(5 - sw, -1, 5, 2.6, '#6a4220');
+    for (let i = 0; i < 7; i++) { const y = -4 - i * 6.2, w = 6.2 - i * 0.35, bx2 = f * i * 0.5; g.fillStyle = i % 2 ? '#8a5a2e' : '#9a6a3a'; cqRR(g, bx2 - w, y - 6.6, w * 2, 7, 2.5); g.fill(); }
+    // faccia sul tronco
+    susEye(f * 0.3, -27, 2.3, '#9a6a3a'); susEye(f * 5, -27.2, 2.3, '#9a6a3a');
+    line(-f * 2, -30.6, f * 1.8, -29.6, '#3a2210', 1.2); line(f * 3.4, -30, f * 7, -31.4, '#3a2210', 1.2);
+    g.strokeStyle = '#3a2210'; g.lineWidth = 1.1; g.lineCap = 'round'; g.beginPath(); g.moveTo(f * 0.5, -21.5); g.quadraticCurveTo(f * 3, -22.3, f * 5.5, -23); g.stroke();
+    // noci di cocco e foglie
+    const cx = f * 3.5, cy = -47;
+    for (const [dx, dy] of [[-2.5, 2], [2.5, 2.3], [0, 4]]) ell(cx + dx, cy + dy, 2.6, 2.6, '#5a3a1a');
+    const leaf = (a, len, col) => {
+      const ex = cx + Math.cos(a) * len, ey = cy + Math.sin(a) * len * 0.75 + len * 0.25, mx = cx + Math.cos(a) * len * 0.55, my = cy + Math.sin(a) * len * 0.5 - 4;
+      const nx = -Math.sin(a) * 4, ny = Math.cos(a) * 4;
+      g.fillStyle = col; g.beginPath(); g.moveTo(cx, cy); g.quadraticCurveTo(mx + nx, my + ny, ex, ey); g.quadraticCurveTo(mx - nx, my - ny, cx, cy); g.fill();
+    };
+    leaf(Math.PI * 1.05, 20, '#2f8a3e'); leaf(-Math.PI * 0.05, 20, '#2f8a3e');
+    leaf(Math.PI * 1.3, 17, '#3a9a4a'); leaf(-Math.PI * 0.3, 17, '#3a9a4a');
+    leaf(Math.PI * 1.5 + f * 0.15, 13, '#46ac56');
+  } else if (s === 'gatto') {
     // gatto rosso con il lanciarazzi in spalla
     g.strokeStyle = '#c9702a'; g.lineWidth = 5; g.lineCap = 'round'; g.beginPath(); g.moveTo(-f * 10, -8); g.quadraticCurveTo(-f * 27, -6 + sw * 0.5, -f * 22, -25); g.stroke();
     ell(-f * 22, -25, 3, 3, '#8a4a1a');
@@ -3425,8 +3463,9 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
     ell(0, -29, 14, 16, '#d8608a'); ell(-4 * f, -37, 5, 3.5, 'rgba(255,255,255,.18)', -f * 0.5);
     for (const [x, y] of [[-8, -24], [-9, -33], [9, -20]]) ell(x * f, y, 1.6, 1.3, '#c0507a');
     side();
-    for (const dx of [1, 8]) { ell(f * dx, -28, 3.3, 3.8, '#fff'); ell(f * (dx + 0.9), -27.6, 1.7, 2.1, '#111'); ell(f * (dx + 1.6), -28.6, 0.6, 0.6, '#fff'); }
-    g.strokeStyle = '#8a2f55'; g.lineWidth = 1.2; g.lineCap = 'round'; g.beginPath(); g.arc(f * 5, -21.5, 2.2, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
+    susEye(f * 1, -28, 3.3, '#d8608a'); susEye(f * 8, -28.3, 3.3, '#d8608a');
+    line(-f * 2.4, -33.4, f * 3.6, -32, '#7a2448', 1.5); line(f * 5.4, -32.6, f * 11.4, -34.4, '#7a2448', 1.5);
+    g.strokeStyle = '#8a2f55'; g.lineWidth = 1.3; g.lineCap = 'round'; g.beginPath(); g.moveTo(f * 2.5, -21.2); g.quadraticCurveTo(f * 5.5, -22.2, f * 8.5, -23.4); g.stroke();
     // collana d'oro con il medaglione
     for (let k = -6; k <= 6; k++) { const t = k / 6; ell(t * 12.5, -15 + 3 * (1 - t * t), 1.7, 1.2, k % 2 ? '#d9a514' : '#f2c230', t * 0.5); }
     ell(f * 1, -9.5, 3.6, 3.6, '#d9a514'); ell(f * 1, -9.5, 2.6, 2.6, '#f2c230'); ell(f * 0, -10.5, 0.9, 0.9, '#fff6c0');
