@@ -143,6 +143,9 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .soonTag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:8px;font-weight:600;vertical-align:2px}
 #ciack{position:fixed;inset:0;z-index:6;background:var(--bg);touch-action:none;user-select:none;-webkit-user-select:none}
 #cqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+#cqBgL{position:absolute;inset:0;overflow:hidden;pointer-events:none}
+#cqBgMove{position:absolute;left:0;top:0;will-change:transform}
+#cqBgMove img{position:absolute;display:block;max-width:none}
 #ciack .ctop{position:absolute;left:12px;top:12px;right:12px;display:flex;align-items:center;gap:10px;pointer-events:none}
 #ciack .ctop .btn{pointer-events:auto}
 #ciack .ctop b{font-size:17px}
@@ -257,6 +260,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <p class="you" id="appVer" style="text-align:center;margin-top:8px;font-size:12px"></p>
 </div></div>
 <div id="ciack" hidden>
+  <div id="cqBgL"><div id="cqBgMove"></div></div>
   <canvas id="cqCanvas"></canvas>
   <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><button class="btn" id="cqLookBtn" type="button" style="margin-left:auto">Personaggio</button></div>
   <div id="cqPick" hidden><div class="pk">
@@ -1653,6 +1657,9 @@ const cqFloor = [], cqSolid = [], cqRoomOf = [];
     if (ri >= 0) cqSolid[y][x] = { wall: 1, col: CQ_ROOMS[ri].wc };
   }
 })();
+// modo di disegno della mappa: 0 = tessere pronte (normale), 1 = tessere come ImageBitmap, 2 = niente tessere (tutto ridisegnato
+// a ogni fotogramma), 3 = tessere come immagini della pagina mosse dal browser. Si sceglie con ?grafica=N e resta ricordato.
+const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); try { if (q != null) localStorage.setItem('cqGfx', q); return +(q != null ? q : localStorage.getItem('cqGfx') || 0) || 0; } catch { return +q || 0; } })();
 const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
@@ -2345,6 +2352,7 @@ function cqBuildBg() {
   const ox = CQ_H * TW / 2 + TW, oy = 3.6 * U + TW;
   const bw = (CQ_W + CQ_H) * TW / 2 + 2 * TW, bh = (CQ_W + CQ_H) * TH / 2 + oy + TW;
   const sc = cq.dpr, TP = 1024, TS = TP / sc;   // tessere da 1024 pixel veri
+  if (CQ_GFX === 2) { cq.bg = { tiles: [], TW, ox, oy, bw, bh, dpr: sc, none: true }; return; }
   // cosa disegnare, con il rettangolo che occupa (per disegnare in ogni tessera solo quello che la tocca)
   const job = [];
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2, (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
@@ -2364,6 +2372,19 @@ function cqBuildBg() {
     tiles.push({ c, x: tx * TS, y: ty * TS, w: c.width / sc, h: c.height / sc });
   }
   cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc };
+  if (CQ_GFX === 1 && window.createImageBitmap) tiles.forEach(t => createImageBitmap(t.c).then(b => { t.c = b; }).catch(() => {}));
+  if (CQ_GFX === 3) cqDomBg(cq.bg);
+}
+// modo 3: le tessere diventano immagini normali della pagina, sotto il disegno, spostate dal browser
+function cqDomBg(B) {
+  const mv = $('#cqBgMove'); mv.querySelectorAll('img').forEach(i => URL.revokeObjectURL(i.src)); mv.innerHTML = ''; cq.domReady = null;
+  let n = B.tiles.length;
+  B.tiles.forEach(t => t.c.toBlob(b => {
+    if (cq.bg !== B || !b) return;
+    const im = new Image(); im.onload = () => { if (--n === 0 && cq.bg === B) cq.domReady = B; };
+    Object.assign(im.style, { left: t.x + 'px', top: t.y + 'px', width: t.w + 'px', height: t.h + 'px' });
+    im.src = URL.createObjectURL(b); mv.appendChild(im);
+  }));
 }
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
@@ -2374,7 +2395,9 @@ function cqDraw() {
   const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
-  for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
+  const dom = CQ_GFX === 3 && cq.domReady === B;
+  if (dom) { const tr = 'translate3d(' + ix + 'px,' + iy + 'px,0)'; if (cq.domTr !== tr) { cq.domTr = tr; $('#cqBgMove').style.transform = tr; } }
+  else for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
   // personaggi e corpi a terra (con le luci spente si vede solo vicino a se')
   const G = cq.g, meLook = cqLook(), list = [];
   const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && G.phase === 'play');
@@ -2393,7 +2416,8 @@ function cqDraw() {
   }
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
   const T = cqTools(g, TW);
-  for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list);
+  if (B.none) cqRedraw(g, T, [0, 0, W, H], tx, ty, TW, list, Math.ceil((W / TW + H / TH) / 2) + 8);   // modo 2: tutto lo schermo da capo
+  else for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list);
   if (dark) {
     const gr = g.createRadialGradient(tx + X, ty + Y - TH, TW * 1.5, tx + X, ty + Y - TH, TW * 2.7);
     gr.addColorStop(0, 'rgba(5,6,8,0)'); gr.addColorStop(1, 'rgba(5,6,8,.94)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
@@ -2419,14 +2443,14 @@ function cqDraw() {
   }
 }
 // ridisegna da capo un riquadro dello schermo: pavimento, oggetti e personaggi che lo toccano, dal piu' lontano al piu' vicino
-function cqRedraw(g, T, r, tx, ty, TW, list) {
+function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10) {
   const TH = TW / 2, U = TH * 1.15, [x0, y0, x1, y1] = r;
   g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip(); g.clearRect(x0, y0, x1 - x0, y1 - y0); g.translate(tx, ty);
   const a0 = x0 - tx, b0 = y0 - ty, a1 = x1 - tx, b1 = y1 - ty, mx = (a0 + a1) / 2, my = (b0 + b1) / 2;
   const fx = Math.floor(mx / TW + my / TH), fy = Math.floor(my / TH - mx / TW), items = [];
-  for (let y = fy - 10; y <= fy + 10; y++) {
+  for (let y = fy - rng; y <= fy + rng; y++) {
     if (!cqFloor[y]) continue;
-    for (let x = fx - 10; x <= fx + 10; x++) {
+    for (let x = fx - rng; x <= fx + rng; x++) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
       if (cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x];
@@ -2526,12 +2550,12 @@ async function checkUpdate() {
     if (!srv || !mine || srv <= mine + 1000) return;
     if (sessionStorage.getItem('plUpd') === String(srv)) return;   // gia' ricaricato per questa versione
     sessionStorage.setItem('plUpd', String(srv));
-    if (!net) location.replace(location.pathname + '?v=' + srv + location.hash);
+    if (!net) { const q = new URLSearchParams(location.search); q.set('v', srv); location.replace(location.pathname + '?' + q + location.hash); }
   } catch {}
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 setInterval(() => { if (document.visibilityState === 'visible') checkUpdate(); }, 60000);
-(() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); })();
+(() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + (CQ_GFX ? ' · grafica ' + CQ_GFX : ''); })();
 
 // ---- avvio ----
 if (WEB) store.settings.mode = 'online';
