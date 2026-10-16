@@ -226,6 +226,13 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .mtAct{display:flex;gap:8px;margin-top:12px}
 .mtAct .btn{flex:1;justify-content:center;padding:11px}
 #alH{user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:none}
+.pkSkins{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-top:12px}
+.pkSkins .btn{flex-direction:column;justify-content:center;padding:6px 4px 8px;gap:2px;font-size:13px}
+.pkSkins canvas{width:44px;height:44px}
+.pkSkins .btn.on{border-color:#f2c230;box-shadow:0 0 0 1px #f2c230}
+.seg input:disabled+span{opacity:.35}
+.mtIn{display:flex;gap:6px;margin-bottom:10px}
+.mtIn .field{flex:1;min-width:0;padding:8px 10px}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -266,9 +273,9 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <div id="cqPick" hidden><div class="pk">
     <h2>Scegli il personaggio</h2>
     <canvas id="cqPrev"></canvas>
-    <div class="seg" id="pkSkin"><label><input type="radio" name="pkskin" value="omino"><span>Omino</span></label><label><input type="radio" name="pkskin" value="procione"><span>Procione</span></label></div>
+    <div class="pkSkins" id="pkSkins"></div>
     <div id="pkOmino"><div class="lbl">Colore</div><div class="pkCols" id="pkCols"></div><div class="lbl">Cappello</div><div class="pkHats" id="pkHats"></div></div>
-    <p class="hint" id="pkRac" style="text-align:center">Il procione ha il suo cappello nero e lo zaino viola.</p>
+    <p class="hint" id="pkRac" style="text-align:center"></p>
     <button class="btn primary go" id="pkGo" type="button">Entra sul set</button>
   </div></div>
   <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqList" id="cqList"></div></div>
@@ -276,7 +283,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <button id="cqUse" type="button">Usa</button>
   <button id="cqKill" type="button" hidden>Elimina</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
-  <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div id="mtGrid"></div>
+  <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
     <div class="mtAct"><button class="btn" id="mtSkip" type="button">Salta</button><button class="btn primary" id="mtVote" type="button" disabled>Vota</button></div><p class="hint" id="mtRes" style="text-align:center;margin:10px 0 0"></p></div></div>
   <div id="cqTask" hidden><div class="pk"><div class="tk-h"><b id="tkTitle"></b><button class="btn" id="tkClose" type="button">Chiudi</button></div><div id="tkBody"></div><p class="hint" id="tkHint"></p></div></div>
   <div id="cqMap" hidden><div class="pk"><div class="tk-h"><b>Mappa del set</b><button class="btn" id="mapClose" type="button">Chiudi</button></div><canvas id="cqMapC"></canvas><p class="hint" style="text-align:center">Punti gialli: i tuoi compiti. Il pallino col bordo bianco sei tu.</p></div></div>
@@ -1674,36 +1681,47 @@ function openCiack() {
 const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
 const CQ_HATS = [['borsalino', 'Borsalino'], ['basco', 'Basco'], ['cilindro', 'Cilindro'], ['cappellino', 'Cappellino'], ['cuffie', 'Cuffie'], ['corona', 'Corona'], ['nessuno', 'Nessuno']];
 // aspetto scelto (ricordato come il nome)
+// personaggi: l'omino si personalizza (colore e cappello), gli altri hanno il loro aspetto fisso
+const CQ_SKINS = {
+  omino: { n: 'Omino', d: '' },
+  procione: { n: 'Procione', col: '#8a8f99', d: 'Il procione con il cappello nero e lo zaino viola.' },
+  gatto: { n: 'Gatto', col: '#e08a3a', d: 'Un gatto rosso con un lanciarazzi in spalla.' },
+  regista: { n: 'Regista', col: '#2a3a6a', d: 'Regista francese: basco, baffi e cinepresa in spalla.' },
+  guardia: { n: 'Guardia', col: '#4a5f8a', d: 'La guardia notturna. Un po\' brilla…' },
+  tonno: { n: 'Tonno', col: '#5a8ab0', d: 'Un tonno spadaccino, armato di fioretto.' }
+};
 function cqLook() {
-  const L = store.settings.cqLook || {};
-  return { skin: L.skin === 'procione' ? 'procione' : 'omino', col: CQ_COLORS.includes(L.col) ? L.col : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'borsalino' };
+  const L = store.settings.cqLook || {}, skin = CQ_SKINS[L.skin] ? L.skin : 'omino';
+  return { skin, col: skin !== 'omino' ? CQ_SKINS[skin].col : CQ_COLORS.includes(L.col) ? L.col : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'borsalino' };
 }
 function cqOpenPick() {
   const L = cqLook(), box = $('#cqPick');
   const sync = () => {
     const l = cqLook();
-    box.querySelectorAll('input[name=pkskin]').forEach(i => i.checked = i.value === l.skin);
-    $('#pkOmino').hidden = l.skin !== 'omino'; $('#pkRac').hidden = l.skin !== 'procione';
+    $('#pkSkins').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === l.skin));
+    $('#pkOmino').hidden = l.skin !== 'omino'; $('#pkRac').hidden = l.skin === 'omino'; $('#pkRac').textContent = CQ_SKINS[l.skin].d;
     $('#pkCols').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.c === l.col));
     $('#pkHats').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.h === l.hat));
   };
-  const set = (k, v) => { store.settings.cqLook = Object.assign(cqLook(), { [k]: v }); saveStore(); sync(); };
+  const set = (k, v) => { const o = Object.assign(cqLook(), { [k]: v }); if (k === 'skin' && v === 'omino' && !CQ_COLORS.includes(o.col)) o.col = CQ_COLORS[0]; store.settings.cqLook = o; saveStore(); sync(); };
+  $('#pkSkins').innerHTML = Object.entries(CQ_SKINS).map(([k, v]) => `<button type="button" class="btn" data-s="${k}"><canvas width="88" height="88"></canvas><span>${v.n}</span></button>`).join('');
+  $('#pkSkins').querySelectorAll('button').forEach(b => { const g = b.querySelector('canvas').getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); const k = b.dataset.s; cqPlayer(g, 22, 40, 17, k === 'omino' ? Object.assign(cqLook(), { skin: 'omino' }) : { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' }, 0, 1); });
   $('#pkCols').innerHTML = CQ_COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="colore"></button>`).join('');
   $('#pkHats').innerHTML = CQ_HATS.map(([h, n]) => `<button type="button" class="btn" data-h="${h}">${n}</button>`).join('');
   $('#pkCols').onclick = e => { const b = e.target.closest('[data-c]'); if (b) set('col', b.dataset.c); };
   $('#pkHats').onclick = e => { const b = e.target.closest('[data-h]'); if (b) set('hat', b.dataset.h); };
-  box.querySelectorAll('input[name=pkskin]').forEach(i => i.onchange = () => set('skin', i.value));
-  $('#pkGo').onclick = () => { box.hidden = true; cq.picking = false; if (!cq.g || cq.g.phase === 'end') cqNewMatch(); };
+  $('#pkSkins').onclick = e => { const b = e.target.closest('[data-s]'); if (b) set('skin', b.dataset.s); };
+  $('#pkGo').onclick = () => { box.hidden = true; cq.picking = false; if (!cq.g || cq.g.phase === 'end') cqLobby(); };
   store.settings.cqLook = L; sync();
   box.hidden = false; cq.picking = true; cq.joy = null; cq.keys = {};
-  // anteprima: l'omino cammina sul posto e si gira ogni tanto
+  // anteprima: il personaggio cammina sul posto e si gira ogni tanto
   const c = $('#cqPrev'), dpr = Math.min(window.devicePixelRatio || 1, 2); c.width = 150 * dpr; c.height = 150 * dpr;
   const t0 = performance.now();
   const loop = t => {
     if (box.hidden || !cq.on) return;
     const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, 150, 150);
     const e = (t - t0) / 1000;
-    cqPlayer(g, 75, 128, 34 * 1.75, cqLook(), e * 9, Math.floor(e / 1.8) % 2 ? -1 : 1);
+    cqPlayer(g, 75, 132, 34 * 1.6, cqLook(), e * 9, Math.floor(e / 1.8) % 2 ? -1 : 1);
     requestAnimationFrame(loop);
   };
   requestAnimationFrame(loop);
@@ -1717,21 +1735,25 @@ const CQ_TASKS = [
   { id: 'montaggio', n: 'Monta la scena', r: 'Montaggio', x: 10, y: 23 },
   { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Magazzino', x: 21, y: 24 },
   { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 }];
-const CQ_NTASK = 5;
 const cqTask = id => CQ_TASKS.find(t => t.id === id);
 function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden || !$('#cqMeet').hidden; }
 
-// ---- partita contro il computer: 7 personaggi guidati dal computer, uno (tu compreso) e' il sabotatore ----
+// ---- partita contro il computer: personaggi guidati dal computer, alcuni (tu compreso) sono sabotatori ----
 const CQ_NAMES = ['Bruno', 'Carla', 'Dario', 'Elena', 'Fabio', 'Gina', 'Ivo', 'Lia', 'Marco', 'Nina', 'Otto', 'Pia'];
-const CQ_BOTS = 7, CQ_KCD = 20, CQ_VIS = 5;
+const CQ_VIS = 5;
 const CQ_RING = [[20, 16], [21, 16], [23, 16], [24, 16], [20, 18], [21, 18], [23, 18], [24, 18], [22, 15], [22, 19]];   // intorno al pulsante delle riunioni
 const CQ_BUTTON = { x: 22, y: 17 };
 const CQ_SABS = { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45 } };
 const CQ_IN = { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione' };
+// impostazioni della partita (ricordate)
+const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: true };
+const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
+const cqMaxImps = n => n <= 5 ? 1 : n <= 7 ? 2 : 3;
 const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
 const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return r >= 0 ? CQ_ROOMS[r].n : 'Corridoio'; };
 const cqLookOf = c => c.bot ? c.look : cqLook();
 const cqDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const cqPickOne = a => a[Math.floor(Math.random() * a.length)];
 // cella libera accanto a un oggetto, dove ci si mette per usarlo
 function cqSpot(x, y) {
   for (const [dx, dy] of [[0, 1], [1, 0], [-1, 0], [0, -1], [1, 1], [-1, 1], [1, -1], [-1, -1]]) if (cqCellFree(x + dx, y + dy)) return { x: x + dx + 0.5, y: y + dy + 0.5 };
@@ -1755,26 +1777,48 @@ function cqPath(sx, sy, ex, ey) {
   const path = []; for (let c = e; c !== s; c = prev[c]) path.push([c % W + 0.5, ((c / W) | 0) + 0.5]);
   return path.reverse();
 }
+// stanza d'attesa: impostazioni prima di ogni partita
+function cqLobby() {
+  const o = cqOpt();
+  cqCloseTask();
+  $('#tkTitle').textContent = 'Impostazioni della partita';
+  $('#tkBody').innerHTML = `<form id="lbF">
+    <div class="row"><div class="lbl">Personaggi (tu compreso)</div>${seg('n', [[4, '4'], [6, '6'], [8, '8'], [10, '10']], o.n)}</div>
+    <div class="row"><div class="lbl">Sabotatori</div>${seg('imps', [[1, '1'], [2, '2'], [3, '3']], o.imps)}<div class="hint" id="lbImpH"></div></div>
+    <div class="row"><div class="lbl">Compiti a testa</div>${seg('tasks', [[3, '3'], [5, '5'], [7, '7']], o.tasks)}</div>
+    <div class="row"><div class="lbl">Attesa tra un'eliminazione e l'altra</div>${seg('kcd', [[20, '20 s'], [30, '30 s'], [45, '45 s']], o.kcd)}</div>
+    <div class="row"><div class="lbl">Blackout casuali</div>${seg('blackout', [[1, 'Sì'], [0, 'No']], o.blackout ? 1 : 0)}<div class="hint">Ogni tanto salta la luce da sola: qualcuno deve riaccendere gli interruttori.</div></div>
+    <div class="row"><div class="lbl">Torcia al buio</div>${seg('torch', [[1, 'Sì'], [0, 'No']], o.torch ? 1 : 0)}<div class="hint">Al buio vedi un fascio di luce davanti a te invece di un piccolo cerchio.</div></div>
+  </form><button class="btn primary go" id="lbGo" type="button">Si gira!</button>`;
+  const f = $('#lbF');
+  const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1' }; };
+  const sync = () => { const r = read(); f.querySelectorAll('input[name=imps]').forEach(i => { i.disabled = +i.value > cqMaxImps(r.n); if (+i.value === r.imps) i.checked = true; }); $('#lbImpH').textContent = r.n <= 5 ? 'Con 4 personaggi c\'è un solo sabotatore.' : r.n <= 7 ? 'Con 6 personaggi al massimo 2 sabotatori.' : ''; };
+  f.oninput = sync; sync();
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#lbGo').onclick = () => { store.settings.cqOpt = read(); saveStore(); cqCloseTask(); cqNewMatch(); };
+}
 function cqNewMatch() {
-  const myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
+  const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
   const me = { id: 0, name: myName, bot: false };
   const names = CQ_NAMES.filter(n => n.toLowerCase() !== myName.toLowerCase()).sort(() => Math.random() - 0.5);
-  const myL = cqLook(), cols = CQ_COLORS.filter(c => myL.skin === 'procione' || c !== myL.col).sort(() => Math.random() - 0.5);
+  const myL = cqLook(), cols = CQ_COLORS.filter(c => myL.skin !== 'omino' || c !== myL.col).sort(() => Math.random() - 0.5);
+  const specials = Object.keys(CQ_SKINS).filter(k => k !== 'omino' && k !== myL.skin).sort(() => Math.random() - 0.5).slice(0, Math.min(3, O.n - 2));
   const chars = [me];
-  for (let i = 0; i < CQ_BOTS; i++) chars.push({ id: i + 1, name: names[i], bot: true,
-    look: i === 0 && myL.skin !== 'procione' ? { skin: 'procione', col: '#8a8f99', hat: 'borsalino' } : { skin: 'omino', col: cols[i % cols.length], hat: CQ_HATS[Math.floor(Math.random() * CQ_HATS.length)][0] } });
-  const imp = Math.floor(Math.random() * chars.length);
+  for (let i = 0; i < O.n - 1; i++) chars.push({ id: i + 1, name: names[i], bot: true,
+    look: i < specials.length ? { skin: specials[i], col: CQ_SKINS[specials[i]].col, hat: 'nessuno' } : { skin: 'omino', col: cols[i % cols.length], hat: cqPickOne(CQ_HATS)[0] } });
+  const order = chars.map((c, i) => i).sort(() => Math.random() - 0.5), imps = new Set(order.slice(0, Math.min(O.imps, cqMaxImps(O.n))));
   chars.forEach((c, i) => {
     const [x, y] = CQ_RING[i];
-    Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < 22 ? 1 : -1, walk: 0, alive: true, imp: i === imp, tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, CQ_NTASK),
-      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: 10, think: 0, sus: new Set(), saw: null, seen: {}, eye: Math.random() * 0.5 });
+    Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < 22 ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
+      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, eye: Math.random() * 0.5 });
   });
-  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0 };
+  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
   cqHud();
-  cqPanel(me.imp ? 'Sei il SABOTATORE' : 'Sei della TROUPE', me.imp
-    ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme. Intanto fai finta di lavorare!</p>'
-    : '<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi c\'è un <b>sabotatore</b>: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. Il pulsante rosso nel corridoio chiama una riunione (una volta sola).</p>',
+  const mates = chars.filter(c => c.imp && c !== me), nImp = imps.size;
+  cqPanel(me.imp ? 'Sei un SABOTATORE' : 'Sei della TROUPE', me.imp
+    ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme. Intanto fai finta di lavorare!</p>' + (mates.length ? `<p class="lead">I tuoi complici (nome in rosso): <b>${mates.map(c => esc(c.name)).join(', ')}</b>.</p>` : '')
+    : `<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi ${nImp > 1 ? 'ci sono <b>' + nImp + ' sabotatori</b>' : 'c\'è un <b>sabotatore</b>'}: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. Il pulsante rosso nel corridoio chiama una riunione (una volta sola).</p>`,
     'Si gira!', () => { cq.g.phase = 'play'; });
 }
 // pannello con un messaggio e un pulsante (ruolo, avvisi)
@@ -1787,11 +1831,11 @@ function cqPanel(title, html, btn, then) {
 }
 function cqHud() {
   const G = cq.g; if (!G) return;
-  const me = G.me, crew = G.chars.filter(c => !c.imp), tot = crew.length * CQ_NTASK, n = crew.reduce((a, c) => a + c.done.size, 0);
+  const me = G.me, crew = G.chars.filter(c => !c.imp), tot = crew.length * G.nt, n = crew.reduce((a, c) => a + c.done.size, 0);
   $('#cqBarTxt').textContent = 'Riprese ' + Math.round(n / tot * 100) + '%';
   $('#cqBarFill').style.width = (n / tot * 100) + '%';
   const role = $('#cqRole');
-  role.textContent = me.imp ? (me.alive ? 'Sei il sabotatore' : 'Sabotatore espulso') : (me.alive ? 'Sei della troupe' : 'Sei un fantasma: finisci i compiti');
+  role.textContent = me.imp ? (me.alive ? 'Sei un sabotatore' : 'Sabotatore espulso') : (me.alive ? 'Sei della troupe' : 'Sei un fantasma: finisci i compiti');
   role.className = 'cqRole' + (me.imp ? ' imp' : '');
   $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const t = cqTask(id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near === t ? 'near' : ''}">${esc(t.r)}: ${esc(t.n)}</div>`; }).join('');
   const a = cq.act, ub = $('#cqUse');
@@ -1814,7 +1858,7 @@ function cqHudFast() {
     sb.disabled = !!G.sab || sc > 0;
   }
   let bt = '';
-  if (G.sab && play) bt = G.sab.type === 'luci' ? 'Luci spente! Si ripara al ' + CQ_SABS.luci.where : 'Allarme! La pellicola brucia: ' + Math.ceil(G.sab.t) + ' s. Si ripara al ' + CQ_SABS.allarme.where;
+  if (G.sab && play) bt = G.sab.type === 'luci' ? (G.sab.natural ? 'È saltata la corrente! Riaccendi gli interruttori al ' : 'Luci spente! Si ripara al ') + CQ_SABS.luci.where : 'Allarme! La pellicola brucia: ' + Math.ceil(G.sab.t) + ' s. Si ripara al ' + CQ_SABS.allarme.where;
   if (ban.textContent !== bt) ban.textContent = bt;
   if (ban.hidden === !!bt) ban.hidden = !bt;
 }
@@ -1839,7 +1883,7 @@ function cqUse() {
   const G = cq.g, a = cq.act; if (!G || !a || cqBusy() || G.phase !== 'play') return;
   if (a.k === 'rep') cqMeeting(G.me, a.body);
   else if (a.k === 'btn') { G.button--; cqMeeting(G.me, null); }
-  else if (a.k === 'fix') cqOpenTask(G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Ripara le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab });
+  else if (a.k === 'fix') cqOpenTask(G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab });
   else cqOpenTask(a.t);
 }
 function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; $('#tkClose').hidden = false; cq.joy = null; cq.keys = {}; }
@@ -1853,6 +1897,8 @@ function cqBots(dt) {
   me.x = cq.x; me.y = cq.y; me.face = cq.face;
   G.sabCd -= dt; G.time += dt; if (me.imp) me.kcd -= dt;
   if (G.sab && G.sab.type === 'allarme') { G.sab.t -= dt; if (G.sab.t <= 0) { cqEnd('sab', 'La pellicola è bruciata: le riprese sono rovinate!'); return; } }
+  // blackout casuale: salta la luce da sola
+  if (G.opt.blackout && !G.sab && G.time >= G.blackAt) { G.blackAt = G.time + 90 + Math.random() * 60; cqStartSab('luci', true); }
   for (const b of G.chars) {
     if (G.phase !== 'play') return;
     if (!b.bot) continue;
@@ -1877,8 +1923,8 @@ function cqBotPlan(b) {
   else if (b.hunt) return;
   else {
     const todo = b.tasks.filter(id => !b.done.has(id));
-    if (todo.length && !(b.imp && Math.random() < 0.3)) { const id = todo[Math.floor(Math.random() * todo.length)], t = cqTask(id); goal = Object.assign(cqSpot(t.x, t.y), { k: 'task', id }); }
-    else { const r = CQ_ROOMS[Math.floor(Math.random() * CQ_ROOMS.length)]; let x, y, n = 0; do { x = r.x + Math.floor(Math.random() * r.w); y = r.y + Math.floor(Math.random() * r.h); } while (!cqCellFree(x, y) && ++n < 30); goal = { x: x + 0.5, y: y + 0.5, k: 'wander' }; }
+    if (todo.length && !(b.imp && Math.random() < 0.3)) { const id = cqPickOne(todo), t = cqTask(id); goal = Object.assign(cqSpot(t.x, t.y), { k: 'task', id }); }
+    else { const r = cqPickOne(CQ_ROOMS); let x, y, n = 0; do { x = r.x + Math.floor(Math.random() * r.w); y = r.y + Math.floor(Math.random() * r.h); } while (!cqCellFree(x, y) && ++n < 30); goal = { x: x + 0.5, y: y + 0.5, k: 'wander' }; }
   }
   b.goal = goal; b.path = cqPath(b.x, b.y, goal.x, goal.y);
   if (!b.path.length) { if (cqDist(b, goal) < 0.7) cqBotArrived(b, false); else { b.goal = null; b.wait = 0.5 + Math.random(); } }
@@ -1886,7 +1932,7 @@ function cqBotPlan(b) {
 function cqBotArrived(b, afterWait) {
   const G = cq.g, k = b.goal && b.goal.k;
   if (!afterWait) {
-    if (k === 'task') { b.wait = 4 + Math.random() * 4; b.doing = b.goal.id; const t = cqTask(b.doing); b.face = (t.x - t.y) - (b.x - b.y) > 0 ? 1 : -1; }
+    if (k === 'task') { b.wait = 4 + Math.random() * 4; b.doing = b.goal.id; b.doT = b.wait; const t = cqTask(b.doing); b.face = (t.x - t.y) - (b.x - b.y) > 0 ? 1 : -1; }
     else if (k === 'fix') b.wait = 2;
     else if (k === 'wander') b.wait = 1 + Math.random() * 2;
     return;
@@ -1904,18 +1950,20 @@ function cqBotStep(b, dt) {
   if (Math.abs(dx - dy) > 0.01) b.face = dx - dy > 0 ? 1 : -1;
   b.walk += dt * 10;
 }
-// il sabotatore del computer: elimina solo chi e' rimasto da solo, ogni tanto sabota
+// sabotatore del computer: elimina solo chi e' rimasto da solo (i complici non contano come testimoni), ogni tanto sabota
 function cqImpBrain(b, dt) {
   const G = cq.g; b.kcd -= dt; b.think -= dt;
   if (b.think > 0) return; b.think = 0.4;
   if (!G.sab && G.sabCd <= 0 && Math.random() < 0.015) cqStartSab(Math.random() < 0.5 ? 'luci' : 'allarme');
   const stop = () => { if (b.hunt) { b.hunt = null; b.path = []; b.goal = null; } };
   if (b.kcd > 0) { stop(); return; }
+  if (!b.hunt && Math.random() < (G.chars.filter(c => c.imp).length > 1 ? 0.95 : 0.2)) return;   // non si butta subito (in gruppo ancora meno): fa ancora un po' finta di lavorare
   const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS, living = G.chars.filter(c => c.alive && c !== b);
   let best = null, bd = 10;
   for (const v of living) {
+    if (v.imp) continue;
     const d = cqDist(v, b); if (d >= bd) continue;
-    if (!living.some(o => o !== v && cqDist(o, b) < R)) { best = v; bd = d; }   // nessun altro che possa vedere
+    if (!living.some(o => o !== v && !o.imp && cqDist(o, b) < R)) { best = v; bd = d; }   // nessun altro che possa vedere
   }
   if (!best) { stop(); return; }
   if (bd < 1.1) { stop(); cqKill(best, b); return; }
@@ -1933,9 +1981,9 @@ function cqMyKill() {
 }
 function cqKill(v, k) {
   const G = cq.g;
-  v.alive = false; v.path = []; v.wait = 0;
+  v.alive = false; v.path = []; v.wait = 0; v.doing = null;
   G.bodies.push({ id: v.id, x: v.x, y: v.y, face: v.face, look: cqLookOf(v), name: v.name, room: cqRoomName(v.x, v.y), t: G.time });
-  k.kcd = CQ_KCD;
+  k.kcd = G.opt.kcd;
   const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS;
   for (const w of G.chars) {
     if (!w.bot || !w.alive || w.imp) continue;
@@ -1947,10 +1995,10 @@ function cqKill(v, k) {
   if (v === G.me) { $('#cqMap').hidden = true; cqPanel('Sei stato eliminato!', `<p class="lead">Ti ha eliminato <b>${esc(k.name)}</b>. Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>`, 'Continua'); }
   cqHud(); cqCheckWin();
 }
-// ---- sabotaggi ----
-function cqStartSab(type) {
+// ---- sabotaggi (e blackout casuali: natural) ----
+function cqStartSab(type, natural) {
   const G = cq.g; if (!G || G.sab || G.phase !== 'play') return;
-  G.sab = { type, t: CQ_SABS[type].time || 0, fixer: null };
+  G.sab = { type, t: CQ_SABS[type].time || 0, fixer: null, natural: !!natural };
   cqPickFixer();
   beep(300, 0.25, 0.05); beep(240, 0.3, 0.05, 0.3);
   cq.actKey = ''; cqHud();
@@ -1959,7 +2007,7 @@ function cqPickFixer() {
   const G = cq.g, s = CQ_SABS[G.sab.type], spot = cqSpot(s.x, s.y); let best = null, bd = 1e9;
   for (const c of G.chars) if (c.bot && c.alive && !c.imp) { const d = cqDist(c, spot); if (d < bd) { bd = d; best = c; } }
   G.sab.fixer = best ? best.id : null;
-  if (best) { best.path = []; best.wait = 0; best.doing = null; best.goal = null; }
+  if (best) { best.path = []; best.wait = 0; best.doing = null; best.goal = null; best.fixLate = 3 + Math.random() * 4; }
 }
 function cqFixSab() {
   const G = cq.g; if (!G || !G.sab) return;
@@ -1978,68 +2026,106 @@ function cqSabMenu() {
 // ---- vittoria ----
 function cqCheckWin() {
   const G = cq.g; if (!G || G.phase === 'end') return;
-  const crew = G.chars.filter(c => !c.imp), imp = G.chars.find(c => c.imp);
-  if (crew.reduce((a, c) => a + c.done.size, 0) >= crew.length * CQ_NTASK) { cqEnd('troupe', 'Tutti i compiti sono finiti: il film è pronto!'); return; }
-  if (imp.alive && crew.filter(c => c.alive).length <= 1) cqEnd('sab', `È rimasto un solo membro della troupe: le riprese sono rovinate!`);
+  const crew = G.chars.filter(c => !c.imp), imps = G.chars.filter(c => c.imp);
+  const ia = imps.filter(c => c.alive).length, ca = crew.filter(c => c.alive).length;
+  if (crew.reduce((a, c) => a + c.done.size, 0) >= crew.length * G.nt) { cqEnd('troupe', 'Tutti i compiti sono finiti: il film è pronto!'); return; }
+  if (!ia) { cqEnd('troupe', imps.length > 1 ? 'Tutti i sabotatori sono stati scoperti!' : 'Il sabotatore è stato scoperto!'); return; }
+  if (ia >= ca) cqEnd('sab', imps.length > 1 ? 'I sabotatori sono tanti quanti la troupe: le riprese sono rovinate!' : 'È rimasto un solo membro della troupe: le riprese sono rovinate!');
 }
 function cqEnd(win, why) {
   const G = cq.g; if (!G || G.phase === 'end') return;
   G.phase = 'end'; cqMeetStop(); $('#cqMeet').hidden = true; $('#cqMap').hidden = true; cqCloseTask();
-  const me = G.me, imp = G.chars.find(c => c.imp), won = (win === 'sab') === me.imp;
+  const me = G.me, imps = G.chars.filter(c => c.imp), won = (win === 'sab') === me.imp;
+  const who = imps.map(c => c === me ? 'tu' : esc(c.name)).join(', ');
   $('#tkTitle').textContent = won ? 'Hai vinto!' : 'Hai perso!';
-  $('#tkBody').innerHTML = `<p class="lead" style="text-align:center"><b>${win === 'sab' ? 'Vince il sabotatore' : 'Vince la troupe'}</b><br>${why}</p>
-    <p class="hint" style="text-align:center">Il sabotatore era <b>${imp === me ? 'tu' : esc(imp.name)}</b>.</p>
+  $('#tkBody').innerHTML = `<p class="lead" style="text-align:center"><b>${win === 'sab' ? (imps.length > 1 ? 'Vincono i sabotatori' : 'Vince il sabotatore') : 'Vince la troupe'}</b><br>${why}</p>
+    <p class="hint" style="text-align:center">${imps.length > 1 ? 'I sabotatori erano' : 'Il sabotatore era'} <b>${who}</b>.</p>
     <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#enHome').onclick = closeCiack;
-  $('#enNew').onclick = () => { cqCloseTask(); cqNewMatch(); };
+  $('#enNew').onclick = () => { cqCloseTask(); cqLobby(); };
   if (won) { beep(660, 0.12, 0.05); beep(880, 0.12, 0.05, 0.13); beep(1100, 0.25, 0.05, 0.26); } else { beep(330, 0.2, 0.05); beep(260, 0.35, 0.05, 0.2); }
 }
-// ---- riunione e voto ----
+// ---- riunione, chat e voto ----
+const cqFmt = (c, txt) => `<b style="color:${cqLookOf(c).col}">${esc(c.name)}</b>: ${txt}`;
 function cqMeeting(rep, body) {
   const G = cq.g; if (!G || G.phase !== 'play') return;
   G.phase = 'meet'; G.sab = null; cqCloseTask(); $('#cqMap').hidden = true; cq.joy = null; cq.keys = {};
   beep(520, 0.15, 0.06); beep(520, 0.15, 0.06, 0.25); beep(780, 0.3, 0.06, 0.5);
-  const alive = G.chars.filter(c => c.alive), nm = c => '<b>' + esc(c.name) + '</b>', lines = [], votes = {};
-  const fmt = (c, txt) => `<b style="color:${cqLookOf(c).col}">${esc(c.name)}</b>: ${txt}`;
+  const alive = G.chars.filter(c => c.alive), nm = c => '<b>' + esc(c.name) + '</b>', lines = [], votes = {}, firm = new Set();
   const first = body ? `Ho trovato ${nm(body)} a terra ${CQ_IN[body.room]}!` : 'Ho premuto il pulsante: dobbiamo parlare!';
   const accusers = [];
   for (const b of alive) {
     if (!b.bot || b.imp) continue;
     const k = b.saw && G.chars[b.saw.k];
-    if (k && k.alive) { lines.push([b, `Ho visto ${nm(k)} eliminare ${nm(G.chars[b.saw.v])}!`]); votes[b.id] = k.id; accusers.push(b); continue; }
+    if (k && k.alive) { lines.push([b, `Ho visto ${nm(k)} eliminare ${nm(G.chars[b.saw.v])}!`]); votes[b.id] = k.id; firm.add(b.id); accusers.push(b); continue; }
     const sus = [...b.sus].map(id => G.chars[id]).filter(c => c.alive && c !== b);
     // chi ho visto nella stanza del corpo poco prima
     const near = body ? G.chars.filter(c => c.alive && c !== b && b.seen[c.id] && b.seen[c.id].r === body.room && Math.abs(b.seen[c.id].t - body.t) < 20) : [];
-    if (sus.length && Math.random() < 0.75) { const s = sus[Math.floor(Math.random() * sus.length)]; lines.push([b, `${nm(s)} era vicino a dove è successo…`]); votes[b.id] = s.id; }
-    else if (near.length && Math.random() < 0.8) { const s = near[Math.floor(Math.random() * near.length)]; lines.push([b, `Poco prima ho visto ${nm(s)} ${CQ_IN[body.room]}.`]); votes[b.id] = s.id; }
+    if (sus.length && Math.random() < 0.75) { const s = cqPickOne(sus); lines.push([b, `${nm(s)} era vicino a dove è successo…`]); votes[b.id] = s.id; firm.add(b.id); }
+    else if (near.length && Math.random() < 0.8) { const s = cqPickOne(near); lines.push([b, `Poco prima ho visto ${nm(s)} ${CQ_IN[body.room]}.`]); votes[b.id] = s.id; }
     else {
       lines.push([b, Math.random() < 0.5 ? `Io ero ${CQ_IN[cqRoomName(b.x, b.y)]} a fare i compiti.` : 'Non ho visto niente.']);
-      const o = alive.filter(c => c !== b); votes[b.id] = Math.random() < 0.25 ? o[Math.floor(Math.random() * o.length)].id : 'skip';
+      const o = alive.filter(c => c !== b); votes[b.id] = Math.random() < 0.25 ? cqPickOne(o).id : 'skip';
     }
   }
-  const imp = G.chars.find(c => c.imp);
-  if (imp.bot && imp.alive) {
-    const acc = accusers.find(a => votes[a.id] === imp.id);
-    if (acc) { lines.push([imp, `Non sono stato io! ${nm(acc)} sta mentendo!`]); votes[imp.id] = acc.id; }
-    else {
-      const tally = {}; for (const t of Object.values(votes)) if (t !== 'skip' && t !== imp.id) tally[t] = (tally[t] || 0) + 1;
-      const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0], crew = alive.filter(c => !c.imp);
-      const t = top != null ? G.chars[top] : crew[Math.floor(Math.random() * crew.length)];
-      if (t) { lines.push([imp, `Secondo me è ${nm(t)}.`]); votes[imp.id] = t.id; } else votes[imp.id] = 'skip';
-    }
+  // i sabotatori del computer si difendono e non votano mai un complice
+  for (const imp of alive) {
+    if (!imp.bot || !imp.imp) continue;
+    const acc = accusers.find(a => G.chars[votes[a.id]] && G.chars[votes[a.id]].imp);
+    if (acc && G.chars[votes[acc.id]] === imp) { lines.push([imp, `Non sono stato io! ${nm(acc)} sta mentendo!`]); votes[imp.id] = acc.id; continue; }
+    if (acc) { votes[imp.id] = acc.id; continue; }
+    const tally = {}; for (const t of Object.values(votes)) if (t !== 'skip' && !G.chars[t].imp) tally[t] = (tally[t] || 0) + 1;
+    const top = Object.keys(tally).sort((a, b) => tally[b] - tally[a])[0], crew = alive.filter(c => !c.imp);
+    const t = top != null ? G.chars[top] : cqPickOne(crew);
+    if (t) { lines.push([imp, `Secondo me è ${nm(t)}.`]); votes[imp.id] = t.id; } else votes[imp.id] = 'skip';
   }
-  const chat = [fmt(rep, first)].concat(lines.sort(() => Math.random() - 0.5).map(([c, t]) => fmt(c, t)));
-  G.meet = { body, votes, lines: chat, timers: [], iv: 0, revealed: false, chatDone: false, myVote: undefined, sel: null, ej: null };
+  const chat = [cqFmt(rep, first)].concat(lines.sort(() => Math.random() - 0.5).map(([c, t]) => cqFmt(c, t)));
+  G.meet = { body, votes, firm, lines: chat, timers: [], iv: 0, revealed: false, chatDone: false, myVote: undefined, sel: null, ej: null };
   cqMeetUI();
 }
 function cqMeetStop() { const M = cq.g && cq.g.meet; if (M) { M.timers.forEach(clearTimeout); clearInterval(M.iv); } }
+function cqMeetLine(html) { const d = document.createElement('div'); d.innerHTML = html; $('#mtChat').appendChild(d); $('#mtChat').scrollTop = 1e6; beep(500, 0.03, 0.02); }
+// chat: scrivi quello che vuoi; chi viene nominato risponde, e i dubbiosi si lasciano convincere
+function cqMeetSay() {
+  const G = cq.g, M = G && G.meet, inp = $('#mtTxt'), text = inp.value.trim().slice(0, 120);
+  if (!M || M.revealed || !text || !G.me.alive) return;
+  inp.value = '';
+  cqMeetLine(cqFmt(G.me, esc(text)));
+  const low = text.toLowerCase(), alive = G.chars.filter(c => c.alive), bots = alive.filter(c => c.bot);
+  const later = (ms, fn) => M.timers.push(setTimeout(() => { if (!M.revealed) fn(); }, ms));
+  const named = bots.filter(c => low.includes(c.name.toLowerCase()));
+  if (named.length) {
+    const t = named[0], room = CQ_IN[cqRoomName(t.x, t.y)], other = cqPickOne(alive.filter(c => c !== t && c !== G.me)) || G.me;
+    later(1200, () => cqMeetLine(cqFmt(t, cqPickOne(t.imp
+      ? [`Ma figurati! Io ero ${CQ_IN[cqPickOne(CQ_ROOMS).n]}.`, 'Non sono stato io, lo giuro!', `Perché proprio io? Guardate ${esc(other.name)}!`]
+      : [`Io? Ero ${room} a fare i compiti!`, 'Non sono stato io!', `Chiedetelo a ${esc(other.name)}, mi ha visto.`]))));
+    const wit = bots.find(w => !w.imp && w.saw && w.saw.k === t.id);
+    if (wit) later(2300, () => cqMeetLine(cqFmt(wit, 'Confermo, l\'ho visto io!')));
+    // chi non aveva idee chiare si lascia convincere
+    for (const b of bots) {
+      if (b === t) continue;
+      if (b.imp) { if (!t.imp && Math.random() < 0.7) M.votes[b.id] = t.id; continue; }
+      if (!M.firm.has(b.id) && Math.random() < 0.4) M.votes[b.id] = t.id;
+    }
+    const agree = bots.find(b => b !== t && M.votes[b.id] === t.id && b !== wit);
+    if (agree) later(2900, () => cqMeetLine(cqFmt(agree, cqPickOne(['Sono d\'accordo.', `Anche secondo me è ${esc(t.name)}.`, 'Hmm, potrebbe essere…']))));
+  } else if (/salt|non so|boh/.test(low)) {
+    for (const b of bots) if (!M.firm.has(b.id) && !b.imp && Math.random() < 0.4) M.votes[b.id] = 'skip';
+    const b = cqPickOne(bots); if (b) later(1300, () => cqMeetLine(cqFmt(b, cqPickOne(['Sì, meglio saltare.', 'Non abbiamo prove.', 'Ok, saltiamo.']))));
+  } else if (/\?|dove|chi /.test(low)) {
+    const b = cqPickOne(bots); if (b) later(1300, () => cqMeetLine(cqFmt(b, cqPickOne([`Io ero ${CQ_IN[cqRoomName(b.x, b.y)]}.`, 'Non ho visto niente di strano.', 'Io stavo facendo i compiti.']))));
+  } else if (Math.random() < 0.5) {
+    const b = cqPickOne(bots); if (b) later(1300, () => cqMeetLine(cqFmt(b, cqPickOne(['Hmm…', 'Interessante.', 'Chi ha visto qualcosa?', 'Dobbiamo stare attenti.']))));
+  }
+}
 function cqMeetUI() {
   const G = cq.g, M = G.meet, me = G.me;
   $('#mtTitle').textContent = M.body ? 'Corpo trovato!' : 'Riunione d\'emergenza!';
   $('#mtChat').innerHTML = '';
-  $('#mtRes').textContent = me.alive ? 'Tocca chi vuoi espellere e premi Vota, oppure Salta.' : 'Sei un fantasma: guardi la votazione.';
-  $('#mtGrid').innerHTML = G.chars.map(c => `<button type="button" class="mc${c.alive ? '' : ' dead'}" data-id="${c.id}"><canvas width="72" height="72"></canvas><span class="nm">${esc(c.name)}${c === me ? ' (tu)' : ''}</span><span class="vv">${c.alive ? '' : 'eliminato'}</span></button>`).join('');
+  $('#mtRes').textContent = me.alive ? 'Scrivi nella chat, poi tocca chi vuoi espellere e premi Vota, oppure Salta.' : 'Sei un fantasma: guardi la votazione.';
+  const red = c => me.imp && c.imp && c !== me;
+  $('#mtGrid').innerHTML = G.chars.map(c => `<button type="button" class="mc${c.alive ? '' : ' dead'}" data-id="${c.id}"><canvas width="72" height="72"></canvas><span class="nm"${red(c) ? ' style="color:#ff6a5a"' : ''}>${esc(c.name)}${c === me ? ' (tu)' : ''}</span><span class="vv">${c.alive ? '' : 'eliminato'}</span></button>`).join('');
   $('#mtGrid').querySelectorAll('canvas').forEach((cv, i) => { const g = cv.getContext('2d'); g.setTransform(2, 0, 0, 2, 0, 0); cqPlayer(g, 18, 34, 17, cqLookOf(G.chars[i]), 0, 1); });
   $('#mtGrid').onclick = e => {
     const b = e.target.closest('.mc'); if (!b || M.revealed || M.myVote !== undefined || !me.alive) return;
@@ -2049,11 +2135,14 @@ function cqMeetUI() {
   $('#mtVote').textContent = 'Vota'; $('#mtVote').disabled = true; $('#mtSkip').hidden = !me.alive;
   $('#mtVote').onclick = () => { if (M.revealed) { cqMeetEnd(); return; } if (M.sel == null) return; M.myVote = M.sel; cqMeetMaybeReveal(); };
   $('#mtSkip').onclick = () => { if (M.revealed || M.myVote !== undefined) return; M.myVote = 'skip'; cqMeetMaybeReveal(); };
+  $('#mtIn').hidden = !me.alive; $('#mtTxt').value = '';
+  $('#mtSend').onclick = cqMeetSay;
+  $('#mtTxt').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); cqMeetSay(); } };
   M.lines.forEach((l, i) => M.timers.push(setTimeout(() => {
-    const d = document.createElement('div'); d.innerHTML = l; $('#mtChat').appendChild(d); $('#mtChat').scrollTop = 1e6; beep(500, 0.03, 0.02);
+    cqMeetLine(l);
     if (i === M.lines.length - 1) { M.chatDone = true; cqMeetMaybeReveal(); }
   }, 500 + i * 1100)));
-  let t = 45; $('#mtTime').textContent = t + ' s';
+  let t = 60; $('#mtTime').textContent = t + ' s';
   M.iv = setInterval(() => { t--; $('#mtTime').textContent = Math.max(0, t) + ' s'; if (t <= 0) { if (M.myVote === undefined) M.myVote = 'skip'; M.chatDone = true; cqMeetMaybeReveal(); } }, 1000);
   $('#cqMeet').hidden = false;
 }
@@ -2062,7 +2151,7 @@ function cqMeetMaybeReveal() {
   if (G.me.alive && M.myVote === undefined) return;
   if (!M.chatDone) { $('#mtRes').textContent = 'Voto dato. Aspettiamo che tutti abbiano parlato…'; return; }
   if (!G.me.alive && !M.wait) { M.wait = 1; M.timers.push(setTimeout(() => cqMeetMaybeReveal(), 2500)); return; }
-  M.revealed = true; clearInterval(M.iv); $('#mtTime').textContent = '';
+  M.revealed = true; clearInterval(M.iv); $('#mtTime').textContent = ''; $('#mtIn').hidden = true;
   const votes = Object.assign({}, M.votes); if (G.me.alive) votes[0] = M.myVote;
   const cnt = {}; let skip = 0;
   for (const [vid, t] of Object.entries(votes)) { if (!G.chars[vid].alive) continue; if (t === 'skip') skip++; else cnt[t] = (cnt[t] || 0) + 1; }
@@ -2074,9 +2163,10 @@ function cqMeetMaybeReveal() {
   for (const [id, n] of Object.entries(cnt)) { if (n > max) { max = n; top = +id; tie = false; } else if (n === max) tie = true; }
   const ej = !tie && max > skip ? G.chars[top] : null;
   M.ej = ej;
-  $('#mtRes').innerHTML = (skip ? 'Hanno saltato in ' + skip + '. ' : '') + (ej ? `<b>${esc(ej.name)}</b> è stato espulso. ${ej.imp ? 'Era il sabotatore!' : 'Non era il sabotatore.'}` : 'Nessuno è stato espulso.');
-  $('#mtVote').textContent = 'Continua'; $('#mtVote').disabled = false; $('#mtSkip').hidden = true;
   if (ej) ej.alive = false;
+  const left = G.chars.filter(c => c.imp && c.alive).length, many = G.chars.filter(c => c.imp).length > 1;
+  $('#mtRes').innerHTML = (skip ? 'Hanno saltato in ' + skip + '. ' : '') + (ej ? `<b>${esc(ej.name)}</b> è stato espulso. ${ej.imp ? (many ? 'Era un sabotatore!' + (left ? ' Ne ' + (left > 1 ? 'restano ancora ' + left : 'resta ancora uno') + '.' : '') : 'Era il sabotatore!') : (many ? 'Non era un sabotatore.' : 'Non era il sabotatore.')}` : 'Nessuno è stato espulso.');
+  $('#mtVote').textContent = 'Continua'; $('#mtVote').disabled = false; $('#mtSkip').hidden = true;
   beep(ej ? 300 : 500, 0.25, 0.05);
 }
 function cqMeetEnd() {
@@ -2086,11 +2176,11 @@ function cqMeetEnd() {
   for (const c of G.chars) {
     Object.assign(c, { path: [], goal: null, wait: 0, doing: null, hunt: null, saw: null, sus: new Set(), seen: {} });
     const [x, y] = CQ_RING[i++ % CQ_RING.length]; c.x = x + 0.5; c.y = y + 0.5;
-    if (c.imp) c.kcd = 20;
+    if (c.imp) c.kcd = G.opt.kcd * 0.8;
   }
   cq.x = G.me.x; cq.y = G.me.y; G.sabCd = 25; G.phase = 'play'; cq.actKey = ''; cqHud();
-  if (ej && ej.imp) { cqEnd('troupe', ej === G.me ? 'Ti hanno scoperto ed espulso!' : `<b>${esc(ej.name)}</b> era il sabotatore ed è stato espulso.`); return; }
-  if (ej === G.me) cqPanel('Sei stato espulso', '<p class="lead">Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua');
+  if (ej === G.me && !G.me.imp) cqPanel('Sei stato espulso', '<p class="lead">Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua');
+  else if (ej === G.me && G.chars.some(c => c.imp && c.alive)) cqPanel('Ti hanno scoperto!', '<p class="lead">Sei stato espulso, ma i tuoi complici continuano a sabotare. Guarda come va a finire.</p>', 'Continua');
   cqCheckWin();
 }
 // mini-giochi: ognuno disegna il suo contenuto e chiama ok() quando e' finito
@@ -2221,8 +2311,8 @@ function cqInit() {
   $('#tkClose').onclick = cqCloseTask;
   $('#cqKill').onclick = cqMyKill;
   $('#cqSabBtn').onclick = cqSabMenu;
-  window.addEventListener('keydown', e => { if (cq.on && (e.key === 'q' || e.key === 'Q')) cqMyKill(); });
-  window.addEventListener('keydown', e => { if (cq.on && (e.key === 'e' || e.key === 'E' || e.key === ' ')) { e.preventDefault(); cqUse(); } });
+  window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'q' || e.key === 'Q')) cqMyKill(); });
+  window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'e' || e.key === 'E' || e.key === ' ')) { e.preventDefault(); cqUse(); } });
 }
 // direzione sullo schermo (sx, sy) -> direzione nel mondo isometrico (la tessera e' larga il doppio dell'altezza)
 function cqDir() {
@@ -2232,7 +2322,7 @@ function cqDir() {
   else { sx = ((k.arrowright || k.d) ? 1 : 0) - ((k.arrowleft || k.a) ? 1 : 0); sy = ((k.arrowdown || k.s) ? 1 : 0) - ((k.arrowup || k.w) ? 1 : 0); }
   if (!sx && !sy) return null;
   const wx = sx + 2 * sy, wy = 2 * sy - sx, m = Math.hypot(wx, wy);
-  return { wx: wx / m, wy: wy / m, sx };
+  return { wx: wx / m, wy: wy / m, sx, sy };
 }
 function cqFrame(t) {
   if (!cq.on) return;
@@ -2244,6 +2334,7 @@ function cqFrame(t) {
     if (cqFree(nx, cq.y)) cq.x = nx;
     if (cqFree(cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
+    cq.lx = d.wx - d.wy; cq.ly = (d.wx + d.wy) / 2;   // dove guardo, sullo schermo
     cq.walk += dt * 11;
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
@@ -2401,12 +2492,21 @@ function cqDraw() {
   // personaggi e corpi a terra (con le luci spente si vede solo vicino a se')
   const G = cq.g, meLook = cqLook(), list = [];
   const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && G.phase === 'play');
-  const seen = (x, y) => !dark || Math.hypot(x - cq.x, y - cq.y) < 3.3;
+  const torch = dark && G.opt.torch, la = Math.atan2(cq.ly || 0.5, cq.lx || 1);
+  // al buio si vede solo vicino a se', oppure nel fascio della torcia
+  const seen = (x, y) => {
+    if (!dark) return true;
+    if (!torch) return Math.hypot(x - cq.x, y - cq.y) < 3.3;
+    const sx = px(x, y) - X, sy = py(x, y) - Y, d = Math.hypot(sx, sy) / TW;
+    if (d < 1.4) return true;
+    if (d > 5.6) return false;
+    let a = Math.atan2(sy, sx) - la; a = Math.atan2(Math.sin(a), Math.cos(a)); return Math.abs(a) < 0.55;
+  };
   if (G) {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face });
     for (const ch of G.chars) {
       if (ch === G.me) list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (ch.alive ? '' : ' (fantasma)') });
-      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name });
+      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, red: G.me.imp && ch.imp });
     }
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
   for (const o of list) {
@@ -2418,11 +2518,22 @@ function cqDraw() {
   const T = cqTools(g, TW);
   if (B.none) cqRedraw(g, T, [0, 0, W, H], tx, ty, TW, list, Math.ceil((W / TW + H / TH) / 2) + 8);   // modo 2: tutto lo schermo da capo
   else for (const o of list) if (o.on) cqRedraw(g, T, o.r, tx, ty, TW, list);
-  if (dark) {
+  if (dark && torch) {
+    // buio con il fascio della torcia: due strati, il secondo un po' piu' largo fa la penombra
+    const cx = tx + X, cy = ty + Y - TH;
+    const hole = (k, o) => {
+      const r1 = 1.35 * TW * k, R = 5.6 * TW * k, w = 0.5 * k;
+      g.beginPath(); g.rect(-20, -20, W + 40, H + 40);
+      g.moveTo(cx + Math.cos(la + w) * r1, cy + Math.sin(la + w) * r1); g.arc(cx, cy, r1, la + w, la - w + Math.PI * 2);
+      g.lineTo(cx + Math.cos(la - w) * R, cy + Math.sin(la - w) * R); g.arc(cx, cy, R, la - w, la + w); g.closePath();
+      g.fillStyle = 'rgba(5,6,8,' + o + ')'; g.fill('evenodd');
+    };
+    hole(1, 0.55); hole(1.15, 0.85);
+  } else if (dark) {
     const gr = g.createRadialGradient(tx + X, ty + Y - TH, TW * 1.5, tx + X, ty + Y - TH, TW * 2.7);
     gr.addColorStop(0, 'rgba(5,6,8,0)'); gr.addColorStop(1, 'rgba(5,6,8,.94)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   }
-  for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * (o.L.skin === 'omino' && o.L.hat === 'cilindro' ? 2.2 : 1.85), o.name);
+  for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : '#fff');
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
   const mark = (x, y, col) => {
@@ -2475,41 +2586,110 @@ function cqBody(g, X, Y, TW, L, f) {
   g.save(); g.translate(X - f * 26 * u, Y - 8 * u); g.rotate(f * Math.PI / 2); cqPlayer(g, 0, 0, TW, L, 0, f, true); g.restore();
   g.fillStyle = '#f2c230'; for (const [dx, dy] of [[-8, -26], [4, -32], [14, -24]]) { g.beginPath(); g.arc(X + dx * u, Y + dy * u, 2.4 * u, 0, 7); g.fill(); }
 }
-function cqName(g, X, Y, name) {
+function cqName(g, X, Y, name, col) {
   if (!name) return;
   g.font = '600 13px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
-  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.65)'; g.strokeText(name, X, Y); g.fillStyle = '#fff'; g.fillText(name, X, Y);
+  g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.65)'; g.strokeText(name, X, Y); g.fillStyle = col || '#fff'; g.fillText(name, X, Y);
 }
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
+// altezza del nome sopra la testa (in larghezze di tessera), secondo il personaggio
+const cqTop = L => L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' ? 2.0 : 1.9;
 function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
   const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, sw = Math.sin(walk) * 4;
   if (!noShadow) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill(); }
   g.save(); g.translate(X, Y - bob); g.scale(u, u);
-  const rac = L.skin === 'procione', col = rac ? '#8a8f99' : L.col;
   const ell = (x, y, rx, ry, c, rot) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, rot || 0, 0, 7); g.fill(); };
-  // coda ad anelli (procione), dietro a tutto
-  if (rac) for (let i = 3; i >= 0; i--) ell(-f * (15 + i * 4.5), -9 - i * 1.5, 5.5, 4.5, i % 2 ? '#a8adb6' : '#2f333b', -f * 0.3);
-  // zaino, dalla parte della schiena
-  g.fillStyle = rac ? '#8a4fd0' : cqShade(col, 0.78); cqRR(g, f > 0 ? -20 : 10, -31, 10, 22, 4); g.fill();
-  if (rac) { g.fillStyle = '#6a3aa8'; cqRR(g, f > 0 ? -20 : 10, -22, 10, 5, 2); g.fill(); }
-  // piedi
-  ell(-6 + sw, -1, 6, 3.5, rac ? '#3a3f49' : '#2a2e35'); ell(6 - sw, -1, 6, 3.5, rac ? '#3a3f49' : '#2a2e35');
-  // corpo
-  g.fillStyle = col; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill();
-  if (rac) {
-    // orecchie, pancia chiara, muso con la mascherina
-    for (const s of [-1, 1]) { g.fillStyle = '#6b707a'; g.beginPath(); g.moveTo(s * 12, -33); g.lineTo(s * 11, -46); g.lineTo(s * 4, -38); g.fill(); g.fillStyle = '#d5d8de'; g.beginPath(); g.moveTo(s * 10.5, -36); g.lineTo(s * 10, -43); g.lineTo(s * 6, -38.5); g.fill(); }
-    ell(4 * f, -13, 7, 9, '#c9ccd4');
-    ell(4 * f, -27, 10.5, 8.5, '#e3e5ea');
-    ell(4 * f, -29, 10, 4.2, '#2a2e35');
-    for (const dx of [-3.8, 3.8]) { ell(4 * f + dx, -29.5, 2.4, 2.4, '#fff'); ell(4 * f + dx + f * 0.6, -29.3, 1.2, 1.2, '#111'); }
-    ell(9 * f, -22.5, 5, 3.4, '#f2f3f5'); ell(13 * f, -23.3, 2, 1.6, '#111');
+  const bean = c => { g.fillStyle = c; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill(); };
+  const side = () => { g.fillStyle = 'rgba(0,0,0,.13)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill(); };
+  const feet = c => { ell(-6 + sw, -1, 6, 3.5, c); ell(6 + -sw, -1, 6, 3.5, c); };
+  const tri = (pts, c) => { g.fillStyle = c; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fill(); };
+  const line = (x0, y0, x1, y1, c, w) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x1, y1); g.stroke(); };
+  const s = L.skin;
+  if (s === 'gatto') {
+    // gatto rosso con il lanciarazzi in spalla
+    g.strokeStyle = '#c9702a'; g.lineWidth = 5; g.lineCap = 'round'; g.beginPath(); g.moveTo(-f * 10, -8); g.quadraticCurveTo(-f * 27, -6 + sw * 0.5, -f * 22, -25); g.stroke();
+    ell(-f * 22, -25, 3, 3, '#8a4a1a');
+    feet('#c9702a'); bean('#e08a3a');
+    g.strokeStyle = '#b8661f'; g.lineWidth = 2.4; for (const y of [-30, -22, -14]) { g.beginPath(); g.moveTo(-f * 13, y); g.quadraticCurveTo(-f * 8, y + 2, -f * 4, y); g.stroke(); }
+    ell(4 * f, -13, 7, 9, '#f5d0a0');
+    for (const k of [-1, 1]) { tri([[k * 12, -33], [k * 10, -48], [k * 3, -38]], '#e08a3a'); tri([[k * 10.5, -36], [k * 9.5, -44], [k * 5, -38.5]], '#f2a0a8'); }
+    for (const dx of [-4, 4]) { ell(4 * f + dx, -29, 2.6, 3, '#9ad04a'); ell(4 * f + dx, -29, 0.8, 2.6, '#111'); }
+    tri([[9 * f, -24], [11.5 * f, -24], [10.2 * f, -22]], '#e86a8a');
+    line(11 * f, -22.5, 18 * f, -24, '#fff', 0.7); line(11 * f, -21.5, 18 * f, -21, '#fff', 0.7);
+    side();
+    // lanciarazzi
+    g.save(); g.translate(0, -37); g.rotate(-f * 0.12);
+    g.fillStyle = '#4f5f3a'; cqRR(g, -19, -4, 38, 8, 3); g.fill();
+    g.fillStyle = '#3a4528'; g.fillRect(f > 0 ? -22 : 19, -5, 3, 10);
+    g.fillStyle = '#2a2e35'; g.fillRect(f * 4 - 1.5, 3, 3, 7); g.fillRect(-f * 2 - 3, -7, 6, 3);
+    ell(f * 22, 0, 5, 5.5, '#7a8a4a'); tri([[f * 25, -4], [f * 32, 0], [f * 25, 4]], '#c0392b');
+    g.restore();
+  } else if (s === 'regista') {
+    // regista francese: maglia a righe, sciarpa rossa, basco, baffi e cinepresa in spalla
+    g.fillStyle = '#2a2e35'; cqRR(g, -24, -44, 48, 11, 2); g.fill();
+    ell(-f * 14, -48, 5.5, 5.5, '#c9ccd4'); ell(-f * 14, -48, 1.8, 1.8, '#555'); ell(-f * 3, -48, 5.5, 5.5, '#c9ccd4'); ell(-f * 3, -48, 1.8, 1.8, '#555');
+    g.fillStyle = '#15171b'; g.fillRect(f > 0 ? 24 : -30, -42, 6, 7);
+    feet('#2a2e35');
+    g.save(); g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.clip();
+    g.fillStyle = '#f2f2f2'; g.fillRect(-14, -41, 28, 44); g.fillStyle = '#24346a'; for (let y = -22; y < 2; y += 6) g.fillRect(-14, y, 28, 3);
+    g.restore();
+    ell(4 * f, -30, 9.5, 8, '#f0c8a0');
+    ell(1.5 * f, -32.5, 1.2, 1.4, '#222'); ell(7 * f, -32.5, 1.2, 1.4, '#222');
+    ell(1.5 * f, -27.5, 4, 1.8, '#1a1a1a', 0.2 * f); ell(7.5 * f, -27.5, 4, 1.8, '#1a1a1a', -0.2 * f); ell(-2.3 * f, -28.8, 1.5, 1.5, '#1a1a1a'); ell(11.3 * f, -28.8, 1.5, 1.5, '#1a1a1a');
+    ell(0, -21, 13, 3, '#d0383a'); ell(-f * 7, -16, 3, 5.5, '#d0383a', f * 0.2);
+    side();
+    ell(f * 1, -40, 14, 5, '#1d1f24', -f * 0.15); ell(0, -43, 10, 4.5, '#2a2d34', -f * 0.15); g.fillStyle = '#1d1f24'; g.fillRect(-1, -49, 2, 4);
+  } else if (s === 'guardia') {
+    // guardia notturna un po' brilla: dondola sempre
+    g.rotate(Math.sin(performance.now() / 420) * 0.07 + Math.sin(walk * 0.5) * 0.05);
+    feet('#1d2026'); bean('#4a5f8a');
+    g.fillStyle = '#2a2e35'; g.fillRect(-13, -12, 26, 3); g.fillStyle = '#c9a227'; g.fillRect(f * 2 - 2, -12.5, 4, 4);
+    tri([[f * 6, -22], [f * 7.2, -19.5], [f * 9.8, -19.3], [f * 7.8, -17.6], [f * 8.5, -15], [f * 6, -16.5], [f * 3.5, -15], [f * 4.2, -17.6], [f * 2.2, -19.3], [f * 4.8, -19.5]], '#f2c230');
+    ell(4 * f, -29, 9.5, 7.5, '#f0c8a0'); ell(1 * f, -26, 2.5, 1.6, 'rgba(230,90,90,.45)'); ell(10 * f, -26, 2.5, 1.6, 'rgba(230,90,90,.45)');
+    line(0.5 * f, -31, 3.5 * f, -31, '#222', 1.3); line(6 * f, -31, 9 * f, -31, '#222', 1.3);
+    ell(8 * f, -27, 3, 2.6, '#e0453a'); line(3 * f, -23.5, 7 * f, -24, '#7a3a2a', 1);
+    side();
+    ell(0, -40, 13, 6, '#1d2a4a'); g.fillStyle = '#2a3a6a'; g.fillRect(-12, -41, 24, 4); ell(f * 8, -37.5, 8, 2.5, '#111'); ell(0, -43, 1.8, 1.8, '#f2c230');
+    g.save(); g.translate(f * 15, -14); g.rotate(f * 0.45);
+    g.fillStyle = '#2f8a3a'; cqRR(g, -3.2, -10, 6.4, 14, 2); g.fill(); g.fillRect(-1.4, -15, 2.8, 6); g.fillStyle = '#c0392b'; g.fillRect(-1.6, -16.5, 3.2, 2); g.fillStyle = '#efe7dd'; g.fillRect(-3.2, -6, 6.4, 4);
+    g.restore();
+  } else if (s === 'tonno') {
+    // tonno spadaccino con il fioretto
+    tri([[-1, -7], [-12, 1 + sw * 0.3], [-6, -9]], '#2a4a7a'); tri([[1, -7], [12, 1 - sw * 0.3], [6, -9]], '#2a4a7a');
+    tri([[-f * 3, -42], [-f * 13, -51], [-f * 12, -36]], '#2a4a7a');
+    ell(0, -24, 13.5, 19.5, '#2f5a8a'); ell(4 * f, -19, 8.5, 14, '#cfd8e0');
+    for (const y of [-34, -26, -18, -10]) tri([[-f * 12, y], [-f * 17, y + 2], [-f * 12, y + 4]], '#f2c230');
+    ell(6 * f, -33, 3.8, 3.8, '#fff'); ell(7 * f, -33, 1.9, 1.9, '#111');
+    line(12.5 * f, -27, 8.5 * f, -25.5, '#1d2a3a', 1.2);
+    g.strokeStyle = '#24476e'; g.lineWidth = 1.2; g.beginPath(); g.arc(2 * f, -27, 6, f > 0 ? -0.4 : Math.PI - 1.2, f > 0 ? 1.2 : Math.PI + 0.4); g.stroke();
+    side();
+    line(10 * f, -16, 36 * f, -42, '#e3e7ec', 1.4); ell(36 * f, -42, 1.2, 1.2, '#e3e7ec');
+    ell(11 * f, -17, 3.4, 3.4, '#b8bec8'); line(8 * f, -14, 10 * f, -16, '#2a2e35', 2.4);
+    ell(7 * f, -15.5, 5, 2.4, '#2a4a7a', f * 0.6);
   } else {
-    ell(4 * f, -28, 8.5, 6, '#bfe3f2'); ell(6.5 * f, -30, 3, 1.8, 'rgba(255,255,255,.7)');
+    const rac = s === 'procione', col = rac ? '#8a8f99' : L.col;
+    // coda ad anelli (procione), dietro a tutto
+    if (rac) for (let i = 3; i >= 0; i--) ell(-f * (15 + i * 4.5), -9 - i * 1.5, 5.5, 4.5, i % 2 ? '#a8adb6' : '#2f333b', -f * 0.3);
+    // zaino, dalla parte della schiena
+    g.fillStyle = rac ? '#8a4fd0' : cqShade(col, 0.78); cqRR(g, f > 0 ? -20 : 10, -31, 10, 22, 4); g.fill();
+    if (rac) { g.fillStyle = '#6a3aa8'; cqRR(g, f > 0 ? -20 : 10, -22, 10, 5, 2); g.fill(); }
+    feet(rac ? '#3a3f49' : '#2a2e35');
+    bean(col);
+    if (rac) {
+      // orecchie, pancia chiara, muso con la mascherina
+      for (const k of [-1, 1]) { tri([[k * 12, -33], [k * 11, -46], [k * 4, -38]], '#6b707a'); tri([[k * 10.5, -36], [k * 10, -43], [k * 6, -38.5]], '#d5d8de'); }
+      ell(4 * f, -13, 7, 9, '#c9ccd4');
+      ell(4 * f, -27, 10.5, 8.5, '#e3e5ea');
+      ell(4 * f, -29, 10, 4.2, '#2a2e35');
+      for (const dx of [-3.8, 3.8]) { ell(4 * f + dx, -29.5, 2.4, 2.4, '#fff'); ell(4 * f + dx + f * 0.6, -29.3, 1.2, 1.2, '#111'); }
+      ell(9 * f, -22.5, 5, 3.4, '#f2f3f5'); ell(13 * f, -23.3, 2, 1.6, '#111');
+    } else {
+      ell(4 * f, -28, 8.5, 6, '#bfe3f2'); ell(6.5 * f, -30, 3, 1.8, 'rgba(255,255,255,.7)');
+    }
+    side();
+    cqHat(g, rac ? 'borsalino' : L.hat, f, rac);
   }
-  g.fillStyle = 'rgba(0,0,0,.13)'; g.beginPath(); g.moveTo(13, -4); g.lineTo(13, -26); g.quadraticCurveTo(13, -40, 0, -40); g.quadraticCurveTo(9, -34, 9, -22); g.lineTo(9, -3); g.quadraticCurveTo(11, -3, 13, -4); g.fill();
-  cqHat(g, rac ? 'borsalino' : L.hat, f, rac);
   g.restore();
 }
 function cqHat(g, h, f, black) {
