@@ -171,6 +171,10 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .cqBar{display:flex;align-items:center;gap:8px;width:100%;max-width:420px;background:rgba(20,22,26,.72);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:600}
 .cqBar div{flex:1;height:10px;background:rgba(255,255,255,.18);border-radius:5px;overflow:hidden}
 .cqBar i{display:block;height:100%;width:0;background:#2fa35a;transition:width .4s}
+.cqSurv{display:flex;align-items:center;gap:6px;width:100%;max-width:420px;background:rgba(20,22,26,.72);color:#fff;border-radius:10px;padding:5px 10px;font-size:12px;font-weight:600;white-space:nowrap}
+.cqSurv[hidden]{display:none}
+.cqSurv .sb{flex:1;min-width:30px;height:8px;background:rgba(255,255,255,.18);border-radius:4px;overflow:hidden}
+.cqSurv .sb i{display:block;height:100%}
 .cqList{background:rgba(20,22,26,.72);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;line-height:1.55}
 .cqList .ok{color:#7be0a0;text-decoration:line-through}
 .cqList .near{color:#f2c230}
@@ -322,7 +326,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     <p class="hint" id="pkRac" style="text-align:center"></p>
     <button class="btn primary go" id="pkGo" type="button">Entra sul set</button>
   </div></div>
-  <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqList" id="cqList"></div></div>
+  <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqSurv" id="cqSurv" hidden></div><div class="cqList" id="cqList"></div></div>
   <button class="btn" id="cqMapBtn" type="button">Mappa</button>
   <button id="cqUse" type="button">Usa</button>
   <div id="cqCams" hidden><div class="pk"><div class="tk-h"><b>Telecamere di sorveglianza</b><button class="btn" id="camClose" type="button">Chiudi</button></div>
@@ -1664,6 +1668,7 @@ const CQ_SPEED = 3.4, CQ_R = 0.3;
 // ---- mappe: ogni mappa e' un "pacchetto" (misure, stanze, porte, tappeti, oggetti, compiti, sabotaggi, telecamere,
 // posti di partenza, pulsante delle riunioni, distributori). La mappa in uso sta in queste variabili, riempite da cqUseMap(id).
 let CQ_W, CQ_H, CQ_ROOMS, CQ_DOORS, CQ_DECALS, CQ_PROPS, CQ_TASKS, CQ_CAMS, CQ_VENDING, CQ_RING, CQ_BUTTON, CQ_SABS, CQ_IN, CQ_HELP, CQ_HALL;
+let CQ_MAP, CQ_CAMDESK;   // il pacchetto intero (per le cose che hanno solo alcune mappe) e le scrivanie delle telecamere
 let cqFloor, cqSolid, cqRoomOf;
 // mappa "Studio": lo studio cinematografico
 function cqMapStudio() {
@@ -1772,25 +1777,119 @@ function cqMapStudio() {
     vending: [[57, 9], [42, 43]],   // distributori: Mensa e Sala regia
     ring: [[20, 16], [21, 16], [23, 16], [24, 16], [20, 18], [21, 18], [23, 18], [24, 18], [22, 15], [22, 19]],   // posti di partenza, intorno al pulsante delle riunioni
     button: { x: 22, y: 17 },
-    sabs: { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45 } },
+    sabs: { luci: { x: 33, y: 15, where: 'quadro elettrico (Corridoio)', lab: 'Spegni le luci' }, allarme: { x: 31, y: 22, where: 'proiettore (Proiezione)', time: 45, lab: 'Fai scattare l\'allarme' } },
     inn: { Palco: 'sul Palco', Camerini: 'nei Camerini', Trucco: 'al Trucco', Corridoio: 'nel Corridoio', Montaggio: 'al Montaggio', Magazzino: 'in Magazzino', Proiezione: 'in Proiezione', Mensa: 'in Mensa', 'Effetti speciali': 'agli Effetti speciali', 'Set western': 'sul Set western', 'Sala regia': 'in Sala regia', Parcheggio: 'al Parcheggio' },
+    btnTxt: 'Il pulsante rosso nel corridoio chiama una riunione (una volta sola).',
+    sabTxt: 'Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme.',
     help: '<p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>distributore</b> è in Mensa e in Sala regia.</p>' };
 }
-// mappe da scegliere nella stanza d'attesa (soon = non ancora pronta)
-const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', soon: true } };
-const cqMapIds = () => Object.keys(CQ_MAPS).filter(k => !CQ_MAPS[k].soon);
+// mappa "Notte nel bosco": accampamento con il falo', ruscello con due ponti, radura del set, grotta, furgoni della troupe e bosco fitto.
+// Oltre alle riprese bisogna sopravvivere (surv): fame, freddo, fuoco, notti. Gli alberi si piazzano con un seme fisso: la mappa e' uguale per tutti.
+function cqMapBosco() {
+  const W = 62, H = 50, WOOD = ['#9a7a52', '#8f7049'];
+  // nl = niente scritta sul pavimento; lx, ly = dove va la scritta
+  const rooms = [
+    { n: 'Bosco fitto', x: 0, y: 0, w: W, h: H, c: ['#4f7a3a', '#4a7336'], wc: '#6a6762', k: 'grass', lx: 7, ly: 26 },
+    { n: 'Ruscello', x: 42, y: 0, w: 8, h: H, c: ['#b9a97c', '#b1a174'], wc: '#6a6762', k: 'sand', nl: 1 },
+    { n: 'Accampamento', x: 23, y: 17, w: 15, h: 14, c: ['#8a6a48', '#826444'], wc: '#6a6762', k: 'dirt' },
+    { n: 'Radura del set', x: 50, y: 3, w: 11, h: 22, c: ['#7aa04a', '#749a46'], wc: '#6a6762', k: 'meadow' },
+    { n: 'Grotta', x: 51, y: 32, w: 9, h: 13, c: ['#5c5854', '#56524e'], wc: '#57534f', k: 'stone' },
+    { n: 'Furgoni', x: 3, y: 3, w: 14, h: 11, c: ['#7a6a52', '#74644c'], wc: '#6a6762', k: 'dirt' },
+    { n: 'Ponte', x: 45, y: 14, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1 },
+    { n: 'Ponte', x: 45, y: 33, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1 }];
+  // buchi senza pavimento: diventano le pareti di roccia della grotta (ingresso a ovest, x 50, y 37-39)
+  const holes = [[50, 31, 11, 1], [50, 45, 11, 1], [50, 32, 1, 5], [50, 40, 1, 5], [60, 32, 1, 13]];
+  // sentieri di terra battuta
+  const paths = [[16, 8, 9, 2], [23, 8, 2, 9], [32, 14, 13, 2], [32, 14, 2, 3], [47, 14, 3, 2], [30, 31, 2, 3], [30, 33, 15, 2], [47, 33, 2, 6], [49, 37, 2, 3], [12, 30, 11, 2], [12, 30, 2, 12]];
+  const decals = [];
+  paths.forEach(([x, y, w, h]) => decals.push([x, y, w, h, '#7d6347']));
+  paths.forEach(([x, y, w, h]) => decals.push([x + 0.15, y + 0.15, w - 0.3, h - 0.3, '#86694b']));
+  decals.push([27, 21, 7, 7, '#7a5c3e'], [28, 22, 5, 5, '#6e5236']);   // terra battuta intorno al falo'
+  const props = [], pp = (t, x, y, o) => props.push([t, x, y, o]), prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
+  // Accampamento
+  pp('campfire', 30, 24); pp('bell', 30, 19);
+  pp('tent', 25, 20, '#d9822b'); pp('tent', 25, 24, '#3b8a6a'); pp('tent', 35, 20, '#3b6fe0'); pp('tent', 35, 24, '#c0392b');
+  pp('generator', 37, 18); pp('stove', 24, 29); pp('pot', 36, 27); pp('monitor', 33, 29); pp('dchair', 33, 30, ['#8a96a8', 's']);
+  pp('chest', 27, 17); pp('sack', 28, 17); pp('crate', 36, 30); pp('crate', 37, 30); pp('stump', 27, 26); pp('stump', 33, 22); pp('lantern', 23, 23); pp('lantern', 37, 23);
+  // Furgoni
+  prow('truck', 5, 4, 5, 0, 1); prow('truck', 6, 4, 4, 0, 1); pp('cab', 6, 8); prow('truck', 10, 4, 5, 0, 1); prow('truck', 11, 4, 4, 0, 1); pp('cab', 11, 8);
+  pp('reel', 14, 5); pp('rack', 14, 11); pp('rack', 15, 11); pp('barrel', 8, 12, '#c0392b'); pp('crate', 4, 12); pp('crate', 5, 12); pp('sack', 16, 4); pp('table', 13, 8); pp('dchair', 13, 9, '#d9c9a0'); pp('cone', 9, 10); pp('cone', 3, 3);
+  // Radura del set
+  pp('camera', 54, 10); pp('lamp', 52, 6); pp('lamp', 58, 6); pp('lamp', 59, 14); pp('boom', 57, 11); pp('clapper', 55, 15); pp('dchair', 52, 17, '#d9c9a0'); pp('dchair', 53, 17, '#c96a5a');
+  pp('mirror', 59, 20); pp('fusebox', 51, 22); pp('crate', 60, 4); pp('crate2', 60, 5); pp('camera', 57, 19);
+  // Grotta
+  pp('lantern', 57, 42); pp('rock', 53, 34); pp('rock', 58, 35); pp('rock', 55, 39); pp('rock', 52, 43); pp('chest', 59, 44); pp('chest', 52, 33); pp('sack', 59, 33);
+  // Ruscello: acqua (non si attraversa) tranne i ponti; secchio per l'acqua e qualche sasso sulla riva
+  for (let y = 0; y < H; y++) if (y !== 14 && y !== 15 && y !== 33 && y !== 34) { pp('water', 45, y); pp('water', 46, y); }
+  pp('bucket', 44, 24); pp('rock', 43, 8); pp('rock', 48, 28); pp('rock', 43, 41);
+  // Bosco fitto: cataste di legna lungo i sentieri, cinepresa caduta nel fango
+  pp('logpile', 14, 36); pp('logpile', 11, 40); pp('logpile', 25, 11); pp('logpile', 38, 13); pp('camera', 12, 43);
+  // alberi: bordo chiuso, poi bosco a caso (seme fisso) lontano da stanze, sentieri e oggetti
+  let s = 20261017; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const inR = (x, y, [rx, ry, rw, rh], m) => x >= rx - m && x < rx + rw + m && y >= ry - m && y < ry + rh + m;
+  const taken = new Set(props.map(p => p[1] + ',' + p[2])), tree = (x, y) => { pp(rnd() < 0.6 ? 'pine' : 'oak', x, y); taken.add(x + ',' + y); };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !taken.has(x + ',' + y)) tree(x, y);
+  const clear = (x, y) => rooms.some((r, i) => i && inR(x, y, [r.x, r.y, r.w, r.h], i === 2 ? 1 : 0)) || paths.some(p => inR(x, y, p, 1)) || holes.some(h => inR(x, y, h, 0))
+    || props.some(p => p[0] !== 'pine' && p[0] !== 'oak' && p[0] !== 'water' && Math.abs(p[1] - x) <= 1 && Math.abs(p[2] - y) <= 1);
+  for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
+    if (taken.has(x + ',' + y) || clear(x, y)) continue;
+    const r = rnd();
+    if (r < 0.17) tree(x, y); else if (r < 0.21) { pp('bush', x, y); taken.add(x + ',' + y); } else if (r < 0.225) { pp('rock', x, y); taken.add(x + ',' + y); } else if (r < 0.24) { pp('stump', x, y); taken.add(x + ',' + y); }
+  }
+  // le celle libere chiuse tra gli alberi (dove non si arriverebbe) diventano cespugli
+  const isHole = (x, y) => holes.some(h => inR(x, y, h, 0)), free = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !taken.has(x + ',' + y) && !isHole(x, y);
+  const seen = new Set(['30,26']), q = [[30, 26]];
+  while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + dx) + ',' + (y + dy); if (free(x + dx, y + dy) && !seen.has(k)) { seen.add(k); q.push([x + dx, y + dy]); } } }
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (free(x, y) && !seen.has(x + ',' + y)) { pp('bush', x, y); taken.add(x + ',' + y); }
+  // fiori nella radura
+  for (let i = 0; i < 40; i++) { const x = 50 + rnd() * 10.6, y = 3 + rnd() * 21.6; decals.push([x, y, 0.16, 0.16, ['#f2e27a', '#f07ab8', '#ffffff', '#b070e0'][Math.floor(rnd() * 4)]]); }
+  const tasks = [
+    { id: 'ciak', n: 'Batti il ciak', r: 'Radura del set', x: 55, y: 15 },
+    { id: 'fuoco', n: 'Metti a fuoco la cinepresa', r: 'Radura del set', x: 54, y: 10 },
+    { id: 'fari', n: 'Accendi i fari del set', r: 'Radura del set', x: 51, y: 22, game: 'luci', lead: 'Accendi tutti gli interruttori dei fari del set.' },
+    { id: 'trucco', n: "Trucca l'attore", r: 'Radura del set', x: 59, y: 20 },
+    { id: 'costume', n: 'Prepara il costume', r: 'Furgoni', x: 14, y: 11 },
+    { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Furgoni', x: 14, y: 5 },
+    { id: 'tanica', n: 'Riempi la tanica', r: 'Furgoni', x: 8, y: 12, game: 'pieno', lead: 'Tieni premuto finché la tanica di benzina è piena.' },
+    { id: 'montaggio', n: 'Monta la scena', r: 'Accampamento', x: 33, y: 29 },
+    { id: 'cavi', n: 'Collega i cavi del generatore', r: 'Accampamento', x: 37, y: 18 },
+    { id: 'caffe', n: 'Scalda il caffè', r: 'Accampamento', x: 24, y: 29, lead: 'Tieni premuto: il caffè si scalda sul fornelletto.' },
+    { id: 'fango', n: 'Pulisci la cinepresa dal fango', r: 'Bosco fitto', x: 12, y: 43, game: 'sella', lead: 'La cinepresa è caduta nel fango: tocca tutte le macchie per pulirla.' },
+    { id: 'portalanterna', n: 'Porta la lanterna sul set', steps: [{ n: 'Prendi la lanterna', r: 'Grotta', x: 57, y: 42, game: 'prendi' }, { n: 'Appendi la lanterna', r: 'Radura del set', x: 52, y: 6, game: 'consegna' }] },
+    { id: 'portaacqua', n: "Porta l'acqua all'accampamento", steps: [{ n: "Prendi l'acqua", r: 'Ruscello', x: 44, y: 24, game: 'prendi' }, { n: "Versa l'acqua nella pentola", r: 'Accampamento', x: 36, y: 27, game: 'consegna' }] }];
+  return { w: W, h: H, rooms, doors: [], decals, props, tasks, holes, hall: 0, wall: 'rock', surv: true, fire: { x: 30, y: 24 },
+    cams: [], vending: [],
+    ring: [[28, 23], [28, 25], [32, 23], [32, 25], [29, 22], [31, 22], [29, 26], [31, 26], [30, 22], [30, 26]],   // posti di partenza, intorno al falo'
+    button: { x: 30, y: 19 },
+    // campo: tenda e fuoco rotti insieme, si rimettono a posto in piu' passaggi (games); fuoco: si spegne e basta, poi si riaccende
+    sabs: { campo: { x: 30, y: 24, where: 'accampamento', lab: 'Distruggi l\'accampamento', steps: 3, games: [
+        { id: 'caffe', n: 'Rialza la tenda', lead: 'Tieni premuto per tirare su il telo della tenda.' },
+        { id: 'montaggio', n: 'Pianta i picchetti', lead: 'Pianta i picchetti in ordine, da 1 a 5.' },
+        { id: 'bobina', n: 'Riaccendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.' }] },
+      fuoco: { x: 30, y: 24, where: 'falò', lab: 'Spegni il fuoco', instant: true } },
+    inn: { 'Bosco fitto': 'nel bosco fitto', Ruscello: 'al ruscello', Accampamento: 'all\'accampamento', 'Radura del set': 'nella radura del set', Grotta: 'nella grotta', Furgoni: 'ai furgoni', Ponte: 'sul ponte' },
+    btnTxt: 'La campana dell\'accampamento chiama una riunione (una volta sola).',
+    sabTxt: 'Con <b>Sabota</b> spegni il fuoco o distruggi l\'accampamento. Tu non muori di fame né di freddo, ma fai finta!',
+    help: '<p class="hint">🌲 Nel bosco bisogna anche <b>sopravvivere</b>: guarda le barre di fame 🍗 e freddo ❄️. Prendi la legna dalle cataste e portala al fuoco, pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Di notte, lontano dal fuoco, si gela: ogni notte fa più freddo. La tenda ripara chi sta nell\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti!</p>' };
+}
+// mappe da scegliere nella stanza d'attesa (soon = non ancora pronta, solo = per ora solo contro il computer)
+const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco, solo: true } };
+const cqMapOk = k => CQ_MAPS[k] && !CQ_MAPS[k].soon && !(cq.net && CQ_MAPS[k].solo);
+const cqMapIds = () => Object.keys(CQ_MAPS).filter(cqMapOk);
 // mette in uso una mappa: riempie le variabili della mappa e prepara le celle (pavimento, oggetti, muri)
 function cqUseMap(id) {
   if (!CQ_MAPS[id] || CQ_MAPS[id].soon) id = 'studio';
   if (cq.map === id) return;
   const P = CQ_MAPS[id].pack || (CQ_MAPS[id].pack = CQ_MAPS[id].make());
-  P.tasks.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.id }]; });
+  P.tasks.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.game || t.id, lead: t.lead }]; });
   ({ w: CQ_W, h: CQ_H, rooms: CQ_ROOMS, doors: CQ_DOORS, decals: CQ_DECALS, props: CQ_PROPS, tasks: CQ_TASKS, cams: CQ_CAMS, vending: CQ_VENDING,
     ring: CQ_RING, button: CQ_BUTTON, sabs: CQ_SABS, inn: CQ_IN, help: CQ_HELP, hall: CQ_HALL } = P);
+  CQ_MAP = P; CQ_CAMDESK = CQ_PROPS.filter(p => p[0] === 'camdesk').map(p => [p[1], p[2]]);
   cq.map = id; cq.bg = null;   // la mappa pronta (tessere) si rifa'
   cqFloor = []; cqSolid = []; cqRoomOf = [];
   for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
   CQ_ROOMS.forEach((r, i) => { for (let y = r.y; y < r.y + r.h; y++) for (let x = r.x; x < r.x + r.w; x++) { cqFloor[y][x] = r.c[(x + y) % 2]; cqRoomOf[y][x] = i; } });
+  (P.holes || []).forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { cqFloor[y][x] = null; cqRoomOf[y][x] = -1; } });
   const cor = CQ_ROOMS[CQ_HALL].c;
   CQ_DOORS.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { cqFloor[y][x] = cor[(x + y) % 2]; cqRoomOf[y][x] = CQ_HALL; } });
   CQ_PROPS.forEach(([t, x, y, o]) => { cqSolid[y][x] = { prop: t, o }; });
@@ -1800,6 +1899,12 @@ function cqUseMap(id) {
     let ri = -1;
     for (const [dx, dy] of [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1], [-1, 1], [1, -1], [-1, -1]]) { const r = cqRoomOf[y + dy] && cqRoomOf[y + dy][x + dx]; if (r >= 0) { ri = r; break; } }
     if (ri >= 0) cqSolid[y][x] = { wall: 1, col: CQ_ROOMS[ri].wc };
+  }
+  // sopravvivenza: dove si pesca (celle libere accanto all'acqua) e dove si prende la legna
+  if (P.surv && !P.fish) {
+    const wet = (x, y) => cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop === 'water';
+    P.fish = []; for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x] && !cqSolid[y][x] && (wet(x - 1, y) || wet(x + 1, y) || wet(x, y - 1) || wet(x, y + 1))) P.fish.push([x, y]);
+    P.logs = CQ_PROPS.filter(p => p[0] === 'logpile').map(p => [p[1], p[2]]);
   }
 }
 // modo di disegno della mappa: 0 = tessere pronte (normale), 1 = come 0 ma i riquadri dei personaggi composti dal processore, 2 = niente tessere (tutto ridisegnato
@@ -1879,7 +1984,7 @@ const cqTask = id => CQ_TASKS.find(t => t.id === id);
 // passo attuale di un compito per un personaggio: { task, id (mini-gioco), n, r, x, y, i, of }
 function cqStep(c, id) {
   const t = cqTask(id), i = (c && c.st && c.st[id]) || 0, s = t.steps[i];
-  return { task: id, id: s.game, n: s.n, r: s.r, x: s.x, y: s.y, i, of: t.steps.length };
+  return { task: id, id: s.game, n: s.n, r: s.r, x: s.x, y: s.y, i, of: t.steps.length, lead: s.lead };
 }
 // un passo fatto: si passa al successivo, o il compito e' finito
 function cqAdvance(c, id) {
@@ -1934,7 +2039,7 @@ const CQ_ITEMS = {
   pistola: { n: 'Pistola', e: '🔫', r: 3, p: 35, d: 'Spari a chi hai vicino: se è un sabotatore è fuori, se è innocente sei fuori tu!', who: 'crew' },
   lente: { n: 'Lente del detective', e: '🔍', r: 4, p: 0, d: 'Guardi chi hai vicino e scopri se è innocente o sabotatore.', who: 'crew', noshop: 1 }
 };
-const CQ_LOOT_PROPS = ['locker', 'shelf', 'crate', 'crate2', 'fridge', 'rack', 'desk', 'counter'];
+const CQ_LOOT_PROPS = ['locker', 'shelf', 'crate', 'crate2', 'fridge', 'rack', 'desk', 'counter', 'chest', 'sack'];
 const cqSellPrice = id => CQ_ITEMS[id].noshop ? 40 : Math.max(1, Math.round(CQ_ITEMS[id].p * 0.65));
 const cqCanUse = (id, me) => { const w = CQ_ITEMS[id].who; return !w || (w === 'imp') === me.imp; };
 // salvadanaio e zaino (ricordati come il nome)
@@ -2350,7 +2455,7 @@ function cqLobby() {
   $('#tkTitle').textContent = 'Impostazioni della partita';
   if (cq.net && cq.net.role === 'guest') { cqNetWait(); return; }
   $('#tkBody').innerHTML = `<div id="lbNet"></div><form id="lbF">
-    <div class="row"><div class="lbl">Mappa</div>${seg('map', Object.entries(CQ_MAPS).map(([k, m]) => [k, m.n]).concat([['rnd', 'Casuale']]), CQ_MAPS[o.map] && !CQ_MAPS[o.map].soon || o.map === 'rnd' ? o.map : 'studio')}<div class="hint">${Object.values(CQ_MAPS).filter(m => m.soon).map(m => m.n + ': in arrivo.').join(' ')}</div></div>
+    <div class="row"><div class="lbl">Mappa</div>${seg('map', Object.entries(CQ_MAPS).map(([k, m]) => [k, m.n]).concat([['rnd', 'Casuale']]), cqMapOk(o.map) || o.map === 'rnd' ? o.map : 'studio')}<div class="hint">${Object.values(CQ_MAPS).map(m => m.soon ? m.n + ': in arrivo.' : m.solo ? m.n + ': per ora solo contro il computer (con gli amici arriverà più avanti).' : '').join(' ')}</div></div>
     <div class="row"><div class="lbl">Personaggi (tu compreso)</div>${seg('n', [[4, '4'], [6, '6'], [8, '8'], [10, '10']], o.n)}</div>
     <div class="row"><div class="lbl">Sabotatori</div>${seg('imps', [[1, '1'], [2, '2'], [3, '3']], o.imps)}<div class="hint" id="lbImpH"></div></div>
     <div class="row"><div class="lbl">Compiti a testa</div>${seg('tasks', [[3, '3'], [5, '5'], [7, '7']], o.tasks)}</div>
@@ -2362,7 +2467,7 @@ function cqLobby() {
   </form><button class="btn" id="lbShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn primary go" id="lbGo" type="button">Si gira!</button>`;
   const f = $('#lbF');
   const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1', fill: d.get('fill') !== '0', map: d.get('map') || 'studio' }; };
-  f.querySelectorAll('input[name=map]').forEach(i => { if (CQ_MAPS[i.value] && CQ_MAPS[i.value].soon) i.disabled = true; });
+  f.querySelectorAll('input[name=map]').forEach(i => { if (CQ_MAPS[i.value] && !cqMapOk(i.value)) i.disabled = true; });
   const sync = () => { const r = read(); f.querySelectorAll('input[name=imps]').forEach(i => { i.disabled = +i.value > cqMaxImps(r.n); if (+i.value === r.imps) i.checked = true; }); $('#lbImpH').textContent = r.n <= 5 ? 'Con 4 personaggi c\'è un solo sabotatore.' : r.n <= 7 ? 'Con 6 personaggi al massimo 2 sabotatori.' : ''; };
   f.oninput = sync; sync();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
@@ -2372,7 +2477,7 @@ function cqLobby() {
 }
 function cqNewMatch() {
   const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
-  cqUseMap(O.map === 'rnd' ? cqPickOne(cqMapIds()) : O.map);   // online la sceglie chi ha creato il set
+  cqUseMap(O.map === 'rnd' ? cqPickOne(cqMapIds()) : cqMapOk(O.map) ? O.map : 'studio');   // online la sceglie chi ha creato il set
   const me = { id: 0, name: myName, bot: false };
   // amici del set (solo per chi lo ha creato): prendono i primi posti, il resto lo riempie il computer
   const hum = cq.net && cq.net.role === 'host' ? Object.entries(cq.net.pl).filter(([s]) => s !== cq.net.sid).slice(0, 9) : [];
@@ -2395,6 +2500,7 @@ function cqNewMatch() {
   });
   cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid;
+  if (CQ_MAP.surv) cqSvStart(cq.g);
   if (cq.net) cqNetList(0);
   cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
   cqHud();
@@ -2415,8 +2521,8 @@ function cqRolePanel() { cqClap(cqRolePanel0); }
 function cqRolePanel0() {
   const G = cq.g, me = G.me, mates = G.chars.filter(c => c.imp && c !== me), nImp = G.chars.filter(c => c.imp).length;
   cqPanel(me.imp ? 'Sei un SABOTATORE' : 'Sei della TROUPE', (me.imp
-    ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme. Intanto fai finta di lavorare!</p>' + (mates.length ? `<p class="lead">I tuoi complici (nome in rosso): <b>${mates.map(c => esc(c.name)).join(', ')}</b>.</p>` : '')
-    : `<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi ${nImp > 1 ? 'ci sono <b>' + nImp + ' sabotatori</b>' : 'c\'è un <b>sabotatore</b>'}: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. Il pulsante rosso nel corridoio chiama una riunione (una volta sola).</p>`
+    ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. ' + CQ_MAP.sabTxt + ' Intanto fai finta di lavorare!</p>' + (mates.length ? `<p class="lead">I tuoi complici (nome in rosso): <b>${mates.map(c => esc(c.name)).join(', ')}</b>.</p>` : '')
+    : `<p class="lead">Fai i tuoi compiti per finire le riprese. Tra voi ${nImp > 1 ? 'ci sono <b>' + nImp + ' sabotatori</b>' : 'c\'è un <b>sabotatore</b>'}: se trovi qualcuno a terra premi <b>Segnala</b>, poi votate chi espellere. ${CQ_MAP.btnTxt}</p>`
     ) + CQ_HELP, 'Si gira!', () => { if (!cq.g.guest) cq.g.phase = 'play'; });
 }
 // pannello con un messaggio e un pulsante (ruolo, avvisi)
@@ -2437,7 +2543,7 @@ function cqHud() {
   role.className = 'cqRole' + (me.imp ? ' imp' : '');
   $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const s = cqStep(me, id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near && cq.near.task === id ? 'near' : ''}">${esc(s.r)}: ${esc(s.n)}${s.of > 1 ? ' (' + (s.i + 1) + '/' + s.of + ')' : ''}</div>`; }).join('');
   const a = cq.act, ub = $('#cqUse');
-  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio' }[a.k] : 'Usa';
+  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio', wood: 'Prendi legna', feed: 'Metti legna', light: 'Accendi', fishing: 'Pesca', cook: 'Cuoci', eat: 'Mangia' }[a.k] : 'Usa';
   ub.classList.toggle('on', !!a); ub.classList.toggle('rep', !!a && (a.k === 'rep' || a.k === 'btn'));
   ub.style.fontSize = ub.textContent.length > 8 ? '13px' : '';
   cqItemsUI();
@@ -2457,8 +2563,18 @@ function cqHudFast() {
     if (sb.textContent !== st) sb.textContent = st;
     sb.disabled = !!G.sab || sc > 0;
   }
+  // bosco: fame, freddo, fuoco, giorno/notte, cosa ho in mano
+  const sv = $('#cqSurv'), S = G.sv;
+  if (sv.hidden === !!S) sv.hidden = !S;
+  if (S) {
+    const bar = (v, c) => `<div class="sb"><i style="width:${Math.round(v)}%;background:${v < 25 ? '#e2553a' : c}"></i></div>`, me = G.me;
+    const h = me.alive ? `🍗${bar(me.hun, '#e8a030')}❄️${bar(me.cold, '#59b6e8')}` : '<span style="opacity:.7">Fantasma</span>';
+    const txt = h + `<span>${S.lit && S.camp ? '🔥' + Math.ceil(S.fuel) : '⚫ spento'}</span><span>${S.dark > 0.5 ? '🌙 Notte ' + S.n : '☀️ Giorno ' + (Math.floor(S.t / CQ_DAY) + 1)}</span>` + (me.carry ? `<span>${me.carry === 'wood' ? '🪵' : '🐟'}</span>` : '');
+    if (cq.svTxt !== txt) { cq.svTxt = txt; sv.innerHTML = txt; }
+  }
   let bt = '';
-  if (G.sab && play) bt = G.sab.type === 'luci' ? (G.sab.natural ? 'È saltata la corrente! Riaccendi gli interruttori al ' : 'Luci spente! Si ripara al ') + CQ_SABS.luci.where : 'Allarme! La pellicola brucia: ' + Math.ceil(G.sab.t) + ' s. Si ripara al ' + CQ_SABS.allarme.where;
+  if (G.sab && play && CQ_SABS[G.sab.type].steps) bt = '⛺ L\'accampamento è distrutto! Ricostruiscilo al falò: passo ' + (G.sab.step + 1) + ' di ' + CQ_SABS[G.sab.type].steps;
+  else if (G.sab && play) bt = G.sab.type === 'luci' ? (G.sab.natural ? 'È saltata la corrente! Riaccendi gli interruttori al ' : 'Luci spente! Si ripara al ') + CQ_SABS.luci.where : 'Allarme! La pellicola brucia: ' + Math.ceil(G.sab.t) + ' s. Si ripara al ' + CQ_SABS.allarme.where;
   if (ban.textContent !== bt) ban.textContent = bt;
   if (ban.hidden === !!bt) ban.hidden = !bt;
 }
@@ -2470,6 +2586,7 @@ function cqNearCheck() {
     if (me.alive) { const b = G.bodies.find(o => cqDist(o, pos) < 1.8); if (b) act = { k: 'rep', body: b }; }
     if (!act && G.sab && me.alive && !me.imp && cqDist(cqSpot(CQ_SABS[G.sab.type].x, CQ_SABS[G.sab.type].y), pos) < 1.4) act = { k: 'fix' };
     if (!act && me.alive && G.button > 0 && cqDist({ x: CQ_BUTTON.x + 0.5, y: CQ_BUTTON.y + 0.5 }, pos) < 1.7) act = { k: 'btn' };
+    if (!act && G.sv && me.alive) act = cqSvAct(me);
     if (!act && !me.imp) {
       let bd = 1.75;
       for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqStep(me, id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; act = { k: 'task', t }; } }
@@ -2479,9 +2596,10 @@ function cqNearCheck() {
   if (!act && G.phase === 'play' && me.alive) {
     for (const L of G.loot) if (!L.done && Math.hypot(cq.x - (L.x + 0.5), cq.y - (L.y + 0.5)) < 1.6) { act = { k: 'search', L }; break; }
     if (!act && CQ_VENDING.some(([x, y]) => Math.hypot(cq.x - (x + 0.5), cq.y - (y + 0.5)) < 1.7)) act = { k: 'shop' };
+    if (!act && G.sv && me.carry === 'fish' && me.hun < 90) act = { k: 'eat' };   // pesce crudo, lontano dal fuoco
   }
-  // telecamere di sorveglianza: la scrivania con i monitor in Sala regia
-  if (!act && G.phase === 'play' && (Math.hypot(cq.x - 36.5, cq.y - 43.5) < 1.7 || Math.hypot(cq.x - 37.5, cq.y - 43.5) < 1.7)) act = { k: 'cam' };
+  // telecamere di sorveglianza: la scrivania con i monitor (Sala regia)
+  if (!act && G.phase === 'play' && CQ_CAMDESK.some(([x, y]) => Math.hypot(cq.x - (x + 0.5), cq.y - (y + 0.5)) < 1.7)) act = { k: 'cam' };
   cq.near = act && act.k === 'task' ? act.t : null;
   const key = act ? act.k + (act.t ? act.t.task + act.t.i : '') + (act.L ? act.L.x + ',' + act.L.y : '') : '';
   if (key !== cq.actKey) { cq.act = act; cq.actKey = key; cqHud(); }
@@ -2490,7 +2608,8 @@ function cqUse() {
   const G = cq.g, a = cq.act; if (!G || !a || cqBusy() || G.phase !== 'play') return;
   if (a.k === 'rep') { if (G.guest) cqNetSend({ k: 'rep', b: a.body.id }); else cqMeeting(G.me, a.body); }
   else if (a.k === 'btn') { if (G.guest) cqNetSend({ k: 'btn' }); else { G.button--; cqMeeting(G.me, null); } }
-  else if (a.k === 'fix') cqOpenTask(G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab });
+  else if (a.k === 'fix') { const s = CQ_SABS[G.sab.type]; cqOpenTask(s.steps ? Object.assign({}, s.games[G.sab.step], { fix: cqFixStep }) : G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab }); }
+  else if (G.sv && ['wood', 'feed', 'light', 'fishing', 'cook', 'eat'].includes(a.k)) cqSvUse(a.k);
   else if (a.k === 'cam') cqOpenCams();
   else if (a.k === 'search') cqSearch(a.L);
   else if (a.k === 'shop') cqShop(null);
@@ -2512,8 +2631,9 @@ function cqBots(dt) {
   me.x = cq.x; me.y = cq.y; me.face = cq.face;
   G.sabCd -= dt; G.time += dt; if (me.imp) me.kcd -= dt;
   if (G.sab && G.sab.type === 'allarme') { G.sab.t -= dt; if (G.sab.t <= 0) { cqEnd('sab', 'La pellicola è bruciata: le riprese sono rovinate!'); return; } }
-  // blackout casuale: salta la luce da sola
-  if (G.opt.blackout && !G.sab && G.time >= G.blackAt) { G.blackAt = G.time + 90 + Math.random() * 60; cqStartSab('luci', true); }
+  if (G.sv) { cqSvTick(dt); if (G.phase !== 'play') return; }
+  // blackout casuale: salta la luce da sola (solo dove ci sono le luci)
+  if (G.opt.blackout && CQ_SABS.luci && !G.sab && G.time >= G.blackAt) { G.blackAt = G.time + 90 + Math.random() * 60; cqStartSab('luci', true); }
   for (const b of G.chars) {
     if (G.phase !== 'play') return;
     if (!b.bot) continue;
@@ -2537,7 +2657,7 @@ function cqBotPlan(b) {
   const G = cq.g; let goal;
   if (G.sab && G.sab.fixer === b.id) { const s = CQ_SABS[G.sab.type]; goal = Object.assign(cqSpot(s.x, s.y), { k: 'fix' }); }
   else if (b.hunt) return;
-  else {
+  else if (!(goal = G.sv && b.alive ? cqSvBotGoal(b) : null)) {
     const todo = b.tasks.filter(id => !b.done.has(id));
     if (todo.length && Math.random() > (b.imp ? 0.3 : 0.35)) { const id = cqPickOne(todo), t = cqStep(b, id); goal = Object.assign(cqSpot(t.x, t.y), { k: 'task', id }); }
     else { const r = cqPickOne(CQ_ROOMS); let x, y, n = 0; do { x = r.x + Math.floor(Math.random() * r.w); y = r.y + Math.floor(Math.random() * r.h); } while (!cqCellFree(x, y) && ++n < 30); goal = { x: x + 0.5, y: y + 0.5, k: 'wander' }; }
@@ -2551,10 +2671,12 @@ function cqBotArrived(b, afterWait) {
     if (k === 'task') { b.wait = 4 + Math.random() * 4; b.doing = b.goal.id; b.doT = b.wait; const t = cqStep(b, b.doing); b.face = (t.x - t.y) - (b.x - b.y) > 0 ? 1 : -1; }
     else if (k === 'fix') b.wait = 2;
     else if (k === 'wander') b.wait = 1 + Math.random() * 2;
+    else if (G.sv && k) b.wait = cqSvBotWait(b, k) || 1;
     return;
   }
   if (b.doing) { if (cqAdvance(b, b.doing) && !b.imp) b.done.add(b.doing); cqHud(); b.doing = null; }
-  if (k === 'fix' && G.sab && G.sab.fixer === b.id) cqFixSab();
+  if (G.sv && k && b.alive) cqSvBotDone(b, k);
+  if (k === 'fix' && G.sab && G.sab.fixer === b.id) cqFixStep();
   b.goal = null;
   cqCheckWin();
 }
@@ -2570,11 +2692,11 @@ function cqBotStep(b, dt) {
 function cqImpBrain(b, dt) {
   const G = cq.g; b.kcd -= dt; b.think -= dt;
   if (b.think > 0) return; b.think = 0.4;
-  if (!G.sab && G.sabCd <= 0 && Math.random() < 0.015) cqStartSab(Math.random() < 0.5 ? 'luci' : 'allarme');
+  if (!G.sab && G.sabCd <= 0 && Math.random() < 0.015) cqStartSab(cqPickOne(Object.keys(CQ_SABS)));
   const stop = () => { if (b.hunt) { b.hunt = null; b.path = []; b.goal = null; } };
   if (b.kcd > 0) { stop(); return; }
   if (!b.hunt && Math.random() < (G.chars.filter(c => c.imp).length > 1 ? 0.95 : 0)) return;   // non si butta subito (in gruppo ancora meno): fa ancora un po' finta di lavorare
-  const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS, living = G.chars.filter(c => c.alive && c !== b);
+  const R = cqSeeR(), living = G.chars.filter(c => c.alive && c !== b);
   let best = null, bd = 10;
   for (const v of living) {
     if (v.imp) continue;
@@ -2613,7 +2735,7 @@ function cqKill(v, k) {
   v.alive = false; v.path = []; v.wait = 0; v.doing = null;
   G.bodies.push({ id: v.id, x: v.x, y: v.y, face: v.face, look: cqLookOf(v), name: v.name, room: cqRoomName(v.x, v.y), t: G.time });
   k.kcd = G.opt.kcd * (1 + 0.6 * (G.chars.filter(c => c.imp).length - 1));   // con piu' sabotatori ognuno aspetta di piu'
-  const R = G.sab && G.sab.type === 'luci' ? 2.5 : CQ_VIS;
+  const R = cqSeeR();
   // travestimento: i testimoni accusano chi sembravi; fumo: chi e' nella stanza non vede niente
   const dg = k === G.me && G.disg && G.disg.until > G.time && G.disg.id !== v.id ? G.disg.id : k.id, fog = G.smoke && G.smoke.until > G.time ? G.smoke.room : null;
   for (const w of G.chars) {
@@ -2629,8 +2751,13 @@ function cqKill(v, k) {
 }
 // ---- sabotaggi (e blackout casuali: natural) ----
 function cqStartSab(type, natural) {
-  const G = cq.g; if (!G || G.sab || G.phase !== 'play') return;
-  G.sab = { type, t: CQ_SABS[type].time || 0, fixer: null, natural: !!natural };
+  const G = cq.g; if (!G || G.sab || G.phase !== 'play' || !CQ_SABS[type]) return;
+  if (type === 'fuoco') {   // fuoco spento: niente da riparare, si riaccende come sempre
+    if (!G.sv.lit) return;
+    G.sv.lit = false; G.sabCd = 30; beep(260, 0.3, 0.05); cqToast('🔥 Il fuoco si è spento all\'improvviso!'); cq.actKey = ''; cqHud(); return;
+  }
+  G.sab = { type, t: CQ_SABS[type].time || 0, fixer: null, natural: !!natural, step: 0 };
+  if (type === 'campo') { G.sv.camp = false; G.sv.lit = false; cq.bg = null; }   // tende a terra, fuoco spento
   cqPickFixer();
   beep(300, 0.25, 0.05); beep(240, 0.3, 0.05, 0.3);
   cq.actKey = ''; cqHud();
@@ -2645,17 +2772,110 @@ function cqFixSab() {
   const G = cq.g; if (!G || !G.sab) return;
   if (G.guest) { cqNetSend({ k: 'fix' }); return; }
   const f = G.chars[G.sab.fixer]; if (f) { f.goal = null; f.path = []; }
+  if (G.sab.type === 'campo') { G.sv.camp = true; G.sv.lit = true; G.sv.fuel = Math.max(G.sv.fuel, 40); cq.bg = null; cqToast('⛺ Accampamento ricostruito!'); }
   G.sab = null; G.sabCd = 35; cq.actKey = ''; cqHud(); beep(700, 0.1, 0.04); beep(900, 0.12, 0.04, 0.1);
+}
+// un passaggio della riparazione (l'accampamento si ricostruisce in piu' passaggi; gli altri sabotaggi in uno)
+function cqFixStep() {
+  const G = cq.g; if (!G || !G.sab) return;
+  const s = CQ_SABS[G.sab.type];
+  if (s.steps && !G.guest && ++G.sab.step < s.steps) { cq.actKey = ''; cqHud(); beep(700, 0.1, 0.04); return; }
+  cqFixSab();
 }
 function cqSabMenu() {
   const G = cq.g; if (!G || G.phase !== 'play' || G.sab || G.sabCd > 0 || cqBusy()) return;
   cqCloseTask();
   $('#tkTitle').textContent = 'Sabota';
-  $('#tkBody').innerHTML = '<p class="lead">Cosa vuoi rovinare?</p><div class="mtAct"><button class="btn primary" id="sbL" type="button">Spegni le luci</button><button class="btn primary" id="sbA" type="button">Fai scattare l\'allarme</button></div>';
+  $('#tkBody').innerHTML = '<p class="lead">Cosa vuoi rovinare?</p><div class="mtAct">' + Object.entries(CQ_SABS).map(([k, s]) => `<button class="btn primary" data-sab="${k}" type="button">${esc(s.lab)}</button>`).join('') + '</div>';
   $('#tkHint').textContent = ''; $('#cqTask').hidden = false;
   const go = t => { cqCloseTask(); if (G.guest) cqNetSend({ k: 'sab', t }); else cqStartSab(t); };
-  $('#sbL').onclick = () => go('luci');
-  $('#sbA').onclick = () => go('allarme');
+  $('#tkBody').querySelectorAll('[data-sab]').forEach(b => { b.onclick = () => go(b.dataset.sab); });
+}
+// ---- sopravvivenza nel bosco (solo mappe con surv): fame, freddo, fuoco, giorno e notte ----
+// G.sv = { t: tempo, dark: 0 giorno .. 1 notte, n: notte in corso, fuel: legna nel fuoco 0-100, lit: acceso, camp: tenda e fuoco in piedi }
+// ogni personaggio: hun (fame, 100 = sazio), cold (100 = al caldo), carry ('wood' / 'fish' / null)
+const CQ_DAY = 180, CQ_DUSK = 100;   // un giro dura 3 minuti: giorno fino a 100 s, poi 10 s di tramonto, notte, 10 s di alba
+const cqSeeR = () => { const G = cq.g; return G.sab && G.sab.type === 'luci' ? 2.5 : G.sv && G.sv.dark > 0.5 ? 3.5 : CQ_VIS; };
+const cqFireD = (x, y) => Math.hypot(x - CQ_MAP.fire.x - 0.5, y - CQ_MAP.fire.y - 0.5);
+function cqSvStart(G) {
+  G.sv = { t: 0, dark: 0, n: 0, fuel: 80, lit: true, camp: true };
+  for (const c of G.chars) { c.hun = 70 + Math.random() * 15; c.cold = 100; c.carry = null; }
+  cq.bg = null;   // tende di nuovo in piedi
+}
+function cqSvTick(dt) {
+  const G = cq.g, S = G.sv; S.t += dt;
+  const ph = S.t % CQ_DAY, lvl = ph < CQ_DUSK ? 0 : ph < CQ_DUSK + 10 ? (ph - CQ_DUSK) / 10 : ph < CQ_DAY - 10 ? 1 : (CQ_DAY - ph) / 10;
+  if (lvl > 0 && S.dark === 0) { S.n = Math.floor(S.t / CQ_DAY) + 1; cqToast('🌙 Cala la notte ' + S.n + (S.n > 1 ? ': fa ancora più freddo!' : ': stai vicino al fuoco!')); beep(220, 0.4, 0.03); }
+  if (lvl === 0 && S.dark > 0) cqToast('☀️ È mattina: notte ' + S.n + ' superata!');
+  S.dark = lvl;
+  if (S.lit) { S.fuel -= dt * (0.7 + 0.4 * lvl); if (S.fuel <= 0) { S.fuel = 0; S.lit = false; cqToast('🔥 Il fuoco si è spento: serve legna!'); } }
+  const hard = 1 + 0.4 * Math.max(0, S.n - 1);   // ogni notte piu' dura
+  for (const c of G.chars) {
+    if (!c.alive) continue;
+    const me = c === G.me, x = me ? cq.x : c.x, y = me ? cq.y : c.y, room = cqRoomName(x, y);
+    c.hun = Math.max(0, c.hun - dt * 0.4);
+    if (S.lit && S.camp && cqFireD(x, y) < 4.5) c.cold = Math.min(100, c.cold + dt * 6);
+    else c.cold = Math.max(0, c.cold - dt * (0.12 + lvl * 1.0 * hard) * (S.camp && room === 'Accampamento' ? 0.5 : room === 'Grotta' ? 0.7 : 1));
+    if (!c.imp && (c.hun <= 0 || c.cold <= 0)) cqSvDie(c, c.cold <= 0 ? 'freddo' : 'fame');
+    if (G.phase !== 'play') return;
+  }
+}
+function cqSvDie(c, why) {
+  const G = cq.g;
+  c.alive = false; c.killer = why === 'freddo' ? 'il freddo' : 'la fame'; c.path = []; c.wait = 0; c.doing = null; c.goal = null; c.carry = null;
+  beep(200, 0.3, 0.05);
+  if (c === G.me) { $('#cqMap').hidden = true; cqPanel(why === 'freddo' ? 'Sei morto di freddo!' : 'Sei morto di fame!', '<p class="lead">' + (why === 'freddo' ? 'Sei rimasto troppo lontano dal fuoco.' : 'Non hai mangiato abbastanza.') + ' Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua'); }
+  else cqToast((why === 'freddo' ? '🥶 ' : '🍂 ') + '<b>' + esc(c.name) + '</b> è morto di ' + why + '.');
+  if (G.sab && G.sab.fixer === c.id) cqPickFixer();
+  cqHud(); cqCheckWin();
+}
+// cosa si puo' fare qui (giocatore): legna, fuoco, pesca, cucina
+function cqSvAct(me) {
+  const S = cq.g.sv, broken = !S.camp;
+  if (cqFireD(cq.x, cq.y) < 1.9) {
+    if (me.carry === 'wood' && !broken) return { k: 'feed' };
+    if (me.carry === 'fish' && S.lit && !broken) return { k: 'cook' };
+    if (!S.lit && S.fuel > 0 && !broken) return { k: 'light' };
+  }
+  if (me.carry) return null;
+  if (CQ_MAP.logs.some(([x, y]) => Math.hypot(cq.x - x - 0.5, cq.y - y - 0.5) < 1.6)) return { k: 'wood' };
+  const cx = Math.floor(cq.x), cy = Math.floor(cq.y);
+  for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const o = cqSolid[cy + dy] && cqSolid[cy + dy][cx + dx]; if (o && o.prop === 'water') return { k: 'fishing' }; }
+  return null;
+}
+function cqSvUse(k) {
+  const G = cq.g, S = G.sv, me = G.me, done = () => { cq.actKey = ''; cqNearCheck(); cqHud(); };
+  if (k === 'wood') { me.carry = 'wood'; beep(500, 0.06, 0.04); cqToast('🪵 Hai la legna: portala al fuoco.'); done(); }
+  else if (k === 'feed') { me.carry = null; S.fuel = Math.min(100, S.fuel + 30); beep(600, 0.08, 0.04); cqToast(S.lit ? '🔥 Il fuoco riprende forza.' : '🪵 Legna pronta: ora accendi il fuoco.'); done(); }
+  else if (k === 'eat') { me.carry = null; me.hun = Math.min(100, me.hun + 15); beep(400, 0.06, 0.04); cqToast('🐟 Pesce crudo… meglio di niente (+15).'); done(); }
+  else if (k === 'light') cqOpenTask({ id: 'bobina', n: 'Accendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.', fix: () => { if (S.fuel > 0 && S.camp) S.lit = true; done(); } });
+  else if (k === 'fishing') cqOpenTask({ id: 'ciak', n: 'Pesca', lab: 'TIRA!', hits: 2, hitTxt: 'Pesci presi: ', lead: 'Premi <b>TIRA!</b> quando il galleggiante è sulla zona verde.', fix: () => { me.carry = 'fish'; cqToast('🐟 Preso! Cuocilo sul fuoco (o mangialo crudo).'); done(); } });
+  else if (k === 'cook') cqOpenTask({ id: 'caffe', n: 'Cuoci il pesce', lead: 'Tieni premuto: il pesce cuoce sul fuoco.', fix: () => { me.carry = null; me.hun = Math.min(100, me.hun + 55); cqToast('🍗 Che buono! (+55)'); done(); } });
+}
+// posto vicino al fuoco (per scaldarsi, cuocere, mettere legna)
+const cqFireSpot = () => { const [x, y] = cqPickOne(CQ_RING); return { x: x + 0.5, y: y + 0.5 }; };
+// personaggi del computer: prima sopravvivere, poi i compiti
+function cqSvBotGoal(b) {
+  const G = cq.g, S = G.sv, ok = S.camp;
+  if (b.carry === 'fish') { if (S.lit && ok) return Object.assign(cqFireSpot(), { k: 'cook' }); b.carry = null; b.hun = Math.min(100, b.hun + 15); return null; }
+  if (b.carry === 'wood') return ok ? Object.assign(cqFireSpot(), { k: 'feed' }) : null;
+  if (b.hun < 40) { const [x, y] = cqPickOne(CQ_MAP.fish); return { x: x + 0.5, y: y + 0.5, k: 'fishing' }; }
+  if (S.lit && ok && b.cold < (S.dark > 0 ? 60 : 45)) return Object.assign(cqFireSpot(), { k: 'warm' });
+  const busy = k => G.chars.filter(o => o !== b && o.alive && o.bot && o.goal && o.goal.k === k).length;
+  if (!S.lit && S.fuel > 0 && ok && !busy('light')) return Object.assign(cqFireSpot(), { k: 'light' });
+  const carriers = busy('wood') + G.chars.filter(o => o !== b && o.alive && o.carry === 'wood').length;
+  if (ok && S.fuel < 45 && carriers < (S.fuel < 20 ? 2 : 1)) { const [x, y] = cqPickOne(CQ_MAP.logs); return Object.assign(cqSpot(x, y), { k: 'wood' }); }
+  return null;
+}
+// arrivato: quanto aspetta (prima) e cosa succede (dopo l'attesa)
+function cqSvBotWait(b, k) { return { wood: 1.5, feed: 1, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
+function cqSvBotDone(b, k) {
+  const S = cq.g.sv;
+  if (k === 'wood') b.carry = 'wood';
+  else if (k === 'feed' && b.carry === 'wood') { b.carry = null; S.fuel = Math.min(100, S.fuel + 30); }
+  else if (k === 'fishing') b.carry = 'fish';
+  else if (k === 'cook' && b.carry === 'fish' && S.lit) { b.carry = null; b.hun = Math.min(100, b.hun + 55); }
+  else if (k === 'light' && S.fuel > 0 && S.camp && !S.lit) { S.lit = true; if (cqDist(b, { x: cq.x, y: cq.y }) < 8) cqToast('🔥 <b>' + esc(b.name) + '</b> ha riacceso il fuoco.'); }
 }
 // ---- vittoria ----
 function cqCheckWin() {
@@ -2690,7 +2910,7 @@ function cqEnd(win, why) {
 const cqFmt = (c, txt) => `<b style="color:${cqLookOf(c).col}">${esc(c.name)}</b>: ${txt}`;
 function cqMeeting(rep, body) {
   const G = cq.g; if (!G || G.phase !== 'play') return;
-  G.phase = 'meet'; G.sab = null; G.clone = null; G.disg = null; G.smoke = null; cqCloseTask(); $('#cqMap').hidden = true; cq.joy = null; cq.keys = {};
+  G.phase = 'meet'; if (!(G.sab && CQ_SABS[G.sab.type].steps)) G.sab = null; G.clone = null;   // l'accampamento distrutto resta da ricostruire G.disg = null; G.smoke = null; cqCloseTask(); $('#cqMap').hidden = true; cq.joy = null; cq.keys = {};
   beep(520, 0.15, 0.06); beep(520, 0.15, 0.06, 0.25); beep(780, 0.3, 0.06, 0.5);
   const alive = G.chars.filter(c => c.alive), nm = c => '<b>' + esc(c.name) + '</b>', lines = [], votes = {}, firm = new Set();
   const first = body ? `Ho trovato ${nm(body)} a terra ${CQ_IN[body.room]}!` : 'Ho premuto il pulsante: dobbiamo parlare!';
@@ -2847,17 +3067,17 @@ function cqOpenTask(t) {
   $('#tkTitle').textContent = t.n; hint.textContent = '';
   switch (t.id) {
     case 'cannone': case 'ciak': {
-      const can = t.id === 'cannone', lab = can ? 'FUOCO!' : 'CIAK!';
+      const can = t.id === 'cannone', lab = t.lab || (can ? 'FUOCO!' : 'CIAK!'), need = t.hits || 3;
       body.innerHTML = '<p class="lead">Premi <b>' + lab + '</b> quando la barretta è sulla zona verde.</p><div class="tg-track" id="tgT"><div class="tg-zone" id="tgZ"></div><div class="tg-mark" id="tgM"></div></div><button class="btn primary go" id="tgB" type="button">' + lab + '</button>';
       let hits = 0, z0 = 0, z1 = 0, pos = 0, dir = 1;
-      const zone = () => { z0 = rnd(12, 66); z1 = z0 + 20; $('#tgZ').style.left = z0 + '%'; $('#tgZ').style.width = '20%'; hint.textContent = (can ? 'Colpo ' : 'Ciak ') + hits + ' di 3'; };
+      const zone = () => { z0 = rnd(12, 66); z1 = z0 + 20; $('#tgZ').style.left = z0 + '%'; $('#tgZ').style.width = '20%'; hint.textContent = (t.hitTxt || (can ? 'Colpo ' : 'Ciak ')) + hits + ' di ' + need; };
       zone();
       let last = performance.now();
       const loop = now => { if (!alive) return; pos += dir * (now - last) * (0.07 + hits * 0.025); last = now; if (pos > 100) { pos = 100; dir = -1; } if (pos < 0) { pos = 0; dir = 1; } $('#tgM').style.left = pos + '%'; requestAnimationFrame(loop); };
       requestAnimationFrame(loop);
       $('#tgB').onclick = () => {
         if (!alive) return;
-        if (pos >= z0 && pos <= z1) { hits++; beep(520 + hits * 120, 0.08, 0.05); if (hits >= 3) ok(); else zone(); }
+        if (pos >= z0 && pos <= z1) { hits++; beep(520 + hits * 120, 0.08, 0.05); if (hits >= need) ok(); else zone(); }
         else { no(); $('#tgT').classList.add('bad'); later(() => $('#tgT').classList.remove('bad'), 250); }
       };
       break; }
@@ -2936,6 +3156,7 @@ function cqOpenTask(t) {
       later(tick, 100);
       break; }
   }
+  if (t.lead) { const l = body.querySelector('.lead'); if (l) l.innerHTML = t.lead; }   // stesso mini-gioco, spiegazione della mappa
   $('#cqTask').hidden = false; cq.joy = null; cq.keys = {};
 }
 function cqOpenMap() {
@@ -2945,9 +3166,10 @@ function cqOpenMap() {
   const g = c.getContext('2d', CQ_CPU); g.setTransform(dpr, 0, 0, dpr, CQ_H * TW / 2 * dpr, 5 * dpr);
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   const dia = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(px(x, y), py(x, y)); g.lineTo(px(x + 1, y), py(x + 1, y)); g.lineTo(px(x + 1, y + 1), py(x + 1, y + 1)); g.lineTo(px(x, y + 1), py(x, y + 1)); g.fill(); };
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x], f = cqFloor[y][x]; if (o && o.wall) dia(x, y, '#2a2e35'); else if (f) dia(x, y, o ? cqShade(f, 0.7) : f); }
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x], f = cqFloor[y][x]; if (o && o.wall) dia(x, y, '#2a2e35'); else if (o && o.prop === 'water') dia(x, y, '#3a78b0'); else if (f) dia(x, y, o ? cqShade(f, 0.7) : f); }
   g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.85)';
-  CQ_ROOMS.forEach(r => g.fillText(r.n, px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
+  CQ_ROOMS.forEach(r => { if (r.nl) return; const cx = r.lx != null ? r.lx : r.x + r.w / 2, cy = r.ly != null ? r.ly : r.y + r.h / 2; g.fillText(r.n, px(cx, cy), py(cx, cy)); });
+  if (cq.g && cq.g.sv) { const F = CQ_MAP.fire; g.fillStyle = cq.g.sv.lit ? '#f08a24' : '#555'; g.beginPath(); g.arc(px(F.x + 0.5, F.y + 0.5), py(F.x + 0.5, F.y + 0.5), 5, 0, 7); g.fill(); }
   if (cq.g && cq.g.sab) { const s = CQ_SABS[cq.g.sab.type]; g.fillStyle = '#e2553a'; g.beginPath(); g.arc(px(s.x + 0.5, s.y + 0.5), py(s.x + 0.5, s.y + 0.5), 7, 0, 7); g.fill(); }
   if (!cq.g || !cq.g.me.imp) for (const id of cq.tasks || []) { const t = cqStep(cq.g && cq.g.me, id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
   if (cq.g && cq.g.radar > cq.g.time) for (const c of cq.g.chars) if (c.alive && c !== cq.g.me) { g.fillStyle = cqLookOf(c).col; g.strokeStyle = '#111'; g.lineWidth = 1.5; g.beginPath(); g.arc(px(c.x, c.y), py(c.x, c.y), 5, 0, 7); g.fill(); g.stroke(); }
@@ -3090,6 +3312,16 @@ function cqTools(g, TW) {
     } else if (kind === 'sand') {
       speck(x, y, 9, ['rgba(255,240,200,.25)', 'rgba(110,70,20,.22)'], TW / 22);
       if (hsh(x, y, 10) < 0.12) { const [X, Y] = P(0.3 + 0.4 * hsh(x, y, 11), 0.3 + 0.4 * hsh(x, y, 12)); g.fillStyle = 'rgba(90,60,30,.55)'; g.beginPath(); g.ellipse(X, Y, TW / 22, TW / 40, 0, 0, 7); g.fill(); }
+    } else if (kind === 'grass' || kind === 'meadow') {
+      speck(x, y, 6, ['rgba(150,200,90,.3)', 'rgba(20,50,15,.25)'], TW / 22);
+      const L = []; for (let i = 0; i < 4; i++) { const u = 0.15 + 0.7 * hsh(x, y, 20 + i), v = 0.15 + 0.7 * hsh(x, y, 30 + i); L.push([S(x + u, y + v, 0), S(x + u + 0.04, y + v, 0.14 + 0.1 * hsh(x, y, 40 + i))]); }
+      strokes(L, kind === 'meadow' ? 'rgba(170,215,100,.6)' : 'rgba(110,160,70,.55)');
+    } else if (kind === 'dirt') {
+      speck(x, y, 7, ['rgba(255,230,190,.12)', 'rgba(40,25,10,.22)'], TW / 20);
+      if (hsh(x, y, 13) < 0.18) { const [X, Y] = P(0.3 + 0.4 * hsh(x, y, 14), 0.3 + 0.4 * hsh(x, y, 15)); g.fillStyle = 'rgba(150,140,125,.8)'; g.beginPath(); g.ellipse(X, Y, TW / 26, TW / 48, 0, 0, 7); g.fill(); }
+    } else if (kind === 'stone') {
+      speck(x, y, 6, ['rgba(255,255,255,.08)', 'rgba(0,0,0,.2)'], TW / 20);
+      if (hsh(x, y, 16) < 0.2) { const a = P(0.2, 0.2 + 0.5 * hsh(x, y, 17)), b = P(0.55, 0.5), c = P(0.85, 0.3 + 0.5 * hsh(x, y, 18)); strokes([[a, b], [b, c]], 'rgba(0,0,0,.3)'); }
     }
     // bordo del blocco: luce sopra, ombra sotto
     strokes([[P(0, 0), P(1, 0)], [P(0, 0), P(0, 1)]], 'rgba(255,255,255,.08)');
@@ -3107,6 +3339,15 @@ function cqTools(g, TW) {
       strokes(L, line);
     }
     strokes([[S(x, y, 0.9), S(x + 1, y, 0.9)], [S(x, y, 0.9), S(x, y + 1, 0.9)]], 'rgba(255,255,255,.18)');
+  };
+  // parete di roccia (grotta del bosco): blocchi di altezza diversa, un sasso sopra, un po' di muschio
+  const rockWall = (x, y, col) => {
+    const h = 1.0 + 0.6 * hsh(x, y, 50), c2 = cqShade(col, 0.92 + 0.2 * hsh(x, y, 51));
+    bx(x, y, x + 1, y + 1, 0, h, c2);
+    const a = 0.1 + 0.25 * hsh(x, y, 52), b = 0.1 + 0.25 * hsh(x, y, 53);
+    bx(x + a, y + b, x + a + 0.55, y + b + 0.55, h, h + 0.2 + 0.3 * hsh(x, y, 54), cqShade(col, 1.12));
+    if (hsh(x, y, 55) < 0.35) bx(x + 0.05, y + 0.05, x + 0.5, y + 0.45, h, h + 0.06, '#4f7a3a');
+    if (TW >= 40) { const A = S(x + 0.2 + 0.5 * hsh(x, y, 56), y + 1, h * 0.8), B = S(x + 0.5, y + 1, h * 0.45), C = S(x + 0.3 + 0.5 * hsh(x, y, 57), y + 1, h * 0.1); strokes([[A, B], [B, C]], 'rgba(0,0,0,.25)'); }
   };
   // oggetti di scena
   const drawProp = (t, x, y, o) => {
@@ -3178,6 +3419,50 @@ function cqTools(g, TW) {
         qL(x + 0.68, x + 0.86, y + 0.85, 1.4, 2.1, '#c9ccd4'); qL(x + 0.73, x + 0.81, y + 0.85, 1.8, 1.9, '#222'); qL(x + 0.71, x + 0.83, y + 0.85, 1.5, 1.62, '#4ad08a');
         qL(x + 0.18, x + 0.62, y + 0.85, 0.3, 0.6, '#111'); qL(x + 0.12, x + 0.88, y + 0.85, 2.22, 2.36, '#f2c230'); glow(x + 0.4, y + 1.1, 1.5, 0.7, 'rgba(120,190,255,.25)'); break; }
       case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
+      // ---- bosco ----
+      case 'pine': {   // abete a blocchetti: tronco e quattro piani di rami
+        const k = Math.floor(hsh(x, y, 60) * 3), G3 = [['#2f6a3a', '#357a42', '#3d8a4a', '#46985a'], ['#2a5f36', '#30703e', '#387f46', '#418e52'], ['#356f3c', '#3c7f44', '#458e4c', '#4f9c58']][k], hh = 0.85 + 0.3 * hsh(x, y, 61);
+        bx(x + 0.42, y + 0.42, x + 0.58, y + 0.58, 0, 0.6, '#6b4a2e');
+        bx(x + 0.08, y + 0.08, x + 0.92, y + 0.92, 0.5, 0.5 + 0.7 * hh, G3[0]); bx(x + 0.18, y + 0.18, x + 0.82, y + 0.82, 0.5 + 0.7 * hh, 0.5 + 1.3 * hh, G3[1]);
+        bx(x + 0.29, y + 0.29, x + 0.71, y + 0.71, 0.5 + 1.3 * hh, 0.5 + 1.85 * hh, G3[2]); bx(x + 0.4, y + 0.4, x + 0.6, y + 0.6, 0.5 + 1.85 * hh, 0.5 + 2.2 * hh, G3[3]); break; }
+      case 'oak': {   // albero a chioma tonda (cubi di foglie)
+        const k = Math.floor(hsh(x, y, 62) * 3), C = [['#4a8a3a', '#56994a'], ['#5a8f34', '#68a040'], ['#3f7c3a', '#4b8c46']][k], hh = 0.9 + 0.3 * hsh(x, y, 63);
+        bx(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 0, 1.0 * hh, '#6b4a2e');
+        bx(x + 0.02, y + 0.02, x + 0.98, y + 0.98, 0.9 * hh, 1.9 * hh, C[0]); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 1.9 * hh, 2.4 * hh, C[1]);
+        if (hsh(x, y, 64) < 0.3) { dot(x + 0.3, y + 0.98, 1.4 * hh, 0.035, '#d8402a'); dot(x + 0.7, y + 0.98, 1.2 * hh, 0.035, '#d8402a'); } break; }
+      case 'bush': bx(x + 0.12, y + 0.18, x + 0.88, y + 0.88, 0, 0.55, '#3f7a36'); bx(x + 0.28, y + 0.3, x + 0.72, y + 0.72, 0.55, 0.82, '#4a8a40');
+        if (hsh(x, y, 65) < 0.4) { dot(x + 0.3, y + 0.88, 0.35, 0.03, '#c8304a'); dot(x + 0.6, y + 0.88, 0.25, 0.03, '#c8304a'); dot(x + 0.88, y + 0.5, 0.4, 0.03, '#c8304a'); } break;
+      case 'rock': { const h = 0.45 + 0.25 * hsh(x, y, 66); bx(x + 0.1, y + 0.15, x + 0.9, y + 0.9, 0, h, '#8a8884'); bx(x + 0.25, y + 0.25, x + 0.7, y + 0.65, h, h + 0.3, '#9a9894'); if (hsh(x, y, 67) < 0.4) bx(x + 0.1, y + 0.15, x + 0.5, y + 0.5, h, h + 0.05, '#5a8a44'); break; }
+      case 'stump': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.42, '#6b4a2e'); cyl(x + 0.5, y + 0.5, 0.22, 0.42, 0.43, '#c8a070'); cyl(x + 0.5, y + 0.5, 0.1, 0.43, 0.44, '#a88050'); break;
+      case 'water': {   // acqua del ruscello: piatta, con qualche riflesso
+        poly([S(x, y, 0.01), S(x + 1, y, 0.01), S(x + 1, y + 1, 0.01), S(x, y + 1, 0.01)], (x + y) % 2 ? '#3a78b0' : '#3672aa');
+        for (let i = 0; i < 2; i++) { const u = 0.1 + 0.6 * hsh(x, y, 70 + i), v = 0.15 + 0.7 * hsh(x, y, 72 + i); poly([S(x + u, y + v, 0.02), S(x + u + 0.28, y + v, 0.02), S(x + u + 0.28, y + v + 0.05, 0.02), S(x + u, y + v + 0.05, 0.02)], '#6aa4d4'); }
+        break; }
+      case 'logpile': {   // catasta di legna: tronchetti sdraiati, si vedono i cerchi del taglio
+        bx(x + 0.08, y + 0.1, x + 0.92, y + 0.9, 0, 0.32, '#7a5232'); bx(x + 0.16, y + 0.1, x + 0.84, y + 0.9, 0.32, 0.62, '#8a5e3a'); bx(x + 0.3, y + 0.1, x + 0.7, y + 0.9, 0.62, 0.9, '#7a5232');
+        for (const [u, z] of [[0.22, 0.16], [0.5, 0.16], [0.78, 0.16], [0.32, 0.47], [0.66, 0.47], [0.5, 0.76]]) dot(x + u, y + 0.9, z, 0.07, '#d8b07a');
+        break; }
+      case 'campfire': {   // cerchio di sassi e legna (le fiamme si disegnano a parte, cambiano)
+        for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, u = 0.5 + Math.cos(a) * 0.36, v = 0.5 + Math.sin(a) * 0.36; bx(x + u - 0.08, y + v - 0.08, x + u + 0.08, y + v + 0.08, 0, 0.14, '#8a8884'); }
+        bx(x + 0.3, y + 0.44, x + 0.7, y + 0.56, 0, 0.12, '#4a3020'); bx(x + 0.44, y + 0.3, x + 0.56, y + 0.7, 0.12, 0.24, '#5a3a24'); break; }
+      case 'tent': {   // tenda a casetta; se l'accampamento e' distrutto e' a terra
+        const c = o || '#d9822b', down = cq.g && cq.g.sv && !cq.g.sv.camp;
+        if (down) { poly([S(x + 0.05, y + 0.15, 0.02), S(x + 0.95, y + 0.05, 0.02), S(x + 0.9, y + 0.95, 0.08), S(x + 0.1, y + 0.85, 0.12)], cqShade(c, 0.8)); line(S(x + 0.1, y + 0.3, 0.05), S(x + 0.9, y + 0.8, 0.05), '#5a3a24', 2); break; }
+        poly([S(x + 0.05, y + 0.1, 0), S(x + 0.5, y + 0.1, 1.3), S(x + 0.5, y + 0.9, 1.3), S(x + 0.05, y + 0.9, 0)], cqShade(c, 1.05));
+        poly([S(x + 0.5, y + 0.1, 1.3), S(x + 0.95, y + 0.1, 0), S(x + 0.95, y + 0.9, 0), S(x + 0.5, y + 0.9, 1.3)], cqShade(c, 0.6));
+        poly([S(x + 0.05, y + 0.9, 0), S(x + 0.5, y + 0.9, 1.3), S(x + 0.95, y + 0.9, 0)], cqShade(c, 0.85));
+        poly([S(x + 0.32, y + 0.9, 0), S(x + 0.5, y + 0.9, 0.8), S(x + 0.68, y + 0.9, 0)], '#2a1e14'); break; }
+      case 'bell': bx(x + 0.2, y + 0.42, x + 0.3, y + 0.58, 0, 1.9, '#6b4a2e'); bx(x + 0.7, y + 0.42, x + 0.8, y + 0.58, 0, 1.9, '#6b4a2e'); bx(x + 0.15, y + 0.4, x + 0.85, y + 0.6, 1.9, 2.05, '#5a3a24');
+        cyl(x + 0.5, y + 0.5, 0.2, 1.2, 1.75, '#d8a830'); cyl(x + 0.5, y + 0.5, 0.25, 1.15, 1.25, '#b88a20'); dot(x + 0.5, y + 0.5, 1.08, 0.04, '#e2553a'); break;
+      case 'generator': bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0, 0.9, '#e2b830'); qL(x + 0.18, x + 0.6, y + 0.8, 0.2, 0.7, '#2a2e35'); dot(x + 0.75, y + 0.8, 0.5, 0.05, '#e2553a');
+        bx(x + 0.65, y + 0.3, x + 0.75, y + 0.4, 0.9, 1.3, '#555'); bx(x + 0.05, y + 0.15, x + 0.95, y + 0.25, 0.9, 1.0, '#3a3f49'); break;
+      case 'stove': desk(x, y); cyl(x + 0.5, y + 0.5, 0.2, 0.85, 0.95, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.17, 0.95, 1.25, '#c0392b'); cyl(x + 0.5, y + 0.5, 0.06, 1.25, 1.35, '#222'); break;
+      case 'pot': { const t = S(x + 0.5, y + 0.5, 1.6); line(t, S(x + 0.15, y + 0.8, 0), '#5a3a24', 3); line(t, S(x + 0.85, y + 0.8, 0), '#5a3a24', 3); line(t, S(x + 0.5, y + 0.15, 0), '#5a3a24', 3);
+        cyl(x + 0.5, y + 0.5, 0.25, 0.5, 1.0, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.2, 1.0, 1.02, '#6aa4d4'); break; }
+      case 'bucket': cyl(x + 0.5, y + 0.5, 0.22, 0, 0.5, '#8a96a8'); cyl(x + 0.5, y + 0.5, 0.18, 0.5, 0.52, '#6aa4d4'); line(S(x + 0.28, y + 0.5, 0.5), S(x + 0.5, y + 0.5, 0.85), '#555', 2); line(S(x + 0.72, y + 0.5, 0.5), S(x + 0.5, y + 0.5, 0.85), '#555', 2); break;
+      case 'lantern': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 1.5, '#3a3f49'); bx(x + 0.33, y + 0.33, x + 0.67, y + 0.67, 1.5, 1.95, '#22262e'); qL(x + 0.37, x + 0.63, y + 0.67, 1.55, 1.9, '#ffd25a'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.95, 2.05, '#22262e'); break;
+      case 'chest': bx(x + 0.12, y + 0.22, x + 0.88, y + 0.78, 0, 0.55, '#8a5a32'); bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0.55, 0.75, '#9a6a3a'); qL(x + 0.12, x + 0.88, y + 0.78, 0.48, 0.56, '#d8a830'); qL(x + 0.45, x + 0.55, y + 0.78, 0.3, 0.56, '#d8a830'); break;
+      case 'sack': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.6, '#c8b088'); cyl(x + 0.5, y + 0.5, 0.18, 0.6, 0.8, '#b8a078'); cyl(x + 0.5, y + 0.5, 0.1, 0.8, 0.86, '#8a6a48'); break;
     }
   };
   return {
@@ -3192,10 +3477,11 @@ function cqTools(g, TW) {
     decals() {
       for (const [x, y, w, h, col] of CQ_DECALS) poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col);
       g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
-      CQ_ROOMS.forEach(r => { const [X, Y] = S(r.x + r.w / 2, r.y + r.h - 1.4, 0); g.fillText(r.n.toUpperCase(), X, Y); });
+      CQ_ROOMS.forEach(r => { if (r.nl) return; const [X, Y] = S(r.lx != null ? r.lx : r.x + r.w / 2, r.ly != null ? r.ly : r.y + r.h - 1.4, 0); g.fillText(r.n.toUpperCase(), X, Y); });
     },
     cell(x, y, o) {
-      if (o.wall) { bx(x, y, x + 1, y + 1, 0, 0.9, o.col); bx(x, y, x + 1, y + 1, 0.82, 0.9, cqShade(o.col, 1.3)); if (TW >= 40) wallTex(x, y, o.col); }
+      if (o.wall && CQ_MAP.wall === 'rock') rockWall(x, y, o.col);
+      else if (o.wall) { bx(x, y, x + 1, y + 1, 0, 0.9, o.col); bx(x, y, x + 1, y + 1, 0.82, 0.9, cqShade(o.col, 1.3)); if (TW >= 40) wallTex(x, y, o.col); }
       else drawProp(o.prop, x, y, o.o);
     }
   };
@@ -3256,9 +3542,12 @@ function cqDraw() {
   const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && !G.me.nv && G.phase === 'play');
   const smoky = !!(G && G.phase === 'play' && G.smoke && G.smoke.until > G.time && cqRoomName(cq.x, cq.y) === G.smoke.room), fog = smoky && !G.me.imp;
   const torch = dark && G.opt.torch, la = Math.atan2(cq.ly || 0.5, cq.lx || 1);
+  // notte nel bosco: buio (nl) tranne intorno a me e al fuoco acceso (raggio fR, piu' grande con piu' legna)
+  const S = G && G.sv, nl = S && G.phase !== 'end' ? S.dark * (G.me.nv ? 0.3 : 1) : 0, F = S && CQ_MAP.fire, fR = S && S.lit && S.camp ? 3 + 2.5 * Math.min(1, S.fuel / 60) : 0;
   // al buio si vede solo vicino a se', oppure nel fascio della torcia
   const seen = (x, y) => {
     if (fog && Math.hypot(x - cq.x, y - cq.y) > 1.5) return false;
+    if (nl > 0.5 && Math.hypot(x - cq.x, y - cq.y) > 4.5 && !(fR && Math.hypot(x - F.x - 0.5, y - F.y - 0.5) < fR)) return false;
     if (!dark) return true;
     if (!torch) return Math.hypot(x - cq.x, y - cq.y) < 3.3;
     const sx = px(x, y) - X, sy = py(x, y) - Y, d = Math.hypot(sx, sy) / TW;
@@ -3273,10 +3562,11 @@ function cqDraw() {
       else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
+    if (fR) list.push({ fire: 1, x: F.x + 0.5, y: F.y + 0.5, fu: S.fuel });   // fiamme del falo' (si muovono: si ridisegnano come un personaggio)
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
   for (const o of list) {
     o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y);
-    o.r = (o.body ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]).map(al);
+    o.r = (o.body ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : o.fire ? [o.sx - 0.8 * TW, o.sy - 1.5 * TW, o.sx + 0.8 * TW, o.sy + 0.4 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]).map(al);
     o.on = o.r[2] > 0 && o.r[0] < W && o.r[3] > 0 && o.r[1] < H;
   }
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
@@ -3302,6 +3592,16 @@ function cqDraw() {
       g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
     } }
   }
+  if (nl > 0) {
+    const lights = [[tx + X, ty + Y - TH, 3.4 * TW, 0.8]];
+    if (fR) {
+      const fx = tx + px(F.x + 0.5, F.y + 0.5), fy = ty + py(F.x + 0.5, F.y + 0.5) - TH * 0.5;
+      lights.push([fx, fy, fR * TW, 1]);
+      const gr = g.createRadialGradient(fx, fy, 0, fx, fy, fR * TW); gr.addColorStop(0, 'rgba(255,150,60,' + (0.22 * nl) + ')'); gr.addColorStop(1, 'rgba(255,150,60,0)');
+      g.fillStyle = gr; g.fillRect(fx - fR * TW, fy - fR * TW, fR * TW * 2, fR * TW * 2);
+    }
+    cqNightLayer(g, W, H, 0.84 * nl, lights);
+  }
   if (dark && torch) {
     // buio con il fascio della torcia: due strati, il secondo un po' piu' largo fa la penombra
     const cx = tx + X, cy = ty + Y - TH;
@@ -3324,7 +3624,7 @@ function cqDraw() {
     g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, bx - 2, by - 2, bw + 4, 9, 4.5); g.fill();
     g.fillStyle = '#7be0a0'; cqRR(g, bx, by, Math.max(4, bw * o.prog), 5, 2.5); g.fill();
   }
-  for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff');
+  for (const o of list) if (o.on && !o.body && !o.fire) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff');
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
   const mark = (x, y, col) => {
@@ -3375,9 +3675,35 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     if (!it.c) { T.cell(it.x, it.y, it.o); continue; }
     const c = it.c, X = c.sx - tx, Y = c.sy - ty;
     if (c.body) cqBody(g, X, Y, TW, c.L, c.f);
+    else if (c.fire) cqFlames(g, X, Y, TW, c.fu);
     else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y, TW, c.L, c.w, c.f); g.globalAlpha = 1; }
   }
   g.restore();
+}
+// fiamme del falo': piu' alte con piu' legna, tremolano
+function cqFlames(g, X, Y, TW, fuel) {
+  const t = performance.now() / 1000, k = 0.6 + 0.4 * Math.min(1, fuel / 60), u = TW / 34;
+  const fl = (dx, w, h, col, ph) => {
+    const hh = h * (0.85 + 0.15 * Math.sin(t * 9 + ph)) * k, x0 = X + dx * u, top = x0 + Math.sin(t * 7 + ph) * 2 * u;
+    g.fillStyle = col; g.beginPath(); g.moveTo(x0 - w * u, Y - 2 * u);
+    g.quadraticCurveTo(x0 - w * u * 0.6, Y - hh * u * 0.6, top, Y - hh * u); g.quadraticCurveTo(x0 + w * u * 0.6, Y - hh * u * 0.6, x0 + w * u, Y - 2 * u); g.closePath(); g.fill();
+  };
+  fl(-5, 6, 26, '#e2553a', 0); fl(5, 6, 24, '#e2553a', 2); fl(0, 8, 34, '#f08a24', 1); fl(-2, 5, 22, '#f2c230', 3); fl(3, 4, 16, '#fff1a8', 4);
+}
+// strato della notte: scuro su tutto, con buchi sfumati dove c'e' luce ([x, y, raggio, forza]); disegnato piccolo e ingrandito (sfumature morbide, poco lavoro)
+function cqNightLayer(g, W, H, a, lights) {
+  const k = 4, w = Math.ceil(W / k), h = Math.ceil(H / k), c = cq.nc || (cq.nc = document.createElement('canvas'));
+  if (c.width !== w || c.height !== h) { c.width = w; c.height = h; cq.ng = null; }
+  const n = cq.ng || (cq.ng = c.getContext('2d', CQ_CPU));
+  n.globalCompositeOperation = 'source-over'; n.clearRect(0, 0, w, h); n.fillStyle = 'rgba(6,10,26,' + a + ')'; n.fillRect(0, 0, w, h);
+  n.globalCompositeOperation = 'destination-out';
+  for (const [x, y, r, s] of lights) {
+    const gr = n.createRadialGradient(x / k, y / k, 0, x / k, y / k, r / k);
+    gr.addColorStop(0, 'rgba(0,0,0,' + s + ')'); gr.addColorStop(0.55, 'rgba(0,0,0,' + (s * 0.8) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
+    n.fillStyle = gr; n.fillRect(0, 0, w, h);
+  }
+  n.globalCompositeOperation = 'source-over';
+  g.drawImage(c, 0, 0, w, h, 0, 0, w * k, h * k);
 }
 // personaggio a terra, sdraiato su un fianco
 function cqBody(g, X, Y, TW, L, f) {
