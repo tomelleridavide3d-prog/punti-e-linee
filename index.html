@@ -1570,17 +1570,19 @@ function openCiack() {
 function closeCiack() { cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
-  cq.w = c.clientWidth; cq.h = c.clientHeight; c.width = Math.round(cq.w * cq.dpr); c.height = Math.round(cq.h * cq.dpr);
+  const w = c.clientWidth, h = c.clientHeight;
+  if (w !== cq.w || h !== cq.h || c.width !== Math.round(w * cq.dpr)) cq.bg = null;
+  cq.w = w; cq.h = h; c.width = Math.round(w * cq.dpr); c.height = Math.round(h * cq.dpr); cq.dirty = true;
 }
 function cqInit() {
   const root = $('#ciack');
   window.addEventListener('resize', () => { if (cq.on) cqResize(); });
   root.addEventListener('pointerdown', e => { if (e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
   root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
-  const up = e => { if (cq.joy && cq.joy.id === e.pointerId) cq.joy = null; };
+  const up = e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy = null; cq.dirty = true; } };
   root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
   window.addEventListener('keydown', e => { if (cq.on) { cq.keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); } });
-  window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; });
+  window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; cq.dirty = true; });
   $('#cqBack').onclick = closeCiack;
 }
 // direzione sullo schermo (sx, sy) -> direzione nel mondo isometrico (la tessera e' larga il doppio dell'altezza)
@@ -1603,22 +1605,23 @@ function cqFrame(t) {
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.walk += dt * 11;
   } else cq.walk = 0;
-  cqDraw();
+  if (d || cq.joy || cq.dirty || cq.moving) cqDraw();   // fermo e senza dito sullo schermo: niente da ridisegnare
+  cq.moving = !!d; cq.dirty = false;
   cq.raf = requestAnimationFrame(cqFrame);
 }
-function cqShade(hex, f) {
+const cqShadeMemo = new Map();
+function cqShade(hex, f) {   // i colori calcolati si ricordano: niente lavoro e niente spazzatura a ogni fotogramma
+  const k = hex + '|' + f; let r = cqShadeMemo.get(k); if (r) return r;
   const n = parseInt(hex.slice(1), 16), v = hex[0] === '#' ? [n >> 16, (n >> 8) & 255, n & 255] : hex.match(/\d+/g).map(Number);
-  return 'rgb(' + v.map(v => Math.max(0, Math.min(255, Math.round(v * f)))).join(',') + ')';
+  r = 'rgb(' + v.map(v => Math.max(0, Math.min(255, Math.round(v * f)))).join(',') + ')';
+  cqShadeMemo.set(k, r); return r;
 }
-function cqDraw() {
-  const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
-  g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.clearRect(0, 0, W, H);
-  const TW = Math.max(48, Math.min(W, H) / 8), TH = TW / 2, U = TH * 1.15;
+// strumenti di disegno per un contesto g gia' spostato sull'origine del mondo
+function cqTools(g, TW) {
+  const TH = TW / 2, U = TH * 1.15;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   const S = (x, y, z) => [px(x, y), py(x, y) - z * U];
-  g.save(); g.translate(W / 2 - px(cq.x, cq.y), H / 2 - py(cq.x, cq.y) + TH);
   const poly = (pts, col) => { g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); g.closePath(); g.fillStyle = col; g.fill(); };
-  const vis = (x, y) => { const sx = W / 2 + px(x, y) - px(cq.x, cq.y), sy = H / 2 + py(x, y) - py(cq.x, cq.y) + TH; return sx > -TW * 2 && sx < W + TW * 2 && sy > -TH * 8 && sy < H + TH * 4; };
   // forme di base: scatola, facce piane, cilindro, punto
   const bx = (x0, y0, x1, y1, z0, z1, col) => {
     poly([S(x0, y1, z1), S(x1, y1, z1), S(x1, y1, z0), S(x0, y1, z0)], cqShade(col, 0.74));
@@ -1639,14 +1642,6 @@ function cqDraw() {
     for (const [a, b] of [[0.08, 0.16], [0.82, 0.16], [0.08, 0.74], [0.82, 0.74]]) bx(x + a, y + b, x + a + 0.1, y + b + 0.1, 0, 0.7, '#6b5238');
     bx(x + 0.02, y + 0.1, x + 0.98, y + 0.9, 0.7, 0.85, '#b99a72');
   };
-  // pavimento
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) {
-    const col = cqFloor[y][x]; if (!col || !vis(x, y)) continue;
-    poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], col);
-  }
-  for (const [x, y, w, h, col] of CQ_DECALS) { if (!vis(x + w / 2, y + h / 2) && !vis(x, y) && !vis(x + w, y + h)) continue; poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col); }
-  g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
-  CQ_ROOMS.forEach(r => { const [X, Y] = S(r.x + r.w / 2, r.y + r.h - 1.4, 0); g.fillText(r.n.toUpperCase(), X, Y); });
   // oggetti di scena
   const drawProp = (t, x, y, o) => {
     switch (t) {
@@ -1683,17 +1678,59 @@ function cqDraw() {
       case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
     }
   };
-  // muri, oggetti e personaggio, dal piu' lontano al piu' vicino
-  const items = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] && vis(x, y)) items.push({ d: x + y + 1, x, y, o: cqSolid[y][x] });
+  return {
+    px, py,
+    floor(x, y) { const col = cqFloor[y] && cqFloor[y][x]; if (col) poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], col); },
+    decals() {
+      for (const [x, y, w, h, col] of CQ_DECALS) poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col);
+      g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
+      CQ_ROOMS.forEach(r => { const [X, Y] = S(r.x + r.w / 2, r.y + r.h - 1.4, 0); g.fillText(r.n.toUpperCase(), X, Y); });
+    },
+    cell(x, y, o) {
+      if (o.wall) { bx(x, y, x + 1, y + 1, 0, 0.9, o.col); bx(x, y, x + 1, y + 1, 0.82, 0.9, cqShade(o.col, 1.3)); }
+      else drawProp(o.prop, x, y, o.o);
+    }
+  };
+}
+// la mappa ferma si disegna una volta sola in un'immagine (si rifa' solo se cambia la misura dello schermo)
+function cqBuildBg() {
+  const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), TH = TW / 2;
+  const ox = CQ_H * TW / 2 + TW, oy = 3.6 * TH * 1.15 + TW;
+  const bw = (CQ_W + CQ_H) * TW / 2 + 2 * TW, bh = (CQ_W + CQ_H) * TH / 2 + oy + TW;
+  let sc = cq.dpr; if (bw * bh * sc * sc > 11e6) sc = Math.sqrt(11e6 / (bw * bh));   // limite di memoria dei telefoni
+  if (sc !== cq.dpr) sc = Math.floor(sc * 8) / 8;
+  const c = document.createElement('canvas'); c.width = Math.ceil(bw * sc); c.height = Math.ceil(bh * sc);
+  const g = c.getContext('2d'); g.setTransform(sc, 0, 0, sc, ox * sc, oy * sc);
+  const T = cqTools(g, TW), cells = [];
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { T.floor(x, y); if (cqSolid[y][x]) cells.push([x + y, x, y, cqSolid[y][x]]); }
+  T.decals();
+  cells.sort((a, b) => a[0] - b[0]).forEach(([, x, y, o]) => T.cell(x, y, o));
+  cq.bg = { c, TW, ox, oy, bw, bh };
+}
+function cqDraw() {
+  const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
+  if (!cq.bg) cqBuildBg();
+  const B = cq.bg, TW = B.TW, TH = TW / 2;
+  const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
+  // posizioni allineate ai pixel dello schermo: l'immagine pronta e il riquadro ridisegnato combaciano senza righe
+  const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
+  const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
+  g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
+  g.drawImage(B.c, ix, iy, B.bw, B.bh);
+  // intorno all'omino si ridisegna tutto da capo (pavimento, oggetti dietro, omino, oggetti davanti), solo in un piccolo riquadro
+  g.save();
+  const rx = al(tx + X - 0.8 * TW), ry = al(ty + Y - 2 * TW), rw = al(1.6 * TW), rh = al(2.4 * TW);
+  g.beginPath(); g.rect(rx, ry, rw, rh); g.clip(); g.clearRect(rx, ry, rw, rh);
+  g.translate(tx, ty);
+  const T = cqTools(g, TW), fx = Math.floor(cq.x), fy = Math.floor(cq.y), items = [];
+  for (let y = fy - 7; y <= fy + 8; y++) for (let x = fx - 7; x <= fx + 8; x++) {
+    T.floor(x, y);
+    const o = cqSolid[y] && cqSolid[y][x]; if (o) items.push({ d: x + y + 1, x, y, o });
+  }
+  T.decals();
   items.push({ d: cq.x + cq.y, me: 1 });
   items.sort((a, b) => a.d - b.d);
-  for (const it of items) {
-    if (it.me) { cqPlayer(g, px(cq.x, cq.y), py(cq.x, cq.y), TW); continue; }
-    const { x, y, o } = it;
-    if (o.wall) { bx(x, y, x + 1, y + 1, 0, 0.9, o.col); bx(x, y, x + 1, y + 1, 0.82, 0.9, cqShade(o.col, 1.3)); }
-    else drawProp(o.prop, x, y, o.o);
-  }
+  for (const it of items) { if (it.me) cqPlayer(g, X, Y, TW); else T.cell(it.x, it.y, it.o); }
   g.restore();
   // joystick
   if (cq.joy) {
