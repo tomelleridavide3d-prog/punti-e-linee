@@ -1,0 +1,832 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Punti e Linee</title>
+<style>
+:root{
+  --bg:#f5f4f0; --panel:#ffffff; --ink:#1d2127; --muted:#6b7280; --line:#e4e2dc; --dot:#2a2e35; --ghost:#9aa3af;
+  --p0:#2f6fe4; --p1:#e2553a; --p2:#1f9d6b; --p3:#c58610;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px rgba(0,0,0,.06);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#14161a; --panel:#1d2026; --ink:#e8eaed; --muted:#9aa1ac; --line:#2c3038; --dot:#d5d9df; --ghost:#5d6573;
+    --p0:#5b8ff0; --p1:#f07a62; --p2:#3cc28e; --p3:#e3a93a; --shadow:0 1px 2px rgba(0,0,0,.4);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#14161a; --panel:#1d2026; --ink:#e8eaed; --muted:#9aa1ac; --line:#2c3038; --dot:#d5d9df; --ghost:#5d6573;
+  --p0:#5b8ff0; --p1:#f07a62; --p2:#3cc28e; --p3:#e3a93a; --shadow:0 1px 2px rgba(0,0,0,.4);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+.app{max-width:860px;margin:0 auto;padding:16px;display:flex;flex-direction:column;min-height:100vh;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+h1{font-size:20px;margin:0;font-weight:700;letter-spacing:-.01em;display:flex;align-items:center;gap:10px}
+.logo{width:26px;height:26px}
+.tools{display:flex;gap:6px;flex-wrap:wrap}
+.btn{border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:10px;padding:8px 12px;font:inherit;font-size:14px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.btn:hover:not(:disabled){border-color:var(--ghost)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.primary{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.btn.icon{padding:8px 10px}
+.btn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.scores{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.card{background:var(--panel);border:2px solid transparent;border-radius:14px;padding:10px 16px;min-width:140px;box-shadow:var(--shadow);display:flex;align-items:center;gap:10px;transition:border-color .2s}
+.card.active{border-color:var(--pc)}
+.card .sw{width:12px;height:12px;border-radius:50%;background:var(--pc)}
+.card .nm{font-size:15px;font-weight:600}
+.card .sub{font-size:12px;color:var(--muted)}
+.card .score{font-size:28px;font-weight:700;font-variant-numeric:tabular-nums;margin-left:auto;padding-left:12px}
+.status{text-align:center;color:var(--muted);min-height:22px;font-size:15px}
+.status b{color:var(--ink)}
+.board-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center}
+#board{width:min(100%,70vh);max-width:620px;height:auto;touch-action:manipulation;background:var(--panel);border-radius:20px;box-shadow:var(--shadow);user-select:none}
+.empty{color:var(--muted);text-align:center;padding:60px 0}
+.dot{fill:var(--dot)}
+.edge-on{stroke-width:6;stroke-linecap:round}
+.halo{stroke-width:16;stroke-linecap:round;stroke-opacity:.18}
+.ghost{stroke:var(--cur);stroke-width:6;stroke-linecap:round;opacity:0;transition:opacity .1s}
+#board:not(.locked) .edge-free:hover .ghost{opacity:.45}
+.hit{stroke:transparent;stroke-width:22;stroke-linecap:round;cursor:pointer}
+#board.locked .hit{cursor:default}
+.c0{stroke:var(--p0)} .c1{stroke:var(--p1)} .c2{stroke:var(--p2)} .c3{stroke:var(--p3)}
+.box rect{fill-opacity:.15;stroke:none}
+.box text{font-weight:700;font-size:22px;text-anchor:middle;dominant-baseline:central;stroke:none}
+.box.c0 rect,.box.c0 text{fill:var(--p0)} .box.c1 rect,.box.c1 text{fill:var(--p1)}
+.box.c2 rect,.box.c2 text{fill:var(--p2)} .box.c3 rect,.box.c3 text{fill:var(--p3)}
+.box.new{animation:pop .3s ease-out;transform-box:fill-box;transform-origin:center}
+.edge-on.last{animation:fade .25s ease-out}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:scale(1);opacity:1}}
+@keyframes fade{from{opacity:.15}to{opacity:1}}
+dialog{border:none;border-radius:18px;padding:0;background:var(--panel);color:var(--ink);width:min(560px,calc(100vw - 32px));max-height:calc(100vh - 32px);box-shadow:0 20px 60px rgba(0,0,0,.28)}
+dialog::backdrop{background:rgba(12,14,18,.5)}
+.dlg{padding:20px 22px}
+.dlg h2{margin:0 0 4px;font-size:20px}
+.dlg .lead{color:var(--muted);margin:0 0 6px;font-size:14px}
+.row{margin:16px 0}
+.lbl{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-bottom:6px;font-weight:600}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg label{flex:1 1 auto;position:relative}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:block;text-align:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;cursor:pointer;font-size:14px;white-space:nowrap}
+.seg input:checked+span{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.seg input:focus-visible+span{outline:2px solid var(--p0);outline-offset:2px}
+.hint{font-size:13px;color:var(--muted);margin-top:8px;min-height:18px}
+.names{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.names input{font:inherit;font-size:14px;padding:7px 10px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);min-width:0}
+details{margin-top:14px;font-size:14px;color:var(--muted)}
+details summary{cursor:pointer;color:var(--ink);font-weight:600}
+details p,details li{line-height:1.5}
+.actions{display:flex;justify-content:flex-end;gap:8px;margin-top:20px}
+.big{font-size:40px;font-weight:700;font-variant-numeric:tabular-nums;margin:6px 0}
+.list{margin:12px 0 0;padding:0;list-style:none}
+.list li{padding:8px 0;border-top:1px solid var(--line);font-size:14px;display:flex;justify-content:space-between;gap:10px}
+.list li span:last-child{font-weight:600;white-space:nowrap}
+.bar{height:8px;border-radius:4px;background:var(--line);overflow:hidden;margin-top:6px}
+.bar i{display:block;height:100%;background:var(--p0);border-radius:4px}
+.metric{padding:10px 0;border-top:1px solid var(--line)}
+.metric .top{display:flex;justify-content:space-between;font-size:14px}
+.metric .top span:last-child{color:var(--muted)}
+.metric .d{font-size:12px;color:var(--muted);margin-top:2px}
+table{width:100%;border-collapse:collapse;font-size:14px;margin-top:6px}
+th,td{text-align:right;padding:6px 4px;border-top:1px solid var(--line);font-variant-numeric:tabular-nums}
+th:first-child,td:first-child{text-align:left}
+th{color:var(--muted);font-weight:600;font-size:12px}
+.insight{font-size:14px;line-height:1.5;background:var(--bg);border-radius:10px;padding:10px 12px;margin-top:8px}
+.spark{width:100%;height:60px;margin-top:6px}
+.chip{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--bg);border:1px solid var(--line);color:var(--muted);margin-left:6px}
+@media (max-width:520px){ .btn .t{display:none} .card{min-width:0;flex:1} }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>
+      <svg class="logo" viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.5"/><circle cx="22" cy="4" r="2.5"/><circle cx="4" cy="22" r="2.5"/><circle cx="22" cy="22" r="2.5"/></g><path d="M4 4H22V22" stroke="var(--p0)" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M4 4V22H22" stroke="var(--p1)" stroke-width="3" fill="none" stroke-linecap="round"/></svg>
+      Punti e Linee
+    </h1>
+    <div class="tools">
+      <button class="btn" id="bUndo" title="Annulla l'ultima mossa"><svg viewBox="0 0 24 24"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg><span class="t">Annulla</span></button>
+      <button class="btn" id="bNew" title="Nuova partita"><svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span class="t">Nuova</span></button>
+      <button class="btn" id="bStats" title="Statistiche"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="t">Statistiche</span></button>
+      <button class="btn icon" id="bSound" title="Suoni"></button>
+      <button class="btn icon" id="bTheme" title="Tema chiaro/scuro"></button>
+    </div>
+  </header>
+  <div class="scores" id="scores"></div>
+  <div class="status" id="status"></div>
+  <div class="board-wrap"><svg id="board" viewBox="0 0 100 100"></svg></div>
+</div>
+
+<dialog id="dSetup"><form method="dialog" class="dlg" id="fSetup"></form></dialog>
+<dialog id="dEnd"><div class="dlg" id="endBody"></div></dialog>
+<dialog id="dStats"><div class="dlg" id="statsBody"></div></dialog>
+
+<script>
+// ==ENGINE==
+// Griglia R x C quadrati. Lati orizzontali: id = r*C + c (r 0..R). Verticali: id = H + r*(C+1) + c (c 0..C).
+function makeTopo(R, C) {
+  const H = (R + 1) * C, E = H + R * (C + 1), B = R * C;
+  const eb = new Int16Array(E * 2).fill(-1), be = new Int16Array(B * 4), geo = [];
+  for (let r = 0; r <= R; r++) for (let c = 0; c < C; c++) {
+    const e = r * C + c;
+    if (r > 0) eb[e * 2] = (r - 1) * C + c;
+    if (r < R) eb[e * 2 + 1] = r * C + c;
+    geo[e] = [c, r, c + 1, r];
+  }
+  for (let r = 0; r < R; r++) for (let c = 0; c <= C; c++) {
+    const e = H + r * (C + 1) + c;
+    if (c > 0) eb[e * 2] = r * C + c - 1;
+    if (c < C) eb[e * 2 + 1] = r * C + c;
+    geo[e] = [c, r, c, r + 1];
+  }
+  for (let b = 0; b < B; b++) {
+    const r = Math.floor(b / C), c = b % C;
+    be[b * 4] = r * C + c; be[b * 4 + 1] = (r + 1) * C + c;
+    be[b * 4 + 2] = H + r * (C + 1) + c; be[b * 4 + 3] = H + r * (C + 1) + c + 1;
+  }
+  return { R, C, H, E, B, eb, be, geo };
+}
+const newState = T => ({ T, ed: new Uint8Array(T.E), cnt: new Uint8Array(T.B), free: T.E });
+const cloneState = st => ({ T: st.T, ed: st.ed.slice(), cnt: st.cnt.slice(), free: st.free });
+const ABORT = { abort: true };
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+function play(st, e) {
+  st.ed[e] = 1; st.free--;
+  let k = 0;
+  for (let i = 0; i < 2; i++) { const b = st.T.eb[e * 2 + i]; if (b >= 0 && ++st.cnt[b] === 4) k++; }
+  return k;
+}
+function unplay(st, e) {
+  st.ed[e] = 0; st.free++;
+  for (let i = 0; i < 2; i++) { const b = st.T.eb[e * 2 + i]; if (b >= 0) st.cnt[b]--; }
+}
+function otherBox(T, e, b) { return T.eb[e * 2] === b ? T.eb[e * 2 + 1] : T.eb[e * 2]; }
+function isSafe(st, e) {
+  for (let i = 0; i < 2; i++) { const b = st.T.eb[e * 2 + i]; if (b >= 0 && st.cnt[b] >= 2) return false; }
+  return true;
+}
+function freeEdges(st) { const r = []; for (let e = 0; e < st.T.E; e++) if (!st.ed[e]) r.push(e); return r; }
+function safeEdges(st) { const r = []; for (let e = 0; e < st.T.E; e++) if (!st.ed[e] && isSafe(st, e)) r.push(e); return r; }
+function freeEdgeOf(st, b, skip = -1) {
+  for (let k = 0; k < 4; k++) { const e = st.T.be[b * 4 + k]; if (!st.ed[e] && e !== skip) return e; }
+  return -1;
+}
+function firstCap(st) {
+  for (let b = 0; b < st.T.B; b++) if (st.cnt[b] === 3) return freeEdgeOf(st, b);
+  return -1;
+}
+function capEdges(st) {
+  const s = new Set();
+  for (let b = 0; b < st.T.B; b++) if (st.cnt[b] === 3) s.add(freeEdgeOf(st, b));
+  return [...s];
+}
+function keyOf(st) {
+  let s = '';
+  for (let i = 0; i < st.T.E; i += 16) {
+    let w = 0;
+    for (let j = 0; j < 16 && i + j < st.T.E; j++) if (st.ed[i + j]) w |= 1 << j;
+    s += String.fromCharCode(w);
+  }
+  return s;
+}
+// Mosse "doppio incrocio": invece di prendere, si lasciano 2 quadrati (catena) o 4 (anello) all'avversario.
+function ddCandidates(st) {
+  const T = st.T, out = new Set();
+  for (let a = 0; a < T.B; a++) {
+    if (st.cnt[a] !== 3) continue;
+    const e = freeEdgeOf(st, a), b = otherBox(T, e, a);
+    if (b < 0 || st.cnt[b] !== 2) continue;
+    const f = freeEdgeOf(st, b, e);
+    if (f < 0) continue;
+    const o = otherBox(T, f, b);
+    if (o >= 0 && st.cnt[o] >= 3) continue;
+    out.add(f);
+  }
+  return [...out];
+}
+// Fase finale senza mosse sicure e senza catture: scompone in catene e anelli.
+function analyze(st) {
+  const T = st.T, seen = new Uint8Array(T.B), comps = [];
+  for (let b = 0; b < T.B; b++) if (st.cnt[b] < 2) return { simple: false, comps };
+  for (let b = 0; b < T.B; b++) {
+    if (st.cnt[b] !== 2 || seen[b]) continue;
+    const stack = [b], edges = new Set(); seen[b] = 1;
+    let n = 0, ground = 0;
+    while (stack.length) {
+      const x = stack.pop(); n++;
+      for (let k = 0; k < 4; k++) {
+        const e = T.be[x * 4 + k];
+        if (st.ed[e]) continue;
+        if (edges.has(e)) continue;
+        edges.add(e);
+        const o = otherBox(T, e, x);
+        if (o < 0) ground++;
+        else if (!seen[o]) { seen[o] = 1; stack.push(o); }
+      }
+    }
+    comps.push({ len: n, loop: ground === 0, edges: [...edges] });
+  }
+  return { simple: true, comps };
+}
+function openEdge(T, c) {
+  if (c.loop) return c.edges[0];
+  if (c.len === 2) return c.edges.find(e => T.eb[e * 2] >= 0 && T.eb[e * 2 + 1] >= 0) ?? c.edges[0];
+  return c.edges.find(e => T.eb[e * 2] < 0 || T.eb[e * 2 + 1] < 0) ?? c.edges[0];
+}
+function uniqueComps(comps) {
+  const seen = new Set();
+  return comps.filter(c => { const k = (c.loop ? 'l' : 'c') + c.len; if (seen.has(k)) return false; seen.add(k); return true; });
+}
+// Quanti quadrati incassa l'avversario (avido) se gioco e.
+function greedyGain(st, e) {
+  const stack = [e]; play(st, e);
+  let tot = 0, c;
+  while ((c = firstCap(st)) >= 0) { tot += play(st, c); stack.push(c); }
+  while (stack.length) unplay(st, stack.pop());
+  return tot;
+}
+function fewestGiven(st) {
+  let best = Infinity, list = [];
+  for (const e of freeEdges(st)) {
+    const g = greedyGain(st, e);
+    if (g < best) { best = g; list = [e]; } else if (g === best) list.push(e);
+  }
+  return pick(list);
+}
+function features(s) {
+  return {
+    missCap: s < 15 ? 0.45 : s < 30 ? 0.12 : 0,
+    avoid3: Math.min(1, Math.max(0, (s - 5) / 35)),
+    smartGive: s >= 20,
+    endSmart: s >= 40,
+    ddKnow: s >= 55,
+    exactT: s >= 70 ? Math.round(3 + (s - 70) / 30 * 11) : 0,
+    blunder: s >= 85 ? 0 : (85 - s) / 400,
+    altDepth: s >= 90 ? 6 : s >= 60 ? 4 : 0,
+    altFree: s >= 90 ? 30 : 22,
+  };
+}
+// Risolutore con valori dal punto di vista del computer (+ = buono per il computer).
+// model: probabilita' che l'umano giochi la mossa ottimale nelle tre situazioni chiave (null = sempre ottimale).
+function makeSolver(model, budget, ms = Infinity) {
+  const qDD = model ? model.qDD : 1, qEnd = model ? model.qEnd : 1, qCtrl = model ? model.qCtrl : 1;
+  const mC = new Map(), mE = new Map(), mS = new Map();
+  let nodes = 0;
+  const deadline = Date.now() + ms;
+  const tick = () => { if (++nodes > budget || ((nodes & 511) === 0 && Date.now() > deadline)) throw ABORT; };
+  function mix(vals, ai, q) {
+    let mn = Infinity, mx = -Infinity, sum = 0;
+    for (const v of vals) { if (v < mn) mn = v; if (v > mx) mx = v; sum += v; }
+    return ai ? mx : q * mn + (1 - q) * sum / vals.length;
+  }
+  function respond(take, dd, responderAI) {
+    if (responderAI) return Math.max(take, dd);
+    return qDD * Math.min(take, dd) + (1 - qDD) * take;
+  }
+  function vClosed(chains, loops, ai) {
+    if (!chains.length && !loops.length) return 0;
+    const key = (ai ? 'A' : 'H') + chains.join(',') + '|' + loops.join(',');
+    const hit = mC.get(key); if (hit !== undefined) return hit;
+    tick();
+    const s = ai ? 1 : -1, opts = [];
+    for (let i = 0; i < chains.length; i++) {
+      if (i && chains[i] === chains[i - 1]) continue;
+      const L = chains[i], rest = chains.slice(0, i).concat(chains.slice(i + 1));
+      const take = -s * L + vClosed(rest, loops, !ai);
+      opts.push(L >= 3 ? respond(take, s * (4 - L) + vClosed(rest, loops, ai), !ai) : take);
+    }
+    for (let i = 0; i < loops.length; i++) {
+      if (i && loops[i] === loops[i - 1]) continue;
+      const L = loops[i], rest = loops.slice(0, i).concat(loops.slice(i + 1));
+      const take = -s * L + vClosed(chains, rest, !ai);
+      opts.push(respond(take, s * (8 - L) + vClosed(chains, rest, ai), !ai));
+    }
+    const v = mix(opts, ai, qEnd);
+    mC.set(key, v); return v;
+  }
+  function closedValue(st, ai) {
+    const an = analyze(st);
+    if (an.simple) {
+      const ch = an.comps.filter(c => !c.loop).map(c => c.len).sort((a, b) => a - b);
+      const lp = an.comps.filter(c => c.loop).map(c => c.len).sort((a, b) => a - b);
+      return vClosed(ch, lp, ai);
+    }
+    const vals = [];
+    for (const e of freeEdges(st)) { play(st, e); vals.push(gEnd(st, !ai)); unplay(st, e); }
+    return mix(vals, ai, qEnd);
+  }
+  // Nessuna mossa sicura rimasta.
+  function gEnd(st, ai) {
+    if (st.free === 0) return 0;
+    const key = keyOf(st) + (ai ? 'A' : 'H');
+    const hit = mE.get(key); if (hit !== undefined) return hit;
+    tick();
+    const s = ai ? 1 : -1, cap = firstCap(st);
+    let v;
+    if (cap < 0) v = closedValue(st, ai);
+    else {
+      const k = play(st, cap); const take = s * k + gEnd(st, ai); unplay(st, cap);
+      const dvals = [];
+      for (const f of ddCandidates(st)) { play(st, f); dvals.push(gEnd(st, !ai)); unplay(st, f); }
+      if (!dvals.length) v = take;
+      else if (ai) v = Math.max(take, ...dvals);
+      else v = qDD * Math.min(take, ...dvals) + (1 - qDD) * take;
+    }
+    mE.set(key, v); return v;
+  }
+  // Fase con mosse sicure: le catture si prendono sempre, poi si sceglie una mossa sicura.
+  function gSafe(st, ai) {
+    const safe = safeEdges(st);
+    if (!safe.length) return gEnd(st, ai);
+    const key = keyOf(st) + (ai ? 'A' : 'H');
+    const hit = mS.get(key); if (hit !== undefined) return hit;
+    tick();
+    let v;
+    const cap = firstCap(st);
+    if (cap >= 0) { const k = play(st, cap); v = (ai ? k : -k) + gSafe(st, ai); unplay(st, cap); }
+    else {
+      const vals = [];
+      for (const e of safe) { play(st, e); vals.push(gSafe(st, !ai)); unplay(st, e); }
+      v = mix(vals, ai, qCtrl);
+    }
+    mS.set(key, v); return v;
+  }
+  return { gEnd, gSafe, vClosed, nodes: () => nodes };
+}
+function pickBest(cands, fn, randomTies) {
+  let best = -Infinity, list = [];
+  for (const c of cands) {
+    const v = fn(c);
+    if (v > best + 1e-9) { best = v; list = [c]; } else if (v >= best - 1e-9) list.push(c);
+  }
+  return randomTies ? pick(list) : list[0];
+}
+// Valore (per il computer) di giocare e su w, con il computer che muove.
+function aiEval(w, e, search) {
+  const k = play(w, e);
+  const v = k ? k + search(w, true) : search(w, false);
+  unplay(w, e);
+  return v;
+}
+function aiMoveClassic(st, s, model) {
+  const F = features(s), free = freeEdges(st);
+  if (free.length === 1) return free[0];
+  if (Math.random() < F.blunder) return pick(free);
+  const caps = capEdges(st), safe = safeEdges(st);
+  if (caps.length) {
+    if (Math.random() < F.missCap) {
+      const non = free.filter(e => !caps.includes(e));
+      if (non.length) return pick(safe.length ? safe : non);
+    }
+    if (safe.length || !F.ddKnow) return caps[0];
+    const w = cloneState(st);
+    try {
+      const S = makeSolver(model, 400000, 700);
+      return pickBest([caps[0], ...ddCandidates(w)], e => aiEval(w, e, S.gEnd), false);
+    } catch (x) { if (x !== ABORT) throw x; return caps[0]; }
+  }
+  if (safe.length) {
+    if (F.exactT && safe.length <= F.exactT) {
+      const w = cloneState(st);
+      try {
+        const S = makeSolver(model, 300000, 700);
+        return pickBest(safe, e => aiEval(w, e, S.gSafe), true);
+      } catch (x) { if (x !== ABORT) throw x; }
+    }
+    return Math.random() < F.avoid3 ? pick(safe) : pick(free);
+  }
+  if (F.endSmart) {
+    const w = cloneState(st);
+    try {
+      const S = makeSolver(model, 400000, 700), an = analyze(w);
+      const cands = an.simple ? uniqueComps(an.comps).map(c => openEdge(w.T, c)) : freeEdges(w);
+      return pickBest(cands, e => aiEval(w, e, S.gEnd), true);
+    } catch (x) { if (x !== ABORT) throw x; }
+  }
+  return F.smartGive ? fewestGiven(st) : pick(free);
+}
+// Variante a turni alterni: ricerca negamax limitata.
+function altSearch(st, depth) {
+  let nodes = 0;
+  function moves() {
+    const a = [], b = [], c = [];
+    for (let e = 0; e < st.T.E; e++) {
+      if (st.ed[e]) continue;
+      let cap = false;
+      for (let i = 0; i < 2; i++) { const x = st.T.eb[e * 2 + i]; if (x >= 0 && st.cnt[x] === 3) cap = true; }
+      (cap ? a : isSafe(st, e) ? b : c).push(e);
+    }
+    return a.concat(b, c);
+  }
+  function nm(d, al, be) {
+    if (st.free === 0 || d === 0) return 0;
+    if (++nodes > 250000) throw ABORT;
+    let best = -Infinity;
+    for (const e of moves()) {
+      const k = play(st, e);
+      const v = k - nm(d - 1, k - be, k - al);
+      unplay(st, e);
+      if (v > best) best = v;
+      if (best > al) al = best;
+      if (al >= be) break;
+    }
+    return best;
+  }
+  let best = -Infinity, list = [];
+  for (const e of moves()) {
+    const k = play(st, e);
+    const v = k - nm(depth - 1, -Infinity, Infinity);
+    unplay(st, e);
+    if (v > best) { best = v; list = [e]; } else if (v === best) list.push(e);
+  }
+  return pick(list);
+}
+function aiMoveAlt(st, s) {
+  const F = features(s), free = freeEdges(st);
+  if (free.length === 1) return free[0];
+  if (Math.random() < F.blunder) return pick(free);
+  const caps = capEdges(st), safe = safeEdges(st);
+  if (F.altDepth && st.free <= F.altFree) {
+    try { return altSearch(cloneState(st), F.altDepth); } catch (x) { if (x !== ABORT) throw x; }
+  }
+  if (caps.length && Math.random() >= F.missCap) return caps[0];
+  if (safe.length) return Math.random() < F.avoid3 ? pick(safe) : pick(free);
+  if (F.smartGive) {
+    let best = Infinity, list = [];
+    for (const e of free) {
+      let n = 0;
+      for (let i = 0; i < 2; i++) { const b = st.T.eb[e * 2 + i]; if (b >= 0 && st.cnt[b] === 2) n++; }
+      if (n < best) { best = n; list = [e]; } else if (n === best) list.push(e);
+    }
+    return pick(list);
+  }
+  return pick(free);
+}
+// ==END ENGINE==
+
+// ==UI==
+const $ = s => document.querySelector(s);
+const STORE_KEY = 'puntiLinee.v1';
+const LEVELS = [
+  { id: 'beginner', name: 'Principiante', s: 8, desc: 'Gioca quasi a caso: ideale per imparare le regole.' },
+  { id: 'easy', name: 'Facile', s: 30, desc: 'Chiude i quadrati che vede e di solito evita di regalarne.' },
+  { id: 'medium', name: 'Medio', s: 58, desc: 'Non regala quadrati, gestisce il finale e conosce il doppio incrocio.' },
+  { id: 'hard', name: 'Difficile', s: 100, desc: 'Conta le catene e calcola il finale fino in fondo.' },
+  { id: 'adaptive', name: 'Adattivo', s: null, desc: 'Impara il tuo stile di gioco e regola la sua forza per tenere la partita equilibrata.' },
+];
+const levelById = id => LEVELS.find(l => l.id === id) || LEVELS[4];
+const defaultProfile = () => ({
+  strength: 40, history: [40], games: 0, rec: {},
+  metrics: { give: { v: 0.3, n: 0 }, dd: { v: 0.5, n: 0 }, end: { v: 0.5, n: 0 }, ctrl: { v: 0.5, n: 0 } },
+});
+function loadStore() { try { return JSON.parse(localStorage.getItem(STORE_KEY)) || {}; } catch { return {}; } }
+function saveStore() { try { localStorage.setItem(STORE_KEY, JSON.stringify(store)); } catch {} }
+const store = loadStore();
+store.settings = Object.assign({
+  mode: 'ai', level: 'adaptive', size: 4, rule: 'classic', first: 'human', humans: 2,
+  names: ['Giocatore 1', 'Giocatore 2', 'Giocatore 3', 'Giocatore 4'], theme: 'auto', sound: true,
+}, store.settings || {});
+store.profile = Object.assign(defaultProfile(), store.profile || {});
+store.profile.metrics = Object.assign(defaultProfile().metrics, store.profile.metrics);
+
+let game = null, aiTimer = 0, aiToken = 0;
+const svg = $('#board');
+
+// ---- suoni ----
+let actx = null;
+function beep(f, d = 0.07, v = 0.04, delay = 0) {
+  if (!store.settings.sound) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+    o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d);
+  } catch {}
+}
+
+// ---- profilo del giocatore ----
+function upd(m, x) { m.n++; m.v += (x - m.v) * Math.max(0.1, 1 / m.n); }
+function humanModel() {
+  const M = store.profile.metrics, q = m => m.n < 3 ? 1 : Math.min(1, Math.max(0.05, m.v));
+  return { qDD: q(M.dd), qEnd: q(M.end), qCtrl: q(M.ctrl) };
+}
+function aiStrength() {
+  if (game.level !== 'adaptive') return levelById(game.level).s;
+  const hi = game.players.findIndex(p => p.kind === 'human'), ai = 1 - hi;
+  const rubber = Math.max(-10, Math.min(10, (game.scores[hi] - game.scores[ai]) / game.T.B * 40));
+  return Math.max(0, Math.min(100, store.profile.strength + rubber));
+}
+// Osserva la mossa dell'umano (prima di applicarla) per aggiornare il profilo.
+function observe(e) {
+  if (game.rule !== 'classic') return;
+  const st = game.st, M = store.profile.metrics;
+  const caps = capEdges(st), safe = safeEdges(st), isCap = caps.includes(e);
+  if (safe.length) {
+    if (!isCap) { const g = safe.includes(e) ? 0 : 1; upd(M.give, g); game.stats.give += g; }
+    return;
+  }
+  const w = cloneState(st);
+  try {
+    const S = makeSolver(null, 200000, 250);
+    const val = m => { const k = play(w, m); const v = k ? -k + S.gEnd(w, false) : S.gEnd(w, true); unplay(w, m); return v; };
+    if (caps.length) {
+      const dds = ddCandidates(w); if (!dds.length) return;
+      const vt = val(caps[0]), vd = dds.map(val), best = Math.min(...vd);
+      if (best < vt - 1e-6) {
+        const i = dds.indexOf(e);
+        if (i >= 0 && vd[i] <= best + 1e-6) { upd(M.dd, 1); game.stats.ddOk++; }
+        else if (isCap) { upd(M.dd, 0); game.stats.ddMiss++; }
+      }
+    } else {
+      const an = analyze(w); if (!an.simple || an.comps.length < 2) return;
+      const vals = an.comps.map(c => val(openEdge(w.T, c)));
+      const mn = Math.min(...vals), mx = Math.max(...vals); if (mx - mn < 1e-6) return;
+      const ci = an.comps.findIndex(c => c.edges.includes(e)); if (ci < 0) return;
+      const ok = vals[ci] <= mn + 1e-6 ? 1 : 0;
+      upd(M.end, ok); game.stats.endTot++; game.stats.endOk += ok;
+    }
+  } catch (x) { if (x !== ABORT) throw x; }
+}
+// Quando finiscono le mosse sicure: chi ha il controllo del finale?
+function checkControl() {
+  if (game.ctrlRecorded || game.rule !== 'classic' || safeEdges(game.st).length) return;
+  game.ctrlRecorded = true;
+  const left = game.T.B - game.scores.reduce((a, b) => a + b, 0);
+  if (left < 4 || game.over) return;
+  try {
+    const S = makeSolver(null, 200000, 250), aiTurn = game.players[game.turn].kind === 'ai';
+    upd(store.profile.metrics.ctrl, S.gEnd(cloneState(game.st), aiTurn) < 0 ? 1 : 0);
+  } catch (x) { if (x !== ABORT) throw x; }
+}
+
+// ---- partita ----
+function startGame() {
+  const S = store.settings, n = +S.size, T = makeTopo(n, n);
+  let players;
+  if (S.mode === 'ai') {
+    const hu = { name: 'Tu', kind: 'human', color: 0 }, ai = { name: 'Computer', kind: 'ai', color: 1 };
+    const humanFirst = S.first === 'human' || (S.first === 'random' && Math.random() < 0.5);
+    players = humanFirst ? [hu, ai] : [ai, hu];
+  } else {
+    players = S.names.slice(0, +S.humans).map((nm, i) => ({ name: (nm || '').trim() || `Giocatore ${i + 1}`, kind: 'human', color: i }));
+  }
+  game = {
+    T, st: newState(T), edgeBy: new Int8Array(T.E).fill(-1), boxBy: new Int8Array(T.B).fill(-1),
+    scores: players.map(() => 0), turn: 0, players, rule: S.rule, history: [], over: false,
+    lastEdge: -1, newBoxes: [], vsAI: S.mode === 'ai', level: S.level, startStrength: store.profile.strength,
+    stats: { give: 0, ddOk: 0, ddMiss: 0, endOk: 0, endTot: 0, undo: 0 }, ctrlRecorded: false,
+  };
+  aiToken++; clearTimeout(aiTimer);
+  render(); scheduleAI();
+}
+function makeMove(e) {
+  if (!game || game.over || game.st.ed[e]) return;
+  const p = game.turn;
+  if (game.vsAI && game.players[p].kind === 'human') observe(e);
+  game.edgeBy[e] = p;
+  const done = [];
+  play(game.st, e);
+  for (let i = 0; i < 2; i++) {
+    const b = game.T.eb[e * 2 + i];
+    if (b >= 0 && game.st.cnt[b] === 4) { game.boxBy[b] = p; game.scores[p]++; done.push(b); }
+  }
+  game.history.push({ e, p, done });
+  if (!(game.rule === 'classic' && done.length)) game.turn = (p + 1) % game.players.length;
+  game.lastEdge = e; game.newBoxes = done;
+  if (done.length) { beep(660, 0.1, 0.05); beep(880, 0.14, 0.04, 0.07); } else beep(440, 0.05, 0.025);
+  if (game.st.free === 0) endGame();
+  else if (game.vsAI) checkControl();
+  render(); scheduleAI();
+}
+function scheduleAI() {
+  clearTimeout(aiTimer);
+  if (!game || game.over || game.players[game.turn].kind !== 'ai') return;
+  const token = ++aiToken;
+  aiTimer = setTimeout(() => {
+    if (token !== aiToken || game.over) return;
+    const s = aiStrength();
+    const e = game.rule === 'classic'
+      ? aiMoveClassic(game.st, s, game.level === 'adaptive' ? humanModel() : null)
+      : aiMoveAlt(game.st, s);
+    makeMove(e);
+  }, 420);
+}
+function undo() {
+  if (!game || game.over || !game.history.length) return;
+  aiToken++; clearTimeout(aiTimer);
+  const popOne = () => {
+    const h = game.history.pop();
+    unplay(game.st, h.e); game.edgeBy[h.e] = -1;
+    for (const b of h.done) { game.boxBy[b] = -1; game.scores[h.p]--; }
+    game.turn = h.p; return h;
+  };
+  if (game.vsAI) {
+    while (game.history.length) if (game.players[popOne().p].kind === 'human') break;
+  } else popOne();
+  game.stats.undo++;
+  const last = game.history[game.history.length - 1];
+  game.lastEdge = last ? last.e : -1; game.newBoxes = [];
+  render(); scheduleAI();
+}
+function endGame() {
+  game.over = true;
+  let delta = null;
+  if (game.vsAI) {
+    const P = store.profile, hi = game.players.findIndex(p => p.kind === 'human'), ai = 1 - hi;
+    const h = game.scores[hi], a = game.scores[ai];
+    const r = P.rec[game.level] || (P.rec[game.level] = { w: 0, l: 0, d: 0 });
+    r[h > a ? 'w' : h < a ? 'l' : 'd']++;
+    P.games++;
+    if (game.level === 'adaptive' && h !== a) {
+      const step = (6 + 24 * Math.abs(h - a) / game.T.B) * (game.stats.undo ? 0.5 : 1);
+      P.strength = Math.round(Math.max(5, Math.min(100, P.strength + (h > a ? step : -step))));
+      P.history.push(P.strength); if (P.history.length > 60) P.history.shift();
+      delta = [game.startStrength, P.strength];
+    }
+    saveStore();
+  }
+  setTimeout(() => showEnd(delta), 650);
+}
+
+// ---- disegno ----
+const U = 64, MG = 30;
+function render() {
+  renderScores(); renderStatus();
+  $('#bUndo').disabled = !game || game.over || !game.history.length;
+  if (!game) { svg.setAttribute('viewBox', '0 0 300 120'); svg.innerHTML = `<text x="150" y="60" text-anchor="middle" fill="var(--muted)" font-size="14">Scegli le impostazioni per iniziare</text>`; return; }
+  const T = game.T, W = T.C * U + 2 * MG, H = T.R * U + 2 * MG;
+  svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
+  const cur = game.players[game.turn].color;
+  svg.style.setProperty('--cur', `var(--p${cur})`);
+  const locked = game.over || game.players[game.turn].kind !== 'human';
+  svg.classList.toggle('locked', locked);
+  let out = '';
+  for (let b = 0; b < T.B; b++) {
+    const p = game.boxBy[b]; if (p < 0) continue;
+    const x = MG + (b % T.C) * U, y = MG + Math.floor(b / T.C) * U, pl = game.players[p];
+    out += `<g class="box c${pl.color}${game.newBoxes.includes(b) ? ' new' : ''}"><rect x="${x + 5}" y="${y + 5}" width="${U - 10}" height="${U - 10}" rx="8"/><text x="${x + U / 2}" y="${y + U / 2}">${esc(pl.name[0].toUpperCase())}</text></g>`;
+  }
+  for (let e = 0; e < T.E; e++) {
+    const [a, b, c, d] = T.geo[e], x1 = MG + a * U, y1 = MG + b * U, x2 = MG + c * U, y2 = MG + d * U;
+    const L = `x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}"`;
+    if (game.st.ed[e]) {
+      const col = game.players[game.edgeBy[e]].color;
+      if (e === game.lastEdge) out += `<line class="halo c${col}" ${L}/>`;
+      out += `<line class="edge-on c${col}${e === game.lastEdge ? ' last' : ''}" ${L}/>`;
+    } else out += `<g class="edge-free" data-e="${e}"><line class="ghost" ${L}/><line class="hit" ${L}/></g>`;
+  }
+  for (let r = 0; r <= T.R; r++) for (let c = 0; c <= T.C; c++) out += `<circle class="dot" cx="${MG + c * U}" cy="${MG + r * U}" r="5"/>`;
+  svg.innerHTML = out;
+}
+function renderScores() {
+  const el = $('#scores');
+  if (!game) { el.innerHTML = ''; return; }
+  el.innerHTML = game.players.map((p, i) => {
+    let sub = p.kind === 'ai' ? levelById(game.level).name : (game.vsAI ? 'Giocatore' : '');
+    if (p.kind === 'ai' && game.level === 'adaptive') sub += ` · forza ${Math.round(store.profile.strength)}`;
+    return `<div class="card${i === game.turn && !game.over ? ' active' : ''}" style="--pc:var(--p${p.color})">
+      <span class="sw"></span><div><div class="nm">${esc(p.name)}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>
+      <span class="score">${game.scores[i]}</span></div>`;
+  }).join('');
+}
+function renderStatus() {
+  const el = $('#status');
+  if (!game) { el.textContent = ''; return; }
+  if (game.over) { el.innerHTML = `<b>Partita finita</b>`; return; }
+  const p = game.players[game.turn], last = game.history[game.history.length - 1];
+  const again = last && last.p === game.turn && last.done.length && game.rule === 'classic';
+  if (p.kind === 'ai') el.textContent = again ? 'Il computer ha chiuso un quadrato e rigioca…' : 'Il computer sta pensando…';
+  else if (game.vsAI) el.innerHTML = again ? '<b>Quadrato!</b> Tocca ancora a te' : '<b>Tocca a te</b>: traccia una linea tra due punti vicini';
+  else el.innerHTML = again ? `<b>${esc(p.name)}</b> ha chiuso un quadrato e rigioca` : `Tocca a <b>${esc(p.name)}</b>`;
+}
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+
+// ---- finestre ----
+const seg = (name, opts, val) => `<div class="seg">${opts.map(([v, l]) =>
+  `<label><input type="radio" name="${name}" value="${v}"${String(v) === String(val) ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
+function openSetup() {
+  const S = store.settings, f = $('#fSetup');
+  f.innerHTML = `
+    <h2>Nuova partita</h2>
+    <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
+    <div class="row"><div class="lbl">Avversario</div>${seg('mode', [['ai', 'Computer'], ['humans', 'Amici sullo stesso PC']], S.mode)}</div>
+    <div class="row" data-for="ai"><div class="lbl">Difficoltà</div>${seg('level', LEVELS.map(l => [l.id, l.name]), S.level)}<div class="hint" id="levelDesc"></div></div>
+    <div class="row" data-for="ai"><div class="lbl">Chi inizia</div>${seg('first', [['human', 'Tu'], ['ai', 'Computer'], ['random', 'A caso']], S.first)}</div>
+    <div class="row" data-for="humans"><div class="lbl">Giocatori</div>${seg('humans', [[2, '2'], [3, '3'], [4, '4']], S.humans)}
+      <div class="names">${[0, 1, 2, 3].map(i => `<input name="nm${i}" maxlength="14" value="${esc(S.names[i])}" style="border-left:4px solid var(--p${i})">`).join('')}</div></div>
+    <div class="row"><div class="lbl">Griglia</div>${seg('size', [[3, '3×3'], [4, '4×4'], [5, '5×5'], [6, '6×6']], S.size)}</div>
+    <div class="row"><div class="lbl">Regole</div>${seg('rule', [['classic', 'Chi chiude rigioca'], ['alt', 'Turni sempre alterni']], S.rule)}<div class="hint" id="ruleDesc"></div></div>
+    <details><summary>Come si gioca e qualche consiglio</summary>
+      <p>A turno ogni giocatore traccia una linea orizzontale o verticale tra due punti vicini non ancora collegati. Chi chiude il quarto lato di un quadrato lo conquista. Quando tutte le linee sono tracciate vince chi ha più quadrati.</p>
+      <ul>
+        <li><b>Non tracciare il terzo lato</b> di un quadrato se puoi evitarlo: regaleresti il quadrato all'avversario.</li>
+        <li><b>Catene</b>: verso la fine i quadrati formano corridoi. Chi è costretto ad aprirne uno li regala tutti.</li>
+        <li><b>Doppio incrocio</b>: quando l'avversario ti apre una catena lunga, prendi tutti i quadrati tranne gli ultimi 2 e chiudi il lato in fondo. Lui prende quei 2 ma poi deve aprire la catena successiva.</li>
+      </ul></details>
+    <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">Inizia partita</button></div>`;
+  const sync = () => {
+    const fd = new FormData(f);
+    for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule']) if (fd.get(k) != null) S[k] = fd.get(k);
+    for (let i = 0; i < 4; i++) S.names[i] = fd.get('nm' + i) ?? S.names[i];
+    f.querySelectorAll('[data-for]').forEach(r => r.hidden = r.dataset.for !== S.mode);
+    f.querySelectorAll('.names input').forEach((inp, i) => inp.hidden = i >= +S.humans);
+    const lv = levelById(S.level);
+    $('#levelDesc').textContent = lv.desc + (lv.id === 'adaptive' ? ` Forza attuale: ${Math.round(store.profile.strength)}/100.` : '');
+    $('#ruleDesc').textContent = S.rule === 'classic' ? 'Se chiudi un quadrato tocca di nuovo a te (la regola più diffusa).' : 'Il turno passa sempre all\'avversario, anche dopo aver chiuso un quadrato.';
+  };
+  f.oninput = sync; sync();
+  $('#dSetup').onclose = () => { if ($('#dSetup').returnValue === 'ok') { saveStore(); startGame(); } else render(); };
+  $('#dSetup').returnValue = '';
+  $('#dSetup').showModal();
+}
+function showEnd(delta) {
+  if (!game) return;
+  const ps = game.players, best = Math.max(...game.scores), win = ps.filter((_, i) => game.scores[i] === best);
+  let title;
+  if (win.length > 1) title = 'Pareggio!';
+  else if (game.vsAI) title = win[0].kind === 'human' ? 'Hai vinto!' : 'Ha vinto il computer';
+  else title = `Vince ${esc(win[0].name)}!`;
+  const score = ps.map((p, i) => `<span style="color:var(--p${p.color})">${game.scores[i]}</span>`).join(' – ');
+  const items = [];
+  if (game.vsAI && game.rule === 'classic') {
+    const s = game.stats;
+    items.push(['Quadrati regalati quando c\'erano mosse sicure', s.give]);
+    if (s.ddOk + s.ddMiss) items.push(['Doppi incroci giocati / mancati', `${s.ddOk} / ${s.ddMiss}`]);
+    if (s.endTot) items.push(['Catene aperte nel modo migliore', `${s.endOk} su ${s.endTot}`]);
+  }
+  if (delta) items.push(['Forza del computer adattivo', `${Math.round(delta[0])} → ${delta[1]}`]);
+  if (game.stats.undo) items.push(['Mosse annullate', game.stats.undo]);
+  $('#endBody').innerHTML = `<h2>${title}</h2><div class="big">${score}</div>
+    ${items.length ? `<ul class="list">${items.map(([a, b]) => `<li><span>${a}</span><span>${b}</span></li>`).join('')}</ul>` : ''}
+    <div class="actions"><button class="btn" id="eSet">Impostazioni</button><button class="btn primary" id="eAgain">Rivincita</button></div>`;
+  $('#eAgain').onclick = () => { $('#dEnd').close(); startGame(); };
+  $('#eSet').onclick = () => { $('#dEnd').close(); openSetup(); };
+  $('#dEnd').showModal();
+}
+function openStats() {
+  const P = store.profile, M = P.metrics;
+  const hist = P.history, n = hist.length;
+  const pts = hist.map((v, i) => `${n === 1 ? 150 : i / (n - 1) * 300},${56 - v / 100 * 52}`).join(' ');
+  const metric = (m, name, desc, invert) => {
+    const v = invert ? 1 - m.v : m.v, ok = m.n >= 3;
+    return `<div class="metric"><div class="top"><span>${name}</span><span>${ok ? Math.round(v * 100) + '%' : 'pochi dati'} · ${m.n} ${m.n === 1 ? 'caso' : 'casi'}</span></div>
+      <div class="bar"><i style="width:${ok ? v * 100 : 0}%"></i></div><div class="d">${desc}</div></div>`;
+  };
+  const tips = [];
+  if (M.give.n >= 5 && M.give.v > 0.25) tips.push('Ogni tanto tracci il terzo lato di un quadrato quando potresti evitarlo: il computer incassa subito.');
+  if (M.dd.n >= 3 && M.dd.v < 0.5) tips.push('Quando ti viene aperta una catena tendi a prendere tutto. Il computer lo ha notato e ti lascia catene lunghe per riprendersi il controllo. Prova il doppio incrocio: lascia gli ultimi 2 quadrati.');
+  if (M.end.n >= 3 && M.end.v < 0.5) tips.push('Nel finale, quando sei costretto a regalare qualcosa, apri prima le catene più corte.');
+  if (M.ctrl.n >= 3 && M.ctrl.v < 0.4) tips.push('Arrivi spesso al finale senza il controllo: conta le catene lunghe (3 o più quadrati) prima che finiscano le mosse sicure.');
+  if (!tips.length) tips.push(P.games ? 'Nessun punto debole evidente per ora: continua a giocare e il computer si adatterà.' : 'Gioca qualche partita contro il computer: qui vedrai cosa ha imparato del tuo stile.');
+  const rows = LEVELS.map(l => { const r = P.rec[l.id]; return r ? `<tr><td>${l.name}</td><td>${r.w}</td><td>${r.l}</td><td>${r.d}</td></tr>` : ''; }).join('');
+  $('#statsBody').innerHTML = `<h2>Statistiche</h2>
+    <div class="row"><div class="lbl">Forza del computer adattivo</div><div class="big">${Math.round(P.strength)}<span style="font-size:16px;color:var(--muted)"> / 100</span></div>
+      <svg class="spark" viewBox="0 0 300 60" preserveAspectRatio="none"><polyline points="${pts}" fill="none" stroke="var(--p0)" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>
+      <div class="hint">Sale quando vinci e scende quando perdi, per tenere le partite equilibrate.</div></div>
+    <div class="row"><div class="lbl">Partite contro il computer</div>${rows ? `<table><tr><th>Livello</th><th>Vinte</th><th>Perse</th><th>Pari</th></tr>${rows}</table>` : '<div class="hint">Ancora nessuna partita.</div>'}</div>
+    <div class="row"><div class="lbl">Cosa ha imparato di te</div>
+      ${metric(M.give, 'Prudenza', 'Quanto eviti di tracciare il terzo lato di un quadrato', true)}
+      ${metric(M.dd, 'Doppio incrocio', 'Quanto lo usi quando conviene', false)}
+      ${metric(M.end, 'Finale', 'Quanto spesso apri la catena giusta', false)}
+      ${metric(M.ctrl, 'Controllo', 'Quanto spesso arrivi al finale in vantaggio', false)}
+      ${tips.map(t => `<div class="insight">${t}</div>`).join('')}</div>
+    <div class="actions"><button class="btn" id="sReset">Azzera profilo</button><button class="btn primary" id="sClose">Chiudi</button></div>`;
+  $('#sClose').onclick = () => $('#dStats').close();
+  $('#sReset').onclick = () => { if (confirm('Azzerare forza, statistiche e profilo appreso?')) { store.profile = defaultProfile(); saveStore(); openStats(); render(); } };
+  if (!$('#dStats').open) $('#dStats').showModal();
+}
+
+// ---- tema e suoni ----
+const ICONS = {
+  auto: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 4v16" /><path d="M12 4a8 8 0 0 1 0 16z" fill="currentColor"/></svg>',
+  light: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>',
+  dark: '<svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 0 1 9.5 4 8 8 0 1 0 20 14.5z"/></svg>',
+  on: '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M18.5 5.5a9 9 0 0 1 0 13"/></svg>',
+  off: '<svg viewBox="0 0 24 24"><path d="M11 5 6 9H3v6h3l5 4z"/><path d="m16 9 5 6M21 9l-5 6"/></svg>',
+};
+function applyPrefs() {
+  const t = store.settings.theme;
+  if (t === 'auto') document.documentElement.removeAttribute('data-theme'); else document.documentElement.dataset.theme = t;
+  $('#bTheme').innerHTML = ICONS[t]; $('#bTheme').title = { auto: 'Tema: automatico', light: 'Tema: chiaro', dark: 'Tema: scuro' }[t];
+  $('#bSound').innerHTML = ICONS[store.settings.sound ? 'on' : 'off'];
+}
+$('#bTheme').onclick = () => { const o = ['auto', 'light', 'dark']; store.settings.theme = o[(o.indexOf(store.settings.theme) + 1) % 3]; saveStore(); applyPrefs(); };
+$('#bSound').onclick = () => { store.settings.sound = !store.settings.sound; saveStore(); applyPrefs(); };
+$('#bNew').onclick = openSetup;
+$('#bUndo').onclick = undo;
+$('#bStats').onclick = openStats;
+svg.addEventListener('click', ev => {
+  const g = ev.target.closest('.edge-free');
+  if (!g || !game || game.over || game.players[game.turn].kind !== 'human') return;
+  makeMove(+g.dataset.e);
+});
+applyPrefs(); render(); openSetup();
+</script>
+</body>
+</html>
