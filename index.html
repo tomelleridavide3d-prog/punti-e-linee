@@ -158,7 +158,50 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .pkHats{display:flex;flex-wrap:wrap;gap:6px}
 .pkHats .btn{padding:6px 10px;font-size:13px}
 .pkHats .btn.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-#cqPick .go{width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:16px}
+#cqPick .go,#cqTask .go{width:100%;justify-content:center;margin-top:14px;padding:12px;font-size:16px}
+#cqTask,#cqMap{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
+#cqTask .pk,#cqMap .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:400px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
+.tk-h{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:8px}
+.tk-h b{font-size:18px}
+#tkHint{text-align:center;min-height:20px;margin:10px 0 0}
+#cqHud{position:absolute;left:12px;right:12px;top:62px;pointer-events:none;display:flex;flex-direction:column;gap:8px;align-items:flex-start}
+.cqBar{display:flex;align-items:center;gap:8px;width:100%;max-width:420px;background:rgba(20,22,26,.72);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;font-weight:600}
+.cqBar div{flex:1;height:10px;background:rgba(255,255,255,.18);border-radius:5px;overflow:hidden}
+.cqBar i{display:block;height:100%;width:0;background:#2fa35a;transition:width .4s}
+.cqList{background:rgba(20,22,26,.72);color:#fff;border-radius:10px;padding:6px 10px;font-size:13px;line-height:1.55}
+.cqList .ok{color:#7be0a0;text-decoration:line-through}
+.cqList .near{color:#f2c230}
+#cqUse{position:absolute;right:18px;bottom:44px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:18px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#cqUse.on{background:#f2c230;color:#1d2127;cursor:pointer}
+#cqMapBtn{position:absolute;left:18px;bottom:44px}
+#cqMapC{display:block;width:100%;background:var(--bg);border-radius:12px}
+.tg-track{position:relative;height:30px;background:var(--bg);border-radius:15px;overflow:hidden;margin:18px 0 8px;border:1px solid var(--line)}
+.tg-zone{position:absolute;top:0;bottom:0;background:#2fa35a}
+.tg-mark{position:absolute;top:0;bottom:0;width:6px;margin-left:-3px;background:var(--ink);border-radius:3px}
+.tg-track.bad{background:#e2553a55}
+.sw5{display:flex;justify-content:space-between;gap:8px;margin:14px 0}
+.sw5 div{display:flex;flex-direction:column;align-items:center;gap:10px;flex:1}
+.sw5 .lp{width:34px;height:34px;border-radius:50%;background:#3a3f49;transition:.2s}
+.sw5 .lp.on{background:#ffe58a;box-shadow:0 0 18px #ffd84a}
+.sw5 button{width:38px;height:64px;border-radius:10px;border:1px solid var(--line);background:var(--bg);position:relative;cursor:pointer;padding:0}
+.sw5 button::after{content:'';position:absolute;left:5px;right:5px;height:26px;border-radius:6px;background:#9aa1ac;bottom:5px;transition:.15s}
+.sw5 button.on::after{bottom:31px;background:#2fa35a}
+.sq4{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0}
+.sq4 button{height:84px;border-radius:14px;border:0;opacity:.45;cursor:pointer;font:inherit;font-weight:700;color:#fff;transition:opacity .12s,transform .12s}
+.sq4 button.lit,.sq4 button:active{opacity:1;transform:scale(1.04)}
+.face{position:relative;width:230px;height:230px;margin:10px auto;border-radius:50%;background:#f0c8a0;box-shadow:inset -12px -12px 0 rgba(0,0,0,.08)}
+.face .ey{position:absolute;top:80px;width:26px;height:16px;border-radius:50%;background:#2a2e35}
+.face .mo{position:absolute;left:85px;top:160px;width:60px;height:22px;border-radius:0 0 30px 30px;background:#c0505a}
+.face .sp{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#fff,#ffe9c8 45%,rgba(255,220,180,0) 70%);border:0;cursor:pointer;padding:0;transition:.25s}
+.face .sp.gone{transform:scale(2.2);opacity:0}
+.fr5{display:flex;gap:8px;justify-content:center;margin:16px 0;flex-wrap:wrap}
+.fr5 button{width:58px;height:74px;border-radius:6px;border:0;background:#2a2e35;color:#fff;font:inherit;font-size:24px;font-weight:700;cursor:pointer;box-shadow:inset 0 6px 0 #15171b,inset 0 -6px 0 #15171b}
+.fr5 button.ok{background:#2fa35a}
+.reel{width:220px;height:220px;margin:12px auto;border-radius:50%;touch-action:none;cursor:grab;background:radial-gradient(circle,#c9ccd4 0 14%,#2f343d 15% 22%,transparent 23%),conic-gradient(#2f343d 0 10%,#4a505c 10% 25%,#2f343d 25% 35%,#4a505c 35% 50%,#2f343d 50% 60%,#4a505c 60% 75%,#2f343d 75% 85%,#4a505c 85% 100%);box-shadow:0 0 0 8px #5d6578}
+.pbar{height:10px;background:var(--bg);border-radius:5px;overflow:hidden;border:1px solid var(--line)}
+.pbar i{display:block;height:100%;width:0;background:#2fa35a}
+.scr{height:130px;margin:12px 0;border-radius:10px;background:#eef2f6;display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:800;color:#1d2127;letter-spacing:.04em;overflow:hidden}
+#tkRange{width:100%;margin:8px 0}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -203,6 +246,11 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     <p class="hint" id="pkRac" style="text-align:center">Il procione ha il suo cappello nero e lo zaino viola.</p>
     <button class="btn primary go" id="pkGo" type="button">Entra sul set</button>
   </div></div>
+  <div id="cqHud"><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqList" id="cqList"></div></div>
+  <button class="btn" id="cqMapBtn" type="button">Mappa</button>
+  <button id="cqUse" type="button">Usa</button>
+  <div id="cqTask" hidden><div class="pk"><div class="tk-h"><b id="tkTitle"></b><button class="btn" id="tkClose" type="button">Chiudi</button></div><div id="tkBody"></div><p class="hint" id="tkHint"></p></div></div>
+  <div id="cqMap" hidden><div class="pk"><div class="tk-h"><b>Mappa del set</b><button class="btn" id="mapClose" type="button">Chiudi</button></div><canvas id="cqMapC"></canvas><p class="hint" style="text-align:center">Punti gialli: i tuoi compiti. Il pallino col bordo bianco sei tu.</p></div></div>
   <div class="chint">Trascina il dito per muoverti</div>
 </div>
 <dialog id="dSetup"><form method="dialog" class="dlg" id="fSetup"></form></dialog>
@@ -1564,6 +1612,7 @@ prow('shelf', 28, 22, 9, 0, 1); pp('rack', 22, 31); pp('rack', 23, 31); pp('lamp
 prow('screen', 33, 32, 8, 1, 0); pp('speaker', 32, 32); pp('speaker', 41, 32);
 for (const yy of [24, 26, 28]) { prow('seat', 33, yy, 3, 1, 0); prow('seat', 38, yy, 3, 1, 0); }
 pp('projector', 31, 22); pp('plant', 42, 22); pp('plant', 42, 32); pp('plant', 31, 32); pp('lamp', 41, 22); pp('lamp', 32, 24);
+pp('fusebox', 33, 15); pp('reel', 21, 24);
 const cqFloor = [], cqSolid = [], cqRoomOf = [];
 (() => {
   for (let y = 0; y < CQ_H; y++) { cqFloor.push(Array(CQ_W).fill(null)); cqSolid.push(Array(CQ_W).fill(null)); cqRoomOf.push(Array(CQ_W).fill(-1)); }
@@ -1588,6 +1637,7 @@ function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBl
 function openCiack() {
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
+  if (!cq.tasks) cqNewTasks(); else cqHud();
   cqOpenPick();
 }
 const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
@@ -1627,7 +1677,139 @@ function cqOpenPick() {
   };
   requestAnimationFrame(loop);
 }
-function closeCiack() { $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+// compiti: uno per stanza, accanto a un oggetto di scena (x, y = cella dell'oggetto)
+const CQ_TASKS = [
+  { id: 'ciak', n: 'Batti il ciak', r: 'Palco', x: 9, y: 10 },
+  { id: 'luci', n: 'Accendi le luci', r: 'Corridoio', x: 33, y: 15 },
+  { id: 'costume', n: 'Prepara il costume', r: 'Camerini', x: 22, y: 11 },
+  { id: 'trucco', n: "Trucca l'attore", r: 'Trucco', x: 37, y: 2 },
+  { id: 'montaggio', n: 'Monta la scena', r: 'Montaggio', x: 10, y: 23 },
+  { id: 'bobina', n: 'Riavvolgi la bobina', r: 'Magazzino', x: 21, y: 24 },
+  { id: 'fuoco', n: 'Metti a fuoco', r: 'Proiezione', x: 31, y: 22 }];
+const CQ_NTASK = 5;
+const cqTask = id => CQ_TASKS.find(t => t.id === id);
+function cqBusy() { return !$('#cqPick').hidden || !$('#cqTask').hidden || !$('#cqMap').hidden; }
+function cqNewTasks() {
+  cq.tasks = CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, CQ_NTASK);
+  cq.done = new Set(); cq.near = null; cqHud();
+}
+function cqHud() {
+  const n = cq.done.size, tot = cq.tasks.length;
+  $('#cqBarTxt').textContent = 'Riprese ' + n + '/' + tot;
+  $('#cqBarFill').style.width = (tot ? n / tot * 100 : 0) + '%';
+  $('#cqList').innerHTML = cq.tasks.map(id => { const t = cqTask(id); return `<div class="${cq.done.has(id) ? 'ok' : cq.near === t ? 'near' : ''}">${esc(t.r)}: ${esc(t.n)}</div>`; }).join('');
+  $('#cqUse').classList.toggle('on', !!cq.near);
+}
+// il compito da fare piu' vicino (entro un passo e mezzo dall'oggetto)
+function cqNearCheck() {
+  let best = null, bd = 1.75;
+  for (const id of cq.tasks) { if (cq.done.has(id)) continue; const t = cqTask(id), d = Math.hypot(cq.x - (t.x + 0.5), cq.y - (t.y + 0.5)); if (d < bd) { bd = d; best = t; } }
+  if (best !== cq.near) { cq.near = best; cqHud(); }
+}
+function cqUse() { if (cq.near && !cqBusy()) cqOpenTask(cq.near); }
+function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; cq.joy = null; cq.keys = {}; }
+function cqTaskDone(id) {
+  cq.done.add(id); cq.near = null; cqNearCheck(); cqHud();
+  if (cq.done.size === cq.tasks.length) {
+    $('#tkTitle').textContent = 'Riprese completate!';
+    $('#tkBody').innerHTML = '<p class="lead" style="text-align:center">Hai finito tutti i tuoi compiti. Ciak, si gira!</p><button class="btn primary go" id="tkAgain" type="button">Nuovi compiti</button>';
+    $('#tkHint').textContent = ''; $('#cqTask').hidden = false;
+    $('#tkAgain').onclick = () => { cqCloseTask(); cqNewTasks(); };
+    beep(660, 0.12, 0.05); beep(880, 0.12, 0.05, 0.13); beep(1100, 0.2, 0.05, 0.26);
+  }
+}
+// mini-giochi: ognuno disegna il suo contenuto e chiama ok() quando e' finito
+function cqOpenTask(t) {
+  const body = $('#tkBody'), hint = $('#tkHint');
+  let alive = true; const timers = [];
+  cq.tk = { stop() { alive = false; timers.forEach(clearTimeout); } };
+  const later = (fn, ms) => timers.push(setTimeout(() => alive && fn(), ms));
+  const ok = () => { if (!alive) return; alive = false; hint.textContent = 'Fatto!'; beep(880, 0.12, 0.05); beep(1175, 0.16, 0.05, 0.12); setTimeout(() => { cqCloseTask(); cqTaskDone(t.id); }, 650); };
+  const no = () => beep(220, 0.12, 0.05);
+  const rnd = (a, b) => a + Math.random() * (b - a);
+  $('#tkTitle').textContent = t.n; hint.textContent = '';
+  switch (t.id) {
+    case 'ciak': {
+      body.innerHTML = '<p class="lead">Premi <b>CIAK!</b> quando la barretta è sulla zona verde.</p><div class="tg-track" id="tgT"><div class="tg-zone" id="tgZ"></div><div class="tg-mark" id="tgM"></div></div><button class="btn primary go" id="tgB" type="button">CIAK!</button>';
+      let hits = 0, z0 = 0, z1 = 0, pos = 0, dir = 1;
+      const zone = () => { z0 = rnd(12, 66); z1 = z0 + 20; $('#tgZ').style.left = z0 + '%'; $('#tgZ').style.width = '20%'; hint.textContent = 'Ciak ' + hits + ' di 3'; };
+      zone();
+      let last = performance.now();
+      const loop = now => { if (!alive) return; pos += dir * (now - last) * (0.07 + hits * 0.025); last = now; if (pos > 100) { pos = 100; dir = -1; } if (pos < 0) { pos = 0; dir = 1; } $('#tgM').style.left = pos + '%'; requestAnimationFrame(loop); };
+      requestAnimationFrame(loop);
+      $('#tgB').onclick = () => {
+        if (!alive) return;
+        if (pos >= z0 && pos <= z1) { hits++; beep(520 + hits * 120, 0.08, 0.05); if (hits >= 3) ok(); else zone(); }
+        else { no(); $('#tgT').classList.add('bad'); later(() => $('#tgT').classList.remove('bad'), 250); }
+      };
+      break; }
+    case 'luci': {
+      const st = [0, 1, 2, 3, 4].map(() => Math.random() < 0.4); st[Math.floor(rnd(0, 5))] = false; st[Math.floor(rnd(0, 5))] = false;
+      body.innerHTML = '<p class="lead">Accendi tutti gli interruttori del quadro elettrico.</p><div class="sw5">' + st.map((v, i) => `<div><span class="lp"></span><button type="button" data-i="${i}"></button></div>`).join('') + '</div>';
+      const draw = () => body.querySelectorAll('.sw5 div').forEach((d, i) => { d.querySelector('.lp').classList.toggle('on', st[i]); d.querySelector('button').classList.toggle('on', st[i]); });
+      draw();
+      body.querySelector('.sw5').onclick = e => { const b = e.target.closest('[data-i]'); if (!b || !alive) return; st[b.dataset.i] = !st[b.dataset.i]; beep(st[b.dataset.i] ? 700 : 400, 0.05, 0.04); draw(); if (st.every(Boolean)) ok(); };
+      break; }
+    case 'costume': {
+      const C = [['#e2553a', 'Giacca'], ['#3b6fe0', 'Mantello'], ['#2fa35a', 'Gilet'], ['#f2c230', 'Camicia']], seq = [0, 1, 2, 3].map(() => Math.floor(rnd(0, 4)));
+      body.innerHTML = '<p class="lead">Guarda in che ordine si illuminano i vestiti, poi toccali nello stesso ordine.</p><div class="sq4">' + C.map(([c, n], i) => `<button type="button" data-i="${i}" style="background:${c}">${n}</button>`).join('') + '</div>';
+      const bs = body.querySelectorAll('.sq4 button'); let k = 0, input = false;
+      const show = () => { input = false; k = 0; hint.textContent = 'Guarda…'; seq.forEach((v, j) => { later(() => { bs[v].classList.add('lit'); beep(440 + v * 110, 0.2, 0.04); }, 500 + j * 700); later(() => bs[v].classList.remove('lit'), 500 + j * 700 + 450); }); later(() => { input = true; hint.textContent = 'Tocca a te'; }, 500 + seq.length * 700); };
+      show();
+      body.querySelector('.sq4').onclick = e => { const b = e.target.closest('[data-i]'); if (!b || !input || !alive) return; const v = +b.dataset.i;
+        if (v === seq[k]) { beep(440 + v * 110, 0.12, 0.04); k++; if (k === seq.length) ok(); } else { no(); hint.textContent = 'Sbagliato, guarda di nuovo'; later(show, 700); input = false; } };
+      break; }
+    case 'trucco': {
+      const n = 6, pts = [];
+      while (pts.length < n) { const a = rnd(0, Math.PI * 2), r = rnd(20, 95), x = 115 + Math.cos(a) * r, y = 115 + Math.sin(a) * r; if (y > 70 && y < 98) continue; if (pts.every(q => Math.hypot(q[0] - x, q[1] - y) > 34)) pts.push([x, y]); }
+      body.innerHTML = '<p class="lead">Il viso dell\'attore luccica sotto i fari: tocca tutte le macchie lucide per incipriarle.</p><div class="face"><span class="ey" style="left:62px"></span><span class="ey" style="left:142px"></span><span class="mo"></span>' + pts.map(([x, y]) => `<button type="button" class="sp" style="left:${x}px;top:${y}px"></button>`).join('') + '</div>';
+      let left = n; hint.textContent = 'Macchie: ' + left;
+      body.querySelector('.face').onclick = e => { const b = e.target.closest('.sp'); if (!b || b.classList.contains('gone') || !alive) return; b.classList.add('gone'); left--; beep(900 - left * 60, 0.06, 0.04); hint.textContent = 'Macchie: ' + left; if (!left) ok(); };
+      break; }
+    case 'montaggio': {
+      const nums = [1, 2, 3, 4, 5].sort(() => Math.random() - 0.5);
+      body.innerHTML = '<p class="lead">Monta la scena: tocca i fotogrammi in ordine, da 1 a 5.</p><div class="fr5">' + nums.map(v => `<button type="button" data-v="${v}">${v}</button>`).join('') + '</div>';
+      let next = 1;
+      body.querySelector('.fr5').onclick = e => { const b = e.target.closest('[data-v]'); if (!b || !alive || b.classList.contains('ok')) return;
+        if (+b.dataset.v === next) { b.classList.add('ok'); beep(400 + next * 90, 0.08, 0.04); next++; if (next > 5) ok(); }
+        else { no(); next = 1; body.querySelectorAll('.fr5 button').forEach(x => x.classList.remove('ok')); hint.textContent = 'Ordine sbagliato: ricomincia da 1'; } };
+      break; }
+    case 'bobina': {
+      body.innerHTML = '<p class="lead">Gira la bobina col dito in senso orario finché la pellicola è riavvolta.</p><div class="reel" id="rl"></div><div class="pbar"><i id="rlP"></i></div>';
+      const el = $('#rl'), need = Math.PI * 6; let ang = 0, tot = 0, prev = null;
+      const at = e => { const r = el.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - r.height / 2, e.clientX - r.left - r.width / 2); };
+      el.onpointerdown = e => { prev = at(e); try { el.setPointerCapture(e.pointerId); } catch {} };
+      el.onpointermove = e => { if (prev == null || !alive) return; const a = at(e); let d = a - prev; if (d > Math.PI) d -= 2 * Math.PI; if (d < -Math.PI) d += 2 * Math.PI; prev = a;
+        ang += d; if (d > 0) tot += d; el.style.transform = 'rotate(' + ang + 'rad)'; $('#rlP').style.width = Math.min(100, tot / need * 100) + '%'; if (tot >= need) ok(); };
+      el.onpointerup = el.onpointercancel = () => { prev = null; };
+      break; }
+    case 'fuoco': {
+      const target = Math.round(rnd(15, 85));
+      body.innerHTML = '<p class="lead">Il film è sfocato: sposta il cursore finché la scritta diventa nitida, poi tienilo fermo.</p><div class="scr" id="scr">CIACK US</div><input type="range" id="tkRange" min="0" max="100" value="' + (target > 50 ? 5 : 95) + '">';
+      let inT = 0;
+      const upd = () => { const v = +$('#tkRange').value, d = Math.abs(v - target); $('#scr').style.filter = 'blur(' + (d / 5).toFixed(1) + 'px)'; return d <= 3; };
+      upd(); $('#tkRange').oninput = upd;
+      const tick = () => { if (!alive) return; if (upd()) { inT += 100; hint.textContent = 'Tieni così…'; if (inT >= 800) { ok(); return; } } else { inT = 0; hint.textContent = ''; } later(tick, 100); };
+      later(tick, 100);
+      break; }
+  }
+  $('#cqTask').hidden = false; cq.joy = null; cq.keys = {};
+}
+function cqOpenMap() {
+  $('#cqMap').hidden = false; cq.joy = null; cq.keys = {};
+  const c = $('#cqMapC'), w = c.clientWidth || 340, TW = w * 2 / (CQ_W + CQ_H), TH = TW / 2, h = (CQ_W + CQ_H) * TH / 2 + 10, dpr = Math.min(window.devicePixelRatio || 1, 2);
+  c.style.height = h + 'px'; c.width = w * dpr; c.height = h * dpr;
+  const g = c.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, CQ_H * TW / 2 * dpr, 5 * dpr);
+  const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
+  const dia = (x, y, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(px(x, y), py(x, y)); g.lineTo(px(x + 1, y), py(x + 1, y)); g.lineTo(px(x + 1, y + 1), py(x + 1, y + 1)); g.lineTo(px(x, y + 1), py(x, y + 1)); g.fill(); };
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x], f = cqFloor[y][x]; if (o && o.wall) dia(x, y, '#2a2e35'); else if (f) dia(x, y, o ? cqShade(f, 0.7) : f); }
+  g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,255,255,.85)';
+  CQ_ROOMS.forEach(r => g.fillText(r.n, px(r.x + r.w / 2, r.y + r.h / 2), py(r.x + r.w / 2, r.y + r.h / 2)));
+  for (const id of cq.tasks) { const t = cqTask(id), X = px(t.x + 0.5, t.y + 0.5), Y = py(t.x + 0.5, t.y + 0.5); g.fillStyle = cq.done.has(id) ? '#2fa35a' : '#f2c230'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); }
+  const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
+  g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
+}
+function closeCiack() { cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   const c = $('#cqCanvas'); cq.dpr = Math.min(window.devicePixelRatio || 1, 2);
   const w = c.clientWidth, h = c.clientHeight;
@@ -1637,7 +1819,7 @@ function cqResize() {
 function cqInit() {
   const root = $('#ciack');
   window.addEventListener('resize', () => { if (cq.on) cqResize(); });
-  root.addEventListener('pointerdown', e => { if (cq.picking || e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
+  root.addEventListener('pointerdown', e => { if (cqBusy() || e.target.closest('button')) return; cq.joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY }; try { root.setPointerCapture(e.pointerId); } catch {} });
   root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
   const up = e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy = null; cq.dirty = true; } };
   root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
@@ -1645,10 +1827,15 @@ function cqInit() {
   window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; cq.dirty = true; });
   $('#cqBack').onclick = closeCiack;
   $('#cqLookBtn').onclick = cqOpenPick;
+  $('#cqUse').onclick = cqUse;
+  $('#cqMapBtn').onclick = cqOpenMap;
+  $('#mapClose').onclick = () => { $('#cqMap').hidden = true; };
+  $('#tkClose').onclick = cqCloseTask;
+  window.addEventListener('keydown', e => { if (cq.on && (e.key === 'e' || e.key === 'E' || e.key === ' ')) { e.preventDefault(); cqUse(); } });
 }
 // direzione sullo schermo (sx, sy) -> direzione nel mondo isometrico (la tessera e' larga il doppio dell'altezza)
 function cqDir() {
-  if (cq.picking) return null;
+  if (cqBusy()) return null;
   let sx = 0, sy = 0, k = cq.keys;
   if (cq.joy) { sx = cq.joy.x - cq.joy.x0; sy = cq.joy.y - cq.joy.y0; const m = Math.hypot(sx, sy); if (m < 8) sx = sy = 0; else { sx /= m; sy /= m; } }
   else { sx = ((k.arrowright || k.d) ? 1 : 0) - ((k.arrowleft || k.a) ? 1 : 0); sy = ((k.arrowdown || k.s) ? 1 : 0) - ((k.arrowup || k.w) ? 1 : 0); }
@@ -1666,6 +1853,8 @@ function cqFrame(t) {
     if (cqFree(cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.walk += dt * 11;
+    cqNearCheck();
+    const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
   cq.raf = requestAnimationFrame(cqFrame);
@@ -1744,6 +1933,8 @@ function cqTools(g, TW) {
       case 'speaker': bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 1.7, '#1a1c21'); dot(x + 0.5, y + 0.85, 0.5, 0.15, '#2c3038'); dot(x + 0.5, y + 0.85, 0.5, 0.08, '#555a66'); dot(x + 0.5, y + 0.85, 1.25, 0.07, '#40454f'); break;
       case 'projector': bx(x + 0.1, y + 0.1, x + 0.9, y + 0.9, 0, 1.0, '#3a3f49'); bx(x + 0.2, y + 0.25, x + 0.8, y + 0.75, 1.0, 1.7, '#22262e'); bx(x + 0.8, y + 0.4, x + 1.0, y + 0.6, 1.2, 1.5, '#111'); cyl(x + 0.35, y + 0.5, 0.24, 1.7, 1.8, '#c9ccd4'); cyl(x + 0.65, y + 0.5, 0.24, 1.7, 1.8, '#c9ccd4'); glow(x + 1.05, y + 0.5, 1.35, 0.5, 'rgba(255,240,180,.5)'); break;
       case 'screen': bx(x, y + 0.4, x + 1, y + 0.6, 0.2, 3.2, '#14161a'); qL(x + 0.03, x + 0.97, y + 0.6, 0.3, 3.1, '#eef2f6'); qL(x + 0.03, x + 0.97, y + 0.6, 2.2, 3.1, '#fff'); break;
+      case 'fusebox': bx(x + 0.15, y + 0.3, x + 0.85, y + 0.7, 0, 1.9, '#8a96a8'); qL(x + 0.2, x + 0.8, y + 0.7, 0.4, 1.8, '#9fabbc'); poly([S(x + 0.5, y + 0.7, 1.62), S(x + 0.38, y + 0.7, 1.38), S(x + 0.62, y + 0.7, 1.38)], '#f2c230');
+        for (let k = 0; k < 3; k++) qL(x + 0.27 + k * 0.17, x + 0.35 + k * 0.17, y + 0.7, 0.7, 1.05, k === 1 ? '#e2553a' : '#2a2e35'); break;
       case 'curtain': { bx(x, y, x + 1, y + 0.7, 0, 3.1, '#a02838'); for (let k = 0; k < 4; k++) qL(x + 0.1 + 0.25 * k, x + 0.2 + 0.25 * k, y + 0.7, 0, 3.0, '#7a1c2a'); bx(x, y, x + 1, y + 0.75, 2.8, 3.1, '#c23a4c'); break; }
     }
   };
@@ -1813,6 +2004,16 @@ function cqDraw() {
   const look = cqLook();
   for (const it of items) { if (it.me) cqPlayer(g, X, Y, TW, look, cq.walk, cq.face); else T.cell(it.x, it.y, it.o); }
   g.restore();
+  const U = TH * 1.15, now = performance.now() / 1000;
+  for (const id of cq.tasks || []) {
+    if (cq.done.has(id)) continue;
+    const t = cqTask(id), mx = tx + px(t.x + 0.5, t.y + 0.5), my = ty + py(t.x + 0.5, t.y + 0.5) - 3.3 * U + Math.sin(now * 3) * 4;
+    if (mx < -40 || mx > W + 40 || my < -40 || my > H + 40) continue;
+    g.globalAlpha = 0.75 + 0.25 * Math.sin(now * 6);
+    g.fillStyle = '#f2c230'; g.beginPath(); g.arc(mx, my, 12, 0, 7); g.fill();
+    g.beginPath(); g.moveTo(mx - 6, my + 9); g.lineTo(mx + 6, my + 9); g.lineTo(mx, my + 18); g.fill();
+    g.globalAlpha = 1; g.fillStyle = '#1d2127'; g.font = '800 15px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', mx, my + 1);
+  }
   cqName(g, tx + X, ty + Y - TW * (look.skin === 'omino' && look.hat === 'cilindro' ? 2.2 : 1.85), store.settings.myName || '');
   // joystick
   if (cq.joy) {
