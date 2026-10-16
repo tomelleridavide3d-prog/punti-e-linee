@@ -45,6 +45,24 @@
         "$other": { ".validate": false }
       }
     },
+    "cqlist": {
+      ".read": true,
+      "$code": {
+        ".write": true,
+        ".validate": "$code.length <= 10 && newData.hasChildren(['h', 'ts', 'o']) && newData.child('h').isString() && newData.child('h').val().length <= 14"
+      }
+    },
+    "cq": {
+      "$code": {
+        ".read": true,
+        ".write": true,
+        "pl": { "$sid": { ".validate": "newData.hasChildren(['name', 'ts']) && newData.child('name').isString() && newData.child('name').val().length <= 14" } },
+        "pos": { "$sid": { ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()" } },
+        "st": { ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 60000" },
+        "ev": { "$id": { ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 4000" } },
+        "$other": { ".validate": false }
+      }
+    },
     "invites": {
       "$key": {
         ".read": true,
