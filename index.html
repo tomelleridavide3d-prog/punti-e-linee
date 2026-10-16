@@ -762,6 +762,7 @@ const seg = (name, opts, val) => `<div class="seg">${opts.map(([v, l]) =>
   `<label><input type="radio" name="${name}" value="${v}"${String(v) === String(val) ? ' checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
 function openSetup() {
   const S = store.settings, f = $('#fSetup');
+  if (WEB) S.rule = 'classic';
   f.innerHTML = `
     <h2>${WEB ? 'Sala giochi' : 'Nuova partita'}</h2>
     <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
@@ -775,7 +776,7 @@ function openSetup() {
     <div class="row" data-for="humans"><div class="lbl">Giocatori</div>${seg('humans', [[2, '2'], [3, '3'], [4, '4']], S.humans)}
       <div class="names">${[0, 1, 2, 3].map(i => `<input name="nm${i}" maxlength="14" value="${esc(S.names[i])}" style="border-left:4px solid var(--p${i})">`).join('')}</div></div>
     <div class="row"><div class="lbl">Griglia</div>${seg('size', [[3, '3×3'], [4, '4×4'], [5, '5×5'], [6, '6×6']], S.size)}</div>
-    <div class="row"><div class="lbl">Regole</div>${seg('rule', [['classic', 'Chi chiude rigioca'], ['alt', 'Turni sempre alterni']], S.rule)}<div class="hint" id="ruleDesc"></div></div>
+    ${WEB ? '<div class="hint" style="margin-top:0">Regola: chi chiude un quadrato rigioca.</div>' : `<div class="row"><div class="lbl">Regole</div>${seg('rule', [['classic', 'Chi chiude rigioca'], ['alt', 'Turni sempre alterni']], S.rule)}<div class="hint" id="ruleDesc"></div></div>`}
     <div class="actions">${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">${WEB ? 'Invita con link' : 'Inizia partita'}</button></div>`;
   const sync = () => {
     const fd = new FormData(f);
@@ -786,7 +787,7 @@ function openSetup() {
     f.querySelectorAll('.names input').forEach((inp, i) => inp.hidden = i >= +S.humans);
     const lv = levelById(S.level);
     $('#levelDesc').textContent = lv.desc + (lv.id === 'adaptive' ? ` Forza attuale: ${Math.round(store.profile.strength)}/100.` : '');
-    $('#ruleDesc').textContent = S.rule === 'classic' ? 'Se chiudi un quadrato tocca di nuovo a te (la regola più diffusa).' : 'Il turno passa sempre all\'avversario, anche dopo aver chiuso un quadrato.';
+    if ($('#ruleDesc')) $('#ruleDesc').textContent = S.rule === 'classic' ? 'Se chiudi un quadrato tocca di nuovo a te (la regola più diffusa).' : 'Il turno passa sempre all\'avversario, anche dopo aver chiuso un quadrato.';
   };
   f.oninput = sync; sync();
   if (WEB) {
