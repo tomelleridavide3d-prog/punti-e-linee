@@ -229,6 +229,15 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .shE{font-size:28px}
 .bagPick{display:flex;flex-wrap:wrap;gap:6px}
 .netBox{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border-radius:12px;background:rgba(242,194,48,.12);margin-bottom:12px}
+#cqClap{position:absolute;inset:0;z-index:60;background:rgba(10,11,14,.93);display:flex;align-items:center;justify-content:center;transition:opacity .4s}
+.clapB{width:250px;border:3px solid #fff;border-radius:8px;background:#1a1c21;overflow:hidden}
+.clapTop{height:34px;background:repeating-linear-gradient(115deg,#fff 0 22px,#111 22px 44px);transform-origin:0 100%;transform:rotate(-26deg);transition:transform .1s ease-in}
+.clapB.hit .clapTop{transform:rotate(0)}
+.clapIn{display:flex;flex-direction:column;gap:6px;padding:14px;color:#fff;font-size:14px}
+.clapIn b{font-size:22px;letter-spacing:2px}
+.credits{height:110px;overflow:hidden;text-align:center;font-size:13px;margin:6px 0;mask-image:linear-gradient(transparent,#000 15%,#000 85%,transparent)}
+.credits>div{animation:crRoll 16s linear infinite}
+@keyframes crRoll{from{transform:translateY(110px)}to{transform:translateY(-100%)}}
 .netRow{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .bagPick button{border-radius:999px;padding:6px 10px;border:2px solid transparent;background:rgba(127,127,127,.15);font:inherit;font-size:13px;cursor:pointer;color:inherit}
 .bagPick button.on{border-color:#f2c230;background:rgba(242,194,48,.2)}
@@ -304,7 +313,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 <div id="ciack" hidden>
   <div id="cqBgL"><div id="cqBgMove"></div></div>
   <canvas id="cqCanvas"></canvas>
-  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
+  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
   <div id="cqPick" hidden><div class="pk">
     <h2>Scegli il personaggio</h2>
     <canvas id="cqPrev"></canvas>
@@ -320,6 +329,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
     <div class="camG"><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div></div></div></div>
   <div id="cqItems"></div>
   <div id="cqToast" hidden></div>
+  <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
   <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
@@ -2348,7 +2358,19 @@ function cqNewMatch() {
   cqHud();
   cqRolePanel();
 }
-function cqRolePanel() {
+// ciak d'apertura: la claquette batte, poi compare il ruolo
+function cqClap(then) {
+  const el = $('#cqClap'), B = el.querySelector('.clapB'); let T = [];
+  B.classList.remove('hit'); el.style.opacity = 1; el.hidden = false;
+  $('#clapSc').textContent = 'SCENA ' + (1 + Math.floor(Math.random() * 12)) + ' · RIPRESA ' + (1 + Math.floor(Math.random() * 4));
+  $('#clapDir').textContent = 'Regia: ' + ((store.settings.myName || 'Tu').trim() || 'Tu');
+  T.push(setTimeout(() => { B.classList.add('hit'); beep(180, 0.09, 0.1); beep(90, 0.14, 0.08, 0.02); beep(1400, 0.03, 0.04); }, 800));
+  T.push(setTimeout(() => { el.style.opacity = 0; }, 1700));
+  T.push(setTimeout(() => { el.hidden = true; if (then) then(); }, 2100));
+  el.onclick = () => { T.forEach(clearTimeout); el.hidden = true; if (then) then(); then = null; };
+}
+function cqRolePanel() { cqClap(cqRolePanel0); }
+function cqRolePanel0() {
   const G = cq.g, me = G.me, mates = G.chars.filter(c => c.imp && c !== me), nImp = G.chars.filter(c => c.imp).length;
   cqPanel(me.imp ? 'Sei un SABOTATORE' : 'Sei della TROUPE', (me.imp
     ? '<p class="lead">Rovina le riprese senza farti scoprire. Avvicinati a qualcuno rimasto da solo e premi <b>Elimina</b>. Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme. Intanto fai finta di lavorare!</p>' + (mates.length ? `<p class="lead">I tuoi complici (nome in rosso): <b>${mates.map(c => esc(c.name)).join(', ')}</b>.</p>` : '')
@@ -2612,6 +2634,7 @@ function cqEnd(win, why) {
   $('#tkTitle').textContent = won ? 'Hai vinto!' : 'Hai perso!';
   $('#tkBody').innerHTML = `<p class="lead" style="text-align:center"><b>${win === 'sab' ? (imps.length > 1 ? 'Vincono i sabotatori' : 'Vince il sabotatore') : 'Vince la troupe'}</b><br>${why}</p>
     <p class="hint" style="text-align:center">${imps.length > 1 ? 'I sabotatori erano' : 'Il sabotatore era'} <b>${who}</b>.</p>
+    <div class="credits"><div><b>TITOLI DI CODA</b><br><br><b>CAST</b><br>${G.chars.map(c => esc(c.name) + (c === me ? ' (tu)' : '') + ' · ' + (c.imp ? 'il sabotatore' : 'la troupe') + (c.alive ? '' : ' (eliminato)')).join('<br>')}<br><br><b>REGIA</b><br>Tomelleri Davide<br><br><b>PRODUZIONE</b><br>RH group<br><br><i>Nessun cavo è stato maltrattato durante le riprese</i><br><br>FINE</div></div>
     <p class="hint" style="text-align:center">🪙 Monete guadagnate: <b>+${G.earn}</b> (bonus ${won ? 'vittoria 5' : 'partecipazione 1'}) · ne hai <b>${cqBank().coins}</b></p>
     <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn" id="enShop" type="button">🪙 Negozio</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
   const back = () => cq.net && cq.net.role === 'guest' ? cqNetWait() : cqLobby();
@@ -2916,6 +2939,9 @@ function cqInit() {
   window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; cq.dirty = true; });
   $('#cqBack').onclick = closeCiack;
   $('#cqLookBtn').onclick = cqOpenPick;
+  const mus = () => { $('#cqMusic').style.opacity = store.settings.music === false ? 0.4 : 1; };
+  $('#cqMusic').onclick = () => { store.settings.music = store.settings.music === false; saveStore(); mus(); };
+  mus();
   $('#cqUse').onclick = cqUse;
   $('#cqMapBtn').onclick = cqOpenMap;
   $('#mapClose').onclick = () => { $('#cqMap').hidden = true; };
@@ -2949,10 +2975,16 @@ function cqFrame(t) {
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.lx = d.wx - d.wy; cq.ly = (d.wx + d.wy) / 2;   // dove guardo, sullo schermo
     cq.walk += dt * 11;
+    if (G && playing && (cq.stT = (cq.stT || 0) - dt) <= 0) { cq.stT = 0.3; beep(90 + Math.random() * 40, 0.05, 0.014); }   // passi
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
   if (playing) { if (!G.guest) cqBots(dt); cqCloneStep(dt); }
   if (cq.net) cqNetTick(dt);
+  // musichetta di sottofondo (si spegne col pulsante o con i suoni)
+  if (G && playing && store.settings.music !== false && store.settings.sound && (cq.mT = (cq.mT || 0) - dt) <= 0) {
+    const sab = !!G.sab, N = sab ? [0, 1, 0, 3, 0, 1, 6, 1] : [0, 4, 7, 12, 7, 4, 9, 7]; cq.mT = sab ? 0.3 : 0.45; cq.mI = ((cq.mI || 0) + 1) % 8;
+    beep(220 * Math.pow(2, N[cq.mI] / 12), 0.32, 0.009); if (cq.mI % 4 === 0) beep(sab ? 82 : 110, 0.5, 0.014);
+  }
   cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
   cq.raf = requestAnimationFrame(cqFrame);
@@ -3197,7 +3229,7 @@ function cqDraw() {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face });
     for (const ch of G.chars) {
       if (ch === G.me) list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
@@ -3245,6 +3277,12 @@ function cqDraw() {
     gr.addColorStop(0, 'rgba(5,6,8,0)'); gr.addColorStop(1, 'rgba(5,6,8,.94)'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
   }
   if (smoky) { g.fillStyle = fog ? 'rgba(200,204,212,.84)' : 'rgba(200,204,212,.3)'; g.fillRect(0, 0, W, H); }
+  // barretta sopra chi sta facendo un compito
+  for (const o of list) if (o.on && !o.body && o.prog != null) {
+    const bw = TW * 0.8, bx = o.sx - bw / 2, by = o.sy - TW * cqTop(o.L) - 24;
+    g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, bx - 2, by - 2, bw + 4, 9, 4.5); g.fill();
+    g.fillStyle = '#7be0a0'; cqRR(g, bx, by, Math.max(4, bw * o.prog), 5, 2.5); g.fill();
+  }
   for (const o of list) if (o.on && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff');
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
