@@ -2650,7 +2650,7 @@ function cqEnd(win, why) {
   $('#tkTitle').textContent = won ? 'Hai vinto!' : 'Hai perso!';
   $('#tkBody').innerHTML = `<p class="lead" style="text-align:center"><b>${win === 'sab' ? (imps.length > 1 ? 'Vincono i sabotatori' : 'Vince il sabotatore') : 'Vince la troupe'}</b><br>${why}</p>
     <p class="hint" style="text-align:center">${imps.length > 1 ? 'I sabotatori erano' : 'Il sabotatore era'} <b>${who}</b>.</p>
-    <div class="credits"><div><b>TITOLI DI CODA</b><br><br><b>CAST</b><br>${G.chars.map(c => esc(c.name) + (c === me ? ' (tu)' : '') + ' · ' + (c.imp ? 'il sabotatore' : 'la troupe') + (c.alive ? '' : ' (eliminato)')).join('<br>')}<br><br><b>REGIA</b><br>Tomelleri Davide<br><br><b>PRODUZIONE</b><br>RH group<br><br><i>Nessun cavo è stato maltrattato durante le riprese</i><br><br>FINE</div></div>
+    <div class="credits"><div>${G.chars.map(c => esc(c.name)).join('<br><br>')}</div></div>
     <p class="hint" style="text-align:center">🪙 Monete guadagnate: <b>+${G.earn}</b> (bonus ${won ? 'vittoria 5' : 'partecipazione 1'}) · ne hai <b>${cqBank().coins}</b></p>
     <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn" id="enShop" type="button">🪙 Negozio</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
   const back = () => cq.net && cq.net.role === 'guest' ? cqNetWait() : cqLobby();
