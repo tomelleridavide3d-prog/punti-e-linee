@@ -1760,6 +1760,8 @@ const CQ_SKINS = {
   regista: { n: 'Regista', col: '#2a3a6a', d: 'Regista francese: basco, baffi e cinepresa in spalla.' },
   guardia: { n: 'Guardia', col: '#4a5f8a', d: 'La guardia notturna. Un po\' brilla…' },
   tonno: { n: 'Tonno', col: '#5a8ab0', d: 'Un tonno spadaccino, armato di fioretto.' },
+  giraffa: { n: 'Giraffa', col: '#e8b84a', d: 'Una giraffa intellettuale: dolcevita e pipa.' },
+  polipo: { n: 'Polipo', col: '#d8608a', d: 'Un polipo con la collana d\'oro. Elegantissimo.' },
   bruco: { n: 'Bruco', col: '#5ab03c', d: 'Un bruco col cappello da cowboy. Non si fida di nessuno.' }
 };
 function cqLook() {
@@ -3310,7 +3312,7 @@ function cqName(g, X, Y, name, col) {
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
 // altezza del nome sopra la testa (in larghezze di tessera), secondo il personaggio
-const cqTop = L => L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' ? 2.0 : 1.9;
+const cqTop = L => L.skin === 'giraffa' ? 2.4 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' ? 2.0 : 1.9;
 function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
   const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, sw = Math.sin(walk) * 4;
   if (!noShadow) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill(); }
@@ -3383,6 +3385,51 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
     line(10 * f, -16, 36 * f, -42, '#e3e7ec', 1.4); ell(36 * f, -42, 1.2, 1.2, '#e3e7ec');
     ell(11 * f, -17, 3.4, 3.4, '#b8bec8'); line(8 * f, -14, 10 * f, -16, '#2a2e35', 2.4);
     ell(7 * f, -15.5, 5, 2.4, '#2a4a7a', f * 0.6);
+  } else if (s === 'giraffa') {
+    // giraffa con il dolcevita scuro e la pipa
+    line(-6 + sw, -1, -5, -12, '#c99a3a', 3.4); line(6 - sw, -1, 5, -12, '#c99a3a', 3.4);
+    ell(-6 + sw, -1, 3.6, 2.2, '#4a3220'); ell(6 - sw, -1, 3.6, 2.2, '#4a3220');
+    line(-f * 11, -16, -f * 17, -6 + sw * 0.4, '#c99a3a', 1.6); ell(-f * 17, -5 + sw * 0.4, 1.6, 2.6, '#4a3220');
+    bean('#8a2f3c');
+    g.strokeStyle = '#6e2430'; g.lineWidth = 1; for (let x = -11; x <= 11; x += 2.2) { g.beginPath(); g.moveTo(x, -9); g.lineTo(x, -3); g.stroke(); }
+    side();
+    // collo con le macchie, coperto in basso dal collo alto del maglione
+    g.save(); g.translate(f * 4, -38); g.rotate(f * 0.18);
+    g.fillStyle = '#e8b84a'; cqRR(g, -4.5, -26, 9, 30, 4); g.fill();
+    for (const [x, y, r] of [[-1.5, -22, 2.2], [2, -16, 1.8], [-1, -10, 2]]) ell(x, y, r, r * 0.8, '#b0702a');
+    g.fillStyle = '#8a2f3c'; cqRR(g, -6, -8, 12, 12, 3); g.fill();
+    g.strokeStyle = '#6e2430'; g.lineWidth = 0.9; for (let y = -6; y < 4; y += 2.5) { g.beginPath(); g.moveTo(-5.5, y); g.lineTo(5.5, y); g.stroke(); }
+    g.restore();
+    // testa: corna, orecchio, muso, occhio socchiuso da pensatore
+    const hx = f * 9, hy = -64;
+    line(hx - f * 3, hy - 3, hx - f * 4.5, hy - 11, '#c99a3a', 1.8); ell(hx - f * 4.5, hy - 11.5, 1.8, 1.8, '#4a3220');
+    line(hx + f * 0.5, hy - 3.5, hx + f * 0.5, hy - 12, '#c99a3a', 1.8); ell(hx + f * 0.5, hy - 12.5, 1.8, 1.8, '#4a3220');
+    ell(hx - f * 6, hy - 2, 3.6, 1.6, '#d9a640', -f * 0.4);
+    ell(hx, hy, 7, 5.5, '#e8b84a'); ell(hx + f * 6, hy + 2, 5, 3.8, '#f2d08a');
+    ell(hx - f * 2, hy + 1, 1.8, 1.4, '#b0702a');
+    ell(hx + f * 1.5, hy - 1.2, 1.4, 1.5, '#111'); line(hx, hy - 2.6, hx + f * 3.2, hy - 2.4, '#7a5020', 1.2);
+    ell(hx + f * 9, hy + 1.2, 0.7, 0.6, '#5a3a1a');
+    // pipa con il fumo
+    line(hx + f * 8, hy + 4, hx + f * 14, hy + 5.5, '#3a2210', 1.4);
+    g.fillStyle = '#6a3a1a'; cqRR(g, hx + f * 14 - 2.2, hy + 1.5, 4.4, 5.5, 1.5); g.fill(); ell(hx + f * 14, hy + 1.6, 2.2, 0.9, '#2a1a0a');
+    const pf = performance.now() / 600;
+    for (let k = 0; k < 3; k++) { const t = (pf + k / 3) % 1; ell(hx + f * (14.5 + t * 4), hy - 2 - t * 9, 1.6 + t * 2, 1.4 + t * 1.6, 'rgba(225,228,235,' + (0.75 * (1 - t)).toFixed(2) + ')'); }
+  } else if (s === 'polipo') {
+    // polipo rosa con la collana d'oro: i tentacoli si muovono camminando
+    for (let i = 0; i < 6; i++) {
+      const x0 = -11 + i * 4.4, w = Math.sin(walk * 1.4 + i * 1.3) * 2.5, out = (x0 < 0 ? -1 : 1) * (3 + Math.abs(x0) * 0.25);
+      g.strokeStyle = i % 2 ? '#c0507a' : '#b04570'; g.lineWidth = 4.6; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x0, -14); g.quadraticCurveTo(x0 + w, -6, x0 + out, -2); g.quadraticCurveTo(x0 + out * 1.4, 0, x0 + out * 1.2, -3); g.stroke();
+      ell(x0 + w * 0.5 + out * 0.3, -6, 0.9, 0.9, '#f0a0c0');
+    }
+    ell(0, -29, 14, 16, '#d8608a'); ell(-4 * f, -37, 5, 3.5, 'rgba(255,255,255,.18)', -f * 0.5);
+    for (const [x, y] of [[-8, -24], [-9, -33], [9, -20]]) ell(x * f, y, 1.6, 1.3, '#c0507a');
+    side();
+    for (const dx of [1, 8]) { ell(f * dx, -28, 3.3, 3.8, '#fff'); ell(f * (dx + 0.9), -27.6, 1.7, 2.1, '#111'); ell(f * (dx + 1.6), -28.6, 0.6, 0.6, '#fff'); }
+    g.strokeStyle = '#8a2f55'; g.lineWidth = 1.2; g.lineCap = 'round'; g.beginPath(); g.arc(f * 5, -21.5, 2.2, 0.2 * Math.PI, 0.8 * Math.PI); g.stroke();
+    // collana d'oro con il medaglione
+    for (let k = -6; k <= 6; k++) { const t = k / 6; ell(t * 12.5, -15 + 3 * (1 - t * t), 1.7, 1.2, k % 2 ? '#d9a514' : '#f2c230', t * 0.5); }
+    ell(f * 1, -9.5, 3.6, 3.6, '#d9a514'); ell(f * 1, -9.5, 2.6, 2.6, '#f2c230'); ell(f * 0, -10.5, 0.9, 0.9, '#fff6c0');
   } else if (s === 'bruco') {
     // bruco verde con il cappello da cowboy: anelli che ondeggiano camminando, testa alta davanti
     const segs = [[-f * 18, -7, 7], [-f * 10, -8.5, 8], [-f * 1.5, -10.5, 9], [f * 5, -17, 8.5]];
