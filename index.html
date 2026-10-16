@@ -1759,7 +1759,8 @@ const CQ_SKINS = {
   gatto: { n: 'Gatto', col: '#e08a3a', d: 'Un gatto rosso con un lanciarazzi in spalla.' },
   regista: { n: 'Regista', col: '#2a3a6a', d: 'Regista francese: basco, baffi e cinepresa in spalla.' },
   guardia: { n: 'Guardia', col: '#4a5f8a', d: 'La guardia notturna. Un po\' brilla…' },
-  tonno: { n: 'Tonno', col: '#5a8ab0', d: 'Un tonno spadaccino, armato di fioretto.' }
+  tonno: { n: 'Tonno', col: '#5a8ab0', d: 'Un tonno spadaccino, armato di fioretto.' },
+  bruco: { n: 'Bruco', col: '#5ab03c', d: 'Un bruco verde con il cappello da cowboy.' }
 };
 function cqLook() {
   const L = store.settings.cqLook || {}, skin = CQ_SKINS[L.skin] ? L.skin : 'omino';
@@ -3382,6 +3383,30 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow) {
     line(10 * f, -16, 36 * f, -42, '#e3e7ec', 1.4); ell(36 * f, -42, 1.2, 1.2, '#e3e7ec');
     ell(11 * f, -17, 3.4, 3.4, '#b8bec8'); line(8 * f, -14, 10 * f, -16, '#2a2e35', 2.4);
     ell(7 * f, -15.5, 5, 2.4, '#2a4a7a', f * 0.6);
+  } else if (s === 'bruco') {
+    // bruco verde con il cappello da cowboy: anelli che ondeggiano camminando, testa alta davanti
+    const segs = [[-f * 18, -7, 7], [-f * 10, -8.5, 8], [-f * 1.5, -10.5, 9], [f * 5, -17, 8.5]];
+    segs.forEach(([x, y, r], i) => {
+      const w = Math.sin(walk * 1.3 + i * 1.2) * 1.6;
+      ell(x - f * 2.5, -1.5 + (i % 2 ? w * 0.3 : -w * 0.3), 2.4, 1.5, '#2f6a2a'); ell(x + f * 2.5, -1.5 + (i % 2 ? -w * 0.3 : w * 0.3), 2.4, 1.5, '#2f6a2a');
+      ell(x, y + w * 0.5, r, r, i % 2 ? '#6cc04a' : '#5ab03c');
+      ell(x + f * r * 0.2, y + w * 0.5 + r * 0.4, r * 0.55, r * 0.32, '#a8e07a');
+    });
+    // antenne (dietro al cappello, le punte spuntano ai lati)
+    line(f * 4, -37, -f * 5, -58, '#2f6a2a', 1.6); ell(-f * 5, -58, 2.4, 2.4, '#f2c230');
+    line(f * 11, -37, f * 20, -55, '#2f6a2a', 1.6); ell(f * 20, -55, 2.4, 2.4, '#f2c230');
+    ell(f * 7, -29.5, 11, 10.5, '#6cc04a');
+    ell(f * 13.5, -24.5, 2.6, 1.7, 'rgba(240,120,120,.55)');
+    for (const dx of [4.5, 11]) { ell(f * dx, -31.5, 3, 3.5, '#fff'); ell(f * (dx + 0.8), -31, 1.5, 1.9, '#111'); }
+    g.strokeStyle = '#2a4a1a'; g.lineWidth = 1.2; g.beginPath(); g.arc(f * 9, -25.5, 3, 0.15 * Math.PI, 0.85 * Math.PI); g.stroke();
+    // cappello da cowboy
+    g.save(); g.translate(f * 7, -1);
+    ell(0, -39.5, 19, 5, '#7a4a20');
+    ell(-16, -42.5, 4.5, 2.6, '#7a4a20', -0.6); ell(16, -42.5, 4.5, 2.6, '#7a4a20', 0.6);
+    g.fillStyle = '#9a6430'; g.beginPath(); g.moveTo(-9.5, -40); g.lineTo(-8.5, -53); g.quadraticCurveTo(-4, -55.5, 0, -51.5); g.quadraticCurveTo(4, -55.5, 8.5, -53); g.lineTo(9.5, -40); g.quadraticCurveTo(0, -37, -9.5, -40); g.fill();
+    g.fillStyle = '#4a2e18'; g.fillRect(-9.5, -44.5, 19, 3.2);
+    ell(f * 5, -43, 1.5, 1.5, '#f2c230');
+    g.restore();
   } else {
     const rac = s === 'procione', col = rac ? '#8a8f99' : L.col;
     // coda ad anelli (procione), dietro a tutto
