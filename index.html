@@ -1212,7 +1212,8 @@ async function startHub() {
   hub.ok = true;
   runTransaction(ref(db, 'players/' + key), cur => cur || { name: nm, rating: 1000, w: 0, l: 0, d: 0, pf: 0, pa: 0, hist: [1000] }).catch(() => {});
   hub.unsubs.push(onValue(ref(db, '.info/connected'), s => { if (s.val() !== true || hub.key !== key) return; onDisconnect(ref(db, 'presence/' + hub.sid)).remove(); hubPresence(); }));
-  hub.unsubs.push(onValue(ref(db, 'presence'), s => { hub.online = s.val() || {}; hubRender(); }));
+  const fail = e => { hub.ok = false; hub.failed = true; hub.err = (e && e.code) || 'errore'; hubRender(); };
+  hub.unsubs.push(onValue(ref(db, 'presence'), s => { hub.online = s.val() || {}; hubRender(); }, fail));
   hub.unsubs.push(onValue(ref(db, 'live'), s => { hub.live = s.val() || {}; hubRender(); }));
   hub.unsubs.push(onValue(ref(db, 'players'), s => { hub.players = s.val() || {}; hubRender(); if ($('#dStats').open) openStats(); }));
   hub.unsubs.push(onChildAdded(ref(db, 'invites/' + key), s => hubInvite(s.key, s.val())));
@@ -1221,7 +1222,7 @@ function stopHub() {
   const F = hub.fb;
   hub.unsubs.forEach(u => { try { u(); } catch {} }); hub.unsubs = [];
   if (F && hub.started) try { F.remove(F.ref(F.db, 'presence/' + hub.sid)); } catch {}
-  hub.key = ''; hub.started = false; hub.ok = false; hub.failed = false; hub.online = {}; hub.live = {}; hub.players = {}; hub.queue = [];
+  hub.key = ''; hub.started = false; hub.ok = false; hub.failed = false; hub.err = ''; hub.online = {}; hub.live = {}; hub.players = {}; hub.queue = [];
 }
 function hubPresence() {
   const F = hub.fb; if (!F || !hub.ok || !hub.key) return;
@@ -1287,7 +1288,7 @@ function hubRender() {
   const rat = document.getElementById('myRat');
   if (rat) rat.textContent = hub.ok && hub.players[hub.key] ? myRating() + ' punti' : '';
   if (!el) return;
-  if (!hub.ok) { el.innerHTML = '<div class="hint">' + (hub.started && !hub.failed ? 'Sto cercando i giocatori online…' : 'Elenco giocatori non disponibile: puoi comunque invitare con un link.') + '</div>'; return; }
+  if (!hub.ok) { el.innerHTML = '<div class="hint">' + (hub.started && !hub.failed ? 'Sto cercando i giocatori online…' : 'Elenco giocatori non disponibile' + (hub.err ? ' (' + esc(hub.err) + ')' : '') + ': puoi comunque invitare con un link.') + '</div>'; return; }
   const seen = new Set(), others = [];
   for (const p of Object.values(hub.online)) if (p.key !== hub.key && !seen.has(p.key)) { seen.add(p.key); others.push(p); }
   others.sort((a, b) => (a.st === 'free' ? 0 : 1) - (b.st === 'free' ? 0 : 1) || a.name.localeCompare(b.name));
