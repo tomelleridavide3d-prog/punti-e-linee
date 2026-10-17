@@ -3043,7 +3043,7 @@ function cqPath(sx, sy, ex, ey) {
 //   voice(G, c) -> volume 0-1 della voce di c in partita (null = secondo la distanza, come sempre),
 //   hide(c) -> true = personaggio non disegnato (es. accoltellato: resta solo il corpo in G.bodies); c.angel = G.time -> scende da angelo (2,6 s),
 //   prop(c) -> [tipo, opzione, nome visibile?, x, y] o null: personaggio disegnato come un oggetto della mappa (drawProp) centrato in x, y (Nascondino),
-//   draw(c) -> null o funzione (g, X, Y, TW, aspetto, passo, verso) che disegna il personaggio al posto del solito (la Cosa); corpi con nk = senza coltello }
+//   draw(c) -> null o funzione (g, X, Y, TW, aspetto, passo, verso) che disegna il personaggio al posto del solito (la Cosa); funzione.top = altezza del nome in TW (il Minotauro); corpi con nk = senza coltello }
 // Un file dei giochi puo' anche portare una mappa sua: CQ_MAPS.<id> = { n, make, only: '<gioco>' } (only = non si sceglie in Ciack US); il pacchetto della mappa
 // puo' avere draw(K, tipo, x, y, opzione) per gli oggetti nuovi, floor: { tipo: (K, x, y) } per i pavimenti e drawWall(K, x, y, colore) (K = attrezzi di cqTools)
 const CQ_MODES = {};
@@ -3056,7 +3056,8 @@ const CQ_GAMES = [
   ['bandiera', 'Ruba la bandiera', '🚩', '#2f5a8a', 'Due squadre sul set al buio: ruba la bandiera nemica e portala a casa. La torcia ti fa vedere… e ti fa vedere.'],
   ['nascondino', 'Nascondino sul set', '🪑', '#8a6a2f', 'Trasformati in un oggetto del set e resta immobile… oppure cerca chi si nasconde.'],
   ['cosa', 'La Cosa', '❄️', '#3a6f8f', 'Base polare nella bufera: uno di voi non è umano. Esami del sangue, lanciafiamme e un elicottero per scappare.'],
-  ['naufraghi', 'Naufraghi', '🏝️', '#2f8a7a', 'Due squadre su un\'isola misteriosa: costruite la zattera, rubate i pezzi agli altri e salpate per primi.']];
+  ['naufraghi', 'Naufraghi', '🏝️', '#2f8a7a', 'Due squadre su un\'isola misteriosa: costruite la zattera, rubate i pezzi agli altri e salpate per primi.'],
+  ['minotauro', 'Il Minotauro', '🐂', '#7a4a2e', 'Labirinto al buio con i muri che si spostano: copiate i frammenti di mappa e scappate prima che il Minotauro vi prenda.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
@@ -5111,7 +5112,7 @@ function cqDraw() {
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
   }
   for (const o of list) if (o.xr) { g.globalAlpha = o.ghost ? 0.25 : 0.5; cqPlayer(g, o.sx, o.sy, TW, o.L, o.w, o.f); g.globalAlpha = 1; }   // dietro a un albero (xray): sagoma in trasparenza
-  for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
+  for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * (o.dr && o.dr.top ? o.dr.top : cqTop(o.L)), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
   const mark = (x, y, col) => {
