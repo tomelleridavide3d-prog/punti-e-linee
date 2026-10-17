@@ -27,7 +27,7 @@ Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi =
 - Partite a distanza: una sola regola (chi chiude un quadrato rigioca). Contro il computer c'è la scelta delle regole (`S.aiRule`: classic / turni alterni).
 - Chi inizia è sempre casuale nelle partite a distanza, anche nelle rivincite. Contro il computer c'è la scelta (Tu / Computer / A caso).
 - La tendina "Come si gioca e qualche consiglio" c'è solo contro il computer (tolta dalle partite a distanza). Il 17-10 l'utente ha chiesto di reintegrare il gioco contro il computer completo di tutto, anche sul sito.
-- Pulsante "Abbandona" (partite a distanza): conta come sconfitta per chi esce e vittoria per l'avversario; se non c'è nessuna mossa si esce senza penalità. Messaggio `forfeit` sul canale, `game.forfeit` = indice del giocatore che ha abbandonato.
+- Pulsante "Abbandona" (in qualsiasi partita in corso; contro il computer conta come sconfitta nel livello ma non cambia la forza adattiva, sullo stesso dispositivo si esce e basta). Partite a distanza: conta come sconfitta per chi esce e vittoria per l'avversario; se non c'è nessuna mossa si esce senza penalità. Messaggio `forfeit` sul canale, `game.forfeit` = indice del giocatore che ha abbandonato.
 - Sito pubblicato (`WEB`): nome chiesto la prima volta e ricordato, niente PIN, classifica visibile a tutti. Il modo scelto (Computer / Amico) si ricorda (`modeChosen`); alla prima visita parte "Amico a distanza". Le statistiche del sito hanno tre schede: Le mie / Classifica / Computer.
 
 ## Ambiente
