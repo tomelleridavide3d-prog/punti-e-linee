@@ -120,13 +120,13 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (t === 2) { if (r < 0.015 && !nearT(x, y, 4)) tree(x, y, 'palm'); else if (r < 0.06) decals.push([x + rnd() * 0.7, y + rnd() * 0.7, 0.14, 0.1, rnd() < 0.5 ? '#f4e8e0' : '#e8b8a8']); continue; }
       if (t === 3) {
         if (r < 0.045 && !nearT(x, y, 3)) { tree(x, y, rnd() < 0.75 ? 'palm' : 'oak'); continue; }
-        if (r < 0.162) { pp('bigrock', x, y); continue; }
-        if (r < 0.17) { pp('rock', x, y); continue; }
-        if (r < 0.3) { deco.push([x, y, 'bush']); continue; }
+        if (r < 0.052) { pp('bigrock', x, y); continue; }
+        if (r < 0.07) { deco.push([x, y, 'pebble']); continue; }
+        if (r < 0.2) { deco.push([x, y, 'bush']); continue; }
         if (r < 0.55) deco.push([x, y, r < 0.38 ? 'fern' : r < 0.47 ? 'tuft' : r < 0.52 ? 'shrub' : 'mush']);
         continue;
       }
-      if (t === 4) { if (r < 0.025 && !nearT(x, y, 3.5)) tree(x, y, rnd() < 0.5 ? 'palm' : 'oak'); else if (r < 0.1) pp('bigrock', x, y); else if (r < 0.11) pp('rock', x, y); else if (r < 0.17) deco.push([x, y, 'bush']); else if (r < 0.4) deco.push([x, y, 'tuft']); }
+      if (t === 4) { if (r < 0.025 && !nearT(x, y, 3.5)) tree(x, y, rnd() < 0.5 ? 'palm' : 'oak'); else if (r < 0.037) pp('bigrock', x, y); else if (r < 0.065) deco.push([x, y, 'pebble']); else if (r < 0.11) deco.push([x, y, 'bush']); else if (r < 0.4) deco.push([x, y, 'tuft']); }
     }
     // dove si arriva (un gradino alla volta) partendo dal campo dei Granchi
     const nf = (x, y) => { for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [2, 0], [0, 2]]) if (free(x + dx, y + dy)) return [x + dx, y + dy]; return [x, y]; };
@@ -208,6 +208,14 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   function hzSide(x, y, i, z) { const t = CQ_MAP.ter[y][x]; if (i === z - 1) return t === 5 ? '#9a917a' : t === 4 ? '#6a8f44' : '#4f7f38'; return i % 2 ? '#857a64' : '#7a6f5a'; }
   // cespuglio grande: ci si passa attraverso (si disegna col pavimento; chi ci sta dentro ha le foglie davanti, vedi deco)
   function decoDraw(K, t, x, y) {
+    if (t === 'pebble') {
+      const n = 1 + Math.floor(K.hsh(x, y, 90) * 3), C2 = [['#8e8a82', '#a29e95'], ['#857f74', '#9a9488'], ['#938e84', '#aaa59a']][Math.floor(K.hsh(x, y, 91) * 3)];
+      for (let i = 0; i < n; i++) {
+        const u = 0.18 + 0.6 * K.hsh(x, y, 92 + i), v = 0.18 + 0.6 * K.hsh(x, y, 95 + i), w = 0.1 + 0.14 * K.hsh(x, y, 98 + i), d = 0.08 + 0.12 * K.hsh(x, y, 101 + i), h = 0.08 + 0.22 * K.hsh(x, y, 104 + i);
+        K.bx(x + u - w, y + v - d, x + u + w, y + v + d, 0, h, C2[0]); if (h > 0.18) K.bx(x + u - w * 0.6, y + v - d * 0.6, x + u + w * 0.4, y + v + d * 0.5, h, h + 0.07, C2[1]);
+      }
+      return;
+    }
     if (t !== 'bush') return;
     K.bx(x + 0.08, y + 0.1, x + 0.92, y + 0.92, 0, 0.55, '#3f7a36'); K.bx(x + 0.2, y + 0.22, x + 0.8, y + 0.8, 0.55, 0.82, '#4a8a40'); K.bx(x + 0.32, y + 0.34, x + 0.62, y + 0.64, 0.82, 0.95, '#56984a');
     if (K.hsh(x, y, 65) < 0.4) { K.dot(x + 0.3, y + 0.92, 0.35, 0.03, '#c8304a'); K.dot(x + 0.62, y + 0.92, 0.25, 0.03, '#c8304a'); K.dot(x + 0.92, y + 0.5, 0.4, 0.03, '#c8304a'); }
@@ -246,7 +254,14 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
         if (hsh(x, y, 70) < 0.35) { const u = 0.1 + 0.6 * hsh(x, y, 71), v = 0.15 + 0.7 * hsh(x, y, 72); poly([P(u, v), P(u + 0.3, v), P(u + 0.3, v + 0.05), P(u, v + 0.05)], sh ? '#8ad4e8' : '#5a9cd0'); }
         break; }
       case 'cliff': { const hh = 0.9 + 0.3 * hsh(x, y, 73); bx(x, y, x + 1, y + 1, 0, hh, '#8a8170'); bx(x - 0.02, y - 0.02, x + 1.02, y + 1.02, hh, hh + 0.1, '#6f9446'); if (hsh(x, y, 74) < 0.35) bx(x + 0.2, y + 0.2, x + 0.6, y + 0.6, hh + 0.1, hh + 0.35, '#968d7c'); break; }
-      case 'bigrock': bx(x + 0.04, y + 0.08, x + 0.96, y + 0.96, 0, 1.05, '#8e8a82'); bx(x + 0.15, y + 0.18, x + 0.85, y + 0.82, 1.05, 1.6, '#9c988f'); bx(x + 0.3, y + 0.3, x + 0.62, y + 0.6, 1.6, 1.8, '#a8a49a'); if (hsh(x, y, 75) < 0.5) bx(x + 0.1, y + 0.1, x + 0.5, y + 0.5, 1.05, 1.1, '#5a8a44'); break;
+      case 'bigrock': {
+        const f = Math.floor(hsh(x, y, 76) * 4), C3 = [['#8e8a82', '#9c988f', '#a8a49a'], ['#857f74', '#948e82', '#a39d90'], ['#918b7f', '#a09a8e', '#aea89c']][Math.floor(hsh(x, y, 77) * 3)];
+        if (f === 0) { bx(x + 0.04, y + 0.08, x + 0.96, y + 0.96, 0, 1.05, C3[0]); bx(x + 0.15, y + 0.18, x + 0.85, y + 0.82, 1.05, 1.6, C3[1]); bx(x + 0.3, y + 0.3, x + 0.62, y + 0.6, 1.6, 1.8, C3[2]); }   // masso alto
+        else if (f === 1) { bx(x - 0.05, y + 0.05, x + 1.05, y + 0.95, 0, 0.6, C3[0]); bx(x + 0.1, y + 0.12, x + 0.95, y + 0.8, 0.6, 0.95, C3[1]); bx(x + 0.5, y + 0.2, x + 0.85, y + 0.6, 0.95, 1.1, C3[2]); }   // lastra larga
+        else if (f === 2) { bx(x + 0.02, y + 0.3, x + 0.55, y + 0.98, 0, 1.25, C3[0]); bx(x + 0.45, y + 0.02, x + 0.98, y + 0.6, 0, 0.85, C3[1]); bx(x + 0.1, y + 0.4, x + 0.45, y + 0.85, 1.25, 1.45, C3[2]); }   // due massi
+        else { bx(x + 0.08, y + 0.1, x + 0.92, y + 0.92, 0, 0.7, C3[0]); bx(x + 0.22, y + 0.25, x + 0.75, y + 0.75, 0.7, 1.5, C3[1]); bx(x + 0.35, y + 0.38, x + 0.6, y + 0.6, 1.5, 2.2, C3[2]); }   // guglia
+        if (hsh(x, y, 75) < 0.5) bx(x + 0.1, y + 0.1, x + 0.45, y + 0.45, f === 1 ? 0.95 : 1.05, (f === 1 ? 0.95 : 1.05) + 0.05, '#5a8a44');
+        break; }
       case 'raft': {
         const G = cq.g, ok = G && G.mode === 'naufraghi' && G.it, n = k => ok ? OB.count(G, o.t, k) : 0, nl = Math.min(4, n('log')), nr = Math.min(2, n('rope'));
         if (ok && G.go && G.go.t === o.t) break;   // salpata: si disegna in mare (over)
