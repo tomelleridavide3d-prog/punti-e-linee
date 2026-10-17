@@ -1812,97 +1812,142 @@ function cqMapStudio() {
     sabTxt: 'Con <b>Sabota</b> spegni le luci o fai scattare l\'allarme.',
     help: '<p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>distributore</b> è in Mensa e in Sala regia.</p>' };
 }
-// mappa "Notte nel bosco": foresta sperduta. Si parte da un cerchio di sassi in una radura d'erba: il fuoco e la tenda si costruiscono con la legna
-// degli alberi. Ruscello con due ponti, un piccolo set del film, una grotta. Oltre alle riprese bisogna sopravvivere (surv): fame, freddo, fuoco, notti.
-// Alberi grandi (tree: in trees il tronco, la chioma si disegna sopra a parte e si fa trasparente se ci passi dietro), cespugli di contorno (deco: ci si passa).
-// Tutto si piazza con un seme fisso: la mappa e' uguale per tutti.
-function cqMapBosco() {
-  const W = 62, H = 50, WOOD = ['#9a7a52', '#8f7049'], GR = ['#4f7a3a', '#4a7336'];
-  // nl = niente scritta sul pavimento, nm = niente scritta sulla mappa piccola; lx, ly = dove va la scritta
+// mappa "Notte nel bosco": foresta sperduta, diversa a ogni partita (seed: online lo manda l'host). Il fuoco e' al centro (cerchio di sassi in una
+// radura d'erba, falo' e tenda si costruiscono con la legna); set del film, grotta e mercante stanno intorno a triangolo, girato e spostato a caso;
+// il ruscello (due ponti) passa dove non da' fastidio. Alberi grandi e radi (tree: tronco + chioma, che si fa trasparente se ci passi dietro),
+// cespugli di contorno (deco: ci si passa). Oltre alle riprese bisogna sopravvivere (surv): fame, freddo, fuoco, notti, animali.
+function cqMapBosco(seed) {
+  const W = 62, H = 50, WOOD = ['#9a7a52', '#8f7049'], GR = ['#4f7a3a', '#4a7336'], MEAD = ['#7aa04a', '#749a46'];
+  let s = seed | 0 || 1; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+  const inR = (x, y, [rx, ry, rw, rh], m) => x >= rx - m && x < rx + rw + m && y >= ry - m && y < ry + rh + m;
+  const hit = (a, b, m) => a[0] - m < b[0] + b[2] && b[0] - m < a[0] + a[2] && a[1] - m < b[1] + b[3] && b[1] - m < a[1] + a[3];
+  const CAMP = [26, 20, 9, 9];   // radura del fuoco, al centro
+  // --- set, grotta (con il suo anello di roccia) e mercante a triangolo intorno al fuoco ---
+  const SZ = { set: [8, 8], cave: [11, 15], shop: [6, 6] };   // la grotta comprende l'anello di roccia
+  let Z;
+  for (let tries = 0; tries < 200; tries++) {
+    const a0 = rnd() * Math.PI * 2, order = ['set', 'cave', 'shop'].sort(() => rnd() - 0.5); Z = {};
+    order.forEach((k, i) => {
+      const a = a0 + i * Math.PI * 2 / 3 + (rnd() - 0.5) * 0.6, [w, h] = SZ[k];
+      const cx = 30.5 + Math.cos(a) * (19 + rnd() * 5), cy = 24.5 + Math.sin(a) * (14 + rnd() * 4);
+      Z[k] = [Math.round(Math.min(W - 3 - w, Math.max(2, cx - w / 2))), Math.round(Math.min(H - 3 - h, Math.max(2, cy - h / 2))), w, h];
+    });
+    const L = Object.values(Z);
+    if (L.every(r => !hit(r, CAMP, 4)) && !hit(L[0], L[1], 4) && !hit(L[0], L[2], 4) && !hit(L[1], L[2], 4)) break;
+  }
+  // --- il ruscello: due colonne d'acqua dall'alto in basso, lontano da campo e zone (o, se non c'e' posto, da sinistra a destra) ---
+  let riv = null;
+  const cols = []; for (let x = 4; x < W - 6; x++) cols.push(x);
+  cols.sort((p, q) => Math.abs(Math.abs(p - 30) - 12) - Math.abs(Math.abs(q - 30) - 12));
+  for (const x of cols) { const r = [x - 2, 0, 6, H]; if (!hit(r, CAMP, 1) && Object.values(Z).every(z => !hit(r, z, 1))) { riv = { v: 1, p: x }; break; } }
+  if (!riv) { const rows = []; for (let y = 4; y < H - 6; y++) rows.push(y); rows.sort((p, q) => Math.abs(Math.abs(p - 24) - 10) - Math.abs(Math.abs(q - 24) - 10)); for (const y of rows) { const r = [0, y - 2, W, 6]; if (!hit(r, CAMP, 1) && Object.values(Z).every(z => !hit(r, z, 1))) { riv = { v: 0, p: y }; break; } } }
+  if (!riv) riv = { v: 1, p: 45 };
+  const L2 = riv.v ? H : W, br = [Math.round(L2 * (0.25 + rnd() * 0.1)), Math.round(L2 * (0.65 + rnd() * 0.1))];   // i due ponti
+  const RV = riv.v ? [riv.p - 2, 0, 6, H] : [0, riv.p - 2, W, 6];
+  const S = Z.set, C = Z.cave, M = Z.shop, gx = C[0] + 1, gy = C[1] + 1;   // gx, gy = dentro la grotta
   const rooms = [
     { n: 'Bosco fitto', x: 0, y: 0, w: W, h: H, c: GR, wc: '#6a6762', k: 'grass', nl: 1 },
-    { n: 'Ruscello', x: 43, y: 0, w: 6, h: H, c: ['#b9a97c', '#b1a174'], wc: '#6a6762', k: 'sand', nl: 1 },
-    { n: 'Accampamento', x: 26, y: 20, w: 9, h: 9, c: GR, wc: '#6a6762', k: 'grass', nl: 1 },
-    { n: 'Set del film', x: 51, y: 7, w: 8, h: 8, c: ['#7aa04a', '#749a46'], wc: '#6a6762', k: 'meadow' },
-    { n: 'Grotta', x: 51, y: 32, w: 9, h: 13, c: ['#5c5854', '#56524e'], wc: '#57534f', k: 'stone' },
-    { n: 'Ponte', x: 45, y: 14, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1, nm: 1 },
-    { n: 'Ponte', x: 45, y: 33, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1, nm: 1 }];
-  // buchi senza pavimento: diventano le pareti di roccia della grotta (ingresso a ovest, x 50, y 37-39)
-  const holes = [[50, 31, 11, 1], [50, 45, 11, 1], [50, 32, 1, 5], [50, 40, 1, 5], [60, 32, 1, 13]];
+    { n: 'Ruscello', x: RV[0], y: RV[1], w: RV[2], h: RV[3], c: ['#b9a97c', '#b1a174'], wc: '#6a6762', k: 'sand', nl: 1 },
+    { n: 'Accampamento', x: CAMP[0], y: CAMP[1], w: CAMP[2], h: CAMP[3], c: GR, wc: '#6a6762', k: 'grass', nl: 1 },
+    { n: 'Set del film', x: S[0], y: S[1], w: 8, h: 8, c: MEAD, wc: '#6a6762', k: 'meadow' },
+    { n: 'Grotta', x: gx, y: gy, w: 9, h: 13, c: ['#5c5854', '#56524e'], wc: '#57534f', k: 'stone' },
+    { n: 'Mercante', x: M[0], y: M[1], w: 6, h: 6, c: MEAD, wc: '#6a6762', k: 'meadow', nl: 1 }];
+  br.forEach(b => rooms.push(riv.v ? { n: 'Ponte', x: riv.p, y: b, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1, nm: 1 } : { n: 'Ponte', x: b, y: riv.p, w: 2, h: 2, c: WOOD, wc: '#6a6762', k: 'wood', nl: 1, nm: 1 }));
+  // anello di roccia della grotta, con l'ingresso (3 celle) dal lato che guarda il fuoco
+  const dx = 30.5 - (gx + 4.5), dy = 24.5 - (gy + 6.5), side = Math.abs(dx) / 1.2 > Math.abs(dy) ? (dx < 0 ? 'w' : 'e') : (dy < 0 ? 'n' : 's');
+  const holes = [];
+  for (let y = C[1]; y < C[1] + C[3]; y++) for (let x = C[0]; x < C[0] + C[2]; x++) {
+    if (x > C[0] && x < C[0] + C[2] - 1 && y > C[1] && y < C[1] + C[3] - 1) continue;
+    const door = side === 'w' ? x === C[0] && y >= gy + 5 && y <= gy + 7 : side === 'e' ? x === C[0] + C[2] - 1 && y >= gy + 5 && y <= gy + 7 : side === 'n' ? y === C[1] && x >= gx + 3 && x <= gx + 5 : y === C[1] + C[3] - 1 && x >= gx + 3 && x <= gx + 5;
+    if (!door) holes.push([x, y, 1, 1]);
+  }
   const decals = [], props = [], trees = [], deco = [];
   const pp = (t, x, y, o) => props.push([t, x, y, o]);
-  let s = 20261018; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
   const taken = new Set(), take = (x, y) => taken.add(x + ',' + y);
-  const tree = (x, y, k) => { const t = { x, y, k: k || (rnd() < 0.55 ? 'pine' : 'oak'), v: Math.floor(rnd() * 3), h: 0.9 + rnd() * 0.25 }; trees.push(t); pp('tree', x, y, t); take(x, y); };
-  // Accampamento: solo il cerchio di sassi, il posto della tenda e il corno per le riunioni (tutto il resto si costruisce)
+  const tree = (x, y, k) => { const t = { x, y, k: k || (rnd() < 0.55 ? 'pine' : 'oak'), v: Math.floor(rnd() * 3), h: 1.2 + rnd() * 0.25 }; trees.push(t); pp('tree', x, y, t); take(x, y); };
+  // Accampamento: cerchio di sassi, posto della tenda, corno; tre alberi solo dietro o di lato al fuoco (davanti lo coprirebbero)
   pp('firepit', 30, 24); pp('tentsite', 33, 22); pp('horn', 30, 20);
-  tree(27, 20, 'oak'); tree(34, 20, 'pine'); tree(26, 27, 'pine');   // alberi solo dietro o di lato: davanti coprirebbero il fuoco
-  // Set del film (piccolo)
-  pp('camera', 54, 9); pp('clapper', 57, 12); pp('lamp', 52, 13); pp('boom', 57, 8); pp('barrel', 55, 13, '#3b6ea5');
+  tree(27, 20, 'oak'); tree(34, 20, 'pine'); tree(26, 27, 'pine');
+  // Set del film
+  pp('camera', S[0] + 3, S[1] + 2); pp('clapper', S[0] + 6, S[1] + 5); pp('lamp', S[0] + 1, S[1] + 6); pp('boom', S[0] + 6, S[1] + 1); pp('barrel', S[0] + 4, S[1] + 6, '#3b6ea5');
   // Grotta
-  pp('lantern', 57, 42); pp('rock', 53, 34); pp('rock', 58, 35); pp('rock', 55, 39); pp('rock', 52, 43); pp('chest', 59, 44); pp('chest', 52, 33);
-  // Ruscello: acqua (non si attraversa) tranne i ponti; secchio per l'acqua
-  for (let y = 0; y < H; y++) if (y !== 14 && y !== 15 && y !== 33 && y !== 34) { pp('water', 45, y); pp('water', 46, y); }
-  pp('bucket', 44, 24); pp('rock', 43, 8); pp('rock', 48, 28); pp('rock', 43, 41);
-  // nel bosco: cose perse dalla troupe (compiti) e zaini abbandonati (da frugare)
-  pp('trader', 38, 9);   // il mercante
-  pp('camera', 12, 40); pp('ribbon', 18, 14); pp('reel', 40, 40); pp('script', 20, 32); pp('sack', 8, 8); pp('sack', 38, 6); pp('sack', 22, 44);
+  pp('lantern', gx + 6, gy + 10); pp('rock', gx + 2, gy + 2); pp('rock', gx + 7, gy + 3); pp('rock', gx + 2, gy + 9); pp('rock', gx + 6, gy + 7); pp('chest', gx + 8, gy + 12); pp('chest', gx + 1, gy + 1);
+  // Mercante
+  pp('trader', M[0] + 2, M[1] + 2); pp('barrel', M[0] + 4, M[1] + 1, '#8a5a32'); pp('crate', M[0] + 1, M[1] + 4);
+  // Ruscello: acqua tranne i ponti; secchio per l'acqua sulla riva verso il fuoco
+  const near = (riv.v ? riv.p > 30 : riv.p > 24) ? -1 : 2;   // riva dalla parte del campo
+  for (let i = 0; i < L2; i++) if (i !== br[0] && i !== br[0] + 1 && i !== br[1] && i !== br[1] + 1) { if (riv.v) { pp('water', riv.p, i); pp('water', riv.p + 1, i); } else { pp('water', i, riv.p); pp('water', i, riv.p + 1); } }
+  const bk = riv.v ? [riv.p + near, 24] : [30, riv.p + near]; pp('bucket', bk[0], bk[1]);
+  props.forEach(p => take(p[1], p[2]));
+  const zones = [CAMP, S, C, M, RV];
+  // cose perse nel bosco (compiti) e zaini abbandonati (da frugare): posti a caso, lontani tra loro
+  const spots = [];
+  const lost = n => { for (let i = 0; i < 300; i++) { const x = 2 + Math.floor(rnd() * (W - 4)), y = 2 + Math.floor(rnd() * (H - 4)), d = Math.hypot(x - 30.5, y - 24.5);
+    if (d < 8 || d > 24 || taken.has(x + ',' + y) || zones.some(z => inR(x, y, z, 2)) || spots.some(p => Math.hypot(p[0] - x, p[1] - y) < 7)) continue; spots.push([x, y]); return [x, y]; } return [n, n]; };
+  const F1 = lost(3), F2 = lost(4), F3 = lost(5), F4 = lost(6);
+  pp('camera', ...F1); pp('ribbon', ...F2); pp('reel', ...F3); pp('script', ...F4);
+  for (let i = 0; i < 3; i++) pp('sack', ...lost(7 + i));
   props.forEach(p => take(p[1], p[2]));
   // bordo chiuso da alberi
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !taken.has(x + ',' + y)) tree(x, y);
-  // bosco a caso: alberi radi (mai attaccati tra loro), qualche masso, tanti cespugli e felci di contorno
-  const inR = (x, y, [rx, ry, rw, rh], m) => x >= rx - m && x < rx + rw + m && y >= ry - m && y < ry + rh + m;
+  // bosco: pochi alberi grandi (mai a meno di 2 celle da un altro), qualche masso, tanti cespugli e felci di contorno
   const isHole = (x, y) => holes.some(h => inR(x, y, h, 0));
   const room = (x, y) => { let k = 0; rooms.forEach((r, i) => { if (inR(x, y, [r.x, r.y, r.w, r.h], 0)) k = i; }); return k; };
   const nearProp = (x, y) => props.some(p => p[0] !== 'tree' && p[0] !== 'water' && Math.abs(p[1] - x) <= 1 && Math.abs(p[2] - y) <= 1);
-  const nearTree = (x, y) => trees.some(t => Math.abs(t.x - x) <= 1 && Math.abs(t.y - y) <= 1);
+  const nearTree = (x, y) => trees.some(t => Math.abs(t.x - x) <= 2 && Math.abs(t.y - y) <= 2);
+  const zoneM = (x, y) => [S, M].some(z => inR(x, y, z, 1)) || inR(x, y, C, 2);
   for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
     if (taken.has(x + ',' + y) || isHole(x, y)) continue;
     const ri = room(x, y), r = rnd();
-    if (ri === 0 && !nearProp(x, y)) {
-      if (r < 0.13) { if (!nearTree(x, y)) { tree(x, y); continue; } }
-      else if (r < 0.14) { pp('rock', x, y); take(x, y); continue; }
+    if (ri === 0 && !nearProp(x, y) && !zoneM(x, y)) {
+      if (r < 0.085) { if (!nearTree(x, y)) { tree(x, y); continue; } }
+      else if (r < 0.093) { pp('rock', x, y); take(x, y); continue; }
     }
-    if (ri === 0 || ri === 2) { const d = rnd(); if (d < (ri === 2 ? 0.12 : 0.3)) deco.push([x, y, d < 0.1 ? 'fern' : d < 0.18 ? 'shrub' : d < 0.26 ? 'tuft' : 'mush']); }
+    if (ri === 0 || ri === 2) { const d = rnd(); if (d < (ri === 2 ? 0.12 : 0.34)) deco.push([x, y, d < 0.1 ? 'fern' : d < 0.19 ? 'shrub' : d < 0.28 ? 'tuft' : 'mush']); }
   }
   // le celle libere chiuse (dove non si arriverebbe) diventano cespugli fitti
   const free = (x, y) => x >= 0 && y >= 0 && x < W && y < H && !taken.has(x + ',' + y) && !isHole(x, y);
   const seen = new Set(['30,26']), q = [[30, 26]];
-  while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + dx) + ',' + (y + dy); if (free(x + dx, y + dy) && !seen.has(k)) { seen.add(k); q.push([x + dx, y + dy]); } } }
+  while (q.length) { const [x, y] = q.pop(); for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + ex) + ',' + (y + ey); if (free(x + ex, y + ey) && !seen.has(k)) { seen.add(k); q.push([x + ex, y + ey]); } } }
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (free(x, y) && !seen.has(x + ',' + y)) { pp('bush', x, y); take(x, y); }
   const deco2 = deco.filter(([x, y]) => !taken.has(x + ',' + y));
-  // fiori nel set
-  for (let i = 0; i < 24; i++) { const x = 51 + rnd() * 7.6, y = 7 + rnd() * 7.6; decals.push([x, y, 0.16, 0.16, ['#f2e27a', '#f07ab8', '#ffffff', '#b070e0'][Math.floor(rnd() * 4)]]); }
+  for (let i = 0; i < 24; i++) decals.push([S[0] + rnd() * 7.6, S[1] + rnd() * 7.6, 0.16, 0.16, ['#f2e27a', '#f07ab8', '#ffffff', '#b070e0'][Math.floor(rnd() * 4)]]);
+  for (let i = 0; i < 10; i++) decals.push([M[0] + rnd() * 5.6, M[1] + rnd() * 5.6, 0.16, 0.16, ['#f2e27a', '#ffffff'][Math.floor(rnd() * 2)]]);
   const tasks = [
-    { id: 'ciak', n: 'Batti il ciak', r: 'Set del film', x: 57, y: 12 },
-    { id: 'fuoco', n: 'Metti a fuoco la cinepresa', r: 'Set del film', x: 54, y: 9 },
-    { id: 'fari', n: 'Accendi il faro del set', r: 'Set del film', x: 52, y: 13, game: 'luci', lead: 'Accendi tutti gli interruttori del faro.' },
-    { id: 'fango', n: 'Pulisci la cinepresa dal fango', r: 'Bosco fitto', x: 12, y: 40, game: 'sella', lead: 'La cinepresa è caduta nel fango: tocca tutte le macchie per pulirla.' },
-    { id: 'nastri', n: 'Lega i nastri del sentiero', r: 'Bosco fitto', x: 18, y: 14, game: 'cavi', lead: 'Lega i nastri colorati per segnare la strada: tocca un nastro a sinistra, poi quello dello stesso colore a destra.' },
-    { id: 'pellicola', n: 'Riavvolgi la pellicola caduta', r: 'Bosco fitto', x: 40, y: 40, game: 'bobina' },
-    { id: 'copione', n: 'Ritrova il copione', r: 'Bosco fitto', x: 20, y: 32, game: 'montaggio', lead: 'Il vento ha sparso il copione: rimetti le pagine in ordine, da 1 a 5.' },
-    { id: 'portalanterna', n: 'Porta la lanterna sul set', steps: [{ n: 'Prendi la lanterna', r: 'Grotta', x: 57, y: 42, game: 'prendi' }, { n: 'Appendi la lanterna alla giraffa', r: 'Set del film', x: 57, y: 8, game: 'consegna' }] },
-    { id: 'portaacqua', n: 'Porta l\'acqua per la pioggia finta', steps: [{ n: 'Prendi l\'acqua', r: 'Ruscello', x: 44, y: 24, game: 'prendi' }, { n: 'Versa l\'acqua nel bidone', r: 'Set del film', x: 55, y: 13, game: 'consegna' }] }];
+    { id: 'ciak', n: 'Batti il ciak', r: 'Set del film', x: S[0] + 6, y: S[1] + 5 },
+    { id: 'fuoco', n: 'Metti a fuoco la cinepresa', r: 'Set del film', x: S[0] + 3, y: S[1] + 2 },
+    { id: 'fari', n: 'Accendi il faro del set', r: 'Set del film', x: S[0] + 1, y: S[1] + 6, game: 'luci', lead: 'Accendi tutti gli interruttori del faro.' },
+    { id: 'fango', n: 'Pulisci la cinepresa dal fango', r: 'Bosco fitto', x: F1[0], y: F1[1], game: 'sella', lead: 'La cinepresa è caduta nel fango: tocca tutte le macchie per pulirla.' },
+    { id: 'nastri', n: 'Lega i nastri del sentiero', r: 'Bosco fitto', x: F2[0], y: F2[1], game: 'cavi', lead: 'Lega i nastri colorati per segnare la strada: tocca un nastro a sinistra, poi quello dello stesso colore a destra.' },
+    { id: 'pellicola', n: 'Riavvolgi la pellicola caduta', r: 'Bosco fitto', x: F3[0], y: F3[1], game: 'bobina' },
+    { id: 'copione', n: 'Ritrova il copione', r: 'Bosco fitto', x: F4[0], y: F4[1], game: 'montaggio', lead: 'Il vento ha sparso il copione: rimetti le pagine in ordine, da 1 a 5.' },
+    { id: 'portalanterna', n: 'Porta la lanterna sul set', steps: [{ n: 'Prendi la lanterna', r: 'Grotta', x: gx + 6, y: gy + 10, game: 'prendi' }, { n: 'Appendi la lanterna alla giraffa', r: 'Set del film', x: S[0] + 6, y: S[1] + 1, game: 'consegna' }] },
+    { id: 'portaacqua', n: 'Porta l\'acqua per la pioggia finta', steps: [{ n: 'Prendi l\'acqua', r: 'Ruscello', x: bk[0], y: bk[1], game: 'prendi' }, { n: 'Versa l\'acqua nel bidone', r: 'Set del film', x: S[0] + 4, y: S[1] + 6, game: 'consegna' }] }];
+  // dov'e' il mercante, a parole (per l'aiuto)
+  const dir = (z) => { const ex = z[0] + z[2] / 2 - 30.5, ey = z[1] + z[3] / 2 - 24.5;   // sullo schermo: x va a destra-giu', y a sinistra-giu'
+    const sxx = ex - ey, syy = ex + ey; return Math.abs(sxx) > Math.abs(syy) * 1.5 ? (sxx > 0 ? 'a destra' : 'a sinistra') : Math.abs(syy) > Math.abs(sxx) * 1.5 ? (syy > 0 ? 'in basso' : 'in alto') : (syy > 0 ? 'in basso ' : 'in alto ') + (sxx > 0 ? 'a destra' : 'a sinistra'); };
   return { w: W, h: H, rooms, doors: [], decals, props, tasks, holes, trees, deco: deco2, hall: 0, wall: 'rock', surv: true, fire: { x: 30, y: 24 }, tent: { x: 33, y: 22 },
-    cams: [], vending: [[38, 9]],
+    cams: [], vending: [[M[0] + 2, M[1] + 2]],
     ring: [[28, 23], [28, 25], [32, 25], [29, 22], [31, 22], [29, 26], [31, 26], [30, 22], [30, 26], [28, 24]],   // posti di partenza, intorno al cerchio di sassi
     button: { x: 30, y: 20 },
     // sabotaggi del bosco: tutti e due immediati (niente da riparare: si ricostruisce con la legna)
     sabs: { campo: { x: 30, y: 24, where: 'accampamento', lab: 'Distruggi l\'accampamento', instant: true }, fuoco: { x: 30, y: 24, where: 'falò', lab: 'Spegni il fuoco', instant: true } },
-    inn: { 'Bosco fitto': 'nel bosco fitto', Ruscello: 'al ruscello', Accampamento: 'all\'accampamento', 'Set del film': 'sul set', Grotta: 'nella grotta', Ponte: 'sul ponte' },
+    inn: { 'Bosco fitto': 'nel bosco fitto', Ruscello: 'al ruscello', Accampamento: 'all\'accampamento', 'Set del film': 'sul set', Grotta: 'nella grotta', Mercante: 'dal mercante', Ponte: 'sul ponte' },
     btnTxt: 'Il corno appeso all\'accampamento chiama una riunione (una volta sola).',
     sabTxt: 'Con <b>Sabota</b> spegni il fuoco o distruggi l\'accampamento. Tu non muori di fame né di freddo, ma fai finta!',
-    help: '<p class="hint">🌲 Siete sperduti nel bosco: bisogna anche <b>sopravvivere</b>. Taglia gli alberi per la legna, porta 3 legna al cerchio di sassi per fare il <b>falò</b> e accendilo, 4 legna per la <b>tenda</b>. Pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Guarda le barre di fame 🍗 e freddo ❄️: di notte, lontano dal fuoco, si gela e ogni notte fa più freddo. La tenda ripara chi sta all\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Nel bosco c\'è anche un <b>mercante</b> (a nord, oltre gli alberi).</p>' };
+    help: '<p class="hint">🌲 Siete sperduti nel bosco: bisogna anche <b>sopravvivere</b>. Taglia gli alberi per la legna, porta 3 legna al cerchio di sassi per fare il <b>falò</b> e accendilo, 4 legna per la <b>tenda</b>. Pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Guarda le barre di fame 🍗 e freddo ❄️: di notte, lontano dal fuoco, si gela e ogni notte fa più freddo. La tenda ripara chi sta all\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>mercante</b> oggi è ' + dir(M) + ' rispetto al fuoco (guarda la Mappa).</p>' };
 }
 // mappe da scegliere nella stanza d'attesa (soon = non ancora pronta, solo = per ora solo contro il computer)
-const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco } };
+const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco, seeded: true } };   // seeded = diversa a ogni partita (seme)
 const cqMapOk = k => CQ_MAPS[k] && !CQ_MAPS[k].soon && !(cq.net && CQ_MAPS[k].solo);
 const cqMapIds = () => Object.keys(CQ_MAPS).filter(cqMapOk);
 // mette in uso una mappa: riempie le variabili della mappa e prepara le celle (pavimento, oggetti, muri)
-function cqUseMap(id) {
+function cqUseMap(id, seed) {
   if (!CQ_MAPS[id] || CQ_MAPS[id].soon) id = 'studio';
-  if (cq.map === id) return;
-  const P = CQ_MAPS[id].pack || (CQ_MAPS[id].pack = CQ_MAPS[id].make());
+  const MP = CQ_MAPS[id], sd = MP.seeded ? seed || 1 : 0;
+  if (cq.map === id && cq.mapSeed === sd) return;
+  const P = MP.seeded ? MP.make(sd) : MP.pack || (MP.pack = MP.make());
+  cq.mapSeed = sd;
   P.tasks.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.game || t.id, lead: t.lead }]; });
   ({ w: CQ_W, h: CQ_H, rooms: CQ_ROOMS, doors: CQ_DOORS, decals: CQ_DECALS, props: CQ_PROPS, tasks: CQ_TASKS, cams: CQ_CAMS, vending: CQ_VENDING,
     ring: CQ_RING, button: CQ_BUTTON, sabs: CQ_SABS, inn: CQ_IN, help: CQ_HELP, hall: CQ_HALL } = P);
@@ -2339,7 +2384,7 @@ function cqNetPlayers() {
 // ---- host: stato della partita da mandare a tutti ----
 function cqNetSnap() {
   const G = cq.g, M = G.meet, f2 = v => Math.round(v * 100) / 100;
-  return { mid: G.mid, map: G.map, e: G.ep, ph: G.phase, t: f2(G.time), bt: G.button, sc: Math.ceil(G.sabCd), opt: G.opt, nt: G.nt,
+  return { mid: G.mid, map: G.map, seed: G.seed, e: G.ep, ph: G.phase, t: f2(G.time), bt: G.button, sc: Math.ceil(G.sabCd), opt: G.opt, nt: G.nt,
     sab: G.sab && { type: G.sab.type, t: Math.round(G.sab.t * 10) / 10, natural: G.sab.natural },
     bo: G.bodies.map(b => [b.id, f2(b.x), f2(b.y), b.face, b.room, Math.round(b.t)]),
     c: G.chars.map(c => { const me = c === G.me; return [c.id, c.name, cqLookOf(c), f2(me ? cq.x : c.x), f2(me ? cq.y : c.y), me ? cq.face : c.face, (me ? cq.walk : c.walk) ? 1 : 0, c.alive ? 1 : 0, c.imp ? 1 : 0, c.done.size, c.sid || '', c.remote ? c.tasks : 0, c.imp ? Math.ceil(Math.max(0, c.kcd)) : 0, c.killer || '', me ? (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : '') : c.disg && c.disg.until > G.time ? G.chars[c.disg.id].name : '', c.saved || 0]; }),
@@ -2434,7 +2479,7 @@ function cqNetApply(s) {
   let G = cq.g;
   if (!G || !G.guest || G.mid !== s.mid) {
     const mine = s.c.find(a => a[10] === N.sid); if (!mine) return;   // partita cominciata senza di me
-    cqUseMap(s.map || 'studio');   // la mappa scelta dall'host (versioni vecchie: lo studio)
+    cqUseMap(s.map || 'studio', s.seed);   // la mappa (e il seme) scelti dall'host (versioni vecchie: lo studio)
     const chars = s.c.map(a => ({ id: a[0], name: a[1], look: cqNetLook(a[2]), bot: true, x: a[3], y: a[4], tx: a[3], ty: a[4], face: a[5], walk: 0, alive: !!a[7], imp: !!a[8], done: { size: a[9] }, sid: a[10], st: {}, kcd: 0 }));
     const me = chars[mine[0]];
     me.bot = false; me.tasks = mine[11] || []; me.done = new Set();
@@ -2577,7 +2622,8 @@ function cqLobby() {
 }
 function cqNewMatch() {
   const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
-  cqUseMap(O.map === 'rnd' ? cqPickOne(cqMapIds()) : cqMapOk(O.map) ? O.map : 'studio');   // online la sceglie chi ha creato il set
+  const mapId = O.map === 'rnd' ? cqPickOne(cqMapIds()) : cqMapOk(O.map) ? O.map : 'studio';   // online la sceglie chi ha creato il set
+  cqUseMap(mapId, 1 + Math.floor(Math.random() * 1e9));
   const me = { id: 0, name: myName, bot: false };
   // amici del set (solo per chi lo ha creato): prendono i primi posti, il resto lo riempie il computer
   const hum = cq.net && cq.net.role === 'host' ? Object.entries(cq.net.pl).filter(([s]) => s !== cq.net.sid).slice(0, 9) : [];
@@ -2598,7 +2644,7 @@ function cqNewMatch() {
     Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < CQ_BUTTON.x ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
       done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
-  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
+  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, seed: cq.mapSeed, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid;
   if (CQ_MAP.surv) cqSvStart(cq.g);
   if (cq.net) cqNetList(0);
@@ -3729,9 +3775,9 @@ function cqTools(g, TW) {
       case 'chest': bx(x + 0.12, y + 0.22, x + 0.88, y + 0.78, 0, 0.55, '#8a5a32'); bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0.55, 0.75, '#9a6a3a'); qL(x + 0.12, x + 0.88, y + 0.78, 0.48, 0.56, '#d8a830'); qL(x + 0.45, x + 0.55, y + 0.78, 0.3, 0.56, '#d8a830'); break;
       case 'sack': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.6, '#c8b088'); cyl(x + 0.5, y + 0.5, 0.18, 0.6, 0.8, '#b8a078'); cyl(x + 0.5, y + 0.5, 0.1, 0.8, 0.86, '#8a6a48'); break;
       case 'tree': {   // tronco, poi la chioma (immagine pronta, cq.canSp): nella mappa pronta sempre piena, vicino a me puo' essere trasparente (o.a)
-        if (o.k === 'oak') { bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 0, 2.3 * o.h, '#6b4a2e'); bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0, 0.25, '#5a3e26'); }
-        else { bx(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 0, 1.6 * o.h, '#7a5232'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 0.18, '#5a3e26'); }
-        const sp = !o.skipCan && cq.canSp && cq.canSp.TW === TW && cq.canSp[o.k + o.v + (o.h < 1.02 ? 0.95 : 1.1)];
+        if (o.k === 'oak') { bx(x + 0.27, y + 0.27, x + 0.73, y + 0.73, 0, 2.6 * o.h, '#6b4a2e'); bx(x + 0.16, y + 0.16, x + 0.84, y + 0.84, 0, 0.3, '#5a3e26'); }
+        else { bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 0, 1.8 * o.h, '#7a5232'); bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0, 0.22, '#5a3e26'); }
+        const sp = !o.skipCan && cq.canSp && cq.canSp.TW === TW && cq.canSp[o.k + o.v + (o.h < 1.32 ? 1.25 : 1.4)];
         if (sp) { const [X, Y] = S(x + 0.5, y + 0.5, 0), a = cq.baking ? 1 : o.a, g0 = g.globalAlpha; g.globalAlpha = g0 * a; g.drawImage(sp.c, X - sp.ax, Y - sp.ay, sp.w, sp.h); g.globalAlpha = g0; }
         break; }
       case 'stump': if (o && o.k) { cyl(x + 0.5, y + 0.5, o.k === 'oak' ? 0.3 : 0.24, 0, 0.35, '#6b4a2e'); cyl(x + 0.5, y + 0.5, o.k === 'oak' ? 0.22 : 0.17, 0.35, 0.36, '#d8b07a'); break; }
@@ -3802,12 +3848,12 @@ function cqTools(g, TW) {
   const canopy = (k, v, h) => {
     if (k === 'oak') {
       const C = [['#4a8a3a', '#56994a', '#62a656'], ['#5a8f34', '#68a040', '#76ae4c'], ['#3f7c3a', '#4b8c46', '#589a52']][v];
-      bx(-0.55, -0.55, 1.55, 1.55, 2.0 * h, 3.3 * h, C[0]); bx(-0.25, -0.25, 1.25, 1.25, 3.3 * h, 4.0 * h, C[1]); bx(0.1, 0.1, 0.9, 0.9, 4.0 * h, 4.35 * h, C[2]);
-      bx(0.95, -0.35, 1.7, 0.45, 2.4 * h, 3.2 * h, C[1]);
+      bx(-0.75, -0.75, 1.75, 1.75, 2.3 * h, 3.6 * h, C[0]); bx(-0.4, -0.4, 1.4, 1.4, 3.6 * h, 4.4 * h, C[1]); bx(0.05, 0.05, 0.95, 0.95, 4.4 * h, 4.8 * h, C[2]);
+      bx(1.15, -0.55, 1.95, 0.35, 2.7 * h, 3.5 * h, C[1]);
     } else {
       const C = [['#2f6a3a', '#357a42', '#3d8a4a', '#46985a'], ['#2a5f36', '#30703e', '#387f46', '#418e52'], ['#356f3c', '#3c7f44', '#458e4c', '#4f9c58']][v];
-      bx(-0.45, -0.45, 1.45, 1.45, 1.3 * h, 2.4 * h, C[0]); bx(-0.2, -0.2, 1.2, 1.2, 2.4 * h, 3.4 * h, C[1]);
-      bx(0.05, 0.05, 0.95, 0.95, 3.4 * h, 4.3 * h, C[2]); bx(0.28, 0.28, 0.72, 0.72, 4.3 * h, 5.0 * h, C[3]); bx(0.42, 0.42, 0.58, 0.58, 5.0 * h, 5.4 * h, C[3]);
+      bx(-0.55, -0.55, 1.55, 1.55, 1.5 * h, 2.8 * h, C[0]); bx(-0.3, -0.3, 1.3, 1.3, 2.8 * h, 3.9 * h, C[1]);
+      bx(0, 0, 1, 1, 3.9 * h, 4.9 * h, C[2]); bx(0.25, 0.25, 0.75, 0.75, 4.9 * h, 5.7 * h, C[3]); bx(0.4, 0.4, 0.6, 0.6, 5.7 * h, 6.1 * h, C[3]);
     }
   };
   return {
@@ -3844,7 +3890,7 @@ function cqBuildBg() {
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) { const o = cqSolid[y][x], tall = o.prop === 'tree', sd = tall ? 1.3 * TW : TW; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? 6.6 : 3.5) * U - TW, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) { const o = cqSolid[y][x], tall = o.prop === 'tree', sd = tall ? 1.7 * TW : TW; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? 9.8 : 3.5) * U - TW, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
   cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true;
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
@@ -3864,8 +3910,8 @@ function cqBuildBg() {
 // chiome degli alberi: un'immagine per tipo, colore e altezza (disegnata dal processore), incollata sopra a ogni fotogramma da cqCanopies
 function cqCanopySprites(TW, sc) {
   const can = {}, TH = TW / 2;
-  if (CQ_MAP.trees) for (const k of ['pine', 'oak']) for (let v = 0; v < 3; v++) for (const h of [0.95, 1.1]) {
-    const w = 3.6 * TW, hh = 5.2 * TW, ax = w / 2, ay = 4.6 * TW, c = document.createElement('canvas');
+  if (CQ_MAP.trees) for (const k of ['pine', 'oak']) for (let v = 0; v < 3; v++) for (const h of [1.25, 1.4]) {
+    const w = 4.4 * TW, hh = 6.6 * TW, ax = w / 2, ay = 6.0 * TW, c = document.createElement('canvas');
     c.width = Math.ceil(w * sc); c.height = Math.ceil(hh * sc);
     const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, ax * sc, (ay - TH / 2) * sc);
     cqTools(g, TW).canopy(k, v, h);
@@ -3877,11 +3923,11 @@ function cqCanopySprites(TW, sc) {
 function cqTreePatch(t, B) {
   const p = t.patch; if (p && p.B === B && p.ver === B.ver) return p;
   const TW = B.TW, TH = TW / 2, sc = B.dpr, sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2;
-  const r = [Math.floor(sx - 1.3 * TW), Math.floor(sy - 4.2 * TW), Math.ceil(sx + 1.3 * TW), Math.ceil(sy + 0.6 * TW)];
+  const r = [Math.floor(sx - 1.7 * TW), Math.floor(sy - 5.6 * TW), Math.ceil(sx + 1.7 * TW), Math.ceil(sy + 0.7 * TW)];
   const c = (p && p.c) || document.createElement('canvas'); c.width = Math.ceil((r[2] - r[0]) * sc); c.height = Math.ceil((r[3] - r[1]) * sc);
   const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -r[0] * sc, -r[1] * sc);
   t.skipCan = true; cq.baking = true;
-  cqRedraw(g, cqTools(g, TW), r, B.ox, B.oy, TW, [], 14);
+  cqRedraw(g, cqTools(g, TW), r, B.ox, B.oy, TW, [], 17);
   t.skipCan = false; cq.baking = false;
   return (t.patch = { c, x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], B, ver: B.ver });
 }
@@ -3889,13 +3935,13 @@ function cqTreePatch(t, B) {
 function cqBgCell(x, y) {
   const B = cq.bg; if (!B) return;
   const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
-  const r = [B.ox + (x - y - 1) * TW / 2 - 1.3 * TW, B.oy + (x + y) * TH / 2 - 6.6 * U - TW, B.ox + (x - y + 1) * TW / 2 + 1.3 * TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  const r = [B.ox + (x - y - 1) * TW / 2 - 1.7 * TW, B.oy + (x + y) * TH / 2 - 9.8 * U - TW, B.ox + (x - y + 1) * TW / 2 + 1.7 * TW, B.oy + (x + y + 2) * TH / 2 + TW];
   cq.baking = true;
   for (const t of B.tiles) {
     const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
     if (x1 <= x0 || y1 <= y0) continue;
     const g = t.c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -t.x * sc, -t.y * sc);   // coordinate dell'intera mappa pronta
-    cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 14);
+    cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 17);
   }
   cq.baking = false; B.ver++;
 }
@@ -3960,9 +4006,9 @@ function cqDraw() {
       for (const t of CQ_MAP.trees) {
         if (t.cut || Math.abs(t.x - cq.x) > 6 || Math.abs(t.y - cq.y) > 6) { t.a = 1; continue; }
         const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5);
-        const cy = my - 0.9 * TW, behind = cq.fading.length < 3 && d < t.x + t.y + 1.2 && Math.abs(mx - sx) < 0.95 * TW && cy > sy - 3.9 * TW && cy < sy - 0.7 * TW;   // copre davvero il mio corpo
+        const cy = my - 0.9 * TW, behind = cq.fading.length < 2 && d < t.x + t.y + 1.2 && Math.abs(mx - sx) < 1.2 * TW && cy > sy - 5.0 * TW && cy < sy - 0.8 * TW;   // copre davvero il mio corpo
         t.a += ((behind ? 0.3 : 1) - t.a) * 0.15; if (t.a > 0.99) t.a = 1;
-        if (t.a < 1 && cqTreePatch(t, B)) { cq.fading.push(t); rs.push([sx - 1.3 * TW, sy - 4.2 * TW, sx + 1.3 * TW, sy + 0.6 * TW].map(al)); }
+        if (t.a < 1 && cqTreePatch(t, B)) { cq.fading.push(t); rs.push([sx - 1.7 * TW, sy - 5.6 * TW, sx + 1.7 * TW, sy + 0.7 * TW].map(al)); }
       }
     }
     for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
@@ -3970,7 +4016,7 @@ function cqDraw() {
       if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { a[0] = Math.min(a[0], b[0]); a[1] = Math.min(a[1], b[1]); a[2] = Math.max(a[2], b[2]); a[3] = Math.max(a[3], b[3]); rs.splice(j, 1); j = i; }
     }
     // modo 1: ogni riquadro si compone a parte (disegnato dal processore) e poi si incolla sullo schermo (piu' lento, di riserva)
-    if (CQ_GFX !== 1) for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 6, B);
+    if (CQ_GFX !== 1) for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 9, B);
     else { const rc = cq.rc || (cq.rc = document.createElement('canvas')), rg = cq.rg || (cq.rg = rc.getContext('2d', CQ_CPU));
     for (const q of rs) {
       const x0 = Math.max(0, q[0]), y0 = Math.max(0, q[1]), x1 = Math.min(W, q[2]), y1 = Math.min(H, q[3]);
@@ -3978,7 +4024,7 @@ function cqDraw() {
       const pw = Math.round((x1 - x0) * dp), ph = Math.round((y1 - y0) * dp);
       if (rc.width < pw || rc.height < ph) { rc.width = Math.max(rc.width, pw); rc.height = Math.max(rc.height, ph); }
       rg.setTransform(dp, 0, 0, dp, -x0 * dp, -y0 * dp);
-      cqRedraw(rg, cqTools(rg, TW), [x0, y0, x1, y1], tx, ty, TW, list, Math.ceil(((x1 - x0) / TW + (y1 - y0) / TH) / 2) + 6, B);
+      cqRedraw(rg, cqTools(rg, TW), [x0, y0, x1, y1], tx, ty, TW, list, Math.ceil(((x1 - x0) / TW + (y1 - y0) / TH) / 2) + 9, B);
       g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
     } }
   }
@@ -4079,8 +4125,8 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
       if (!B && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x];
-      const tall = o && o.prop === 'tree', sd = tall ? 1.3 * TW : TW;
-      if (o && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? 6.6 : 3.5) * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
+      const tall = o && o.prop === 'tree', sd = tall ? 1.7 * TW : TW;
+      if (o && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? 9.8 : 3.5) * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
   if (!B) T.decals();
