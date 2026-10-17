@@ -2382,6 +2382,14 @@ function cqNetPlayers() {
   if (G && !G.guest && G.phase !== 'end') for (const c of G.chars) if (c.remote && !N.pl[c.sid]) { c.remote = false; c.bot = true; c.path = []; c.goal = null; c.wait = 0; cqToast(esc(c.name) + ' è uscito: ora lo guida il computer.'); }
 }
 // ---- host: stato della partita da mandare a tutti ----
+// stato leggero: niente mappa, opzioni, nomi e compiti (gli amici li hanno dall'ultimo completo); l'aspetto solo se e' cambiato (travestimento)
+function cqNetLight(s, light) {
+  const N = cq.net;
+  if (!light) { N.lk = {}; for (const a of s.c) N.lk[a[0]] = JSON.stringify(a[2]); return s; }
+  delete s.map; delete s.seed; delete s.opt; delete s.nt; s.lt = 1;
+  for (const a of s.c) { a[1] = 0; a[11] = 0; if (N.lk && JSON.stringify(a[2]) === N.lk[a[0]]) a[2] = 0; }
+  return s;
+}
 function cqNetSnap() {
   const G = cq.g, M = G.meet, f2 = v => Math.round(v * 100) / 100;
   return { mid: G.mid, map: G.map, seed: G.seed, e: G.ep, ph: G.phase, t: f2(G.time), bt: G.button, sc: Math.ceil(G.sabCd), opt: G.opt, nt: G.nt,
@@ -2437,7 +2445,10 @@ function cqNetTick(dt) {
       c.walk = p && p.w ? c.walk + dt * 11 : 0;
       if (c.imp && c.alive) c.kcd -= dt;
     }
-    if (now - N.sent > 120) { N.sent = now; N.F.set(cqNetRef(`cq/${N.code}/st`), { m: JSON.stringify(cqNetSnap()) }).catch(() => {}); }
+    if (now - N.sent > 120) {   // completo ogni 2 s (e a inizio partita), in mezzo leggero (senza le cose che non cambiano)
+      const full = now - (N.fullT || 0) > 2000 || N.fullMid !== G.mid; if (full) { N.fullT = now; N.fullMid = G.mid; }
+      N.sent = now; N.F.set(cqNetRef(`cq/${N.code}/st`), { m: JSON.stringify(cqNetLight(cqNetSnap(), !full)) }).catch(() => {});
+    }
   } else if (G.guest) {
     G.time += dt;
     const k = Math.min(1, dt * 12);   // gli altri scivolano verso l'ultima posizione ricevuta
@@ -2477,6 +2488,7 @@ const CQ_SV_DEATH = { 'il freddo': 'Sei morto di freddo!', 'la fame': 'Sei morto
 function cqNetApply(s) {
   const N = cq.net; if (!N) return;
   let G = cq.g;
+  if (s.lt && (!G || !G.guest || G.mid !== s.mid)) return;   // per cominciare serve uno stato completo
   if (!G || !G.guest || G.mid !== s.mid) {
     const mine = s.c.find(a => a[10] === N.sid); if (!mine) return;   // partita cominciata senza di me
     cqUseMap(s.map || 'studio', s.seed);   // la mappa (e il seme) scelti dall'host (versioni vecchie: lo studio)
@@ -2497,7 +2509,7 @@ function cqNetApply(s) {
     // monete per le mie eliminazioni (le decide l'host)
     if (c !== me && !c.alive && me.imp && c.killer === me.name && !(G.paid || (G.paid = new Set())).has(c.id)) { G.paid.add(c.id); cqCoins(2); }
     if (c === me) continue;
-    c.tx = a[3]; c.ty = a[4]; c.face = a[5]; c.mv = a[6]; c.done = { size: a[9] }; c.look = cqNetLook(a[2]);
+    c.tx = a[3]; c.ty = a[4]; c.face = a[5]; c.mv = a[6]; c.done = { size: a[9] }; if (a[2]) c.look = cqNetLook(a[2]);
     if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
   }
   G.time = s.t; G.button = s.bt; G.sabCd = s.sc; G.sab = s.sab;
