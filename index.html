@@ -3050,9 +3050,21 @@ function cqModeLoad(id) {
   if (CQ_MODES[id]) return Promise.resolve(CQ_MODES[id]);
   return cq.modeP && cq.modeP[id] || ((cq.modeP = cq.modeP || {})[id] = new Promise((ok, no) => {
     const sc = document.createElement('script'); sc.src = 'giochi/' + id + '.js?v=' + (Date.parse(document.lastModified) || 1);   // la data della versione: mai una copia vecchia
-    sc.onload = () => CQ_MODES[id] ? ok(CQ_MODES[id]) : no(new Error('gioco vuoto')); sc.onerror = () => { delete cq.modeP[id]; no(new Error('non caricato')); };
+    // CQ_WAIT[id]: il gioco aspetta i suoi moduli comuni (cqLib) prima di registrarsi
+    sc.onload = () => Promise.resolve(CQ_WAIT[id]).then(() => CQ_MODES[id] ? ok(CQ_MODES[id]) : no(new Error('gioco vuoto')), e => { delete cq.modeP[id]; no(e); }); sc.onerror = () => { delete cq.modeP[id]; no(new Error('non caricato')); };
     document.head.appendChild(sc);
   }));
+}
+// MODULI COMUNI dei giochi (giochi/lib/<nome>.js: squadre, oggetti, mappe, indizi): ognuno si registra in CQ_LIB.<nome>.
+// Un gioco che li usa scrive: CQ_WAIT.<id> = cqLib('squadre', ...).then(L => { CQ_MODES.<id> = {...} })
+const CQ_LIB = {}, CQ_WAIT = {};
+function cqLib(...names) {
+  const P = cq.libP || (cq.libP = {});
+  return Promise.all(names.map(n => CQ_LIB[n] ? Promise.resolve() : P[n] || (P[n] = new Promise((ok, no) => {
+    const sc = document.createElement('script'); sc.src = 'giochi/lib/' + n + '.js?v=' + (Date.parse(document.lastModified) || 1);
+    sc.onload = () => CQ_LIB[n] ? ok() : no(new Error('modulo vuoto')); sc.onerror = () => { delete P[n]; no(new Error('modulo non caricato')); };
+    document.head.appendChild(sc);
+  })))).then(() => CQ_LIB);
 }
 const cqModeOpt = id => Object.assign({}, CQ_MODES[id].def, ((store.settings.cqModeOpt || {})[id]) || {});
 function cqModeUI(on) { $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = !on; $('#cqHallBar').hidden = true; $('#cqHallSet').hidden = true; $('#cqKill').hidden = true; }
@@ -4414,7 +4426,7 @@ function cqFrame(t) {
     if (G && playing && (cq.stT = (cq.stT || 0) - dt) <= 0) { cq.stT = 0.3; thud(0.3, 600 + Math.random() * 300); }   // passi
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
-  if (playing) { if (!G.guest) (G.mode ? cqModeTick : cqBots)(dt); cqCloneStep(dt); }
+  if (playing) { if (!G.guest) (G.mode ? cqModeTick : cqBots)(dt); cqCloneStep(dt); if (G.mode && G.M.local && G.pre <= 0) G.M.local(G, dt); }   // local: giro del gioco su ogni telefono (anche gli amici), per il mio personaggio
   if (G && G.hall) cqHallTick(dt);
   if (cq.net) cqNetTick(dt);
   if (cq.net) cqVoiceTick(dt);
@@ -4673,7 +4685,8 @@ function cqTools(g, TW) {
       case 'chest': bx(x + 0.12, y + 0.22, x + 0.88, y + 0.78, 0, 0.55, '#8a5a32'); bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0.55, 0.75, '#9a6a3a'); qL(x + 0.12, x + 0.88, y + 0.78, 0.48, 0.56, '#d8a830'); qL(x + 0.45, x + 0.55, y + 0.78, 0.3, 0.56, '#d8a830'); break;
       case 'sack': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.6, '#c8b088'); cyl(x + 0.5, y + 0.5, 0.18, 0.6, 0.8, '#b8a078'); cyl(x + 0.5, y + 0.5, 0.1, 0.8, 0.86, '#8a6a48'); break;
       case 'tree': {   // tronco, poi la chioma (immagine pronta, cq.canSp): nella mappa pronta sempre piena, vicino a me puo' essere trasparente (o.a)
-        if (o.k === 'oak') { bx(x + 0.27, y + 0.27, x + 0.73, y + 0.73, 0, 2.6 * o.h, '#6b4a2e'); bx(x + 0.16, y + 0.16, x + 0.84, y + 0.84, 0, 0.3, '#5a3e26'); }
+        if (CQ_MAP.trunk && CQ_MAP.trunk(K, x, y, o)) { /* tronco disegnato dalla mappa (palme) */ }
+        else if (o.k === 'oak') { bx(x + 0.27, y + 0.27, x + 0.73, y + 0.73, 0, 2.6 * o.h, '#6b4a2e'); bx(x + 0.16, y + 0.16, x + 0.84, y + 0.84, 0, 0.3, '#5a3e26'); }
         else { bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 0, 1.8 * o.h, '#7a5232'); bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0, 0.22, '#5a3e26'); }
         const sp = !o.skipCan && cq.canSp && cq.canSp.TW === TW && cq.canSp[o.k + o.v + (o.h < 1.32 ? 1.25 : 1.4)];
         if (sp) { const [X, Y] = S(x + 0.5, y + 0.5, 0), a = cq.baking ? 1 : o.a, g0 = g.globalAlpha; g.globalAlpha = g0 * a; g.drawImage(sp.c, X - sp.ax, Y - sp.ay, sp.w, sp.h); g.globalAlpha = g0; }
@@ -4747,6 +4760,7 @@ function cqTools(g, TW) {
   const rifle = (x, y) => { bx(x - 0.38, y - 0.04, x + 0.22, y + 0.04, 0, 0.06, '#3a3f49'); bx(x + 0.12, y - 0.08, x + 0.42, y + 0.08, 0, 0.09, '#7a5232'); };
   // chioma di un albero, disegnata come se l'albero fosse nella cella 0,0 (poi si incolla come immagine)
   const canopy = (k, v, h) => {
+    if (CQ_MAP.canopy && CQ_MAP.canopy(K, k, v, h)) return;
     if (k === 'oak') {
       const C = [['#4a8a3a', '#56994a', '#62a656'], ['#5a8f34', '#68a040', '#76ae4c'], ['#3f7c3a', '#4b8c46', '#589a52']][v];
       bx(-0.75, -0.75, 1.75, 1.75, 2.3 * h, 3.6 * h, C[0]); bx(-0.4, -0.4, 1.4, 1.4, 3.6 * h, 4.4 * h, C[1]); bx(0.05, 0.05, 0.95, 0.95, 4.4 * h, 4.8 * h, C[2]);
@@ -4811,6 +4825,8 @@ function cqBuildBg() {
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
   for (let ty = 0; ty * TS < bh; ty++) for (let tx = 0; tx * TS < bw; tx++) {
+    { const x0 = tx * TS - ox, y0 = ty * TS - oy, x1 = x0 + TS, y1 = y0 + TS;   // tessera vuota (solo nero intorno alla mappa): non si fa, risparmia memoria
+      if (!job.some(j => j.k !== 1 && !(j.b[2] < x0 || j.b[0] > x1 || j.b[3] < y0 || j.b[1] > y1))) continue; }
     const c = document.createElement('canvas'); c.width = Math.min(TP, Math.ceil((bw - tx * TS) * sc)); c.height = Math.min(TP, Math.ceil((bh - ty * TS) * sc));
     const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, (ox - tx * TS) * sc, (oy - ty * TS) * sc);
     const T = cqTools(g, TW), x0 = tx * TS - ox, y0 = ty * TS - oy, x1 = x0 + c.width / sc, y1 = y0 + c.height / sc;
@@ -4828,7 +4844,7 @@ function cqBuildBg() {
 const CQ_TREE_SD = 1.7, CQ_TREE_UP = 9.8;
 function cqCanopySprites(TW, sc) {
   const can = {}, TH = TW / 2;
-  if (CQ_MAP.trees) for (const k of CQ_MAP.snowy ? ['snow'] : ['pine', 'oak']) for (let v = 0; v < 3; v++) for (const h of [1.25, 1.4]) {   // snowy: abeti innevati (base polare)
+  if (CQ_MAP.trees) for (const k of CQ_MAP.canKinds || (CQ_MAP.snowy ? ['snow'] : ['pine', 'oak'])) for (let v = 0; v < 3; v++) for (const h of [1.25, 1.4]) {   // snowy: abeti innevati (base polare); canKinds + canopy: chiome di una mappa dei giochi (palme dell'isola)
     const w = 4.4 * TW, hh = 6.6 * TW, ax = w / 2, ay = 6.0 * TW, c = document.createElement('canvas');
     c.width = Math.ceil(w * sc); c.height = Math.ceil(hh * sc);
     const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, ax * sc, (ay - TH / 2) * sc);

@@ -4,11 +4,12 @@
 // Nella propria meta' si accoltella chi viene dall'altra squadra (animazione del coltello, corpo a terra): dopo qualche secondo risorge da angelo alla sua base; se aveva la bandiera la lascia cadere.
 // Una bandiera a terra la riporta a casa un compagno toccandola (o torna da sola dopo un po').
 // Torcia accesa = vedi lontano ma ti vedono da lontano; spenta = vedi poco ma sei quasi invisibile. I compagni si vedono e si sentono sempre.
-// MODULO SQUADRE (riusabile per altri giochi a squadre): TEAMS, team(), side(), base, punteggio G.sc.
-(() => {
+// Usa il MODULO SQUADRE comune (giochi/lib/squadre.js): TEAMS, side, spawn, voce, cerchio, freccia, fine partita.
+CQ_WAIT.bandiera = cqLib('squadre').then(L => {
+  const SQ = L.squadre;
   const TOUCH = 0.75, GRAB = 0.9, HOME = 1.4, ZONE = 2.2, JAIL = 6, SAFE = 2.6, BACK = 20, CARRY = 1;
   const SEE_ON = 7, SEE_OFF = 3, SEEN_ON = 15, SEEN_OFF = 2.4;   // fin dove vedo (torcia accesa/spenta), fin dove mi vedono i nemici
-  const TEAMS = [{ n: 'Rossi', f: 'rossa', c: '#e04848', l: '#ff8a80', e: '🔴' }, { n: 'Blu', f: 'blu', c: '#3d7be0', l: '#8ab8ff', e: '🔵' }];
+  const TEAMS = SQ.TEAMS;
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const P = c => cqModePos(c);
   const dist = (a, b) => { const p = P(a), q = P(b); return Math.hypot(p.x - q.x, p.y - q.y); };
@@ -16,7 +17,7 @@
   const jailed = (G, c) => (c.jail || 0) > G.time;
   const active = G => G.chars.filter(c => c.alive && !jailed(G, c));
   // meta' del campo: 0 = dalla parte della base dei Rossi, 1 = dei Blu (taglio a meta' strada tra le basi)
-  const side = (G, x, y) => { const [a, b] = G.B, dx = b.x - a.x, dy = b.y - a.y; return (x - (a.x + b.x) / 2) * dx + (y - (a.y + b.y) / 2) * dy < 0 ? 0 : 1; };
+  const side = (G, x, y) => SQ.side(G.B[0], G.B[1], x, y);
   const holding = (G, c) => G.F.find(f => f.st === 1 && f.c === c.id);
   const fpos = (G, f) => { if (f.st === 1) { const c = byId(G, f.c); if (c) return P(c); } return f.st === 0 ? G.B[f.t] : f; };
 
@@ -39,11 +40,7 @@
     G.sc = [0, 0]; G.lg = []; G.lgN = 0;
   }
   // una cella libera vicino alla base della squadra t (dove si parte e si torna dopo essere stati presi)
-  function spawn(G, t) {
-    const b = G.B[t];
-    for (let i = 0; i < 80; i++) { const x = Math.floor(b.x + (Math.random() - 0.5) * 7), y = Math.floor(b.y + (Math.random() - 0.5) * 7); if (cqCellFree(x, y) && Math.hypot(x + 0.5 - b.x, y + 0.5 - b.y) > 1.2 && cqPath(b.x, b.y, x + 0.5, y + 0.5).length) return { x: x + 0.5, y: y + 0.5 }; }
-    return cqSpot(Math.floor(b.x), Math.floor(b.y));
-  }
+  const spawn = (G, t) => SQ.spawn(G.B[t]);
 
   // cronaca: l'host scrive cosa succede (G.lg), tutti lo raccontano dal proprio punto di vista
   function say(G, k, a, b, f) { const e = { n: ++G.lgN, k, a, b, f }; G.lg.push(e); if (G.lg.length > 8) G.lg.shift(); show(G, e); }
@@ -166,7 +163,7 @@
     },
     ev(G, c, o) { if (o && o.k === 'tc') c.tc = !!o.v; },
     // voce: i compagni a pieno volume ovunque, i nemici solo da vicino
-    voice: (G, c) => c.t === G.me.t ? 1 : null,
+    voice: SQ.voice,
     tick(G, dt) {
       G.left -= dt;
       for (const c of G.chars) if (c.jail && c.jail <= G.time) revive(G, c);
@@ -209,10 +206,8 @@
       const name = c => c.name + (c === G.me ? ' (tu)' : ''), [a, b] = G.sc, w = a > b ? 0 : b > a ? 1 : -1;
       const line = c => [name(c), '— ' + TEAMS[c.t].e + ' ⭐ ' + (c.pt || 0) + ' · 🚩 ' + (c.st || 0) + ' prese · 🔪 ' + (c.tg || 0) + ' eliminazioni'];
       const score = c => (c.pt || 0) * 10 + (c.st || 0) * 3 + (c.tg || 0) * 2;
-      const rank = G.chars.slice().sort((x, y) => (w >= 0 ? (y.t === w) - (x.t === w) : 0) || score(y) - score(x)).map(line);
       const why = TEAMS[0].e + ' Rossi ' + a + ' – ' + b + ' Blu ' + TEAMS[1].e + (G.left <= 0 ? ' · tempo finito.' : '.');
-      if (w < 0) cqModeEnd({ t: '🤝 Pareggio!', why, win: [], rank });
-      else cqModeEnd({ t: TEAMS[w].e + ' Vincono i ' + TEAMS[w].n + '!', why, win: G.chars.filter(c => c.t === w).map(c => c.id), rank });
+      SQ.end(G, w, why, line, score);
     },
     // online: squadra, secondi di attesa dopo una presa, torcia, statistiche
     csnap: c => [c.t, Math.max(0, Math.round(((c.jail || 0) - cq.g.time) * 10) / 10), c.tc ? 1 : 0, c.pt || 0, c.st || 0, c.tg || 0],
@@ -249,10 +244,7 @@
         } };
     },
     // cerchio della squadra ai piedi
-    deco(g, c, X, Y, TW, G, L) {
-      if (c.t == null) return;
-      g.strokeStyle = TEAMS[c.t].c; g.lineWidth = 2.5; g.globalAlpha = 0.85; g.beginPath(); g.ellipse(X, Y, TW * 0.34, TW * 0.17, 0, 0, 7); g.stroke(); g.globalAlpha = 1;
-    },
+    deco(g, c, X, Y, TW) { SQ.ring(g, c, X, Y, TW); },
     // sopra alla mappa: linea di meta' campo, basi, bandiere (quella portata solo se si vede chi la porta), freccia verso l'obiettivo
     over(g, G, sx, sy, TW) {
       const me = G.me, W = cq.w, H = cq.h, now = performance.now(), [a, b] = G.B, mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
@@ -306,13 +298,5 @@
     g.fillStyle = col; g.beginPath(); g.moveTo(X - 8 * u, Y - h + 2.5 * u); g.lineTo(X + 8 * u, Y - h + 2.5 * u); g.lineTo(X + 8 * u + sw, Y - h + 22 * u); g.lineTo(X + sw, Y - h + 17 * u); g.lineTo(X - 8 * u + sw, Y - h + 22 * u); g.closePath(); g.fill();
     g.fillStyle = 'rgba(255,255,255,.7)'; g.beginPath(); g.arc(X + sw * 0.5, Y - h + 10 * u, 2.8 * u, 0, 7); g.fill();
   }
-  // freccia sul bordo dello schermo verso qualcosa che e' fuori (X, Y = dove sarebbe)
-  function edge(g, X, Y, W, H, icon, col) {
-    const m = 34, top = 120, bot = H - 140; if (X > m && X < W - m && Y > top && Y < bot) return;
-    const cx = W / 2, cy = (top + bot) / 2, dx = X - cx, dy = Y - cy, k = Math.min(Math.abs((W / 2 - m) / (dx || 1e-6)), Math.abs(((bot - top) / 2) / (dy || 1e-6)));
-    const ex = cx + dx * k, ey = cy + dy * k, a = Math.atan2(dy, dx);
-    g.fillStyle = col; g.beginPath(); g.moveTo(ex + Math.cos(a) * 20, ey + Math.sin(a) * 20); g.lineTo(ex + Math.cos(a + 2.4) * 12, ey + Math.sin(a + 2.4) * 12); g.lineTo(ex + Math.cos(a - 2.4) * 12, ey + Math.sin(a - 2.4) * 12); g.fill();
-    g.fillStyle = 'rgba(20,22,28,.85)'; g.beginPath(); g.arc(ex, ey, 13, 0, 7); g.fill();
-    g.font = '14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(icon, ex, ey + 1);
-  }
-})();
+  const edge = SQ.edge;
+});
