@@ -45,9 +45,10 @@
     const s = G.chars[1]; s.x = cq.x + 1.5; s.y = cq.y + 1; s.pr = want === 1 ? ['plant', 0] : null;
     await w(300);
     out.push('pulsante: ' + $('#cqKill').textContent + ' on=' + $('#cqKill').classList.contains('on') + ' | centro: ' + $('#cqCount').textContent);
-    cqMyKill(); await w(300);
+    cqMyKill(); await w(400); out.push("menu: " + $("#tkTitle").textContent + " voci " + $("#tkBody").querySelectorAll("[data-v]").length + ": " + [...$("#tkBody").querySelectorAll("[data-v] span")].map(s => s.textContent).join("/")); $("#tkBody").querySelector("[data-v]").click(); await w(300);
     out.push('dopo il pulsante: travestito ' + JSON.stringify(me.pr) + ' | barra: ' + $('#cqModeBar').textContent + ' | disegno: ' + JSON.stringify(G.M.prop(me)));
   }
+  cqMyKill(); await w(300);
   out.push('errori: ' + (document.getElementById('errBar') ? document.getElementById('errBar').textContent : 'nessuno'));
   return out;
 })()

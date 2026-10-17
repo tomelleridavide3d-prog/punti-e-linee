@@ -15,7 +15,7 @@ export default [
   [0, `(async () => { cqNewMatch(); await new Promise(r => setTimeout(r, 1500)); const G = cq.g; G.pre = 0; for (const c of G.chars) { c.r = c === G.me ? 1 : 0; if (c.bot) { c.think = 999; c.path = []; } } return 'host: partita, io cercatore'; })()`, 2500],
   [0, st('host'), 0], [1, st('amico'), 0],
   [1, `(() => { const G = cq.g, P = CQ_PROPS.find(p => p[0] === 'crate' && cqCellFree(p[1] + 1, p[2]) && !CQ_PROPS.some(q => q !== p && Math.hypot(q[1] - p[1] - 1, q[2] - p[2]) < 1.7)); cq.x = P[1] + 1.5; cq.y = P[2] + 0.5; return 'amico vicino a una cassa: pulsante ' + $('#cqKill').textContent + ' | ' + $('#cqCount').textContent; })()`, 800],
-  [1, `(() => { cqMyKill(); return 'amico: trasformato ' + JSON.stringify(cq.g.me.pr) + ' | ' + __T.slice(-1)[0]; })()`, 1500],
+  [1, `(() => { cqMyKill(); document.querySelector('#tkBody [data-v]').click(); return 'amico: trasformato ' + JSON.stringify(cq.g.me.pr) + ' | ' + __T.slice(-1)[0]; })()`, 1500],
   [0, st('host'), 0],
   [0, `(() => { const G = cq.g; return 'host durante la conta: schermo nero ' + !!(G.M.night(G)) + ' | ' + $('#cqCount').textContent + ' | pulsante nascosto ' + $('#cqKill').hidden; })()`, 0],
   // fine della conta: l'host va accanto all'amico e colpisce prima un oggetto vero lontano dall'amico, poi l'amico

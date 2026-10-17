@@ -1,15 +1,45 @@
 // Nascondino sul set (stile Prop Hunt). Gioco del motore: si registra in CQ_MODES (vedi "MOTORE DEI GIOCHI" in index.html).
 // Studio con le luci accese. 1-2 cercatori, gli altri si nascondono trasformandosi in un oggetto della mappa che hanno vicino (pianta, cassa, sedia...).
 // I primi secondi i cercatori contano a schermo nero; poi caccia: "Colpisci" sull'oggetto piu' vicino. Se e' un nascosto -> coltellata (corpo a terra,
-// diventa un fantasma); se e' un oggetto vero -> stordito 3 s (5 errori = fuori). Ogni ~30 s ogni nascosto fa un verso (suono + cerchio sulla mappa).
+// diventa un fantasma); se e' un oggetto vero -> stordito 3 s (3 errori = fuori). Ogni ~30 s ogni nascosto fa un verso (suono + cerchio sulla mappa).
 // Vincono i cercatori se trovano tutti, i nascosti se almeno uno resiste fino alla fine (o se i cercatori sono tutti fuori).
 // Gancio del motore usato: prop(c) -> il personaggio si disegna come un oggetto (T.prop / drawProp).
 (() => {
-  const REACH = 1.3, NEAR = 1.6, STUN = 3, MAXERR = 5, CHG = 2, TAUNT = 30, RING = 2.5;
-  // oggetti in cui ci si puo' trasformare (tipo -> nome)
-  const KINDS = { plant: 'pianta', crate: 'cassa', crate2: 'cassa doppia', dchair: 'sedia', rack: 'appendiabiti', table: 'tavolino', lamp: 'faro', reel: 'bobina',
-    camera: 'cinepresa', speaker: 'cassa audio', barrel: 'barile', tv: 'televisore', hay: 'balla di fieno', cactus: 'cactus', cone: 'cono', fridge: 'frigo', boom: 'giraffa', sofa: 'divano' };
-  const art = k => (/^(cassa|pianta|sedia|bobina|cinepresa|balla|giraffa)/.test(KINDS[k]) ? 'una ' : 'un ') + KINDS[k];
+  const REACH = 1.3, STUN = 3, MAXERR = 3, CHG = 2, TAUNT = 30, RING = 2.5;
+  // oggetti in cui ci si puo' trasformare (tipo -> nome), scelti dall'utente: mobili veri + vasi, cactus e coni (piu' difficili)
+  const KINDS = { locker: 'armadietto', dchair: 'sedia', rack: 'appendiabiti', camera: 'cinepresa', lamp: 'faro', crate: 'cassa', crate2: 'cassa doppia',
+    barrel: 'barile', fridge: 'frigo', tv: 'televisore', plant: 'vaso di fiori', cactus: 'cactus', cone: 'cono' };
+  const art = k => (/^(cassa|sedia|cinepresa)/.test(KINDS[k]) ? 'una ' : 'un ') + KINDS[k];
+  // il menu dei travestimenti: ogni tipo con i colori che ci sono sulla mappa (al massimo 4), cosi' ci si puo' confondere con quelli veri
+  function variants() {
+    const out = [], seen = {};
+    for (const p of CQ_PROPS) {
+      if (!KINDS[p[0]]) continue;
+      const o = p[3] == null ? 0 : p[3], k = p[0] + JSON.stringify(o), n = seen[p[0]] || 0;
+      if (seen[k] || n >= 4) continue; seen[k] = 1; seen[p[0]] = n + 1; out.push([p[0], o]);
+    }
+    return out.sort((a, b) => Object.keys(KINDS).indexOf(a[0]) - Object.keys(KINDS).indexOf(b[0]));
+  }
+  function menu(G) {
+    const me = G.me, V = variants();
+    cqCloseTask();
+    $('#tkTitle').textContent = '🪑 In cosa ti trasformi?';
+    $('#tkBody').innerHTML = `<p class="hint">${hiding(G) ? 'Puoi cambiare quante volte vuoi finché i cercatori contano.' : 'Cambi rimasti: <b>' + (me.chg || 0) + '</b>'} Consiglio: mettiti vicino a oggetti uguali e resta fermo!</p>
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px">${V.map((v, i) => `<button class="btn" type="button" data-v="${i}" style="padding:4px;display:flex;flex-direction:column;align-items:center;gap:2px${me.pr && me.pr[0] === v[0] && JSON.stringify(me.pr[1] || 0) === JSON.stringify(v[1]) ? ';outline:3px solid #9ad0ff' : ''}"><canvas width="140" height="170" style="width:70px;height:85px"></canvas><span style="font-size:12px">${KINDS[v[0]]}</span></button>`).join('')}</div>`;
+    $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
+    $('#tkBody').querySelectorAll('[data-v]').forEach(b => {
+      const v = V[+b.dataset.v], cv = b.querySelector('canvas'), g = cv.getContext('2d', CQ_CPU), TW = 34;
+      g.setTransform(2, 0, 0, 2, 70, 128); cqTools(g, TW).prop(v[0], 0, 0, v[1] || undefined);
+      b.onclick = () => { cqCloseTask(); pick(G, v); };
+    });
+  }
+  // scelta dal menu (sul mio telefono; se sono un amico la mando anche all'host)
+  function pick(G, v) {
+    const me = G.me; if (!me.alive || G.phase !== 'play') return;
+    if (G.guest) { if (!hiding(G) && (me.chg || 0) <= 0) return; me.pr = [v[0], v[1]]; if (!hiding(G)) me.chg--; me.prH = G.time + 1.2; cqNetSend({ k: 'pr', t: v[0], o: v[1] }); }
+    else if (!morph(G, me, v[0], v[1])) return;
+    beep(660, 0.06, 0.04); beep(990, 0.08, 0.04, 0.07);
+  }
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const P = c => cqModePos(c);
   const dist = (a, b) => { const p = P(a), q = P(b); return Math.hypot(p.x - q.x, p.y - q.y); };
@@ -19,7 +49,6 @@
   const stunned = (G, c) => (c.stun || 0) > G.time;
   // oggetti veri della mappa in cui ci si puo' trasformare: [tipo, x, y, opzione]
   const props = () => CQ_PROPS.filter(p => KINDS[p[0]]);
-  const propAt = (x, y) => CQ_PROPS.find(p => p[1] === x && p[2] === y && KINDS[p[0]]);
   const near = (x, y, r) => props().filter(p => Math.hypot(p[1] + 0.5 - x, p[2] + 0.5 - y) < r).sort((a, b) => Math.hypot(a[1] + 0.5 - x, a[2] + 0.5 - y) - Math.hypot(b[1] + 0.5 - x, b[2] + 0.5 - y));
   // dove si vede il nascosto: fermo = al centro della sua cella (come gli oggetti veri), mentre si muove = dov'e'
   const drawPos = c => { const p = P(c), mv = c === cq.g.me ? cq.walk : c.walk; return mv ? p : { x: Math.floor(p.x) + 0.5, y: Math.floor(p.y) + 0.5 }; };
@@ -45,7 +74,7 @@
       for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square');
     } else if (e.k === 'miss') {
       G.fx.push({ x: e.x, y: e.y, t: performance.now() });
-      if (A === me) { t = '❌ Era un oggetto vero! Stordito per ' + STUN + ' s (errori ' + (me.err || 0) + '/' + MAXERR + ').'; beep(180, 0.25, 0.05, 0, 'sawtooth'); }
+      if (A === me) { t = '❌ Era un oggetto vero! Stordito per ' + STUN + ' s. ' + (MAXERR - (me.err || 0) === 1 ? 'Ti resta 1 vita!' : 'Ti restano ' + (MAXERR - (me.err || 0)) + ' vite.'); beep(180, 0.25, 0.05, 0, 'sawtooth'); }
       else if (Math.hypot(e.x - cq.x, e.y - cq.y) < 10) beep(220, 0.12, 0.03, 0, 'sawtooth');
     } else if (e.k === 'out') { t = '🚫 ' + (A === me ? 'Hai' : an + ' ha') + ' sbagliato ' + MAXERR + ' volte: fuori!'; beep(200, 0.3, 0.04); }
     else if (e.k === 'snd') {   // verso di un nascosto: si sente da vicino, il cerchio si vede sulla mappa
@@ -71,11 +100,11 @@
     say(G, 'miss', s.id, -1, p.x, p.y);
     if (s.err >= MAXERR) { s.alive = false; say(G, 'out', s.id, -1); }
   }
-  // trasformazione del nascosto c nell'oggetto vero o (host o da solo); nella caccia si puo' cambiare solo CHG volte
-  function morph(G, c, o) {
-    if (!o || c.r !== 0 || !c.alive) return false;
+  // trasformazione del nascosto c nell'oggetto t con opzione o (host o da solo); nella caccia si puo' cambiare solo CHG volte
+  function morph(G, c, t, o) {
+    if (!KINDS[t] || c.r !== 0 || !c.alive) return false;
     if (!hiding(G)) { if ((c.chg || 0) <= 0) return false; c.chg--; }
-    c.pr = [o[0], o[3] == null ? 0 : o[3]];
+    c.pr = [t, o == null ? 0 : o];
     return true;
   }
 
@@ -98,9 +127,9 @@
     if (!c.spot) { c.spot = spot(G, c); if (c.spot) go(c, c.spot.x + 0.5, c.spot.y + 0.5); }
     const sp = c.spot;
     if (sp && !c.path.length && Math.hypot(c.x - sp.x - 0.5, c.y - sp.y - 0.5) < 0.3) {
-      if (!c.pr || (c.pr[0] !== sp.o[0] && (hiding(G) || c.chg > 0))) morph(G, c, sp.o);
+      if (!c.pr || (c.pr[0] !== sp.o[0] && (hiding(G) || c.chg > 0))) morph(G, c, sp.o[0], sp.o[3]);
     } else if (sp && !c.path.length) go(c, sp.x + 0.5, sp.y + 0.5);
-    if (hiding(G)) { if (G.time > (G.opt.hide || 20) - 1.5 && !c.pr) morph(G, c, near(c.x, c.y, 3)[0]); return; }
+    if (hiding(G)) { const o = near(c.x, c.y, 3)[0]; if (G.time > (G.opt.hide || 20) - 1.5 && !c.pr && o) morph(G, c, o[0], o[3]); return; }
     // un cercatore troppo vicino: ogni tanto si scappa (un oggetto che cammina si nota...)
     const s = G.chars.find(o => o.r === 1 && o.alive && dist(o, c) < 2.2);
     if (s && !c.path.length && Math.random() < 0.07) { const q = P(s), n = spot(G, c, q); if (n) { c.spot = n; go(c, n.x + 0.5, n.y + 0.5); } }
@@ -128,7 +157,7 @@
       if (Math.random() < pr) { c.tg = { id: h.id, t: G.time }; go(c, q.x, q.y); return; }
     }
     // a volte si sbaglia: un oggetto vero qui vicino sembra sospetto
-    if ((c.err || 0) < 3 && Math.random() < 0.025) { const o = near(c.x, c.y, 4.5)[Math.floor(Math.random() * 3)]; if (o) { c.tg = { cx: o[1], cy: o[2], t: G.time }; return; } }
+    if ((c.err || 0) < 1 && Math.random() < 0.02) { const o = near(c.x, c.y, 4.5)[Math.floor(Math.random() * 3)]; if (o) { c.tg = { cx: o[1], cy: o[2], t: G.time }; return; } }
     // un verso sentito: si va a vedere
     const r = G.rings.filter(r => performance.now() - r.t < 8000 && Math.hypot(r.x - c.x, r.y - c.y) < 18).pop();
     if (r && c.heard !== r) { c.heard = r; if (Math.random() < 0.8) { go(c, r.x, r.y); return; } }
@@ -137,16 +166,17 @@
 
   CQ_MODES.nascondino = {
     n: 'Nascondino sul set',
-    desc: '🪑 I <b>nascosti</b> si trasformano in un oggetto del set che hanno vicino (pianta, cassa, sedia, faro…) e restano immobili. I <b>cercatori</b> contano a schermo nero, poi colpiscono gli oggetti sospetti: se è un nascosto è eliminato, se è un oggetto vero restano storditi (5 errori = fuori). Ogni 30 secondi circa ogni nascosto fa un verso. 🤫 In vocale ti sentono da vicino: se ti nascondi, stai zitto!',
+    desc: '🪑 I <b>nascosti</b> scelgono da un menu in che oggetto trasformarsi (armadietto, sedia, attaccapanni, cinepresa, vaso, cono…), si muovono a forma di oggetto e si fermano dove si confondono meglio. I <b>cercatori</b> contano a schermo nero, poi colpiscono gli oggetti sospetti: se è un nascosto è eliminato, se è un oggetto vero restano storditi (3 errori = fuori). Ogni 30 secondi circa ogni nascosto fa un verso. 🤫 In vocale ti sentono da vicino: se ti nascondi, stai zitto!',
     maps: [['studio', 'Studio (luci accese)']],
-    def: { time: 240, seek: 1, hide: 20, map: 'studio', n: 8, fill: true },
+    def: { time: 240, seek: 1, hide: 20, me: 'rnd', map: 'studio', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Cercatori</div>${seg('seek', [[1, '1'], [2, '2']], o.seek)}</div>
-      <div class="row"><div class="lbl">Tempo per nascondersi</div>${seg('hide', [[20, '20 s'], [30, '30 s']], o.hide)}</div>
+      <div class="row"><div class="lbl">Tempo per nascondersi</div>${seg('hide', [[15, '15 s'], [20, '20 s']], o.hide)}</div>${cq.net ? '' : '<div class="row"><div class="lbl">Il mio ruolo</div>' + seg('me', [['rnd', 'A caso'], ['h', 'Nascosto'], ['s', 'Cercatore']], o.me || 'rnd') + '</div>'}
       <div class="row"><div class="lbl">Durata della caccia</div>${seg('time', [[180, '3:00'], [240, '4:00'], [300, '5:00']], o.time)}</div>`,
-    read: d => ({ time: +d.get('time') || 240, seek: +d.get('seek') || 1, hide: +d.get('hide') || 20 }),
+    read: d => ({ time: +d.get('time') || 240, seek: +d.get('seek') || 1, hide: +d.get('hide') || 20, me: d.get('me') || 'rnd' }),
     start(G) {
+      if (![15, 20].includes(G.opt.hide)) G.opt.hide = 20;
       G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240;
-      const sh = G.chars.slice().sort(() => Math.random() - 0.5), ns = Math.min(G.opt.seek || 1, Math.max(1, Math.floor(G.chars.length / 3)));
+      const sh = G.chars.slice().sort(() => Math.random() - 0.5), mr = cq.net ? 'rnd' : G.opt.me; if (mr !== 'rnd') { sh.splice(sh.indexOf(G.me), 1); if (mr === 's') sh.unshift(G.me); else sh.push(G.me); } const ns = Math.min(G.opt.seek || 1, Math.max(1, Math.floor(G.chars.length / 3)));
       sh.forEach((c, i) => { c.r = i < ns ? 1 : 0; c.pr = null; c.chg = CHG; c.stun = 0; c.err = 0; c.kl = 0; c.spot = null; c.tg = null; c.nt = (G.opt.hide || 20) + 12 + Math.random() * 18; });
     },
     gstart(G) { G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240; for (const c of G.chars) { c.pr = null; c.r = 0; } },
@@ -156,13 +186,13 @@
       const me = G.me, h = Math.ceil((G.opt.hide || 20) - G.time);
       if (me.r === 1) { if (!me.alive) return '🚫 Sei fuori'; if (hiding(G)) return '🙈 Stai contando… ' + h; if (stunned(G, me)) return '😵 Stordito!'; return ''; }
       if (!me.alive) return '';
-      if (hiding(G)) return (me.pr ? '🤫 Sei ' + art(me.pr[0]) + '. ' : '🪑 Nasconditi! ') + 'I cercatori partono tra ' + h;
+      if (hiding(G)) return (me.pr ? '🤫 Sei ' + art(me.pr[0]) + '. ' : '🪑 Premi Oggetto e scegli! ') + 'I cercatori partono tra ' + h;
       const nt = (me.nt || 0) - G.time; if (nt > 0 && nt < 5) return '🔔 Tra ' + Math.ceil(nt) + ' farai un verso!';
       return '';
     },
     hud(G) {
       const me = G.me, n = hiders(G).length, tot = G.chars.filter(c => c.r === 0).length, tm = hiding(G) ? '🙈 ' + mmss(Math.max(0, (G.opt.hide || 20) - G.time)) : '⏱ ' + mmss(Math.max(0, G.left));
-      if (me.r === 1) return `🔎 <b style="color:#ff9a7a">Cercatore</b> · trovati ${tot - n}/${tot} · ❌ ${me.err || 0}/${MAXERR} · ${tm}`;
+      if (me.r === 1) return `🔎 <b style="color:#ff9a7a">Cercatore</b> · trovati ${tot - n}/${tot} · vite ${"❤️".repeat(Math.max(0, MAXERR - (me.err || 0))) || "💀"} · ${tm}`;
       return `🪑 <b style="color:#9ad0ff">Nascosto</b>${me.alive ? me.pr ? ' (' + KINDS[me.pr[0]] + ')' : '' : ' · 👻 trovato'} · ancora nascosti ${n}/${tot}${me.alive && !hiding(G) ? ' · cambi ' + (me.chg || 0) : ''} · ${tm}`;
     },
     nameCol: c => c.r === 1 ? '#ff9a7a' : null,
@@ -174,9 +204,7 @@
     btn(G) {
       const me = G.me; if (!me.alive) return null;
       if (me.r === 1) return hiding(G) ? null : { t: '🔪 Colpisci', on: !stunned(G, me) && !!target(G, me) };
-      const o = near(cq.x, cq.y, NEAR)[0], can = hiding(G) || (me.chg || 0) > 0;
-      if (!o) return { t: '🪑 Diventa', on: false };
-      return { t: hiding(G) ? '🪑 Diventa' : '🪑 Cambia (' + (me.chg || 0) + ')', on: can && !(me.pr && me.pr[0] === o[0] && String(me.pr[1] || 0) === String(o[3] == null ? 0 : o[3])) };
+      return { t: hiding(G) ? '🪑 Oggetto' : '🪑 Cambia (' + (me.chg || 0) + ')', on: hiding(G) || (me.chg || 0) > 0 };
     },
     act(G) {
       const me = G.me; if (!me.alive) return;
@@ -188,15 +216,12 @@
         if (G.guest) cqNetSend(Object.assign({ k: 'hit' }, tg)); else hit(G, me, tg);
         return;
       }
-      const o = near(cq.x, cq.y, NEAR)[0]; if (!o) return;
-      if (G.guest) { if (!hiding(G) && (me.chg || 0) <= 0) return; me.pr = [o[0], o[3] == null ? 0 : o[3]]; if (!hiding(G)) me.chg--; me.prH = G.time + 1.2; cqNetSend({ k: 'pr', x: o[1], y: o[2] }); }
-      else if (!morph(G, me, o)) return;
-      beep(660, 0.06, 0.04); beep(990, 0.08, 0.04, 0.07);
+      if (hiding(G) || (me.chg || 0) > 0) menu(G);
     },
     ev(G, c, o) {
       if (!o) return;
       if (o.k === 'hit') hit(G, c, o.id != null ? { id: o.id } : { cx: o.cx, cy: o.cy });
-      else if (o.k === 'pr') { const p = propAt(o.x, o.y); if (p && Math.hypot(p[1] + 0.5 - c.x, p[2] + 0.5 - c.y) < NEAR + 1.5) morph(G, c, p); }
+      else if (o.k === 'pr') morph(G, c, o.t, o.o);
     },
     tick(G, dt) {
       if (!hiding(G)) G.left -= dt;
@@ -252,16 +277,13 @@
       G.fx = G.fx.filter(f => now - f.t < 1000);
       for (const f of G.fx) { const a = (now - f.t) / 1000; g.globalAlpha = 1 - a; g.font = '26px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('❌', sx(f.x, f.y), sy(f.x, f.y) - TW * (1 + a * 0.6)); g.globalAlpha = 1; }
       if (!me.alive || G.phase !== 'play' || G.pre > 0) return;
-      // contorno su cio' che il pulsante colpirebbe (cercatore) o sull'oggetto da copiare (nascosto)
-      let q = null, col = '#fff';
-      if (me.r === 1) { q = target(G, me); col = '#ff6a5a'; }
-      else { const o = near(cq.x, cq.y, NEAR)[0]; if (o && !(me.pr && me.pr[0] === o[0] && String(me.pr[1] || 0) === String(o[3] == null ? 0 : o[3]))) q = { x: o[1] + 0.5, y: o[2] + 0.5, k: o[0] }; col = '#9ad0ff'; }
+      // contorno su cio' che il pulsante colpirebbe (cercatore)
+      const q = me.r === 1 ? target(G, me) : null, col = '#ff6a5a';
       if (q) {
         const pu = 0.6 + 0.4 * Math.sin(now / 160);
         g.strokeStyle = col; g.globalAlpha = pu; g.lineWidth = 3; g.beginPath();
         [[-0.5, -0.5], [0.5, -0.5], [0.5, 0.5], [-0.5, 0.5]].forEach(([a, b], i) => { const X = sx(q.x + a, q.y + b), Y = sy(q.x + a, q.y + b); i ? g.lineTo(X, Y) : g.moveTo(X, Y); });
         g.closePath(); g.stroke(); g.globalAlpha = 1;
-        if (q.k) cqName(g, sx(q.x, q.y), sy(q.x, q.y) - TW * 1.9, 'Diventa ' + art(q.k), col);
       }
     }
   };

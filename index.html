@@ -4760,7 +4760,13 @@ function cqTools(g, TW) {
     },
     canopy, mob, rifle, trap,
     // oggetto della mappa disegnato fuori dalla sua cella (es. un personaggio travestito), con la stessa ombra degli oggetti veri
-    prop(t, x, y, o) { poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], 'rgba(0,0,0,.22)'); drawProp(t, x, y, o); },
+    // (si disegna nella cella intera e si sposta: alcuni oggetti usano x, y come numeri interi, es. i colori dell'appendiabiti)
+    prop(t, x, y, o) {
+      const ix = Math.floor(x), iy = Math.floor(y), fx = x - ix, fy = y - iy;
+      g.save(); g.translate((fx - fy) * TW / 2, (fx + fy) * TH / 2);
+      poly([S(ix, iy, 0), S(ix + 1, iy, 0), S(ix + 1, iy + 1, 0), S(ix, iy + 1, 0)], 'rgba(0,0,0,.22)'); drawProp(t, ix, iy, o);
+      g.restore();
+    },
     decals() {
       for (const [x, y, w, h, col] of CQ_DECALS) poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col);
       g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
