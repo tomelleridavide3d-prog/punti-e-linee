@@ -2518,7 +2518,7 @@ function cqNetApply(s) {
     const chars = s.c.map(a => ({ id: a[0], name: a[1], look: cqNetLook(a[2]), bot: true, x: a[3], y: a[4], tx: a[3], ty: a[4], face: a[5], walk: 0, alive: !!a[7], imp: !!a[8], done: { size: a[9] }, sid: a[10], st: {}, kcd: 0 }));
     const me = chars[mine[0]];
     me.bot = false; me.tasks = mine[11] || []; me.done = new Set();
-    G = cq.g = { guest: true, mid: s.mid, map: cq.map, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
+    G = cq.g = { song: Math.floor(Math.random() * CQ_SONGS.length), guest: true, mid: s.mid, map: cq.map, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
     cqShopStart(G);
     cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = ''; cq.ejMe = false;
     cqCloseTask(); $('#cqPick').hidden = true; cqHud(); cqRolePanel();
@@ -2679,7 +2679,7 @@ function cqNewMatch() {
     Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < CQ_BUTTON.x ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
       done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * (CQ_MAP.kcdMul || 1) * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
-  cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, seed: cq.mapSeed, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
+  cq.g = { song: Math.floor(Math.random() * CQ_SONGS.length), chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, seed: cq.mapSeed, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid;
   if (CQ_MAP.surv) cqSvStart(cq.g);
   if (cq.net) cqNetList(0);
@@ -3526,7 +3526,7 @@ function cqOpenMap() {
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { cqWake(false); cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function closeCiack() { cqWake(false); if (cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   // la tela deve avere esattamente i pixel veri dello schermo: se il telefono la ingrandisce anche di poco
   // (es. Redmi con 2,75 pixel per punto) i bordi scuri tremano mentre ci si muove
@@ -3585,6 +3585,72 @@ function cqWake(want) {
   if (want && !cq.wake && !cq.wakeAsk) { cq.wakeAsk = true; W.request('screen').then(l => { cq.wake = l; l.addEventListener('release', () => { if (cq.wake === l) cq.wake = null; }); }).catch(() => {}).finally(() => { cq.wakeAsk = false; }); }
   else if (!want && cq.wake) { const l = cq.wake; cq.wake = null; l.release().catch(() => {}); }
 }
+// musichette: una a caso per partita (G.song). mel = note in semitoni sopra root (null = pausa), bass = una nota ogni 4 passi, st = secondi per passo
+const CQ_SONGS = [
+  { n: 'Ciak si gira', st: 0.45, root: 330, w: 'triangle', v: 0.012, mel: [0, 4, 7, 12, 7, 4, 9, 7], bass: [196] },
+  { n: 'Giallo', st: 0.4, root: 294, w: 'triangle', v: 0.012, mel: [0, 3, 7, 3, 10, 7, 3, 7, 0, 3, 8, 3, 7, 5, 3, 2], bass: [147, 117, 131, 110] },
+  { n: 'Swing del set', st: 0.27, root: 392, w: 'square', v: 0.005, mel: [0, 4, 7, 9, 7, 4, 2, 4, 0, 4, 7, 12, 9, 7, 4, null], bass: [98, 131, 147, 131] } ];
+const CQ_SAB_SONG = { st: 0.3, root: 330, w: 'triangle', v: 0.012, mel: [0, 1, 0, 3, 0, 1, 6, 1], bass: [165] };
+// ---- suoni d'ambiente del bosco: ruscello (piu' forte vicino all'acqua), fuoco che scoppietta, vento; uccellini di giorno, grilli e gufo di notte ----
+let cqAmbN = null;
+function cqAmbNodes() {
+  if (cqAmbN) return cqAmbN;
+  actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+  const sr = actx.sampleRate, buf = actx.createBuffer(1, sr * 2, sr), d = buf.getChannelData(0);
+  for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+  const loop = (type, f, q) => {
+    const src = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain();
+    src.buffer = buf; src.loop = true; fl.type = type; fl.frequency.value = f; fl.Q.value = q; g.gain.value = 0;
+    src.connect(fl).connect(g).connect(actx.destination); src.start(); return { fl, g };
+  };
+  const river = loop('bandpass', 750, 0.6), wind = loop('lowpass', 380, 0.4), fire = loop('lowpass', 260, 0.7);
+  // il ruscello gorgoglia: il filtro si sposta piano su e giu'
+  const lfo = actx.createOscillator(), lg = actx.createGain(); lfo.frequency.value = 0.35; lg.gain.value = 260; lfo.connect(lg).connect(river.fl.frequency); lfo.start();
+  const lfo2 = actx.createOscillator(), lg2 = actx.createGain(); lfo2.frequency.value = 0.07; lg2.gain.value = 150; lfo2.connect(lg2).connect(wind.fl.frequency); lfo2.start();
+  return (cqAmbN = { buf, river, wind, fire, t: 0, bird: 3, cri: 1, owl: 25, water: null, map: null });
+}
+function cqAmbOff() { if (!cqAmbN) return; const t = actx.currentTime; for (const k of ['river', 'wind', 'fire']) cqAmbN[k].g.gain.setTargetAtTime(0, t, 0.25); }
+// suono breve: tono che scivola da f0 a f1 (uccellini, grilli, gufo)
+function cqAmbTone(f0, f1, d, v, delay = 0, type = 'sine') {
+  const t = actx.currentTime + delay, o = actx.createOscillator(), g = actx.createGain();
+  o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(f1, t + d);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(v, t + Math.min(0.02, d / 3)); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  o.connect(g).connect(actx.destination); o.start(t); o.stop(t + d + 0.02);
+}
+// scoppiettio: un pezzetto di rumore cortissimo e acuto
+function cqAmbPop(v) {
+  const N = cqAmbN, t = actx.currentTime, src = actx.createBufferSource(), fl = actx.createBiquadFilter(), g = actx.createGain(), d = 0.008 + Math.random() * 0.03;
+  src.buffer = N.buf; fl.type = 'highpass'; fl.frequency.value = 1200 + Math.random() * 2600;
+  g.gain.setValueAtTime(v, t); g.gain.exponentialRampToValueAtTime(0.0001, t + d);
+  src.connect(fl).connect(g).connect(actx.destination); src.start(t, Math.random() * 1.8, d + 0.01);
+}
+function cqAmb(dt, G, playing) {
+  const on = !!(store.settings.sound && G && playing && G.sv && CQ_MAP.surv && document.visibilityState === 'visible');
+  if (!on) { if (cqAmbN && cqAmbN.live) { cqAmbN.live = false; cqAmbOff(); } return; }
+  let N; try { N = cqAmbNodes(); } catch { return; }
+  if (actx.state === 'suspended') actx.resume();
+  N.live = true;
+  if (N.map !== CQ_MAP) { N.map = CQ_MAP; N.water = []; for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x]; if (o && o.prop === 'water') N.water.push(x + 0.5, y + 0.5); } }
+  const S = G.sv, night = S.dark, now = actx.currentTime;
+  if ((N.t -= dt) <= 0) {   // volumi, 4 volte al secondo
+    N.t = 0.25;
+    let dW = 99; for (let i = 0; i < N.water.length; i += 2) { const d = Math.hypot(N.water[i] - cq.x, N.water[i + 1] - cq.y); if (d < dW) dW = d; }
+    const nW = Math.max(0, 1 - dW / 10), dF = cqFireD(cq.x, cq.y), nF = S.lit ? Math.max(0, 1 - dF / 9) : 0;
+    N.river.g.gain.setTargetAtTime(0.22 * nW * nW, now, 0.4);
+    N.wind.g.gain.setTargetAtTime(0.035 + 0.045 * night, now, 1);
+    N.fire.g.gain.setTargetAtTime(0.16 * nF * nF * (0.5 + 0.5 * Math.min(1, S.fuel / 50)), now, 0.4);
+    N.nF = nF;
+  }
+  // fuoco: piu' legna, piu' scoppiettii
+  if (N.nF > 0 && Math.random() < dt * (3 + 5 * Math.min(1, S.fuel / 50))) cqAmbPop((0.04 + Math.random() * 0.1) * N.nF);
+  if (night < 0.5) {   // uccellini
+    if ((N.bird -= dt) <= 0) { N.bird = 3 + Math.random() * 7; const f = 2400 + Math.random() * 1600, k = 2 + Math.floor(Math.random() * 3); for (let i = 0; i < k; i++) cqAmbTone(f, f * (1.2 + Math.random() * 0.3), 0.07, 0.012 * (1 - night * 2), i * 0.11); }
+  } else {   // grilli e, ogni tanto, il gufo
+    if ((N.cri -= dt) <= 0) { N.cri = 0.5 + Math.random() * 1.2; const f = 4300 + Math.random() * 500; for (let i = 0; i < 3; i++) cqAmbTone(f, f, 0.035, 0.006 * night, i * 0.06); }
+    if ((N.owl -= dt) <= 0) { N.owl = 20 + Math.random() * 25; cqAmbTone(400, 360, 0.4, 0.035, 0); cqAmbTone(380, 340, 0.55, 0.03, 0.55); }
+  }
+}
+document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible' && cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } });
 function cqFrame(t) {
   if (!cq.on) return;
   cq.raf = requestAnimationFrame(cqFrame);   // subito: se qualcosa va storto in questo fotogramma, il gioco non si blocca
@@ -3605,9 +3671,11 @@ function cqFrame(t) {
   if (cq.net) cqNetTick(dt);
   // musichetta di sottofondo (si spegne col pulsante o con i suoni)
   if (G && playing && store.settings.music !== false && store.settings.sound && (cq.mT = (cq.mT || 0) - dt) <= 0) {
-    const sab = !!G.sab, N = sab ? [0, 1, 0, 3, 0, 1, 6, 1] : [0, 4, 7, 12, 7, 4, 9, 7]; cq.mT = sab ? 0.3 : 0.45; cq.mI = ((cq.mI || 0) + 1) % 8;
-    beep(330 * Math.pow(2, N[cq.mI] / 12), 0.3, 0.012, 0, 'triangle'); if (cq.mI % 4 === 0) beep(sab ? 165 : 196, 0.45, 0.014, 0, 'triangle');
+    const sab = !!G.sab, M = sab ? CQ_SAB_SONG : CQ_SONGS[G.song || 0] || CQ_SONGS[0]; cq.mT = M.st; cq.mI = ((cq.mI || 0) + 1) % 16;
+    const n = M.mel[cq.mI % M.mel.length]; if (n != null) beep(M.root * Math.pow(2, n / 12), M.st * 0.7 + 0.05, M.v, 0, M.w);
+    if (cq.mI % 4 === 0) beep(M.bass[Math.floor(cq.mI / 4) % M.bass.length], M.st * 1.1, 0.014, 0, 'triangle');
   }
+  cqAmb(dt, G, playing);
   if ((cq.wT = (cq.wT || 0) - dt) <= 0) { cq.wT = 1; cqWake(!!G && G.phase !== 'end' && document.visibilityState === 'visible'); }
   cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
