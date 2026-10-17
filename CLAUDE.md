@@ -32,7 +32,7 @@ Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi =
 
 ## Ambiente
 - Repo locale dell'utente: `C:\Users\Dadidk\punti-e-linee` (VS Code). Pubblicare = commit + push su `master`.
-- Prove con due browser veri: Edge headless con protocollo DevTools (due contesti separati, server locale su una porta, Firebase reale). Usare nomi finti che iniziano con `zz` e **cancellarli dal database a fine prova** (`DELETE .../players/<chiave>.json`), per non sporcare la classifica.
+- Prove con due browser veri: Edge headless con protocollo DevTools (due contesti separati, server locale su una porta, Firebase reale). Usare nomi finti che iniziano con `zz` e **cancellarli dal database a fine prova** (`DELETE .../players/<chiave>.json`), per non sporcare la classifica. **Chiudere sempre i browser di prova**: `kill` di git-bash NON spegne msedge su Windows. Usare PowerShell: `Get-CimInstance Win32_Process | ? { $_.Name -eq "msedge.exe" -and $_.CommandLine -match "--headless" } | % { Stop-Process -Id $_.ProcessId -Force }`. Se restano accesi, i nomi di prova (zz...) risultano "in sala" per tutti (presence/ resta finché la connessione è aperta); controllare `presence.json` a fine lavoro.
 - Prove fuori dal browser vero: Playwright con un finto Firebase (moduli `firebase-app.js` / `firebase-database.js` serviti con `route`, stato condiviso tra due contesti) e peerjs.com bloccato. Mai provato su iPhone veri.
 
 ## Regole di lavoro con l'utente
