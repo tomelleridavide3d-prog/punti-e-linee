@@ -3489,7 +3489,7 @@ function cqOpenMap() {
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function closeCiack() { cqWake(false); cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   // la tela deve avere esattamente i pixel veri dello schermo: se il telefono la ingrandisce anche di poco
   // (es. Redmi con 2,75 pixel per punto) i bordi scuri tremano mentre ci si muove
@@ -3542,6 +3542,12 @@ function cqDir() {
   const wx = sx + 2 * sy, wy = 2 * sy - sx, m = Math.hypot(wx, wy);
   return { wx: wx / m, wy: wy / m, sx, sy };
 }
+// schermo sempre acceso durante la partita (il telefono non si spegne a meta'); si lascia a fine partita o uscendo
+function cqWake(want) {
+  const W = navigator.wakeLock; if (!W) return;
+  if (want && !cq.wake && !cq.wakeAsk) { cq.wakeAsk = true; W.request('screen').then(l => { cq.wake = l; l.addEventListener('release', () => { if (cq.wake === l) cq.wake = null; }); }).catch(() => {}).finally(() => { cq.wakeAsk = false; }); }
+  else if (!want && cq.wake) { const l = cq.wake; cq.wake = null; l.release().catch(() => {}); }
+}
 function cqFrame(t) {
   if (!cq.on) return;
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
@@ -3564,6 +3570,7 @@ function cqFrame(t) {
     const sab = !!G.sab, N = sab ? [0, 1, 0, 3, 0, 1, 6, 1] : [0, 4, 7, 12, 7, 4, 9, 7]; cq.mT = sab ? 0.3 : 0.45; cq.mI = ((cq.mI || 0) + 1) % 8;
     beep(330 * Math.pow(2, N[cq.mI] / 12), 0.3, 0.012, 0, 'triangle'); if (cq.mI % 4 === 0) beep(sab ? 165 : 196, 0.45, 0.014, 0, 'triangle');
   }
+  if ((cq.wT = (cq.wT || 0) - dt) <= 0) { cq.wT = 1; cqWake(!!G && G.phase !== 'end' && document.visibilityState === 'visible'); }
   cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
   cq.raf = requestAnimationFrame(cqFrame);
