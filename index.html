@@ -1944,7 +1944,7 @@ function cqMapBosco(seed) {
   // dov'e' il mercante, a parole (per l'aiuto)
   const dir = (z) => { const ex = z[0] + z[2] / 2 - 30.5, ey = z[1] + z[3] / 2 - 24.5;   // sullo schermo: x va a destra-giu', y a sinistra-giu'
     const sxx = ex - ey, syy = ex + ey; return Math.abs(sxx) > Math.abs(syy) * 1.5 ? (sxx > 0 ? 'a destra' : 'a sinistra') : Math.abs(syy) > Math.abs(sxx) * 1.5 ? (syy > 0 ? 'in basso' : 'in alto') : (syy > 0 ? 'in basso ' : 'in alto ') + (sxx > 0 ? 'a destra' : 'a sinistra'); };
-  return { w: W, h: H, rooms, doors: [], decals, props, tasks, holes, trees, deco: deco2, hall: 0, wall: 'rock', surv: true, fire: { x: 30, y: 24 }, tent: { x: 33, y: 22 },
+  return { w: W, h: H, rooms, doors: [], decals, props, tasks, holes, trees, deco: deco2, hall: 0, wall: 'rock', surv: true, kcdMul: 1.7, fire: { x: 30, y: 24 }, tent: { x: 33, y: 22 },
     cams: [], vending: [[M[0] + 2, M[1] + 2]],
     ring: [[28, 23], [28, 25], [32, 25], [29, 22], [31, 22], [29, 26], [31, 26], [30, 22], [30, 26], [28, 24]],   // posti di partenza, intorno al cerchio di sassi
     button: { x: 30, y: 20 },
@@ -2672,7 +2672,7 @@ function cqNewMatch() {
   chars.forEach((c, i) => {
     const [x, y] = CQ_RING[i];
     Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < CQ_BUTTON.x ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
-      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
+      done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * (CQ_MAP.kcdMul || 1) * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
   cq.g = { chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, seed: cq.mapSeed, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
   cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid;
@@ -2901,11 +2901,13 @@ function cqMyKill() {
   const me = G.me; if (!me.imp || !me.alive || me.kcd > 0) return;
   const v = cqKillTarget(); if (v) { if (G.guest) cqNetSend({ k: 'kill', v: v.id }); else cqKill(v, me); }
 }
+// attesa tra due eliminazioni: nel bosco (kcdMul) piu' lunga, perche' al buio e lontani dal campo si resta soli spesso
+const cqKcd = () => cq.g.opt.kcd * (CQ_MAP.kcdMul || 1);
 function cqKill(v, k) {
   const G = cq.g;
   if (!v.shield) v.killer = k.name;
   if (v.shield) {   // il giubbotto salva una volta, e si scopre chi ci ha provato
-    v.shield = false; k.kcd = G.opt.kcd * 0.5; beep(900, 0.08, 0.05);
+    v.shield = false; k.kcd = cqKcd() * 0.5; beep(900, 0.08, 0.05);
     if (v.remote) v.saved = [k.name, Math.round(G.time * 10)];
     if (v === G.me) cqToast('🛡️ Il giubbotto ti ha salvato! Ti ha attaccato <b style="color:#ff6a5a">' + esc(k.name) + '</b>.');
     cqHud(); return;
@@ -2913,7 +2915,7 @@ function cqKill(v, k) {
   if (k === G.me) cqCoins(2);
   v.alive = false; v.path = []; v.wait = 0; v.doing = null;
   G.bodies.push({ id: v.id, x: v.x, y: v.y, face: v.face, look: cqLookOf(v), name: v.name, room: cqRoomName(v.x, v.y), t: G.time });
-  k.kcd = G.opt.kcd * (1 + 0.6 * (G.chars.filter(c => c.imp).length - 1));   // con piu' sabotatori ognuno aspetta di piu'
+  k.kcd = cqKcd() * (1 + 0.6 * (G.chars.filter(c => c.imp).length - 1));   // con piu' sabotatori ognuno aspetta di piu'
   const R = cqSeeR();
   // travestimento: i testimoni accusano chi sembravi; fumo: chi e' nella stanza non vede niente
   const kd = k === G.me ? G.disg : k.disg, dg = kd && kd.until > G.time && kd.id !== v.id ? kd.id : k.id, fog = G.smoke && G.smoke.until > G.time ? G.smoke.room : null;
@@ -3390,7 +3392,7 @@ function cqMeetEnd() {
   for (const c of G.chars) {
     Object.assign(c, { path: [], goal: null, wait: 0, doing: null, hunt: null, saw: null, sus: new Set(), seen: {} });
     const [x, y] = CQ_RING[i++ % CQ_RING.length]; c.x = x + 0.5; c.y = y + 0.5;
-    if (c.imp) c.kcd = G.opt.kcd * 0.8;
+    if (c.imp) c.kcd = cqKcd() * 0.8;
   }
   cq.x = G.me.x; cq.y = G.me.y; G.sabCd = 25; G.ep = (G.ep || 0) + 1; G.phase = 'play'; cq.actKey = ''; cqHud();
   if (ej === G.me && !G.me.imp) cqPanel('Sei stato espulso', '<p class="lead">Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua');
