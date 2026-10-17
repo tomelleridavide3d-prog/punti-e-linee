@@ -351,6 +351,24 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 <dialog id="dInvite"><div class="dlg" id="inviteBody"></div></dialog>
 
 <script>
+// errori: si salvano (ultimi 10, in questo telefono) e compare una striscia rossa da fotografare e mandare. Ogni errore una volta sola
+(() => {
+  const seen = new Set();
+  const report = (msg, where) => {
+    msg = String(msg || 'errore sconosciuto').slice(0, 200); if (/AbortError|NotAllowedError|ResizeObserver|Script error/.test(msg)) return;   // avvisi innocui del browser
+    const key = msg + where; if (seen.has(key)) return; seen.add(key);
+    let log = []; try { log = JSON.parse(localStorage.getItem('errLog') || '[]'); } catch {}
+    log.unshift({ t: new Date().toISOString().slice(0, 16).replace('T', ' '), msg, where, v: document.lastModified }); try { localStorage.setItem('errLog', JSON.stringify(log.slice(0, 10))); } catch {}
+    const show = () => {
+      let b = document.getElementById('errBar');
+      if (!b) { b = document.createElement('div'); b.id = 'errBar'; b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#7a1f1f;color:#fff;font:13px system-ui,sans-serif;padding:8px 34px 8px 10px;border-radius:10px;box-shadow:0 4px 14px rgba(0,0,0,.4)'; b.onclick = () => b.remove(); document.body.appendChild(b); }
+      b.textContent = '⚠️ Qualcosa è andato storto (tocca per chiudere): ' + msg + (where ? ' — ' + where : '');
+    };
+    if (document.body) show(); else addEventListener('DOMContentLoaded', show);
+  };
+  addEventListener('error', e => { if (e.message) report(e.message, (e.lineno ? 'riga ' + e.lineno : '')); });
+  addEventListener('unhandledrejection', e => { const r = e.reason; report(r && r.message || r, 'promessa'); });
+})();
 // ==ENGINE==
 // Griglia R x C quadrati. Lati orizzontali: id = r*C + c (r 0..R). Verticali: id = H + r*(C+1) + c (c 0..C).
 function makeTopo(R, C) {
@@ -3562,6 +3580,7 @@ function cqWake(want) {
 }
 function cqFrame(t) {
   if (!cq.on) return;
+  cq.raf = requestAnimationFrame(cqFrame);   // subito: se qualcosa va storto in questo fotogramma, il gioco non si blocca
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
   const d = !G || playing ? cqDir() : null;
@@ -3585,7 +3604,6 @@ function cqFrame(t) {
   if ((cq.wT = (cq.wT || 0) - dt) <= 0) { cq.wT = 1; cqWake(!!G && G.phase !== 'end' && document.visibilityState === 'visible'); }
   cqNearCheck(); cqHudFast();
   cqDraw();   // sempre, anche da fermi: se si smette il telefono butta la mappa dalla memoria grafica e alla ripartenza va a scatti
-  cq.raf = requestAnimationFrame(cqFrame);
 }
 const cqShadeMemo = new Map();
 function cqShade(hex, f) {   // i colori calcolati si ricordano: niente lavoro e niente spazzatura a ogni fotogramma
