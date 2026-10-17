@@ -3008,7 +3008,8 @@ function cqPath(sx, sy, ex, ey) {
 //   nameCol(c), deco(g, c, X, Y, TW, G) (sopra al personaggio), over(g, G, sx, sy, TW) (sopra alla mappa), ev(G, c, o) (azioni degli amici),
 //   tint(c) (personaggio ricolorato), btn(G) -> { t: testo, on } (pulsante grande; premuto chiama act(G)), night(G) -> { a: buio 0-1, r: raggio della mia luce,
 //   lights: [[x, y, raggio, forza]] (in caselle), see(x, y): si vede un personaggio li'? } (buio come la notte del bosco; con il bosco suonano anche grilli e vento),
-//   voice(G, c) -> volume 0-1 della voce di c in partita (null = secondo la distanza, come sempre) }
+//   voice(G, c) -> volume 0-1 della voce di c in partita (null = secondo la distanza, come sempre),
+//   hide(c) -> true = personaggio non disegnato (es. accoltellato: resta solo il corpo in G.bodies); c.angel = G.time -> scende da angelo (2,6 s) }
 const CQ_MODES = {};
 // giochi dell'hotel: [id, nome, icona, colore della porta nella hall, descrizione] ('ciack' e' in questo file, gli altri in giochi/<id>.js).
 // Un gioco nuovo qui = una porta nuova nella hall (la hall si allunga da sola) e una riga nella reception
@@ -4880,8 +4881,9 @@ function cqDraw() {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face, a: G.time - b.t });
     for (const ch of G.chars) {
       if (ch === G.me && G.hall && !ch.alive) continue;
-      if (ch === G.me) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      if (G.mode && G.M.hide && G.M.hide(ch)) continue;
+      if (ch === G.me) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
+      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
     for (const C of cqOtherClones()) if (seen(C.x, C.y)) list.push({ x: C.x, y: C.y, L: C.o.look, w: C.walk, f: C.face, name: C.o.name });

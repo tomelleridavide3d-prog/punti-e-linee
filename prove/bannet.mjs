@@ -21,7 +21,8 @@ export default [
   // un nemico (bot riacceso) lo tocca: va in prigione alla sua base e la bandiera cade
   [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'), e = G.chars.find(c => c.bot && c.t !== a.t); e.alive = true; e.x = a.x; e.y = a.y; e.think = 999; e.path = []; return 'host: ' + e.name + ' tocca l amico'; })()`, 1500],
   [0, `(() => { const G = cq.g, e = G.chars.find(c => c.bot && c.alive); e.alive = false; return 'host: ' + __T.slice(-1)[0]; })()`, 0],
-  [1, `(() => { const G = cq.g, b = G.B[G.me.t]; return 'amico: ' + $('#cqCount').textContent + ' | distanza dalla mia base ' + Math.hypot(cq.x - b.x, cq.y - b.y).toFixed(1) + ' | ' + __T.slice(-1)[0]; })()`, 5500],
+  [1, `(() => { const G = cq.g, b = G.B[G.me.t]; return 'amico: ' + $('#cqCount').textContent + ' | corpi ' + G.bodies.length + ' nascosto ' + G.M.hide(G.me) + ' | ' + __T.slice(-2).join(' / '); })()`, 6500],
+  [1, `(() => { const G = cq.g, b = G.B[G.me.t]; return 'amico risorto: angelo ' + (G.me.angel != null ? (G.time - G.me.angel).toFixed(1) + ' s fa' : 'no') + ', corpi ' + G.bodies.length + ', distanza dalla base ' + Math.hypot(cq.x - b.x, cq.y - b.y).toFixed(1); })()`, 0],
   [0, st('host'), 0],
   // l'amico riprende la bandiera a terra e la porta a casa
   [1, `(() => { const G = cq.g, f = G.F[1 - G.me.t]; cq.x = f.x; cq.y = f.y; return 'amico: sulla bandiera a terra (' + f.st + ')'; })()`, 1500],

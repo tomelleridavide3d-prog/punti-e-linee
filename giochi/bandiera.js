@@ -1,12 +1,12 @@
 // Ruba la bandiera al buio (a squadre). Gioco del motore: si registra in CQ_MODES (vedi "MOTORE DEI GIOCHI" in index.html).
 // Due squadre (Rossi e Blu) sul set al buio (per ora solo la mappa studio), ognuna con la sua bandiera alla base, ai lati opposti della mappa.
 // Si ruba la bandiera nemica passandoci sopra e si segna portandola alla propria base (solo se la propria e' a casa).
-// Nella propria meta' si prende chi viene dall'altra squadra: torna alla sua base fermo qualche secondo e, se aveva la bandiera, la lascia cadere.
+// Nella propria meta' si accoltella chi viene dall'altra squadra (animazione del coltello, corpo a terra): dopo qualche secondo risorge da angelo alla sua base; se aveva la bandiera la lascia cadere.
 // Una bandiera a terra la riporta a casa un compagno toccandola (o torna da sola dopo un po').
 // Torcia accesa = vedi lontano ma ti vedono da lontano; spenta = vedi poco ma sei quasi invisibile. I compagni si vedono e si sentono sempre.
 // MODULO SQUADRE (riusabile per altri giochi a squadre): TEAMS, team(), side(), base, punteggio G.sc.
 (() => {
-  const TOUCH = 0.75, GRAB = 0.9, HOME = 1.4, ZONE = 2.2, JAIL = 5, SAFE = 2, BACK = 20, CARRY = 1;
+  const TOUCH = 0.75, GRAB = 0.9, HOME = 1.4, ZONE = 2.2, JAIL = 6, SAFE = 2.6, BACK = 20, CARRY = 1;
   const SEE_ON = 7, SEE_OFF = 3, SEEN_ON = 15, SEEN_OFF = 2.4;   // fin dove vedo (torcia accesa/spenta), fin dove mi vedono i nemici
   const TEAMS = [{ n: 'Rossi', f: 'rossa', c: '#e04848', l: '#ff8a80', e: '🔴' }, { n: 'Blu', f: 'blu', c: '#3d7be0', l: '#8ab8ff', e: '🔵' }];
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
@@ -52,7 +52,7 @@
     let t = '';
     if (e.k === 'take') { t = A === me ? '🚩 Hai preso la bandiera ' + F.f + '! Portala alla tua base!' : mine ? '⚠️ ' + an + ' ha rubato la vostra bandiera!' : '🚩 ' + an + ' ha preso la bandiera ' + F.f + '!'; beep(mine ? 330 : 660, 0.12, 0.05); beep(mine ? 262 : 880, 0.18, 0.05, 0.12); }
     else if (e.k === 'score') { const T = TEAMS[A ? A.t : 0]; t = '⭐ Punto ai ' + T.n + '! ' + (A === me ? 'Hai' : an + ' ha') + ' portato a casa la bandiera ' + F.f + '.'; const ok = A && A.t === me.t; beep(ok ? 523 : 330, 0.12, 0.06); beep(ok ? 659 : 294, 0.12, 0.06, 0.12); beep(ok ? 784 : 262, 0.3, 0.06, 0.24); }
-    else if (e.k === 'tag') { t = A === me ? '⛓️ ' + bn + ' ti ha preso! Torni alla base.' : B === me ? '👮 Hai preso ' + an + '!' : '⛓️ ' + bn + ' ha preso ' + an + '.'; if (e.f != null) t += ' La bandiera ' + F.f + ' è caduta a terra.'; beep(220, 0.15, 0.06); beep(150, 0.25, 0.06, 0.1); }
+    else if (e.k === 'tag') { t = A === me ? '🔪 ' + bn + ' ti ha accoltellato! Risorgi alla base tra poco.' : B === me ? '🔪 Hai accoltellato ' + an + '!' : '🔪 ' + bn + ' ha accoltellato ' + an + '.'; if (e.f != null) t += ' La bandiera ' + F.f + ' è caduta a terra.'; for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square'); }
     else if (e.k === 'ret') { t = A ? '🏠 ' + (A === me ? 'Hai' : an + ' ha') + ' riportato a casa la bandiera ' + F.f + '.' : '🏠 La bandiera ' + F.f + ' è tornata a casa da sola.'; beep(587, 0.12, 0.04); }
     if (t) cqToast(t);
   }
@@ -61,10 +61,18 @@
   function home(G, f, by) { f.st = 0; f.c = -1; f.x = G.B[f.t].x; f.y = G.B[f.t].y; say(G, 'ret', by ? by.id : -1, -1, f.t); }
   function catchIt(G, v, by) {
     const f = holding(G, v); if (f) drop(G, f, v);
-    v.jail = G.time + JAIL; v.path = []; by.tg = (by.tg || 0) + 1;
-    const p = spawn(G, v.t);
-    v.x = p.x; v.y = p.y; if (v === G.me) { cq.x = p.x; cq.y = p.y; }   // un amico si sposta da solo quando lo sa (capply)
+    v.jail = G.time + JAIL; v.path = []; v.walk = 0; by.tg = (by.tg || 0) + 1;
+    // il corpo resta dov'e' caduto (animazione del coltello di cqBody); il personaggio e' nascosto (hide) fino a quando risorge
+    const q = P(v); G.bodies = G.bodies.filter(b => b.id !== v.id);
+    G.bodies.push({ id: v.id, x: q.x, y: q.y, face: v === G.me ? cq.face : v.face, look: cqLookOf(v), name: v.name, t: G.time });
     say(G, 'tag', v.id, by.id, f ? f.t : null);
+  }
+
+  // risorge da angelo alla sua base (l'amico si sposta da solo quando lo sa: capply)
+  function revive(G, c) {
+    c.jail = 0; c.safe = G.time + SAFE; c.angel = G.time; G.bodies = G.bodies.filter(b => b.id !== c.id);
+    if (c === G.me || !c.remote) { const p = spawn(G, c.t); c.x = p.x; c.y = p.y; c.path = []; if (c === G.me) { cq.x = p.x; cq.y = p.y; } }
+    if (c === G.me || Math.hypot(c.x - cq.x, c.y - cq.y) < 9) { beep(880, 0.35, 0.025, 0, 'triangle'); beep(1109, 0.35, 0.025, 0.12, 'triangle'); beep(1319, 0.5, 0.025, 0.24, 'triangle'); }
   }
 
   // ---- personaggi del computer: difensori (girano intorno alla base) e attaccanti (vanno a rubare) ----
@@ -140,7 +148,7 @@
     speed: c => { const G = cq.g; return jailed(G, c) ? 0 : holding(G, c) ? CARRY : 1; },
     big(G) {
       const me = G.me; if (me.t == null) return '';
-      if (jailed(G, me)) return '⛓️ Preso! Riparti tra ' + Math.ceil(me.jail - G.time) + '…';
+      if (jailed(G, me)) return '🔪 Accoltellato! Risorgi tra ' + Math.ceil(me.jail - G.time) + '…';
       if (holding(G, me)) return G.F[me.t].st === 0 ? '🚩 Portala alla tua base!' : '⚠️ Per segnare la vostra bandiera deve essere a casa!';
       return '';
     },
@@ -149,6 +157,7 @@
       const T = TEAMS[me.t], mine = side(G, cq.x, cq.y) === me.t;
       return `${TEAMS[0].e} ${G.sc[0]} – ${G.sc[1]} ${TEAMS[1].e} · sei nei <b style="color:${T.l}">${T.n}</b> · ${mine ? '🛡️ tua metà' : '⚔️ campo nemico'} · ⏱ ${mmss(Math.max(0, G.left))}`;
     },
+    hide: c => jailed(cq.g, c),   // accoltellato: si vede solo il corpo a terra
     nameCol: c => c.t != null ? TEAMS[c.t].l : null,
     btn(G) { const me = G.me; if (me.t == null) return null; return { t: me.tc ? '🔦 Spegni' : '🔦 Accendi', on: !jailed(G, me) }; },
     act(G) {
@@ -160,7 +169,7 @@
     voice: (G, c) => c.t === G.me.t ? 1 : null,
     tick(G, dt) {
       G.left -= dt;
-      for (const c of G.chars) if (c.jail && c.jail <= G.time) { c.jail = 0; c.safe = G.time + SAFE; }
+      for (const c of G.chars) if (c.jail && c.jail <= G.time) revive(G, c);
       // bandiere portate da chi e' stato preso o e' uscito; bandiere a terra che tornano da sole
       for (const f of G.F) {
         if (f.st === 1) { const c = byId(G, f.c); if (!c || !c.alive || jailed(G, c)) { if (c) drop(G, f, c); else home(G, f, null); } }
@@ -168,7 +177,7 @@
       }
       const A = active(G);
       for (const c of A) {
-        const p = P(c);
+        const p = P(c); if ((c.safe || 0) > G.time) continue;   // appena risorto (l'amico potrebbe essere ancora dove e' caduto)
         for (const f of G.F) {
           const d = Math.hypot(p.x - (f.st === 0 ? G.B[f.t].x : f.x), p.y - (f.st === 0 ? G.B[f.t].y : f.y));
           if (f.t !== c.t) { if ((f.st === 0 || f.st === 2) && d < GRAB && !holding(G, c)) { f.st = 1; f.c = c.id; c.st = (c.st || 0) + 1; say(G, 'take', c.id, -1, f.t); } }
@@ -198,7 +207,7 @@
     },
     finish(G) {
       const name = c => c.name + (c === G.me ? ' (tu)' : ''), [a, b] = G.sc, w = a > b ? 0 : b > a ? 1 : -1;
-      const line = c => [name(c), '— ' + TEAMS[c.t].e + ' ⭐ ' + (c.pt || 0) + ' · 🚩 ' + (c.st || 0) + ' prese · 👮 ' + (c.tg || 0) + ' catture'];
+      const line = c => [name(c), '— ' + TEAMS[c.t].e + ' ⭐ ' + (c.pt || 0) + ' · 🚩 ' + (c.st || 0) + ' prese · 🔪 ' + (c.tg || 0) + ' eliminazioni'];
       const score = c => (c.pt || 0) * 10 + (c.st || 0) * 3 + (c.tg || 0) * 2;
       const rank = G.chars.slice().sort((x, y) => (w >= 0 ? (y.t === w) - (x.t === w) : 0) || score(y) - score(x)).map(line);
       const why = TEAMS[0].e + ' Rossi ' + a + ' – ' + b + ' Blu ' + TEAMS[1].e + (G.left <= 0 ? ' · tempo finito.' : '.');
@@ -209,13 +218,14 @@
     csnap: c => [c.t, Math.max(0, Math.round(((c.jail || 0) - cq.g.time) * 10) / 10), c.tc ? 1 : 0, c.pt || 0, c.st || 0, c.tg || 0],
     capply(G, c, a) {
       c.t = a[0];
-      const was = jailed(G, c); c.jail = a[1] > 0 ? G.time + a[1] : 0;
-      if (c === G.me && !was && a[1] > 0) { const p = spawn(G, c.t); cq.x = p.x; cq.y = p.y; }   // preso: torno alla base
+      const was = !!c.jail; c.jail = a[1] > 0 ? G.time + a[1] : 0;
+      if (was && !c.jail) revive(G, c);   // risorto: angelo (e io torno alla base)
       if (!(c === G.me && G.time < (c.tcH || 0))) c.tc = !!a[2];
       c.pt = a[3]; c.st = a[4]; c.tg = a[5];
     },
-    snap: G => ({ b: G.B.map(b => [b.x, b.y]), left: Math.round(G.left * 10) / 10, sc: G.sc, f: G.F.map(f => [f.st, f.c, Math.round(f.x * 10) / 10, Math.round(f.y * 10) / 10, Math.round(f.dt * 10) / 10]), lg: G.lg }),
+    snap: G => ({ bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]), b: G.B.map(b => [b.x, b.y]), left: Math.round(G.left * 10) / 10, sc: G.sc, f: G.F.map(f => [f.st, f.c, Math.round(f.x * 10) / 10, Math.round(f.y * 10) / 10, Math.round(f.dt * 10) / 10]), lg: G.lg }),
     apply(G, x) {
+      if (x.bd) G.bodies = x.bd.map(a => { const c = byId(G, a[0]); return c ? { id: a[0], x: a[1], y: a[2], face: a[3], t: a[4], look: cqLookOf(c), name: c.name } : null; }).filter(Boolean);
       G.left = x.left; G.sc = x.sc; if (x.b) G.B = x.b.map(a => ({ x: a[0], y: a[1] }));
       x.f.forEach((a, i) => Object.assign(G.F[i], { st: a[0], c: a[1], x: a[2], y: a[3], dt: a[4] }));
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
@@ -238,11 +248,10 @@
           return !!c && (c.t === me.t || (c.tc && d < SEEN_ON));
         } };
     },
-    // cerchio della squadra ai piedi, catene a chi e' stato preso
+    // cerchio della squadra ai piedi
     deco(g, c, X, Y, TW, G, L) {
       if (c.t == null) return;
       g.strokeStyle = TEAMS[c.t].c; g.lineWidth = 2.5; g.globalAlpha = 0.85; g.beginPath(); g.ellipse(X, Y, TW * 0.34, TW * 0.17, 0, 0, 7); g.stroke(); g.globalAlpha = 1;
-      if (jailed(G, c)) { g.font = '15px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⛓️', X, Y - cqTop(L) * TW - 22); }
     },
     // sopra alla mappa: linea di meta' campo, basi, bandiere (quella portata solo se si vede chi la porta), freccia verso l'obiettivo
     over(g, G, sx, sy, TW) {
