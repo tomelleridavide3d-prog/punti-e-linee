@@ -121,12 +121,24 @@
       if (x.b) { const was = G.bomb && G.bomb.id; G.bomb = { id: x.b[0], t: x.b[1] }; if (was != null && was !== x.b[0]) { beep(900, 0.06, 0.04); if (x.b[0] === G.me.id) cqToast('💣 Hai la bomba! Passala a qualcuno, presto!'); } }
       if (x.boom && (!G.boom || G.boom.t !== x.boom.t)) { G.boom = x.boom; beep(90, 0.5, 0.08); beep(60, 0.6, 0.08, 0.05); }
     },
-    // disegno: zombie con l'alone verde e le mani avanti; la bomba sopra la testa con i secondi
+    // zombie: il personaggio diventa verde marcio con le macchie
+    tint: c => c.z && c.alive ? { c: '#5e8a2e', a: 0.55, rot: 1, s: c.id } : null,
+    // disegno: zombie con le mani avanti e le bollicine verdi della puzza; la bomba sopra la testa con i secondi
     deco(g, c, X, Y, TW, G, L) {
       const u = TW / 34, f = c === G.me ? cq.face : c.face;
       if (c.z && c.alive) {
-        g.strokeStyle = 'rgba(120,220,80,.75)'; g.lineWidth = 2.5 * u; g.beginPath(); g.ellipse(X, Y, 15 * u, 6 * u, 0, 0, 7); g.stroke();
-        g.fillStyle = '#7cc45a'; for (const dy of [-21, -15]) { g.beginPath(); g.ellipse(X + f * 15 * u, Y + dy * u, 5 * u, 2.6 * u, 0, 0, 7); g.fill(); }
+        g.strokeStyle = 'rgba(120,200,70,.45)'; g.lineWidth = 2 * u; g.beginPath(); g.ellipse(X, Y, 15 * u, 6 * u, 0, 0, 7); g.stroke();
+        g.fillStyle = '#6f9a3e'; for (const dy of [-21, -15]) { g.beginPath(); g.ellipse(X + f * 15 * u, Y + dy * u, 5 * u, 2.6 * u, 0, 0, 7); g.fill(); }
+        // bollicine della puzza: salgono dalla testa, si allargano e spariscono
+        const top = Y - cqTop(L) * TW * 0.85, now = performance.now() / 1000;
+        for (let i = 0; i < 6; i++) {
+          const p = (now / 1.6 + i / 6 + c.id * 0.37) % 1, bx = X + ((i % 3) - 1) * 6 * u + Math.sin(p * 7 + i * 2) * 4 * u, by = top - p * 26 * u, r = (1.4 + p * 2.6) * u;
+          g.globalAlpha = Math.min(1, (1 - p) * 1.6) * 0.85;
+          g.fillStyle = 'rgba(140,210,70,.55)'; g.beginPath(); g.arc(bx, by, r, 0, 7); g.fill();
+          g.strokeStyle = '#a8e060'; g.lineWidth = 0.9 * u; g.stroke();
+          g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.arc(bx - r * 0.35, by - r * 0.35, r * 0.3, 0, 7); g.fill();
+        }
+        g.globalAlpha = 1;
         const k = G.time - (c.zt || -9); if (k >= 0 && k < 0.7) { g.strokeStyle = 'rgba(140,240,90,' + (1 - k / 0.7) + ')'; g.lineWidth = 3 * u; g.beginPath(); g.ellipse(X, Y - 20 * u, (12 + 50 * k) * u, (8 + 30 * k) * u, 0, 0, 7); g.stroke(); }
       }
       if (G.bomb && G.bomb.id === c.id && c.alive) {

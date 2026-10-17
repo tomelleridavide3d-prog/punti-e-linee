@@ -4644,8 +4644,8 @@ function cqDraw() {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face, a: G.time - b.t });
     for (const ch of G.chars) {
       if (ch === G.me && G.hall && !ch.alive) continue;
-      if (ch === G.me) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, ghost: G.mode && !ch.alive, ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      if (ch === G.me) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
+      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push({ mo: G.mode ? ch : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
     for (const C of cqOtherClones()) if (seen(C.x, C.y)) list.push({ x: C.x, y: C.y, L: C.o.look, w: C.walk, f: C.face, name: C.o.name });
@@ -4817,9 +4817,28 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     else if (c.trap) T.trap(c.x, c.y);
     else if (c.adv || c.rf) { if (c.adv) cqBody(g, X, Y, TW, CQ_ADV_LOOK, 1); if (c.rf) T.rifle(c.x + (c.adv ? 0.4 : 0), c.y + (c.adv ? 0.3 : 0)); }
     else if (c.ang != null && c.ang < 2.6) cqAngel(g, X, Y, TW, c.L, c.w, c.f, c.ang);
+    else if (c.tint) cqPlayerTint(g, X, Y, TW, c.L, c.w, c.f, c.tint);
     else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y, TW, c.L, c.w, c.f); g.globalAlpha = 1; }
   }
   g.restore();
+}
+// personaggio trasformato (giochi del motore, es. lo zombie): si disegna a parte, si colora solo la sua sagoma (con le macchie) e si incolla.
+// T = { c: colore, a: quanto copre, rot: macchie, s: numero del personaggio (le macchie restano sempre uguali) }
+function cqPlayerTint(g, X, Y, TW, L, walk, f, T) {
+  const k = g.getTransform().a || 1, u = TW / 34, w = Math.ceil(TW * 2.4), h = Math.ceil(TW * 3), ox = w / 2, oy = TW * 2.6;
+  const c = cq.tc || (cq.tc = document.createElement('canvas')), t = c.getContext('2d', CQ_CPU);
+  if (c.width < w * k || c.height < h * k) { c.width = Math.ceil(w * k); c.height = Math.ceil(h * k); }
+  t.setTransform(1, 0, 0, 1, 0, 0); t.clearRect(0, 0, c.width, c.height); t.setTransform(k, 0, 0, k, 0, 0);
+  g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill();
+  cqPlayer(t, ox, oy, TW, L, walk, f, true);
+  t.globalCompositeOperation = 'source-atop';
+  t.globalAlpha = T.a; t.fillStyle = T.c; t.fillRect(0, 0, w, h); t.globalAlpha = 1;
+  if (T.rot) {
+    let s = (T.s || 0) * 7919 + 13; const r = () => (s = (s * 9301 + 49297) % 233280) / 233280, bob = Math.abs(Math.sin(walk)) * 4 * u;
+    for (let i = 0; i < 8; i++) { t.fillStyle = i % 3 ? 'rgba(45,75,25,.5)' : 'rgba(70,50,30,.5)'; t.beginPath(); t.ellipse(ox + (r() - 0.5) * 24 * u, oy - bob - (4 + r() * 36) * u, (1.8 + r() * 3) * u, (1.4 + r() * 2.4) * u, r() * 3, 0, 7); t.fill(); }
+  }
+  t.globalCompositeOperation = 'source-over';
+  g.drawImage(c, 0, 0, w * k, h * k, X - ox, Y - oy, w, h);
 }
 // fiamme del falo': piu' alte con piu' legna, tremolano
 function cqFlames(g, X, Y, TW, fuel) {
