@@ -1,12 +1,12 @@
 // Ruba la bandiera al buio (a squadre). Gioco del motore: si registra in CQ_MODES (vedi "MOTORE DEI GIOCHI" in index.html).
-// Due squadre (Rossi e Blu) nel bosco di notte, ognuna con la sua bandiera alla base, ai lati opposti della mappa.
+// Due squadre (Rossi e Blu) sul set al buio (per ora solo la mappa studio), ognuna con la sua bandiera alla base, ai lati opposti della mappa.
 // Si ruba la bandiera nemica passandoci sopra e si segna portandola alla propria base (solo se la propria e' a casa).
 // Nella propria meta' si prende chi viene dall'altra squadra: torna alla sua base fermo qualche secondo e, se aveva la bandiera, la lascia cadere.
 // Una bandiera a terra la riporta a casa un compagno toccandola (o torna da sola dopo un po').
 // Torcia accesa = vedi lontano ma ti vedono da lontano; spenta = vedi poco ma sei quasi invisibile. I compagni si vedono e si sentono sempre.
 // MODULO SQUADRE (riusabile per altri giochi a squadre): TEAMS, team(), side(), base, punteggio G.sc.
 (() => {
-  const TOUCH = 0.75, GRAB = 0.9, HOME = 1.4, ZONE = 2.2, JAIL = 5, SAFE = 2, BACK = 20, CARRY = 0.95;
+  const TOUCH = 0.75, GRAB = 0.9, HOME = 1.4, ZONE = 2.2, JAIL = 5, SAFE = 2, BACK = 20, CARRY = 1;
   const SEE_ON = 7, SEE_OFF = 3, SEEN_ON = 15, SEEN_OFF = 2.4;   // fin dove vedo (torcia accesa/spenta), fin dove mi vedono i nemici
   const TEAMS = [{ n: 'Rossi', f: 'rossa', c: '#e04848', l: '#ff8a80', e: '🔴' }, { n: 'Blu', f: 'blu', c: '#3d7be0', l: '#8ab8ff', e: '🔵' }];
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
@@ -20,9 +20,9 @@
   const holding = (G, c) => G.F.find(f => f.st === 1 && f.c === c.id);
   const fpos = (G, f) => { if (f.st === 1) { const c = byId(G, f.c); if (c) return P(c); } return f.st === 0 ? G.B[f.t] : f; };
 
-  // basi: posti scelti dal seme della mappa (uguali su tutti i telefoni), ai due lati lunghi del bosco
-  function place(G) {
-    let s = ((cq.mapSeed | 0) ^ 0x5bd1) || 7; const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
+  // basi ai due lati lunghi della mappa: le sceglie a caso l'host (sd) e le manda agli amici nello stato (b)
+  function place(G, sd) {
+    let s = ((sd | 0) ^ 0x5bd1) || 7; const rnd = () => { s = (s * 1103515245 + 12345) & 0x7fffffff; return s / 0x7fffffff; };
     const area = (x0, y0, w, h) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (!cqCellFree(x, y)) return false; return true; };
     const pick = (x0, x1) => {
       for (let i = 0; i < 4000; i++) { const x = x0 + Math.floor(rnd() * (x1 - x0)), y = 6 + Math.floor(rnd() * (CQ_H - 12)); if (area(x - 1, y - 1, 3, 3)) return { x: x + 0.5, y: y + 0.5 }; }
@@ -118,14 +118,14 @@
 
   CQ_MODES.bandiera = {
     n: 'Ruba la bandiera',
-    desc: '🚩 Due squadre nel bosco di notte, <b>Rossi</b> e <b>Blu</b>. Ruba la bandiera nemica passandoci sopra e portala alla tua base (la tua deve essere a casa). Nella tua metà del bosco prendi chi viene dall\'altra squadra: torna alla sua base e lascia cadere la bandiera. 🔦 Torcia accesa: vedi lontano, ma ti vedono da lontano. Spenta: vedi poco, ma sei quasi invisibile. In vocale i compagni si sentono sempre, i nemici solo da vicino.',
-    maps: [['bosco', 'Bosco di notte']],
-    def: { time: 300, pts: 3, map: 'bosco', n: 8, fill: true },
+    desc: '🚩 Due squadre sul set al buio, <b>Rossi</b> e <b>Blu</b>. Ruba la bandiera nemica passandoci sopra e portala alla tua base (la tua deve essere a casa). Nella tua metà prendi chi viene dall\'altra squadra: torna alla sua base e lascia cadere la bandiera. 🔦 Torcia accesa: vedi lontano, ma ti vedono da lontano. Spenta: vedi poco, ma sei quasi invisibile. In vocale i compagni si sentono sempre, i nemici solo da vicino.',
+    maps: [['studio', 'Studio al buio']],
+    def: { time: 300, pts: 3, map: 'studio', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Punti per vincere</div>${seg('pts', [[3, '3'], [5, '5']], o.pts)}</div>
       <div class="row"><div class="lbl">Durata</div>${seg('time', [[180, '3:00'], [300, '5:00'], [420, '7:00']], o.time)}</div>`,
     read: d => ({ time: +d.get('time') || 300, pts: +d.get('pts') || 3 }),
     start(G) {
-      place(G);
+      place(G, 1 + Math.floor(Math.random() * 1e9));
       G.left = G.opt.time || 300;
       const sh = G.chars.slice().sort(() => Math.random() - 0.5);
       sh.forEach((c, i) => { c.t = i % 2; c.tc = false; c.jail = 0; c.safe = 0; c.pt = 0; c.tg = 0; c.st = 0; });
@@ -135,7 +135,7 @@
       }
       for (const c of G.chars) { const p = spawn(G, c.t); c.x = p.x; c.y = p.y; c.path = []; }
     },
-    gstart(G) { place(G); G.left = G.opt.time || 300; for (const c of G.chars) { c.tc = false; c.jail = 0; } },
+    gstart(G) { place(G, 7); G.left = G.opt.time || 300; for (const c of G.chars) { c.tc = false; c.jail = 0; } },
     intro: G => { const T = TEAMS[G.me.t || 0], E = TEAMS[1 - (G.me.t || 0)]; return T.e + ' Sei nei ' + T.n + ': ruba la bandiera ' + E.f + '!'; },
     speed: c => { const G = cq.g; return jailed(G, c) ? 0 : holding(G, c) ? CARRY : 1; },
     big(G) {
@@ -214,9 +214,9 @@
       if (!(c === G.me && G.time < (c.tcH || 0))) c.tc = !!a[2];
       c.pt = a[3]; c.st = a[4]; c.tg = a[5];
     },
-    snap: G => ({ left: Math.round(G.left * 10) / 10, sc: G.sc, f: G.F.map(f => [f.st, f.c, Math.round(f.x * 10) / 10, Math.round(f.y * 10) / 10, Math.round(f.dt * 10) / 10]), lg: G.lg }),
+    snap: G => ({ b: G.B.map(b => [b.x, b.y]), left: Math.round(G.left * 10) / 10, sc: G.sc, f: G.F.map(f => [f.st, f.c, Math.round(f.x * 10) / 10, Math.round(f.y * 10) / 10, Math.round(f.dt * 10) / 10]), lg: G.lg }),
     apply(G, x) {
-      G.left = x.left; G.sc = x.sc;
+      G.left = x.left; G.sc = x.sc; if (x.b) G.B = x.b.map(a => ({ x: a[0], y: a[1] }));
       x.f.forEach((a, i) => Object.assign(G.F[i], { st: a[0], c: a[1], x: a[2], y: a[3], dt: a[4] }));
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
