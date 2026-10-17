@@ -144,6 +144,9 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .gcard .gn.on i{background:var(--p2)}
 .gcard.soon{opacity:.75}
 #cqTitle{white-space:nowrap}
+#cqHear[data-n]:not([data-n=""])::after{content:attr(data-n);position:absolute;right:-4px;top:-6px;font:700 11px system-ui,sans-serif;background:#2fa35a;color:#fff;border-radius:9px;padding:1px 5px}
+#cqHear.vbad::after{background:#e2553a}
+#cqHear{position:relative}
 .gcard.hg{margin-top:8px;padding:10px;gap:12px;box-shadow:none}
 .gcard.hg .gi{width:52px;height:52px;font-size:30px}
 .soonTag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:8px;font-weight:600;vertical-align:2px}
@@ -2410,6 +2413,9 @@ function cqVoiceUI() {
   box.hidden = !N;
   $('#cqMic').classList.toggle('off', !cqV.mic); $('#cqMic').classList.toggle('live', !!cqV.mic);
   $('#cqHear').classList.toggle('off', !cqV.hear);
+  const others = N ? Object.keys(N.pl).filter(sid => sid !== N.sid).length : 0, ok = Object.values(cqV.peers).filter(P => P.pc.connectionState === 'connected').length;
+  const vb = others ? ok + '/' + others : ''; if ($('#cqHear').dataset.n !== vb) $('#cqHear').dataset.n = vb;
+  $('#cqHear').classList.toggle('vbad', !!others && ok < others);
   $('#cqRadio').hidden = !cqRadioOk(); $('#cqRadio').classList.toggle('live', !!cqV.radio); $('#cqRadio').classList.toggle('off', !cqV.radio);
 }
 // radio dei sabotatori: si puo' usare da sabotatore vivo, in partita, con l'opzione accesa e almeno un complice che e' una persona vera
@@ -2441,9 +2447,12 @@ function cqVoiceSend(P) {   // il mio microfono verso un amico, con priorita' al
 function cqVoiceSig(to, o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/rtc/${to}`), Object.assign({ f: N.sid }, o)).catch(() => {}); }
 function cqVoicePeer(sid, offer) {
   let P = cqV.peers[sid]; if (P) return P;
-  const pc = new RTCPeerConnection({ iceServers: CQ_ICE });
+  // se la rete e' giu' (o sta cambiando) il telefono rifiuta: si riprova al prossimo giro di cqVoiceSync (ogni 4 s)
+  let pc, tr = null;
+  try { pc = new RTCPeerConnection({ iceServers: CQ_ICE }); if (offer) tr = pc.addTransceiver('audio', { direction: 'sendrecv' }); }
+  catch (e) { console.warn('voce:', e); try { pc && pc.close(); } catch {} return null; }
   // chi propone crea il canale audio; chi risponde usa quello arrivato con la proposta (cqVoiceTr dopo setRemoteDescription)
-  P = cqV.peers[sid] = { pc, sid, q: [], tr: offer ? pc.addTransceiver('audio', { direction: 'sendrecv' }) : null, t0: Date.now() };
+  P = cqV.peers[sid] = { pc, sid, q: [], tr, t0: Date.now() };
   if (offer) cqVoiceTr(P);
   pc.onicecandidate = e => { if (e.candidate) cqVoiceSig(sid, { k: 'ice', d: JSON.stringify(e.candidate) }); };
   pc.ontrack = e => {
@@ -2461,16 +2470,28 @@ function cqVoicePeer(sid, offer) {
     } catch { P.direct = true; au.muted = false; }   // senza WebAudio: si sente comunque dall'<audio>
     cqVoiceVol();
   };
-  pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { cqVoiceDrop(sid); setTimeout(cqVoiceSync, 1500); } };
+  pc.onconnectionstatechange = () => {
+    const s = pc.connectionState;
+    if (s === 'connected') { P.ok = Date.now(); P.dis = 0; (cqV.fail || (cqV.fail = {}))[sid] = 0; }
+    if (s === 'disconnected') P.dis = Date.now();
+    if (s === 'failed') { cqVoiceBad(sid); cqVoiceDrop(sid); setTimeout(cqVoiceSync, 1500); }
+    cqVoiceUI();
+  };
   return P;
 }
 function cqVoiceTr(P) {
   P.tr = P.tr || P.pc.getTransceivers().find(t => t.receiver.track && t.receiver.track.kind === 'audio'); if (!P.tr) return;
   P.tr.direction = 'sendrecv'; cqVoiceSend(P);
 }
+// la voce con un amico non riesce a collegarsi: dopo 2 tentativi andati male lo si dice (una volta)
+function cqVoiceBad(sid) {
+  const f = cqV.fail || (cqV.fail = {}); f[sid] = (f[sid] || 0) + 1;
+  const N = cq.net, p = N && N.pl[sid]; if (f[sid] !== 2 || !p) return;
+  cqToast('🔇 La voce con <b>' + esc(String(p.name || 'un amico')) + '</b> non riesce a collegarsi: succede con alcune reti del telefono (4G). Il gioco funziona lo stesso, riprovo da solo.');
+}
 function cqVoiceDrop(sid) { const P = cqV.peers[sid]; if (!P) return; delete cqV.peers[sid]; try { P.pc.close(); } catch {} if (P.src) P.src.disconnect(); if (P.g) P.g.disconnect(); if (P.au) P.au.srcObject = null; }
 async function cqVoiceCall(sid) {
-  const P = cqVoicePeer(sid, true);
+  const P = cqVoicePeer(sid, true); if (!P) return;
   try { await P.pc.setLocalDescription(cqOpus(await P.pc.createOffer())); cqVoiceSig(sid, { k: 'offer', d: JSON.stringify(P.pc.localDescription) }); } catch (e) { console.warn(e); }
 }
 async function cqVoiceMsg(m) {
@@ -2479,6 +2500,7 @@ async function cqVoiceMsg(m) {
     if (m.k === 'offer') {
       if (cqV.peers[m.f] && cqV.peers[m.f].pc.signalingState !== 'stable') cqVoiceDrop(m.f);
       const P = cqV.peers[m.f] && cqV.peers[m.f].pc.remoteDescription ? (cqVoiceDrop(m.f), cqVoicePeer(m.f)) : cqVoicePeer(m.f);
+      if (!P) return;   // rete giu': chi ha proposto riprovera'
       await P.pc.setRemoteDescription(JSON.parse(m.d)); cqVoiceTr(P);
       for (const c of P.q.splice(0)) await P.pc.addIceCandidate(c).catch(() => {});
       await P.pc.setLocalDescription(cqOpus(await P.pc.createAnswer())); cqVoiceSig(m.f, { k: 'answer', d: JSON.stringify(P.pc.localDescription) });
@@ -2494,6 +2516,9 @@ async function cqVoiceMsg(m) {
 }
 // collegamenti con chi c'e' nel set (si chiama quando cambia la lista dei giocatori)
 function cqVoiceSync() {
+  try { cqVoiceSync0(); } catch (e) { console.warn('voce:', e); }
+}
+function cqVoiceSync0() {
   const N = cq.net; if (!N || !N.F || !hub.fb || !window.RTCPeerConnection) { cqVoiceUI(); return; }
   if (cqV.code !== N.code) {   // appena entrato nel set: ascolto i messaggi per me
     cqVoiceStop(true); cqV.code = N.code;
@@ -2502,8 +2527,13 @@ function cqVoiceSync() {
   }
   for (const sid of Object.keys(cqV.peers)) if (!N.pl[sid]) cqVoiceDrop(sid);
   for (const sid of Object.keys(N.pl)) if (sid !== N.sid && !cqV.peers[sid] && N.sid < sid) cqVoiceCall(sid);
-  // chi non risponde da 12 s: si riprova
-  for (const P of Object.values(cqV.peers)) if (N.sid < P.sid && P.pc.connectionState !== 'connected' && Date.now() - P.t0 > 12000) { cqVoiceDrop(P.sid); cqVoiceCall(P.sid); }
+  // chi non si collega da 15 s, o e' scollegato da 6 s (rete cambiata): si riprova (lo fa chi propone)
+  const now = Date.now();
+  for (const P of Object.values(cqV.peers)) {
+    if (N.sid > P.sid) continue;
+    const st = P.pc.connectionState, stuck = st !== 'connected' && st !== 'disconnected' && now - P.t0 > 15000, lost = st === 'disconnected' && P.dis && now - P.dis > 6000;
+    if (stuck || lost) { if (stuck) cqVoiceBad(P.sid); cqVoiceDrop(P.sid); cqVoiceCall(P.sid); }
+  }
   cqVoiceUI();
 }
 // volume delle voci: in partita secondo la distanza (piena entro 2 caselle, niente oltre 8); in riunione tutti a pieno volume; fuori partita tutti.
@@ -2524,6 +2554,7 @@ function cqVoiceVol() {
 const cqVBuf = new Uint8Array(256);
 function cqVoiceTick(dt) {
   if ((cqV.t = (cqV.t || 0) - dt) > 0) return; cqV.t = 0.1;
+  if (cq.net && (cqV.st = (cqV.st || 0) - 0.1) <= 0) { cqV.st = 4; cqVoiceSync(); }
   const ok = cqRadioOk(); if (cqV.radio && !ok) cqRadioSet(false);
   if (ok !== cqV.rOk) { cqV.rOk = ok; cqVoiceUI(); }
   cqVoiceVol();
@@ -2549,6 +2580,12 @@ async function cqVoiceMic() {
   } catch { cqToast('🎤 Il microfono non è disponibile: controlla il permesso nelle impostazioni del browser.'); }
   cqVoiceUI();
 }
+window.addEventListener('online', () => setTimeout(cqVoiceSync, 800));
+document.addEventListener('pointerdown', () => {
+  if (!Object.keys(cqV.peers).length) return;
+  try { if (actx && actx.state === 'suspended') actx.resume(); } catch {}
+  for (const P of Object.values(cqV.peers)) if (P.au && P.au.paused && P.au.srcObject) P.au.play().catch(() => {});
+}, true);
 function cqVoiceStop(keepCode) {
   for (const sid of Object.keys(cqV.peers)) cqVoiceDrop(sid);
   if (cqV.unsub) { try { cqV.unsub(); } catch {} cqV.unsub = null; }
@@ -4250,7 +4287,7 @@ function cqFrame(t) {
   if (playing) { if (!G.guest) (G.mode ? cqModeTick : cqBots)(dt); cqCloneStep(dt); }
   if (G && G.hall) cqHallTick(dt);
   if (cq.net) cqNetTick(dt);
-  if (cq.net && actx) cqVoiceTick(dt);
+  if (cq.net) cqVoiceTick(dt);
   // musichetta di sottofondo (si spegne col pulsante o con i suoni)
   if (G && (playing || G.hall) && store.settings.music !== false && store.settings.sound && (cq.mT = (cq.mT || 0) - dt) <= 0) {
     const sab = !!G.sab, M = sab ? CQ_SAB_SONG : CQ_SONGS[G.song || 0] || CQ_SONGS[0]; cq.mT = M.st; cq.mI = ((cq.mI || 0) + 1) % 16;
