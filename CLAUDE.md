@@ -238,7 +238,15 @@ Ordine: 1 centro giochi + motore; 2 Infezione + Bomba; 3 Mostro della notte; 4 R
   - Squadre (modulo squadre) raccolgono FRAMMENTI DI MAPPA (modulo oggetti, come i pezzi della zattera): ogni frammento rivela un pezzo del labirinto sulla minimappa della squadra; con N frammenti si scopre l'uscita e si scappa. Il MINOTAURO (un giocatore, o il computer se nessuno) caccia: piu' veloce in corsa dritta, lento a girare, sente i passi; chi viene preso e' fuori (fantasma) o perde i frammenti.
   - SEGNI COL GESSO: pulsante per lasciare un segno sul pavimento (frecce/colori della squadra) per orientarsi; il Minotauro li vede e puo' cancellarli.
   - Buio/torce come nelle rovine di Naufraghi (maschera esatta della stanza o raggio di torcia: da decidere), voce di squadra (compagni sempre, altri da vicino).
-  - DA CHIEDERE: Minotauro giocatore a turno o sempre computer? Si vince da soli (prima squadra che esce) o tutti insieme contro il Minotauro? Quanti frammenti? Muri che si spostano ogni quanto? Cosa succede a chi viene preso?
+  - DECISIONI DELL'UTENTE (17-10-2026, risposte a scelta multipla, da confermare in apertura e chiedere se ha altre precisazioni):
+    - MINOTAURO = un giocatore a caso a ogni partita (da solo o se serve: il computer).
+    - SQUADRE RIVALI: vince la prima squadra che trova l'uscita e scappa; il Minotauro caccia tutti.
+    - Chi viene preso dal Minotauro diventa SUBITO FANTASMA (guarda, non parla, come in Naufraghi).
+    - 4 FRAMMENTI DI MAPPA per squadra per scoprire l'uscita.
+    - MURI CHE CAMBIANO: opzione 30 / 45 / 60 / 80 s (default 60). L'utente vuole che cambino anche i MURI VERI (non solo alcune porte): a ogni cambio si rimescola una parte del labirinto (proposta: ~un quarto), avviso 5 s prima con rumore di pietra, il labirinto resta sempre risolvibile (verificare con flood da ogni personaggio a uscita e frammenti), le celle con un personaggio non cambiano (nessuno resta chiuso dentro). Sync online: l'host decide e manda le celle cambiate (o un seme + numero del cambio).
+    - LUCE: buio con la torcia (vedi intorno a te; torce sui muri fanno un po' di luce; il Minotauro vede un po' piu' lontano).
+    - POTERI DEL MINOTAURO: SENTE I PASSI (impronte di chi corre che brillano solo per lui) e MUGGITO (scuote lo schermo agli esploratori vicini e li rallenta 3 s). NON carica in corsa, NON cancella i segni (i segni col gesso restano: chiedere se tenerli).
+    - ESPLORATORI: nessuna difesa, solo scappare e nascondersi.
 - Ricordare: pulsante unico con priorita' (come action() di Naufraghi), scritte gia' in riquadri (CSS comune), prove con prove/cdp.mjs (CPU=4 per la fluidita') e cdp2.mjs (online), nomi zz* da cancellare, Edge headless da chiudere.
 
 - APP SUL TELEFONO (17-10-2026): manifest.json (nome "Giochi di Tomelleri Davide", sotto l'icona "Giochi", standalone, verticale) + icona-192/512.png e icona-apple.png (simbolo dei punti e linee, generate con una tela in Edge headless). Niente service worker apposta: cosi' gli aggiornamenti arrivano sempre subito. Si installa da Chrome (menu ⋮ > Aggiungi a schermata Home / Installa app) o da Safari (Condividi > Aggiungi alla schermata Home).
