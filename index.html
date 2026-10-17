@@ -153,6 +153,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #ciack .cqVoice .btn.off{opacity:.45}
 #ciack .cqVoice .btn.off::after{content:'';position:absolute;left:8px;right:8px;top:50%;height:3px;background:#e2553a;transform:rotate(-40deg);border-radius:2px}
 #ciack .cqVoice .btn.live{box-shadow:0 0 0 3px #3ac26a}
+#ciack .cqVoice #cqRadio.live{box-shadow:0 0 0 3px #e2553a}
 #ciack .ctop b{font-size:17px}
 #cqPick{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
 #cqPick .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:380px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
@@ -324,7 +325,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 <div id="ciack" hidden>
   <canvas id="cqCanvas"></canvas>
   <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
-  <div class="cqVoice" id="cqVoice" hidden><button class="btn" id="cqMic" type="button" title="Il tuo microfono">🎤</button><button class="btn" id="cqHear" type="button" title="Senti gli amici">🗣️</button></div>
+  <div class="cqVoice" id="cqVoice" hidden><button class="btn" id="cqMic" type="button" title="Il tuo microfono">🎤</button><button class="btn" id="cqHear" type="button" title="Senti gli amici">🗣️</button><button class="btn" id="cqRadio" type="button" title="Radio dei sabotatori: parla solo con i complici" hidden>📻</button></div>
   <div id="cqPick" hidden><div class="pk">
     <h2>Scegli il personaggio</h2>
     <canvas id="cqPrev"></canvas>
@@ -2360,6 +2361,21 @@ function cqVoiceUI() {
   box.hidden = !N;
   $('#cqMic').classList.toggle('off', !cqV.mic); $('#cqMic').classList.toggle('live', !!cqV.mic);
   $('#cqHear').classList.toggle('off', !cqV.hear);
+  $('#cqRadio').hidden = !cqRadioOk(); $('#cqRadio').classList.toggle('live', !!cqV.radio); $('#cqRadio').classList.toggle('off', !cqV.radio);
+}
+// radio dei sabotatori: si puo' usare da sabotatore vivo, in partita, con l'opzione accesa e almeno un complice che e' una persona vera
+const cqImpSid = sid => { const G = cq.g, c = G && G.chars.find(o => o.sid === sid); return !!(c && c.imp && c.alive); };
+function cqRadioOk() {
+  const G = cq.g, N = cq.net;
+  return !!(N && G && G.phase === 'play' && G.opt && G.opt.radio !== false && G.me.imp && G.me.alive && G.chars.some(c => c !== G.me && c.imp && c.alive && c.sid && N.pl[c.sid]));
+}
+// la radio accesa si scrive accanto al mio nome nel set (pl/<sid>/r): i complici la sentono forte ovunque
+function cqRadioSet(on) {
+  const N = cq.net; on = !!on && cqRadioOk(); if (!!cqV.radio === on) { cqVoiceUI(); return; }
+  cqV.radio = on;
+  if (N) N.F.set(cqNetRef(`cq/${N.code}/pl/${N.sid}/r`), on ? 1 : null).catch(() => {});
+  for (const P of Object.values(cqV.peers)) cqVoiceSend(P);
+  cqVoiceUI();
 }
 function cqOpus(d) {
   const m = /a=rtpmap:(\d+) opus\/48000/i.exec(d.sdp); if (!m) return d;
@@ -2370,7 +2386,7 @@ function cqOpus(d) {
 }
 function cqVoiceSend(P) {   // il mio microfono verso un amico, con priorita' alta
   const sd = P.tr && P.tr.sender; if (!sd) return;
-  sd.replaceTrack(cqV.mic ? cqV.mic.getAudioTracks()[0] : null).catch(() => {});
+  sd.replaceTrack(cqV.mic && (!cqV.radio || cqImpSid(P.sid)) ? cqV.mic.getAudioTracks()[0] : null).catch(() => {});
   try { const p = sd.getParameters(); if (p.encodings && p.encodings[0]) { p.encodings[0].maxBitrate = 48000; p.encodings[0].priority = 'high'; p.encodings[0].networkPriority = 'high'; sd.setParameters(p).catch(() => {}); } } catch {}
 }
 function cqVoiceSig(to, o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/rtc/${to}`), Object.assign({ f: N.sid }, o)).catch(() => {}); }
@@ -2449,7 +2465,9 @@ function cqVoiceVol() {
     if (!P.g && !P.direct) continue;
     let v = on ? 1 : 0;
     const c = (play || meet) && G.chars.find(o => o.sid === P.sid);
-    if (v && c && G.me.alive) v = !c.alive ? 0 : meet ? 1 : Math.max(0, Math.min(1, 1 - (Math.hypot(c.x - cq.x, c.y - cq.y) - 2) / 6));
+    const rad = c && c.alive && c.imp && cq.net && cq.net.pl[P.sid] && cq.net.pl[P.sid].r;
+    if (v && rad) v = G.me.imp && G.me.alive ? 1 : 0;
+    else if (v && c && G.me.alive) v = !c.alive ? 0 : meet ? 1 : Math.max(0, Math.min(1, 1 - (Math.hypot(c.x - cq.x, c.y - cq.y) - 2) / 6));
     if (P.direct) { P.v += (v - P.v) * 0.6; if (Math.abs(P.v - v) < 0.02) P.v = v; if (P.au) P.au.volume = Math.max(0, Math.min(1, P.v)); }
     else P.g.gain.setTargetAtTime(v, actx.currentTime, 0.08);
   }
@@ -2457,6 +2475,8 @@ function cqVoiceVol() {
 const cqVBuf = new Uint8Array(256);
 function cqVoiceTick(dt) {
   if ((cqV.t = (cqV.t || 0) - dt) > 0) return; cqV.t = 0.1;
+  const ok = cqRadioOk(); if (cqV.radio && !ok) cqRadioSet(false);
+  if (ok !== cqV.rOk) { cqV.rOk = ok; cqVoiceUI(); }
   cqVoiceVol();
   const G = cq.g, now = performance.now();
   for (const P of Object.values(cqV.peers)) {
@@ -2483,6 +2503,7 @@ async function cqVoiceMic() {
 function cqVoiceStop(keepCode) {
   for (const sid of Object.keys(cqV.peers)) cqVoiceDrop(sid);
   if (cqV.unsub) { try { cqV.unsub(); } catch {} cqV.unsub = null; }
+  cqV.radio = false;
   if (!keepCode) { if (cqV.mic) { cqV.mic.getTracks().forEach(t => t.stop()); cqV.mic = null; } cqV.code = null; }
   cqVoiceUI();
 }
@@ -2741,7 +2762,7 @@ function cqNetMeet(mt) {
 const CQ_NAMES = ['Bruno', 'Carla', 'Dario', 'Elena', 'Fabio', 'Gina', 'Ivo', 'Lia', 'Marco', 'Nina', 'Otto', 'Pia'];
 const CQ_VIS = 5;
 // impostazioni della partita (ricordate); map = mappa scelta ('rnd' = casuale)
-const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: true, fill: true, map: 'studio' };
+const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: true, fill: true, radio: true, map: 'studio' };
 const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
 const cqMaxImps = n => n <= 5 ? 1 : n <= 7 ? 2 : 3;
 const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
@@ -2786,11 +2807,12 @@ function cqLobby() {
     <div class="row"><div class="lbl">Attesa tra un'eliminazione e l'altra</div>${seg('kcd', [[20, '20 s'], [30, '30 s'], [45, '45 s']], o.kcd)}</div>
     <div class="row"><div class="lbl">Blackout casuali</div>${seg('blackout', [[1, 'Sì'], [0, 'No']], o.blackout ? 1 : 0)}<div class="hint">Ogni tanto salta la luce da sola: qualcuno deve riaccendere gli interruttori.</div></div>
     <div class="row"><div class="lbl">Riempi i posti liberi con il computer</div>${seg('fill', [[1, 'Sì'], [0, 'No']], o.fill ? 1 : 0)}<div class="hint">Giocando con gli amici: con "No" la partita è solo tra voi (con meno di 3 persone ne servono comunque 3).</div></div>
+    <div class="row"><div class="lbl">Radio dei sabotatori</div>${seg('radio', [[1, 'Sì'], [0, 'No']], o.radio !== false ? 1 : 0)}<div class="hint">Con la chat vocale: i sabotatori (se sono almeno 2 persone vere) hanno 📻 per parlare solo tra loro, da ogni punto della mappa.</div></div>
     <div class="row"><div class="lbl">Torcia al buio</div>${seg('torch', [[1, 'Sì'], [0, 'No']], o.torch ? 1 : 0)}<div class="hint">Al buio vedi un fascio di luce davanti a te invece di un piccolo cerchio.</div></div>
     <div class="row"><div class="lbl">Oggetti da portare (al massimo 2)</div><div class="bagPick" id="lbBag"></div></div>
   </form><button class="btn" id="lbShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn primary go" id="lbGo" type="button">Si gira!</button>`;
   const f = $('#lbF');
-  const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1', fill: d.get('fill') !== '0', map: d.get('map') || 'studio' }; };
+  const read = () => { const d = new FormData(f), n = +d.get('n'); return { n, imps: Math.min(+d.get('imps'), cqMaxImps(n)), tasks: +d.get('tasks'), kcd: +d.get('kcd'), blackout: d.get('blackout') === '1', torch: d.get('torch') === '1', fill: d.get('fill') !== '0', radio: d.get('radio') !== '0', map: d.get('map') || 'studio' }; };
   f.querySelectorAll('input[name=map]').forEach(i => { if (CQ_MAPS[i.value] && !cqMapOk(i.value)) i.disabled = true; });
   const sync = () => { const r = read(); f.querySelectorAll('input[name=imps]').forEach(i => { i.disabled = +i.value > cqMaxImps(r.n); if (+i.value === r.imps) i.checked = true; }); $('#lbImpH').textContent = r.n <= 5 ? 'Con 4 personaggi c\'è un solo sabotatore.' : r.n <= 7 ? 'Con 6 personaggi al massimo 2 sabotatori.' : ''; };
   f.oninput = sync; sync();
@@ -3699,6 +3721,11 @@ function cqInit() {
   $('#cqLookBtn').onclick = cqOpenPick;
   const mus = () => { $('#cqMusic').style.opacity = store.settings.music === false ? 0.4 : 1; };
   $('#cqMic').onclick = () => cqVoiceMic();
+  $('#cqRadio').onclick = async () => {
+    if (cqV.radio) { cqRadioSet(false); cqToast('📻 Radio spenta: ora parli normalmente.'); return; }
+    if (!cqV.mic) await cqVoiceMic(); if (!cqV.mic) return;
+    cqRadioSet(true); cqToast('📻 Radio accesa: ti sentono solo i complici, ovunque siano.');
+  };
   $('#cqHear').onclick = () => { cqV.hear = !cqV.hear; cqVoiceVol(); cqVoiceUI(); cqToast(cqV.hear ? '🗣️ Senti di nuovo gli amici.' : '🗣️ Voci degli amici spente.'); };
   $('#cqMusic').onclick = () => { store.settings.music = store.settings.music === false; saveStore(); mus(); };
   mus();
