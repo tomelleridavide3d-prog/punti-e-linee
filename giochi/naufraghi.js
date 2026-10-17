@@ -619,7 +619,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   CQ_MODES.naufraghi = {
     n: 'Naufraghi',
     desc: '🏝️ Due squadre naufragate, <b>Granchi</b> 🦀 e <b>Delfini</b> 🐬, su un\'isola diversa ogni volta. Costruite la <b>zattera</b> al vostro campo: 4 tronchi 🪵, 2 corde 🪢 (poche!), la <b>vela</b> ⛵ (una sola) e la <b>bussola</b> 🧭 (una sola, nel cuore delle rovine). Salpa chi la finisce per primo. Un pezzo alla volta in mano. Si ruba tutto: da terra, toccando chi porta un pezzo, o dalla zattera nemica. 🔪 Gli avversari si colpiscono: 2 vite, poi fantasma. 🌿 Nasconditi nei cespugli o dietro le grandi rocce per le imboscate. ⛰️ Sulla cima: forziere 💰 e mercante 🛒. Nelle rovine servono almeno in due: pedane, leva e la porta degli ingranaggi. A metà partita scende la notte.',
-    maps: [['isola', 'Isola misteriosa']], TEAMS, SHOP, soft: true,   // scritte piccole in un riquadro (motore: #ciack.softTxt)
+    maps: [['isola', 'Isola misteriosa']], TEAMS, SHOP,
     def: { time: 420, map: 'isola', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Durata</div>${seg('time', [[300, '5:00'], [420, '7:00'], [600, '10:00']], o.time || 420)}</div>`,
     read: d => ({ time: +d.get('time') || 420 }),

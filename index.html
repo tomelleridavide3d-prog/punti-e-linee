@@ -197,10 +197,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #cqHallBar{position:absolute;left:12px;right:12px;top:62px;background:rgba(20,22,28,.72);color:#fff;border-radius:12px;padding:8px 12px;font-size:14px;pointer-events:none;display:flex;flex-direction:column;gap:2px}
 #cqHallBar span{font-size:13px;opacity:.9}
 #cqModeBar{position:absolute;left:12px;right:12px;top:62px;background:rgba(20,22,28,.72);color:#fff;border-radius:12px;padding:8px 12px;font-size:14px;font-weight:600;pointer-events:none;text-align:center}
-#cqCount{position:absolute;left:0;right:0;top:34%;text-align:center;font-size:30px;font-weight:800;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.6);pointer-events:none}
-/* giochi con M.soft (es. Naufraghi): scritte in un riquadro semitrasparente in alto, piu piccole, che non coprono il personaggio */
-#ciack.softTxt #cqCount{top:158px;left:50%;right:auto;transform:translateX(-50%);width:max-content;max-width:86%;font-size:15px;font-weight:700;line-height:1.35;background:rgba(20,22,26,.62);padding:8px 14px;border-radius:12px;text-shadow:none;box-shadow:0 3px 10px rgba(0,0,0,.25)}
-#ciack.softTxt #cqToast{background:rgba(20,22,26,.72);font-size:13px;top:auto;bottom:245px}
+/* scritte grandi del gioco: riquadro scuro semitrasparente in alto, che non copre i personaggi (tutti i giochi) */
+#cqCount{position:absolute;top:158px;left:50%;transform:translateX(-50%);width:max-content;max-width:86%;text-align:center;font-size:15px;font-weight:700;line-height:1.35;color:#fff;background:rgba(20,22,26,.62);padding:8px 14px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.25);pointer-events:none}
 #ciack.hallMode #cqHud,#ciack.hallMode #cqUse,#ciack.hallMode #cqMapBtn,#ciack.hallMode #cqItems,#ciack.hallMode #cqSabBtn,#ciack.hallMode #cqShoot{display:none!important}
 #cqMapC{display:block;width:100%;background:var(--bg);border-radius:12px}
 .tg-track{position:relative;height:30px;background:var(--bg);border-radius:15px;overflow:hidden;margin:18px 0 8px;border:1px solid var(--line)}
@@ -240,7 +238,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #cqItems{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;display:flex;flex-wrap:wrap-reverse;justify-content:center;gap:8px;max-width:160px}
 #cqItems button{width:58px;height:58px;border-radius:14px;border:2px solid rgba(242,194,48,.6);background:rgba(20,22,26,.8);color:#fff;font-size:24px;line-height:1;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:2px}
 #cqItems small{font-size:8.5px;font-weight:700;line-height:1.05;max-width:54px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-#cqToast{position:absolute;left:50%;top:38%;transform:translateX(-50%);background:rgba(20,22,26,.9);color:#fff;padding:10px 16px;border-radius:12px;font-weight:600;font-size:14px;text-align:center;max-width:82%;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#cqToast{position:absolute;left:50%;bottom:245px;transform:translateX(-50%);background:rgba(20,22,26,.72);color:#fff;padding:9px 14px;border-radius:12px;font-weight:600;font-size:13px;text-align:center;max-width:82%;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 .rar{font-size:11px;font-weight:700;opacity:.9}
 .shTop{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .shTop .coin{font-weight:800;color:#e0a800;font-size:20px}
@@ -3136,7 +3134,6 @@ function cqModeTick(dt) {
 function cqModeHud() {
   const G = cq.g, M = G.M, bar = $('#cqModeBar'), t = M.hud ? M.hud(G) : M.n;
   if (bar.innerHTML !== t) bar.innerHTML = t;
-  { const ck = $('#ciack'); if (ck.classList.contains('softTxt') !== !!M.soft) ck.classList.toggle('softTxt', !!M.soft); }   // M.soft: scritte piccole in un riquadro
   const kb = $('#cqKill'), b = M.btn && G.phase === 'play' && G.pre <= 0 ? M.btn(G) : null;
   if (kb.hidden === !!b) kb.hidden = !b;
   if (b) { if (kb.textContent !== b.t) kb.textContent = b.t; if (kb.classList.contains('on') !== !!b.on) kb.classList.toggle('on', !!b.on); }
@@ -3250,7 +3247,6 @@ function cqHallReset() {
 function cqHallExit() { if (cq.g && cq.g.hall) cq.g = null; cqHallUI(false); if (cq.map === 'hotel') cqUseMap('studio'); }
 function cqHallUI(on) {
   if (on) cqTitle('🏨 Hotel');
-  $('#ciack').classList.remove('softTxt');
   $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = true;
   $('#cqHallBar').hidden = !on; $('#cqHallSet').hidden = !on; if (!on) $('#cqCount').hidden = true;
   if (!on) { $('#cqKill').hidden = true; }
