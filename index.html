@@ -2372,25 +2372,59 @@ function cqNetWatch() {
   if (!WEB || cq.setsUnsub) return;
   hubLoad().then(F => {
     if (!cq.on || cq.setsUnsub) return;
-    cq.setsUnsub = F.onValue(F.ref(F.db, 'cqlist'), s => { cq.sets = s.val() || {}; if ($('#lbNet') && !(cq.net && cq.net.role === 'host')) cqNetBox(); }, () => {});
+    cq.setsUnsub = F.onValue(F.ref(F.db, 'cqlist'), s => {
+      cq.sets = s.val() || {}; const S = cq.setsSeen || (cq.setsSeen = {}), now = Date.now();
+      for (const [k, v] of Object.entries(cq.sets)) if (!S[k] || S[k].ts !== (v && v.ts)) S[k] = { ts: v && v.ts, at: !S[k] && v && now - v.ts > 600000 ? 0 : now };   // gia' vecchio di 10 minuti quando lo vedo: fermo
+      if ($('#lbNet') && !(cq.net && cq.net.role === 'host')) cqNetBox();
+    }, () => {});
+    // ogni 15 s: i set fermi spariscono dalla lista; quelli fermi da 2 minuti si cancellano (non il mio, se ci sono dentro)
+    clearInterval(cq.setsI); cq.setsI = setInterval(() => {
+      if (!cq.on) return; const S = cq.setsSeen || {}, now = Date.now();
+      for (const k of Object.keys(cq.sets || {})) if (S[k] && now - S[k].at > 120000 && !(cq.net && cq.net.code === k)) { delete S[k]; F.remove(F.ref(F.db, 'cqlist/' + k)).catch(() => {}); F.remove(F.ref(F.db, 'cq/' + k)).catch(() => {}); }
+      if ($('#lbNet') && !(cq.net && cq.net.role === 'host')) cqNetBox();
+    }, 15000);
   }).catch(() => {});
 }
 async function cqNetOpen(code, role) {
   const F = await hubLoad();
   cqNetLeave();
   const N = cq.net = { role, code, sid: hub.sid, F, unsubs: [], pl: {}, pos: {}, sent: 0, posT: 0, open: 1 };
+  // iscrizione al set: il mio nome in pl e cosa togliere se cade la connessione. Firebase esegue queste "pulizie" UNA volta sola:
+  // dopo un buco di rete (il telefono si riconnette) bisogna rifarle e rimettere il nome (N.arm), altrimenti per gli altri sono uscito
   const r = cqNetRef(`cq/${code}/pl/${N.sid}`);
-  F.onDisconnect(r).remove(); F.onDisconnect(cqNetRef(`cq/${code}/pos/${N.sid}`)).remove();
-  await F.set(r, { name: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', look: cqLook(), ts: Date.now() });
-  N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/pl`), s => { N.pl = s.val() || {}; cqNetPlayers(); }));
+  N.arm = () => {
+    for (const k of ['pl', 'pos', 'hl', 'hk', 'rtc']) F.onDisconnect(cqNetRef(`cq/${code}/${k}/${N.sid}`)).remove();
+    if (N.role === 'host') { F.onDisconnect(cqNetRef('cqlist/' + code)).remove(); F.onDisconnect(cqNetRef('cq/' + code)).remove(); }
+    return F.set(r, { name: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', look: cqLook(), ts: Date.now() });
+  };
+  await N.arm(); N.live = true;
+  N.seen = {};
+  N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/pl`), s => {
+    N.pl = s.val() || {};
+    // quando e' cambiato l'ultimo "sono qui" di ognuno (con l'orologio di questo telefono: gli orologi dei telefoni non coincidono)
+    for (const [sid, p] of Object.entries(N.pl)) if (!N.seen[sid] || N.seen[sid].ts !== p.ts) N.seen[sid] = { ts: p.ts, at: Date.now() };
+    // non ci sono piu' nella lista ma sono ancora nel set (buco di rete, o tolto perche' il telefono dormiva): mi rimetto
+    if (cq.net === N && N.live && !N.pl[N.sid] && Date.now() - (N.healT || 0) > 3000) { N.healT = Date.now(); N.arm().catch(() => {}); }
+    cqNetPlayers();
+  }));
+  // connessione tornata: pulizie e nome di nuovo
+  N.unsubs.push(F.onValue(F.ref(F.db, '.info/connected'), sn => { if (sn.val() === true && cq.net === N && N.live) { N.arm().then(() => { if (N.role === 'host') cqNetList(); }).catch(() => {}); } }));
+  // "sono qui" ogni 10 s; chi ha creato il set toglie chi non si fa sentire da 40 s (app chiusa o telefono spento senza uscire)
+  N.hbI = setInterval(() => {
+    if (cq.net !== N) { clearInterval(N.hbI); return; }
+    if (!N.pl[N.sid]) N.arm().catch(() => {});   // tolto mentre il telefono dormiva: rientro
+    else F.set(cqNetRef(`cq/${code}/pl/${N.sid}/ts`), Date.now()).catch(() => {});
+    if (N.role !== 'host') return;
+    cqNetList();
+    const now = Date.now();
+    for (const sid of Object.keys(N.pl)) if (sid !== N.sid && N.seen[sid] && now - N.seen[sid].at > 40000) { delete N.seen[sid]; for (const k of ['pl', 'pos', 'hl']) F.remove(cqNetRef(`cq/${code}/${k}/${sid}`)).catch(() => {}); }
+  }, 10000);
   // hall: stato di tutti, scherzi per me, conto alla rovescia dell'host
-  F.onDisconnect(cqNetRef(`cq/${code}/hl/${N.sid}`)).remove(); F.onDisconnect(cqNetRef(`cq/${code}/hk/${N.sid}`)).remove();
   N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hl`), s => { N.hl = s.val() || {}; }));
   N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) cqHallDie(G.me, String(v.n || '').slice(0, 14)); }));
   if (role !== 'host') N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hc`), s => { const v = s.val(); N.hc = v ? v.n : null; }));
   if (cq.g && cq.g.hall) cqHallReset();
   if (role === 'host') {
-    F.onDisconnect(cqNetRef('cqlist/' + code)).remove(); F.onDisconnect(cqNetRef('cq/' + code)).remove();
     cqNetList();
     N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/pos`), s => { N.pos = s.val() || {}; }));
     N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/ev`), s => { const v = s.val(); F.remove(s.ref).catch(() => {}); try { cqNetEvent(v.s, JSON.parse(v.m)); } catch (e) { console.warn(e); } }));
@@ -2398,8 +2432,11 @@ async function cqNetOpen(code, role) {
     N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/st`), s => { const v = s.val(); if (v && cq.net === N) try { cqNetApply(JSON.parse(v.m)); } catch (e) { console.warn(e); } }));
     let seen = false;
     N.unsubs.push(F.onValue(cqNetRef('cqlist/' + code), s => {
-      if (s.val()) { seen = true; return; }
-      if (seen && cq.net === N) { cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok', cqReception); }
+      const bye = () => { if (cq.net !== N) return; clearTimeout(N.goneT); N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set lo ha chiuso.</p>', 'Ok', cqReception); };
+      if (s.val() && s.val().o === -1) { bye(); return; }
+      if (s.val()) { seen = true; clearTimeout(N.goneT); N.goneT = 0; return; }
+      if (!seen || cq.net !== N || N.goneT) return;
+      N.goneT = setTimeout(() => { if (cq.net !== N) return; N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok', cqReception); }, 20000);
     }));
   }
   return N;
@@ -2596,14 +2633,24 @@ function cqVoiceStop(keepCode) {
 function cqNetLeave() {
   const N = cq.net; if (!N) return;
   cqVoiceStop();
-  cq.net = null; cq.gm = null; cqVoiceUI();
+  cq.net = null; cq.gm = null; cqVoiceUI(); clearInterval(N.hbI); clearTimeout(N.goneT);
   if (N.role !== 'host') { N.F.remove(cqNetRef(`cq/${N.code}/hl/${N.sid}`)).catch(() => {}); }
   N.unsubs.forEach(u => { try { u(); } catch {} });
   const F = N.F;
-  if (N.role === 'host') { F.remove(cqNetRef('cqlist/' + N.code)).catch(() => {}); F.remove(cqNetRef('cq/' + N.code)).catch(() => {}); }
+  if (N.role === 'host') cqNetKill(N.code);
   else { F.remove(cqNetRef(`cq/${N.code}/pl/${N.sid}`)).catch(() => {}); F.remove(cqNetRef(`cq/${N.code}/pos/${N.sid}`)).catch(() => {}); }
 }
 // il set nella lista dei set aperti (o = si puo' entrare, cioe' non c'e' una partita in corso)
+// elimina un set (il mio, anche rimasto aperto da prima): chi c'e' dentro vede "chiuso" ed esce subito
+function cqNetKill(code) {
+  const F = hub.fb; if (!F) return;
+  const ref = p => F.ref(F.db, p);
+  F.set(ref('cqlist/' + code), { h: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', ts: Date.now(), o: -1 }).catch(() => {});
+  F.remove(ref('cq/' + code)).catch(() => {});
+  setTimeout(() => F.remove(ref('cqlist/' + code)).catch(() => {}), 2500);
+  store.settings.mySets = (store.settings.mySets || []).filter(k => k !== code); saveStore();
+  if (cq.sets) delete cq.sets[code];
+}
 function cqNetList(o) {
   const N = cq.net; if (!N || N.role !== 'host') return;
   if (o !== undefined) N.open = o;
@@ -2620,15 +2667,20 @@ function cqNetBox() {
   const N = cq.net;
   if (!WEB || !hub.fb) { box.innerHTML = WEB ? '<p class="hint">Collegamento in corso…</p>' : ''; return; }
   if (N && N.role === 'host') {
-    box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano nell'Hotel dei Giochi, in "Set aperti". Il gioco lo scegli entrando in una porta della hall. Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><button class="btn" id="netClose" type="button">Chiudi il set</button></div>`;
+    box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano nell'Hotel dei Giochi, in "Set aperti". Il gioco lo scegli entrando in una porta della hall. Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><button class="btn" id="netClose" type="button" style="color:#ff8a7a">🗑️ Elimina il set (escono tutti)</button></div>`;
     $('#netClose').onclick = () => { cqNetLeave(); cqHallExit(); cqReception(); };
     return;
   }
-  const sets = Object.entries(cq.sets || {}).filter(([, v]) => v && v.o && Date.now() - v.ts < 6 * 3600e3);
+  const S = cq.setsSeen || {}, mine = store.settings.mySets || [];
+  const sets = Object.entries(cq.sets || {}).filter(([k, v]) => v && v.o > 0 && S[k] && Date.now() - S[k].at < 70000);
+  const old = Object.keys(cq.sets || {}).filter(k => mine.includes(k) && !sets.some(([x]) => x === k));   // set miei rimasti aperti
+  for (const [k] of sets) if (mine.includes(k)) old.push(k);
   box.innerHTML = `<div class="netBox"><b>🎬 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">Crea un set</button>`
-    + (sets.length ? '<div class="hint">Set aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>Set di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span><button class="btn" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '<div class="hint">Nessun set aperto dagli amici in questo momento.</div>') + '</div>';
-  $('#netNew').onclick = async () => { try { await cqNetOpen(randCode(6), 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); cqToast('🏨 Set aperto! Questa è la sua hall: gli amici lo trovano in "Set aperti". Per scegliere il gioco entra in una porta in fondo; le impostazioni sono in ⚙️ Partita.'); };
+    + (sets.length ? '<div class="hint">Set aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>Set di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun set aperto dagli amici in questo momento.</div>')
+    + (old.length ? `<div class="hint">Set creati da te e rimasti aperti:</div>` + [...new Set(old)].map(k => `<div class="netRow"><span>Il tuo set (${esc(k)})</span><button class="btn" type="button" data-kill="${esc(k)}">🗑️ Elimina</button></div>`).join('') : '') + '</div>';
+  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); cqToast('🏨 Set aperto! Questa è la sua hall: gli amici lo trovano in "Set aperti". Per scegliere il gioco entra in una porta in fondo; le impostazioni sono in ⚙️ Partita.'); };
   box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => cqNetJoin(b.dataset.join); });
+  box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Set eliminato.'); }; });
 }
 // chi e' entrato in un set aspetta qui che l'host faccia partire la partita
 function cqNetWait() {
@@ -2653,7 +2705,10 @@ function cqNetPlayers() {
   cqNetList();
   // chi esce a meta' partita: lo guida il computer
   const G = cq.g;
-  if (G && !G.guest && G.phase !== 'end') for (const c of G.chars) if (c.remote && !N.pl[c.sid]) { c.remote = false; c.bot = true; c.path = []; c.goal = null; c.wait = 0; cqToast(esc(c.name) + ' è uscito: ora lo guida il computer.'); }
+  if (G && !G.guest && !G.hall && G.phase !== 'end') for (const c of G.chars) {
+    if (c.remote && !N.pl[c.sid]) { c.remote = false; c.bot = true; c.left = true; c.path = []; c.goal = null; c.wait = 0; cqToast(esc(c.name) + ' si è scollegato: intanto lo guida il computer.'); }
+    else if (c.left && N.pl[c.sid]) { c.left = false; c.remote = true; c.bot = false; c.path = []; c.goal = null; c.wait = 0; const p = N.pos[c.sid]; if (p) { c.tx = c.x; c.ty = c.y; } cqToast(esc(c.name) + ' è tornato e riprende il suo personaggio.'); }
+  }
 }
 // ---- host: stato della partita da mandare a tutti ----
 // stato leggero: niente mappa, opzioni, nomi e compiti (gli amici li hanno dall'ultimo completo); l'aspetto solo se e' cambiato (travestimento)
@@ -3061,7 +3116,9 @@ function cqModeLobby(id) {
 // Online ognuno scrive il suo stato in cq/<set>/hl/<sid> {x, y, f, w, r: pronto, d: a terra}; gli scherzi a cq/<set>/hk/<vittima>;
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_AUTO = 10, CQ_HALL_MAN = 5;
-const cqHallReady = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
+const cqHallReady = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden && document.visibilityState === 'visible');
+document.addEventListener('visibilitychange', () => { if (cq.net && cq.g && cq.g.hall) cqHallPub(true); });
+window.addEventListener('pagehide', () => { if (cq.net) cqNetLeave(); });
 function cqHallEnter() {
   const old = cq.g;
   if (old && old.hall) { cqHallUI(true); cqHallPub(true); return; }
