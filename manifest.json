@@ -1,0 +1,16 @@
+{
+  "name": "Giochi di Tomelleri Davide",
+  "short_name": "Giochi",
+  "description": "Linee e quadrettini birichini e l'Hotel dei Giochi: da solo o con gli amici.",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#f5f4f0",
+  "theme_color": "#f5f4f0",
+  "icons": [
+    { "src": "icona-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icona-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}
