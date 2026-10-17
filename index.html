@@ -3935,6 +3935,16 @@ function cqTreePatch(t, B) {
   t.skipCan = false; cq.baking = false;
   return (t.patch = { c, x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], B, ver: B.ver });
 }
+// immagine del riquadro di un albero trasparente (mappa senza la sua chioma + chioma trasparente + cio' che ha davanti), senza personaggi.
+// Si rifa' solo quando cambia la trasparenza (a passi di 0,05), la mappa pronta o l'altra chioma trasparente
+function cqFadeImg(t, B) {
+  const p = t.patch, key = B.ver + ':' + cq.fading.map(o => o.x + ',' + o.y + ',' + Math.round(o.a * 20)).join(';'), f = t.fade;
+  if (f && f.B === B && f.key === key) return f;
+  const c = (f && f.c) || document.createElement('canvas'); c.width = p.c.width; c.height = p.c.height;
+  const g = c.getContext('2d', CQ_CPU), sc = B.dpr; g.setTransform(sc, 0, 0, sc, -p.x * sc, -p.y * sc);
+  cqRedraw(g, cqTools(g, B.TW), [p.x, p.y, p.x + p.w, p.y + p.h], B.ox, B.oy, B.TW, [], 17, B);
+  return (t.fade = { c, x: p.x, y: p.y, w: p.w, h: p.h, B, key });
+}
 // ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
 function cqBgCell(x, y) {
   const B = cq.bg; if (!B) return;
@@ -4012,8 +4022,11 @@ function cqDraw() {
         const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5);
         const cy = my - 0.9 * TW, behind = cq.fading.length < 2 && d < t.x + t.y + 1.2 && Math.abs(mx - sx) < 1.2 * TW && cy > sy - 5.0 * TW && cy < sy - 0.8 * TW;   // copre davvero il mio corpo
         t.a += ((behind ? 0.3 : 1) - t.a) * 0.15; if (t.a > 0.99) t.a = 1;
-        if (t.a < 1 && cqTreePatch(t, B)) { cq.fading.push(t); rs.push([sx - 1.7 * TW, sy - 5.6 * TW, sx + 1.7 * TW, sy + 0.7 * TW].map(al)); }
+        if (t.a < 1 && cqTreePatch(t, B)) cq.fading.push(t);
       }
+      // il riquadro dell'albero trasparente e' un'immagine pronta (si rifa' solo se cambia la trasparenza): sopra vanno i riquadri dei personaggi
+      g.setTransform(dp, 0, 0, dp, 0, 0);
+      for (const t of cq.fading) { const f = cqFadeImg(t, B); g.drawImage(f.c, ix + f.x, iy + f.y, f.w, f.h); }
     }
     for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
       const a = rs[i], b = rs[j];
