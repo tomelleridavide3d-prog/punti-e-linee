@@ -2578,7 +2578,7 @@ function cqVoiceSync0() {
   // chi non si collega da 15 s, o e' scollegato da 6 s (rete cambiata): si riprova (lo fa chi propone)
   const now = Date.now();
   for (const P of Object.values(cqV.peers)) {
-    const st = P.pc.connectionState, stuck = st !== 'connected' && st !== 'disconnected' && now - P.t0 > 15000, lost = st === 'disconnected' && P.dis && now - P.dis > 6000;
+    const st = P.pc.connectionState, stuck = st !== 'connected' && st !== 'disconnected' && now - P.t0 > 25000, lost = st === 'disconnected' && P.dis && now - P.dis > 6000;
     if (stuck || lost) { if (stuck) cqVoiceBad(P.sid); cqVoiceRedo(P.sid); }
   }
   // chi non propone e non ha ancora nessun collegamento con qualcuno da 10 s: lo chiede
@@ -2653,15 +2653,16 @@ async function cqVoiceDiag() {
   for (const P of Object.values(cqV.peers)) {
     const o = { to: (N.pl[P.sid] && N.pl[P.sid].name) || P.sid, c: P.pc.connectionState, i: P.pc.iceConnectionState, s: P.pc.signalingState, g: P.pc.iceGatheringState, age: Math.round((Date.now() - P.t0) / 1000), tr: !!P.tr, snd: !!(P.tr && P.tr.sender && P.tr.sender.track) };
     try {
-      const L = new Set(), R = new Set(); let pair = '', rx = 0, tx = 0;
+      const L = new Set(), R = new Set(), ps = {}; let pair = '', rx = 0, tx = 0, ip = '', rip = '';
       (await P.pc.getStats()).forEach(r => {
-        if (r.type === 'local-candidate') L.add(r.candidateType + '/' + (r.protocol || ''));
-        if (r.type === 'remote-candidate') R.add(r.candidateType + '/' + (r.protocol || ''));
+        if (r.type === 'local-candidate') { L.add(r.candidateType + '/' + (r.protocol || '')); if (r.candidateType === 'srflx') ip = r.address || r.ip || ''; }
+        if (r.type === 'remote-candidate') { R.add(r.candidateType + '/' + (r.protocol || '')); if (r.candidateType === 'srflx') rip = r.address || r.ip || ''; }
+if (r.type === 'candidate-pair') ps[r.state] = (ps[r.state] || 0) + 1;
         if (r.type === 'candidate-pair' && (r.nominated || r.state === 'succeeded')) pair = r.state;
         if (r.type === 'inbound-rtp' && r.kind === 'audio') rx = r.bytesReceived;
         if (r.type === 'outbound-rtp' && r.kind === 'audio') tx = r.bytesSent;
       });
-      Object.assign(o, { L: [...L].join(','), R: [...R].join(','), pair, rx, tx });
+      Object.assign(o, { L: [...L].join(','), R: [...R].join(','), pair, rx, tx, ip, rip, ps });
     } catch {}
     peers.push(o);
   }
