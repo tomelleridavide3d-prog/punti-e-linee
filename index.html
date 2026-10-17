@@ -2009,7 +2009,8 @@ function cqMapHotel() {
 function cqUseMap(id, seed) {
   if (!CQ_MAPS[id] || CQ_MAPS[id].soon) id = 'studio';
   const MP = CQ_MAPS[id], sd = MP.seeded ? seed || 1 : 0;
-  if (cq.map === id && cq.mapSeed === sd) return;
+  if (cq.map === id && cq.mapSeed === sd && !cq.mapDirty) return;   // mapDirty: un gioco ha tolto oggetti dalla mappa (Nascondino): si rifa' da capo
+  cq.mapDirty = false;
   const P = MP.seeded ? MP.make(sd) : MP.pack || (MP.pack = MP.make());
   cq.mapSeed = sd;
   P.tasks.forEach(t => { if (!t.steps) t.steps = [{ n: t.n, r: t.r, x: t.x, y: t.y, game: t.game || t.id, lead: t.lead }]; });

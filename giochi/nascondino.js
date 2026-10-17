@@ -48,7 +48,13 @@
   const hiders = G => G.chars.filter(c => c.r === 0 && c.alive);
   const stunned = (G, c) => (c.stun || 0) > G.time;
   // oggetti veri della mappa in cui ci si puo' trasformare: [tipo, x, y, opzione]
-  const props = () => CQ_PROPS.filter(p => KINDS[p[0]]);
+  // oggetti veri ancora sulla mappa (quelli tolti a inizio partita non contano)
+  const props = () => CQ_PROPS.filter(p => KINDS[p[0]] && cqSolid[p[2]][p[1]] && cqSolid[p[2]][p[1]].prop === p[0]);
+  // a ogni partita spariscono alcuni oggetti a caso (li sceglie l'host, gli amici li ricevono in gone): la memoria del set non basta
+  function vanish(G, list) {
+    G.gone = list; for (const [x, y] of list) if (cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop) cqSolid[y][x] = null;
+    cq.mapDirty = true; cq.bg = null;   // la mappa pronta si rifa' senza; alla prossima partita cqUseMap rimette tutto
+  }
   const near = (x, y, r) => props().filter(p => Math.hypot(p[1] + 0.5 - x, p[2] + 0.5 - y) < r).sort((a, b) => Math.hypot(a[1] + 0.5 - x, a[2] + 0.5 - y) - Math.hypot(b[1] + 0.5 - x, b[2] + 0.5 - y));
   // dove si vede il nascosto: fermo = al centro della sua cella (come gli oggetti veri), mentre si muove = dov'e'
   const drawPos = c => { const p = P(c), mv = c === cq.g.me ? cq.walk : c.walk; return mv ? p : { x: Math.floor(p.x) + 0.5, y: Math.floor(p.y) + 0.5 }; };
@@ -178,6 +184,7 @@
       if (![15, 20].includes(G.opt.hide)) G.opt.hide = 20;
       G.opt = Object.assign({}, G.opt, { dk: G.opt.dark === 'dark' || (G.opt.dark === 'rnd' && Math.random() < 0.5) ? 1 : 0 });   // al buio? (a caso lo decide l'host, gli amici lo ricevono nelle opzioni)
       G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240;
+      vanish(G, props().sort(() => Math.random() - 0.5).slice(0, 5 + Math.floor(Math.random() * 4)).map(p => [p[1], p[2]]));
       const sh = G.chars.slice().sort(() => Math.random() - 0.5), mr = cq.net ? 'rnd' : G.opt.me; if (mr !== 'rnd') { sh.splice(sh.indexOf(G.me), 1); if (mr === 's') sh.unshift(G.me); else sh.push(G.me); } const ns = Math.min(G.opt.seek || 1, Math.max(1, Math.floor(G.chars.length / 3)));
       sh.forEach((c, i) => { c.r = i < ns ? 1 : 0; c.pr = null; c.chg = CHG; c.stun = 0; c.err = 0; c.kl = 0; c.spot = null; c.tg = null; c.nt = (G.opt.hide || 20) + 12 + Math.random() * 18; });
     },
@@ -256,10 +263,10 @@
       c.stun = a[3] > 0 ? G.time + a[3] : 0; c.err = a[4]; c.kl = a[5]; c.nt = G.time + a[6];
       if (!c.alive) c.pr = null;
     },
-    snap: G => ({ bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]), left: Math.round(G.left * 10) / 10, lg: G.lg }),
+    snap: G => ({ go: G.gone, bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]), left: Math.round(G.left * 10) / 10, lg: G.lg }),
     apply(G, x) {
       if (x.bd) G.bodies = x.bd.map(a => { const c = byId(G, a[0]); return c ? { id: a[0], x: a[1], y: a[2], face: a[3], t: a[4], look: cqLookOf(c), name: c.name } : null; }).filter(Boolean);
-      G.left = x.left;
+      G.left = x.left; if (x.go && !G.gone) vanish(G, x.go);
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
     // cercatori mentre contano: schermo nero (e nessuno si vede).
