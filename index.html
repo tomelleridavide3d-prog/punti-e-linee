@@ -2441,15 +2441,15 @@ function cqVoiceSync() {
   for (const P of Object.values(cqV.peers)) if (N.sid < P.sid && P.pc.connectionState !== 'connected' && Date.now() - P.t0 > 12000) { cqVoiceDrop(P.sid); cqVoiceCall(P.sid); }
   cqVoiceUI();
 }
-// volume delle voci: in partita secondo la distanza (piena entro 2 caselle, niente oltre 8); in riunione e fuori partita tutti.
-// I vivi non sentono i fantasmi; i fantasmi sentono tutti. Chi parla ha 🔊 accanto al nome (P.talk)
+// volume delle voci: in partita secondo la distanza (piena entro 2 caselle, niente oltre 8); in riunione tutti a pieno volume; fuori partita tutti.
+// I vivi non sentono mai i fantasmi (nemmeno in riunione); i fantasmi sentono tutti. Chi parla ha 🔊 accanto al nome (P.talk)
 function cqVoiceVol() {
-  const on = cqV.hear && store.settings.sound !== false, G = cq.g, play = G && G.phase === 'play';
+  const on = cqV.hear && store.settings.sound !== false, G = cq.g, play = G && G.phase === 'play', meet = G && G.phase === 'meet';
   for (const P of Object.values(cqV.peers)) {
     if (!P.g && !P.direct) continue;
     let v = on ? 1 : 0;
-    const c = play && G.chars.find(o => o.sid === P.sid);
-    if (v && c && G.me.alive) v = !c.alive ? 0 : Math.max(0, Math.min(1, 1 - (Math.hypot(c.x - cq.x, c.y - cq.y) - 2) / 6));
+    const c = (play || meet) && G.chars.find(o => o.sid === P.sid);
+    if (v && c && G.me.alive) v = !c.alive ? 0 : meet ? 1 : Math.max(0, Math.min(1, 1 - (Math.hypot(c.x - cq.x, c.y - cq.y) - 2) / 6));
     if (P.direct) { P.v += (v - P.v) * 0.6; if (Math.abs(P.v - v) < 0.02) P.v = v; if (P.au) P.au.volume = Math.max(0, Math.min(1, P.v)); }
     else P.g.gain.setTargetAtTime(v, actx.currentTime, 0.08);
   }
