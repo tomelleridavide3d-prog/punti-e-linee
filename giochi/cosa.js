@@ -1,59 +1,58 @@
 // La Cosa alla base polare. Gioco del motore: si registra in CQ_MODES (vedi "MOTORE DEI GIOCHI" in index.html).
-// Stazione di ricerca in Antartide (mappa nuova "base", registrata qui in CQ_MAPS con only: 'cosa'), fuori la bufera.
-// Uno dei giocatori e' LA COSA (2 se si e' in 8 o piu'): elimina in segreto (solo se nessun altro la vede), puo' ASSORBIRE il corpo
-// della sua vittima e prenderne l'aspetto e il nome. Si vede come mostro solo quando attacca, quando e' scoperta (o dai fantasmi).
-// La squadra: CORPI SEGNALABILI -> riunione in Mensa senza voto (si parla in vocale); ESAME DEL SANGUE in due al bancone del laboratorio
-// (pochi kit); un LANCIAFIAMME in magazzino (2 colpi: la Cosa bruciata muore; un innocente muore e chi ha sparato perde l'arma, che torna
-// in magazzino). FREDDO: fuori si gela in fretta, dentro ci si scalda finche' il generatore va (la Cosa puo' spegnerlo: buio e freddo).
-// Allo scadere atterra l'elicottero sulla piazzola: parte con chi c'e' sopra. Se a bordo c'e' una Cosa non scoperta vince lei.
-// Ganci del motore usati: draw(c) (la Cosa disegnata a mostro), corpi senza coltello (nk), CQ_MAP.draw/floor/drawWall (mappa nuova).
+// Stazione di ricerca in Antartide (mappa "base", registrata qui in CQ_MAPS con only: 'cosa'), fuori la bufera e un bosco di abeti innevati.
+// SQUADRA: ognuno ha i suoi COMPITI (mini-giochi di Ciack US), dentro e fuori nella neve (fuori si gela: andata, compito e ritorno sono al limite).
+// Tutti i compiti = radio riparata -> l'elicottero atterra sulla piazzola, si sale con "Sali", riparte dopo HELI_WAIT s (o quando sono tutti su):
+// se a bordo c'e' una Cosa vince lei, altrimenti la squadra. Se il tempo finisce prima della radio, vince la Cosa.
+// KIT dell'esame del sangue: uno ogni KIT_EVERY compiti, o con un compito di squadra fuori (due persone all'argano). Il kit estrae un nome
+// (la Cosa esce meno spesso): l'estratto ha CALL s per arrivare al bancone del laboratorio e resta li' TEST s. Chi non viene o scappa -> sospetto (arancione, ❓).
+// LA COSA: uccide chi resta solo (solo se nessun altro la vede; resta il corpo -> 📢 riunione in Mensa senza voto) oppure ASSORBE (una volta:
+// la vittima diventa una Cosa e continua a giocare e a parlare, cosi' nessuno sparisce in silenzio). Si vede a mostro quando attacca, se scoperta e dai fantasmi.
+// Un LANCIAFIAMME (2 colpi): la Cosa bruciata muore; un innocente muore e chi ha sparato perde l'arma. Il generatore spento (sabotaggio) = buio e freddo dentro.
+// Ganci del motore usati: draw(c) (la Cosa a mostro), corpi senza coltello (nk), CQ_MAP.draw/floor/drawWall e snowy (abeti innevati).
 (() => {
-  const MEET = 45, KCD = 35, KCD_RV = 14, REACH = 1.15, FLR = 2.4, TEST = 10, BENCH = 1.8, SEE_OUT = 4.6, WIT = 7, SAB_CD = 70, FIX = 12, HELI_T = 45, ATK_SHOW = 1.6, ABS_T = 15;
+  const MEET = 45, KCD = 45, KCD_RV = 14, REACH = 1.15, FLR = 2.4, TEST = 10, CALL = 40, INF_T = 60, BENCH = 1.8, SEE_OUT = 4.6, WIT = 7, SAB_CD = 70, FIX = 12, ATK_SHOW = 1.6;
+  const COLD_OUT = 3.1, KIT_EVERY = 4, TEAM_T = 8, TEAM_CD = 90, HELI_LAND = 8, HELI_WAIT = 40, OUT_T = 5.5;
   const ICE = '#b9cad8', STEEL = '#8a95a2';
 
   // ================= MAPPA: base polare =================
-  // 60 x 56: neve tutto intorno, la base al centro (x 10..49, y 9..42) con 11 moduli, piazzola dell'elicottero a sud.
-  // Al bordo una fascia di cumuli invalicabili (4 caselle): cosi' la fine della mappa resta sempre nascosta nella bufera.
+  // 84 x 80: la base al centro (x 22..61, y 21..54) con 11 moduli, intorno tanta neve aperta con le postazioni dei compiti esterni
+  // (lontane dalle porte: andata, compito e ritorno sono al limite del freddo), la piazzola dell'elicottero a sud,
+  // e al bordo un bosco di abeti alti innevati con i cumuli in mezzo (invalicabile: la fine della mappa resta nascosta nella bufera).
+  // Le coordinate della base sono scritte "da 0" e spostate di O.
+  const O = 12;
   function mapBase() {
-    const W = 60, H = 56;
+    const W = 84, H = 80;
     let s = 7; const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     const MET = ['#6d7682', '#646d79'];
+    const R = (n, x, y, w, h, c, wc, k, o) => Object.assign({ n, x: x + O, y: y + O, w, h, c, wc, k }, o || {});
     const rooms = [
       { n: 'Neve', x: 1, y: 1, w: W - 2, h: H - 2, c: ['#e9f0f6', '#e1e9f1'], wc: ICE, k: 'snow', nl: 1 },
-      { n: 'Dormitori', x: 11, y: 10, w: 10, h: 9, c: ['#56658a', '#4f5d80'], wc: STEEL, k: 'carpet' },
-      { n: 'Mensa', x: 22, y: 10, w: 12, h: 9, c: ['#c9b98f', '#bfae84'], wc: STEEL, k: 'tile' },
-      { n: 'Laboratorio', x: 35, y: 10, w: 14, h: 9, c: ['#dfe6ea', '#d2dadf'], wc: '#9aa6b2', k: 'tile' },
-      { n: 'Corridoio', x: 11, y: 20, w: 38, h: 4, c: MET, wc: STEEL, k: 'metal' },
-      { n: 'Radio', x: 11, y: 25, w: 8, h: 8, c: ['#5d6b5a', '#556352'], wc: STEEL, k: 'carpet' },
-      { n: 'Generatore', x: 20, y: 25, w: 8, h: 8, c: ['#6a6152', '#61584a'], wc: '#857a68', k: 'metal' },
-      { n: 'Magazzino', x: 29, y: 25, w: 9, h: 8, c: ['#8a8470', '#7f7965'], wc: STEEL, k: 'concrete' },
-      { n: 'Serra', x: 39, y: 25, w: 10, h: 8, c: ['#5d7f4a', '#567645'], wc: '#7f9a86', k: 'grass' },
-      { n: 'Hangar', x: 11, y: 34, w: 18, h: 8, c: ['#7a7f87', '#72777f'], wc: STEEL, k: 'concrete' },
-      { n: 'Infermeria', x: 30, y: 34, w: 9, h: 8, c: ['#cfe3e0', '#c3d8d5'], wc: '#9aa6b2', k: 'tile' },
-      { n: 'Ingresso', x: 40, y: 34, w: 9, h: 8, c: MET, wc: STEEL, k: 'metal' },
-      { n: 'Piazzola', x: 38, y: 44, w: 8, h: 6, c: ['#59606b', '#535a64'], wc: ICE, k: 'concrete', ly: 48.6 }];
-    // fra un modulo e l'altro: muri (le celle della base che non sono in nessun modulo)
+      R('Dormitori', 11, 10, 10, 9, ['#56658a', '#4f5d80'], STEEL, 'carpet'),
+      R('Mensa', 22, 10, 12, 9, ['#c9b98f', '#bfae84'], STEEL, 'tile'),
+      R('Laboratorio', 35, 10, 14, 9, ['#dfe6ea', '#d2dadf'], '#9aa6b2', 'tile'),
+      R('Corridoio', 11, 20, 38, 4, MET, STEEL, 'metal'),
+      R('Radio', 11, 25, 8, 8, ['#5d6b5a', '#556352'], STEEL, 'carpet'),
+      R('Generatore', 20, 25, 8, 8, ['#6a6152', '#61584a'], '#857a68', 'metal'),
+      R('Magazzino', 29, 25, 9, 8, ['#8a8470', '#7f7965'], STEEL, 'concrete'),
+      R('Serra', 39, 25, 10, 8, ['#5d7f4a', '#567645'], '#7f9a86', 'grass'),
+      R('Hangar', 11, 34, 18, 8, ['#7a7f87', '#72777f'], STEEL, 'concrete'),
+      R('Infermeria', 30, 34, 9, 8, ['#cfe3e0', '#c3d8d5'], '#9aa6b2', 'tile'),
+      R('Ingresso', 40, 34, 9, 8, MET, STEEL, 'metal'),
+      R('Piazzola', 38, 44, 8, 6, ['#59606b', '#535a64'], ICE, 'concrete', { ly: 48.6 + O })];
     const inR = (x, y, r) => x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h;
     const holes = [];
-    for (let y = 9; y <= 42; y++) for (let x = 10; x <= 49; x++) if (!rooms.slice(1, 12).some(r => inR(x, y, r))) holes.push([x, y, 1, 1]);
+    for (let y = 9 + O; y <= 42 + O; y++) for (let x = 10 + O; x <= 49 + O; x++) if (!rooms.slice(1, 12).some(r => inR(x, y, r))) holes.push([x, y, 1, 1]);
+    const sh = a => [a[0] + O, a[1] + O].concat(a.slice(2));
     const doors = [[15, 19, 2, 1], [27, 19, 2, 1], [41, 19, 2, 1], [21, 13, 1, 2], [34, 13, 1, 2],
       [14, 24, 2, 1], [23, 24, 2, 1], [32, 24, 2, 1], [43, 24, 2, 1], [14, 33, 2, 1], [33, 33, 2, 1], [43, 33, 2, 1], [29, 37, 1, 2], [39, 37, 1, 2],
-      [10, 21, 1, 2], [49, 21, 1, 2], [44, 42, 2, 1], [18, 42, 3, 1], [29, 9, 2, 1]];   // le ultime 5 portano fuori, nella neve
+      [10, 21, 1, 2], [49, 21, 1, 2], [44, 42, 2, 1], [18, 42, 3, 1], [29, 9, 2, 1]].map(sh);   // le ultime 5 portano fuori, nella neve
     const decals = [
-      [2, 21.2, 8, 1.6, '#d6e0ea'], [50, 21.2, 9, 1.6, '#d6e0ea'], [44, 43, 2, 1, '#d6e0ea'], [18, 43, 3, 7, '#d3dde8'], [29, 2, 2, 7, '#d6e0ea'],   // sentieri battuti
-      [18.3, 43, 0.25, 7, '#c4cfdb'], [20.45, 43, 0.25, 7, '#c4cfdb'],   // tracce dei cingoli fuori dall'hangar
-      [24, 13, 8, 3, '#8a6a48'], [24.2, 13.2, 7.6, 2.6, '#9a7a56'],   // tappeto della mensa
-      [12, 15, 6, 3, '#3f4a6a'], [12.2, 15.2, 5.6, 2.6, '#47547a'],   // tappeto dei dormitori
-      [38, 12, 8, 5, '#c8d2d8'], [38.15, 12.15, 7.7, 4.7, '#d8e2e8'],   // laboratorio: zona pulita
-      [20.2, 25.2, 7.6, 0.16, '#e8c43a'], [20.2, 32.6, 7.6, 0.16, '#e8c43a'], [21.5, 26.8, 5, 4, '#2a2620'], [21.7, 27, 4.6, 3.6, '#3a352c'],   // generatore: strisce e pedana
-      [12, 36, 15, 0.14, '#e8c43a'], [12, 40, 15, 0.14, '#e8c43a'], [17.6, 41.6, 3.8, 0.4, '#e8c43a'],   // righe dell'hangar
-      [41, 40.4, 6, 1.2, '#4a4038'], [41.15, 40.55, 5.7, 0.9, '#5a4e44'],   // zerbino dell'ingresso
-      [31, 37, 7, 0.12, '#7ab8b0'],
-      [38.4, 44.4, 7.2, 5.2, '#e8c43a'], [38.6, 44.6, 6.8, 4.8, '#535a64']];   // piazzola: bordo giallo
-    // la H della piazzola (dentro l'area 39..45 x 45..49)
-    decals.push([40.3, 45.4, 0.6, 3.2, '#f2f2f2'], [43.1, 45.4, 0.6, 3.2, '#f2f2f2'], [40.3, 46.7, 3.4, 0.6, '#f2f2f2']);
-    for (let i = 0; i < 6; i++) decals.push([34.5 + i * 0.25, 22.85, 0.12, 0.12, '#e8c43a']);
-    const props = [], pp = (t, x, y, o) => props.push([t, x, y, o]), prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
+      [24, 13, 8, 3, '#8a6a48'], [24.2, 13.2, 7.6, 2.6, '#9a7a56'], [12, 15, 6, 3, '#3f4a6a'], [12.2, 15.2, 5.6, 2.6, '#47547a'], [38, 12, 8, 5, '#c8d2d8'], [38.15, 12.15, 7.7, 4.7, '#d8e2e8'],
+      [20.2, 25.2, 7.6, 0.16, '#e8c43a'], [20.2, 32.6, 7.6, 0.16, '#e8c43a'], [21.5, 26.8, 5, 4, '#2a2620'], [21.7, 27, 4.6, 3.6, '#3a352c'],
+      [12, 36, 15, 0.14, '#e8c43a'], [12, 40, 15, 0.14, '#e8c43a'], [17.6, 41.6, 3.8, 0.4, '#e8c43a'], [41, 40.4, 6, 1.2, '#4a4038'], [41.15, 40.55, 5.7, 0.9, '#5a4e44'], [31, 37, 7, 0.12, '#7ab8b0'],
+      [38.4, 44.4, 7.2, 5.2, '#e8c43a'], [38.6, 44.6, 6.8, 4.8, '#535a64'], [40.3, 45.4, 0.6, 3.2, '#f2f2f2'], [43.1, 45.4, 0.6, 3.2, '#f2f2f2'], [40.3, 46.7, 3.4, 0.6, '#f2f2f2'],
+      [44, 43, 2, 1, '#d6e0ea'], [18.3, 43, 0.25, 9, '#c4cfdb'], [20.45, 43, 0.25, 9, '#c4cfdb']].map(sh);
+    const props = [], ppA = (t, x, y, o) => props.push([t, x, y, o]), pp = (t, x, y, o) => ppA(t, x + O, y + O, o), prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
     const LOCK = ['#4f7aa8', '#a85a4f', '#4fa87a', '#a89a4f', '#8a4fa8'];
     // Dormitori
     prow('bunk', 11, 10, 5, 2, 0, i => ['#3f6fb0', '#b04a3f', '#3f9a6a', '#9a7a3f', '#7a4fa0'][i]); prow('locker', 20, 15, 3, 0, 1, i => LOCK[i % 5]);
@@ -61,45 +60,66 @@
     // Mensa: bancone, frighi, il tavolo lungo della riunione
     prow('counter', 23, 10, 5, 1, 0); pp('coffee', 28, 10); pp('fridge', 32, 10); pp('fridge', 33, 10); pp('heater', 33, 17); pp('plant', 22, 18);
     prow('table', 25, 14, 6, 1, 0); prow('dchair', 25, 13, 6, 1, 0, () => ['#c96a5a', 'n']); prow('dchair', 25, 15, 6, 1, 0, () => ['#5a8ac9', 's']);
-    // Laboratorio: bancone degli esami (blood), banconi, microscopi, vasca col campione, monitor
-    pp('bench', 40, 14); pp('blood', 41, 14, { n: 3 }); pp('bench', 42, 14);
+    // Laboratorio: bancone degli esami (blood), banconi, microscopi, vasche coi campioni, monitor
+    pp('bench', 40, 14); pp('blood', 41, 14, { n: 0 }); pp('bench', 42, 14);
     prow('shelf', 36, 10, 4, 1, 0); pp('monitor', 44, 10); pp('monitor', 45, 10); pp('dchair', 44, 11, ['#8a96a8', 's']); pp('dchair', 45, 11, ['#8a96a8', 's']);
     pp('freezer', 47, 10); pp('freezer', 48, 10); pp('specimen', 47, 16); pp('specimen', 48, 17); pp('bench', 36, 17); pp('micro', 37, 17); pp('bench', 38, 17); pp('heater', 35, 16);
     // Corridoio
     [13, 25, 37, 46].forEach(x => pp('heater', x, 20)); pp('crate', 20, 23); pp('crate2', 21, 23); pp('board', 31, 20);
     // Radio
     prow('radio', 16, 25, 3, 1, 0); prow('dchair', 16, 26, 3, 1, 0, () => ['#3a3f49', 's']); pp('shelf', 11, 26); pp('shelf', 11, 27); pp('monitor', 12, 25); pp('crate', 11, 31); pp('heater', 18, 29); pp('map', 18, 31);
-    // Generatore: la macchina grande in mezzo alla pedana, serbatoi e quadro
+    // Generatore
     pp('pgen', 23, 28, { on: true }); pp('ftank', 20, 25); pp('ftank', 21, 25); pp('fusebox', 26, 25); pp('barrel', 27, 31, '#c9452f'); pp('barrel', 26, 32, '#c9452f'); pp('barrel', 20, 32, '#c9452f'); pp('pipes', 27, 27);
     // Magazzino: casse, barili e la rastrelliera del lanciafiamme
     pp('crate', 30, 26); pp('crate2', 31, 26); pp('crate', 30, 27); pp('crate', 33, 30); pp('crate2', 34, 30); pp('crate', 33, 31); pp('crate', 34, 31);
     prow('shelf', 29, 29, 3, 0, 1); prow('barrel', 35, 25, 3, 1, 0, i => ['#3b6ea5', '#a5493b', '#3ba56e'][i]); pp('flamer', 37, 28, { on: true }); pp('rack', 37, 31);
     // Serra
     prow('planter', 40, 27, 5, 1, 0); prow('planter', 40, 30, 5, 1, 0); pp('growlamp', 46, 27); pp('growlamp', 46, 30); pp('barrel', 48, 32, '#3b6ea5'); pp('plant', 48, 25); pp('plant', 39, 32); pp('plant', 48, 28);
-    // Hangar: motoslitte, slitte, banco degli attrezzi, carburante
+    // Hangar
     pp('snowmob', 13, 37, '#c9452f'); pp('snowmob', 15, 37, '#e8a83a'); pp('snowmob', 17, 37, '#3b6ea5'); pp('sled', 22, 37); pp('sled', 24, 37);
     pp('workbench', 11, 34); pp('workbench', 12, 34); pp('barrel', 27, 34, '#c9452f'); pp('barrel', 28, 34, '#c9452f'); pp('crate', 26, 40); pp('crate2', 27, 40); pp('rack', 11, 39); pp('heater', 28, 39);
     // Infermeria
     pp('medbed', 31, 34); pp('medbed', 35, 34); pp('medbed', 37, 34); pp('cabinet', 38, 35); pp('cabinet', 38, 36); pp('dchair', 32, 40, '#d9c9a0'); pp('plant', 30, 41); pp('heater', 30, 39);
-    // Ingresso: giacconi, panca, stufa
+    // Ingresso
     prow('rack', 41, 34, 2, 1, 0); prow('locker', 46, 34, 3, 1, 0, i => LOCK[(i + 2) % 5]); pp('heater', 48, 38); pp('crate', 40, 41);
-    // Fuori: antenna della radio, stazione meteo, fusti, lampioni verso la piazzola, bandiera
-    pp('antenna', 6, 28); pp('meteo', 54, 12); pp('meteo', 6, 6); pp('barrel', 52, 30, '#c9452f'); pp('barrel', 53, 30, '#c9452f'); pp('barrel', 52, 31, '#c9452f');
-    pp('polelamp', 43, 43); pp('polelamp', 46, 43); pp('polelamp', 37, 44); pp('polelamp', 46, 49); pp('polelamp', 9, 20); pp('polelamp', 50, 20); pp('polelamp', 26, 8); pp('flag', 47, 46); pp('sled', 33, 46); pp('snowmob', 51, 24, '#c9452f');
-    // cumuli di neve e rocce ghiacciate sparsi (fissi: la mappa e' sempre la stessa), lontano dalla base, dai sentieri e dalla piazzola
-    const taken = new Set(props.map(p => p[1] + ',' + p[2]));
-    const keep = (x, y) => (x >= 8 && x <= 51 && y >= 7 && y <= 44) || (x >= 36 && x <= 48 && y >= 42) || (y >= 20 && y <= 23) || (x >= 17 && x <= 21 && y >= 42) || (x >= 28 && x <= 31 && y <= 9);
+    // ---- fuori (coordinate vere): postazioni dei compiti esterni, lontane dalle porte ----
+    ppA('antenna', 8, 40); ppA('meteo', 72, 14); for (let i = 0; i < 4; i++) ppA('solar', 30 + i, 9); ppA('beacon', 74, 62); ppA('beacon', 70, 66); ppA('drill', 12, 66);
+    ppA('ftank', 70, 44); ppA('barrel', 71, 45, '#c9452f'); ppA('barrel', 72, 45, '#c9452f'); ppA('barrel', 70, 46, '#c9452f');
+    ppA('winch', 15, 61); ppA('winch', 64, 10);   // compiti di squadra: argani (servono due persone)
+    ppA('polelamp', 55, 55); ppA('polelamp', 58, 55); ppA('polelamp', 49, 56); ppA('polelamp', 58, 61); ppA('polelamp', 21, 32); ppA('polelamp', 62, 32); ppA('polelamp', 40, 20);
+    ppA('flag', 59, 58); ppA('sled', 45, 58); ppA('snowmob', 63, 36, '#c9452f'); ppA('crate', 9, 41); ppA('crate2', 13, 67);
+    // sentieri battuti nella neve, dalle porte alle postazioni
+    const trail = (x0, y0, x1, y1) => { const n = Math.ceil(Math.hypot(x1 - x0, y1 - y0) * 1.5); for (let i = 0; i <= n; i++) { const k = i / n; decals.push([x0 + (x1 - x0) * k - 0.35, y0 + (y1 - y0) * k - 0.35, 0.7, 0.7, i % 2 ? '#d6e0ea' : '#dbe4ed']); } };
+    trail(21.5, 33.5, 9.5, 40); trail(62.5, 33.5, 70, 44.5); trail(62.5, 33.5, 72, 15.5); trail(42, 20.5, 32, 10.5); trail(42, 20.5, 64, 11.5); trail(57, 55, 54, 57); trail(57, 55, 73.5, 62.5); trail(31, 55, 12.5, 65.5); trail(31, 55, 15.5, 61.5);
+    // bordo: bosco di abeti innevati (piu' fitto verso l'esterno) e cumuli in mezzo; nella neve aperta qualche cumulo e roccia
+    const taken = new Set(props.map(p => p[1] + ',' + p[2])), trees = [];
+    const spots = props.filter(p => ['antenna', 'meteo', 'solar', 'beacon', 'drill', 'ftank', 'winch', 'polelamp', 'flag'].includes(p[0]));
+    const clear = (x, y) => spots.some(p => Math.hypot(p[1] - x, p[2] - y) < 3.2) || (x >= 20 && x <= 63 && y >= 19 && y <= 56) || (x >= 48 && x <= 60 && y >= 54 && y <= 63);
+    const band = (x, y) => Math.min(x, y, W - 1 - x, H - 1 - y);
     for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) {
       if (taken.has(x + ',' + y)) continue;
-      if (x < 5 || y < 5 || x > W - 6 || y > H - 6) { pp(rnd() < 0.8 ? 'drift' : 'icerock', x, y); taken.add(x + ',' + y); continue; }
-      if (keep(x, y)) continue;
-      const r = rnd(); if (r < 0.045) { pp(rnd() < 0.62 ? 'drift' : 'icerock', x, y); taken.add(x + ',' + y); }
-      else if (r < 0.1) decals.push([x + rnd() * 0.6, y + rnd() * 0.6, 0.5 + rnd() * 0.8, 0.2 + rnd() * 0.3, rnd() < 0.5 ? '#f6f9fc' : '#d9e3ec']);
+      const b = band(x, y);
+      if (b < 7) {
+        if ((x + 2 * y) % 3 === 0 && rnd() < 0.85 && !trees.some(t => Math.abs(t.x - x) <= 1 && Math.abs(t.y - y) <= 1)) { const t = { x, y, k: 'snow', v: Math.floor(rnd() * 3), h: 1.2 + rnd() * 0.25 }; trees.push(t); ppA('tree', x, y, t); }
+        else if (b < 5) ppA(rnd() < 0.85 ? 'drift' : 'icerock', x, y);
+        else if (rnd() < 0.3) ppA('drift', x, y);
+        taken.add(x + ',' + y); continue;
+      }
+      if (clear(x, y)) continue;
+      const r = rnd(); if (r < 0.035) { ppA(rnd() < 0.65 ? 'drift' : 'icerock', x, y); taken.add(x + ',' + y); }
+      else if (r < 0.09) decals.push([x + rnd() * 0.6, y + rnd() * 0.6, 0.5 + rnd() * 0.8, 0.2 + rnd() * 0.3, rnd() < 0.5 ? '#f6f9fc' : '#d9e3ec']);
     }
-    const ring = [[25, 12], [27, 12], [29, 12], [31, 12], [24, 14], [31, 16], [25, 16], [27, 16], [29, 16], [32, 14]];   // intorno al tavolo della mensa (partenza e riunioni)
-    return { w: W, h: H, rooms, doors, decals, props, holes, tasks: [], hall: 4, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {},
+    // celle libere chiuse (dove non si arriverebbe): cumuli
+    const solid = new Set(props.map(p => p[1] + ',' + p[2])), isHole = new Set(holes.map(h => h[0] + ',' + h[1])); doors.forEach(([x0, y0, w, h]) => { for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) isHole.delete(x + ',' + y); });
+    const free = (x, y) => x > 0 && y > 0 && x < W - 1 && y < H - 1 && !solid.has(x + ',' + y) && !isHole.has(x + ',' + y);
+    const seen = new Set(['42,33']), q = [[42, 33]];   // dal corridoio
+    while (q.length) { const [x, y] = q.pop(); for (const [ex, ey] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = (x + ex) + ',' + (y + ey); if (free(x + ex, y + ey) && !seen.has(k)) { seen.add(k); q.push([x + ex, y + ey]); } } }
+    for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) if (free(x, y) && !seen.has(x + ',' + y)) ppA('drift', x, y);
+    const ring = [[25, 12], [27, 12], [29, 12], [31, 12], [24, 14], [31, 16], [25, 16], [27, 16], [29, 16], [32, 14]].map(sh);   // intorno al tavolo della mensa (partenza e riunioni)
+    return { w: W, h: H, rooms, doors, decals, props, holes, trees, snowy: 1, tasks: [], hall: 4, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {},
       inn: { Neve: 'fuori nella neve', Dormitori: 'nei Dormitori', Mensa: 'in Mensa', Laboratorio: 'in Laboratorio', Corridoio: 'nel Corridoio', Radio: 'alla Radio', Generatore: 'al Generatore', Magazzino: 'in Magazzino', Serra: 'nella Serra', Hangar: 'nell\'Hangar', Infermeria: 'in Infermeria', Ingresso: 'all\'Ingresso', Piazzola: 'sulla piazzola' },
-      help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, pad: { x: 42, y: 47 }, gen: { x: 23, y: 28 }, bench: { x: 41, y: 14 }, flamer: { x: 37, y: 28 } };
+      help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall,
+      pad: { x: 42 + O, y: 47 + O, x0: 38 + O, x1: 46 + O, y0: 44 + O, y1: 50 + O }, gen: { x: 23 + O, y: 28 + O }, bench: { x: 41 + O, y: 14 + O }, flamer: { x: 37 + O, y: 28 + O } };
   }
   // pavimenti nuovi: neve (soffice, con le onde del vento) e grata di metallo
   const FLOOR = {
@@ -232,6 +252,19 @@
         { const h = 0.3 + 0.35 * K.hsh(x, y, 90); bx(x + 0.05, y + 0.1, x + 0.95, y + 0.9, 0, h, '#e6eef5'); bx(x + 0.2, y + 0.25, x + 0.8, y + 0.75, h, h + 0.22, '#f6f9fc'); bx(x + 0.35, y + 0.35, x + 0.65, y + 0.6, h + 0.22, h + 0.32, '#ffffff'); break; }
       case 'icerock':   // roccia con la neve sopra
         { const h = 0.6 + 0.6 * K.hsh(x, y, 91); bx(x + 0.1, y + 0.1, x + 0.9, y + 0.9, 0, h, '#6a7682'); bx(x + 0.2, y + 0.2, x + 0.75, y + 0.7, h, h + 0.25, '#7a8692'); bx(x + 0.12, y + 0.12, x + 0.88, y + 0.6, h, h + 0.1, '#f4f8fb'); break; }
+      case 'solar':   // pannello solare inclinato (con un po' di neve sopra)
+        bx(x + 0.4, y + 0.45, x + 0.6, y + 0.55, 0, 0.6, '#7a8490'); K.poly([S(x + 0.02, y + 0.15, 1.1), S(x + 0.98, y + 0.15, 1.1), S(x + 0.98, y + 0.85, 0.55), S(x + 0.02, y + 0.85, 0.55)], '#2f4f7a');
+        for (let i = 1; i < 4; i++) line(S(x + i / 4, y + 0.15, 1.1), S(x + i / 4, y + 0.85, 0.55), 'rgba(160,200,240,.6)', 1);
+        K.poly([S(x + 0.1, y + 0.18, 1.1), S(x + 0.6, y + 0.18, 1.1), S(x + 0.45, y + 0.45, 0.9), S(x + 0.1, y + 0.45, 0.9)], 'rgba(244,248,251,.92)'); break;
+      case 'beacon':   // faro della pista: palo basso con la luce arancione
+        bx(x + 0.35, y + 0.35, x + 0.65, y + 0.65, 0, 0.7, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.18, 0.7, 1.0, '#ff9a3a'); glow(x + 0.5, y + 0.5, 0.9, 0.9, 'rgba(255,160,60,.4)'); break;
+      case 'drill':   // trivella per le carote di ghiaccio
+        bx(x + 0.1, y + 0.1, x + 0.9, y + 0.9, 0, 0.25, '#5a5f66'); for (const [a, b] of [[0.15, 0.15], [0.75, 0.15], [0.45, 0.8]]) line(S(x + a + 0.05, y + b + 0.05, 0.25), S(x + 0.5, y + 0.5, 2.4), '#c9452f', 3);
+        cyl(x + 0.5, y + 0.5, 0.08, 0.25, 2.4, '#9aa3ad'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.5, 1.85, '#e0b02a'); break;
+      case 'winch': {   // argano a manovella su un blocco di ghiaccio (compito in due)
+        bx(x + 0.05, y + 0.1, x + 0.95, y + 0.9, 0, 0.35, '#b7c8d8'); bx(x + 0.15, y + 0.3, x + 0.85, y + 0.7, 0.35, 0.5, '#5a5f66');
+        cyl(x + 0.5, y + 0.5, 0.22, 0.5, 1.05, '#e0b02a'); bx(x + 0.15, y + 0.45, x + 0.25, y + 0.55, 0.5, 1.2, '#3a3f49'); bx(x + 0.75, y + 0.45, x + 0.85, y + 0.55, 0.5, 1.2, '#3a3f49');
+        line(S(x + 0.5, y + 0.5, 0.8), S(x + 1.4, y + 0.2, 0), '#2a2e35', 2); break; }
     }
   }
   CQ_MAPS.base = { n: 'Base polare', make: mapBase, only: 'cosa' };
@@ -271,270 +304,6 @@
     g.restore();
   }
 
-  // ================= REGOLE =================
-  const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
-  const P = c => cqModePos(c);
-  const dist = (a, b) => { const p = P(a), q = P(b); return Math.hypot(p.x - q.x, p.y - q.y); };
-  const byId = (G, id) => G.chars.find(c => c.id === id);
-  const roomAt = (x, y) => (cqRoomOf[Math.floor(y)] || [])[Math.floor(x)];
-  const isOut = (x, y) => { const r = roomAt(x, y); return r === 0 || r === 12 || r == null || r < 0; };
-  const outC = c => { const p = P(c); return isOut(p.x, p.y); };
-  const things = G => G.chars.filter(c => c.th && c.alive);
-  const humans = G => G.chars.filter(c => !c.th && c.alive);
-  const dispId = c => c.disg ? c.disg.id : c.id;
-  const dispName = (G, c) => { const d = byId(G, dispId(c)); return d ? d.name : c.name; };
-  const near = (c, x, y, r) => { const p = P(c); return Math.hypot(p.x - x - 0.5, p.y - y - 0.5) < r; };
-  const MP = () => CQ_MAP;
-  const genOn = G => G.gen.on;
-  const padIn = (x, y) => x > 37.6 && x < 46.4 && y > 43.6 && y < 50.4;
-  const busy = G => !!(G.mt || G.out);
-
-  // cronaca: l'host scrive (G.lg), ognuno la racconta dal suo punto di vista (le cose segrete solo a chi le deve sapere)
-  function say(G, k, o) { const e = Object.assign({ n: ++G.lgN, k }, o); G.lg.push(e); if (G.lg.length > 12) G.lg.shift(); show(G, e); }
-  function show(G, e) {
-    const me = G.me, b = s => '<b>' + esc(s || '') + '</b>';
-    let t = '';
-    if (e.k === 'kill') {
-      if (e.v === me.id) t = '👾 La Cosa ti ha preso! Ora sei un fantasma: guarda come va a finire (gli altri non ti sentono).';
-      else if (me.th && e.a !== me.id) t = '👾 L\'altra Cosa ha preso ' + b(e.vn) + '.';
-      if (e.v === me.id || Math.hypot(e.x - cq.x, e.y - cq.y) < 7) { beep(110, 0.35, 0.05, 0, 'sawtooth'); beep(80, 0.5, 0.05, 0.2, 'sawtooth'); }
-    } else if (e.k === 'abs') { if (e.a === me.id) t = '🎭 Hai assorbito ' + b(e.vn) + ': ora tutti ti vedono come ' + b(e.vn) + '.'; else if (me.th) t = '🎭 L\'altra Cosa ora sembra ' + b(e.vn) + '.'; }
-    else if (e.k === 'rep') { t = '📢 ' + b(e.an) + ' ha trovato il corpo di ' + b(e.vn) + ' ' + (e.r || '') + '! Riunione in Mensa.'; beep(880, 0.15, 0.05); beep(660, 0.15, 0.05, 0.18); beep(880, 0.25, 0.05, 0.36); }
-    else if (e.k === 'tq') { if (e.a === me.id) t = '🧪 Esame pronto: serve un compagno accanto al bancone.'; else if (e.i === me.id) t = '🧪 ' + b(e.an) + ' ti chiede di fare l\'esame del sangue: vai al bancone del laboratorio e premi Esame! (se non ci vai, sembrerai sospetto)'; else if (Math.hypot(e.x - cq.x, e.y - cq.y) < 9) t = '🧪 ' + b(e.an) + ' vuole fare l\'esame del sangue: avvicinati al bancone del laboratorio!'; }
-    else if (e.k === 'tgo') { if (e.a === me.id || e.b === me.id) t = '🧪 Esame in corso: restate fermi accanto al bancone per ' + TEST + ' secondi…'; }
-    else if (e.k === 'tx') { if (e.a === me.id || e.b === me.id) t = '🧪 Esame interrotto: ' + (e.why || 'qualcuno si è allontanato') + '. Il kit non è stato usato.'; }
-    else if (e.k === 'tres') {
-      const A = e.ra ? '<b style="color:#ff6a5a">' + esc(e.an) + ' è LA COSA!</b>' : b(e.an) + ' è umano', B = e.rb ? '<b style="color:#ff6a5a">' + esc(e.bn) + ' è LA COSA!</b>' : b(e.bn) + ' è umano';
-      t = '🧪 Esame del sangue: ' + A + ' · ' + B + '.';
-      if (e.ra || e.rb) { beep(220, 0.4, 0.06, 0, 'sawtooth'); beep(160, 0.6, 0.06, 0.3, 'sawtooth'); } else { beep(784, 0.12, 0.04); beep(1047, 0.2, 0.04, 0.12); }
-    } else if (e.k === 'burn') {
-      t = e.th ? '🔥 ' + b(e.bn) + ' ha bruciato ' + b(e.an) + ': ' + (e.real && e.real !== e.an ? 'era LA COSA (in realtà ' + b(e.real) + ')!' : 'era LA COSA!') : '🔥 ' + b(e.bn) + ' ha bruciato ' + b(e.an) + '… ed era umano! Il lanciafiamme torna in magazzino.';
-      G.fx.push({ k: 'fl', a: [e.sx, e.sy], b: [e.x, e.y], t: performance.now() });
-      beep(140, 0.5, 0.05, 0, 'sawtooth'); beep(200, 0.3, 0.04, 0.1, 'square');
-    } else if (e.k === 'miss') { if (e.a === me.id) t = '🔥 Fiammata a vuoto! Colpi rimasti: ' + e.n; G.fx.push({ k: 'fl', a: [e.sx, e.sy], b: [e.x, e.y], t: performance.now() }); beep(150, 0.3, 0.04, 0, 'sawtooth'); }
-    else if (e.k === 'take') { t = '🔥 ' + b(e.an) + ' ha preso il lanciafiamme (' + e.n + (e.n === 1 ? ' colpo' : ' colpi') + ').'; }
-    else if (e.k === 'sab') { t = '⚡ Il generatore si è spento! Buio e freddo anche dentro: ripariamolo!'; beep(300, 0.2, 0.05, 0, 'square'); beep(200, 0.4, 0.05, 0.22, 'square'); }
-    else if (e.k === 'fix') { t = '⚡ Generatore riparato: luce e caldo tornano.'; beep(523, 0.1, 0.04); beep(784, 0.18, 0.04, 0.1); }
-    else if (e.k === 'frz') { if (e.v === me.id) t = '🥶 Sei morto congelato! Ora sei un fantasma.'; }
-    else if (e.k === 'heli') { t = '🚁 L\'elicottero sta arrivando alla piazzola (a sud, fuori dall\'Ingresso)! Parte allo scadere: chi è sulla piazzola si salva.'; for (let i = 0; i < 4; i++) beep(90, 0.08, 0.04, i * 0.12, 'sawtooth'); }
-    else if (e.k === 'mend') t = '📢 Riunione finita: si riparte.';
-    if (t) cqToast(t);
-  }
-
-  // ---- azioni (sull'host o da solo) ----
-  function body(G, v, k) {
-    const q = P(v); G.bodies.push({ id: v.id, x: q.x, y: q.y, face: v === G.me ? cq.face : v.face, look: cqLookOf(v), name: v.name, t: G.time, nk: 1, k: k || 0 });
-  }
-  function die(G, v, k) { v.alive = false; v.path = []; v.walk = 0; v.dt = G.time; v.how = k; body(G, v, k); if (G.test && (G.test.a === v.id || G.test.b === v.id)) { G.test = null; } }
-  // testimoni: un altro umano vivo vicino, nella stessa stanza (fuori nella bufera solo molto vicino; al buio meno)
-  function witness(G, k, v) {
-    const p = P(k), rk = roomAt(p.x, p.y), out = isOut(p.x, p.y), R = out ? SEE_OUT - 0.6 : genOn(G) ? WIT : 3.8;
-    return G.chars.some(h => h.alive && !h.th && h !== v && h !== k && (() => { const q = P(h), d = Math.hypot(q.x - p.x, q.y - p.y); return d < R && (out ? isOut(q.x, q.y) : roomAt(q.x, q.y) === rk || d < 2.5); })());
-  }
-  function canAtk(G, k) { return k.th && k.alive && !busy(G) && (k.kcd || 0) <= 0; }
-  function atkTarget(G, k) {
-    let best = null, bd = REACH + (k.rv ? 0.2 : 0);
-    for (const c of humans(G)) { const d = dist(k, c); if (d < bd) { bd = d; best = c; } }
-    return best;
-  }
-  function attack(G, k, v) {
-    if (!canAtk(G, k) || !v || !v.alive || v.th || dist(k, v) > REACH + 0.8) return false;
-    if (!k.rv && witness(G, k, v)) return false;
-    die(G, v, 0); k.kcd = k.rv ? KCD_RV : KCD; k.atkT = G.time; k.kl = (k.kl || 0) + 1; k.fresh = { id: v.id, t: G.time };
-    const q = P(v); say(G, 'kill', { a: k.id, v: v.id, vn: v.name, x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10 });
-    return true;
-  }
-  // assorbire la propria vittima: il corpo sparisce, la Cosa prende il suo aspetto e il suo nome
-  function absorb(G, k) {
-    const f = k.fresh; if (!k.th || !k.alive || k.rv || !f || G.time - f.t > ABS_T || busy(G)) return false;
-    const b = G.bodies.find(o => o.id === f.id); if (!b || Math.hypot(P(k).x - b.x, P(k).y - b.y) > 1.6) return false;
-    G.bodies = G.bodies.filter(o => o !== b); k.disg = { id: f.id, until: 1e9 }; if (k === G.me) G.disg = k.disg; k.fresh = null; k.atkT = G.time;
-    say(G, 'abs', { a: k.id, vn: byId(G, f.id).name });
-    return true;
-  }
-  const bodyNear = (G, c) => { const p = P(c); return G.bodies.find(b => Math.hypot(b.x - p.x, b.y - p.y) < 1.6); };
-  function report(G, c) {
-    const b = bodyNear(G, c); if (!b || !c.alive || busy(G)) return false;
-    const R = MP().ring, ids = [];
-    // sospetti: chi era vicino al corpo quando e' stato trovato
-    for (const o of G.chars) if (o.alive && o !== c && Math.hypot(P(o).x - b.x, P(o).y - b.y) < 8) ids.push(dispId(o));
-    G.sus = G.sus || {}; for (const i of ids) G.sus[i] = (G.sus[i] || 0) + 1;
-    const vic = byId(G, b.id); G.dead.push(b.name);
-    for (const o of G.bodies) if (!G.dead.includes(o.name)) G.dead.push(o.name);
-    G.bodies = []; G.test = null;
-    const live = G.chars.filter(o => o.alive), pres = live.map(o => dispName(G, o));
-    G.mt = { end: G.time + MEET, an: dispName(G, c), vn: vic.name, r: CQ_IN[cqRoomName(b.x, b.y)] || '', ok: [], pres, dead: G.dead.slice(), miss: G.chars.filter(o => !pres.includes(o.name) && !G.dead.includes(o.name)).map(o => o.name), res: G.res.slice() };
-    live.forEach((o, i) => { const [x, y] = R[i % R.length]; o.x = x + 0.5; o.y = y + 0.5; o.path = []; if (o === G.me) { cq.x = o.x; cq.y = o.y; } });
-    G.ep++;
-    say(G, 'rep', { an: G.mt.an, vn: G.mt.vn, r: G.mt.r }); meetUI(G);
-    for (const o of G.chars) if (o.th) o.kcd = Math.max(o.kcd || 0, KCD * 0.6);
-    return true;
-  }
-  function meetOk(G, c) { if (G.mt && c.alive && !G.mt.ok.includes(c.id)) G.mt.ok.push(c.id); }
-  function meetEnd(G) { G.mt = null; say(G, 'mend', {}); if ($('#ctOk')) cqCloseTask(); }
-  // esame del sangue: chi lo chiede (a) e un compagno (b) fermi accanto al bancone
-  // inv = chi viene invitato (i computer invitano chi hanno vicino; se l'invitato non arriva diventa sospetto)
-  function testAsk(G, c, inv) {
-    const B = MP().bench; if (!c.alive || busy(G) || G.kits <= 0 || !near(c, B.x, B.y, BENCH)) return false;
-    if (G.test && G.test.a !== c.id && G.test.b == null) { G.test.b = c.id; G.test.p = 0; say(G, 'tgo', { a: G.test.a, b: c.id }); return true; }
-    if (G.test) return false;
-    G.test = { a: c.id, b: null, p: 0, t0: G.time, inv: inv ? inv.id : null };
-    const q = P(c); say(G, 'tq', { a: c.id, an: dispName(G, c), x: q.x, y: q.y, i: inv ? inv.id : -1 });
-    return true;
-  }
-  function testTick(G, dt) {
-    const T = G.test; if (!T) return; const B = MP().bench, A = byId(G, T.a), Bc = T.b != null ? byId(G, T.b) : null;
-    if (!A || !A.alive || !near(A, B.x, B.y, BENCH + 0.5)) { const b = T.b; G.test = null; say(G, 'tx', { a: T.a, b, why: 'chi lo aveva chiesto si è allontanato' }); return; }
-    if (!Bc) { if (G.time - T.t0 > 22) { const I = T.inv != null && byId(G, T.inv); if (I && I.alive) G.sus[dispId(I)] = (G.sus[dispId(I)] || 0) + 2; G.test = null; say(G, 'tx', { a: T.a, why: I ? esc(dispName(G, I)) + ' non è venuto' : 'nessun compagno è arrivato' }); } return; }   // il compagno entra premendo il pulsante (nessuno ci finisce dentro per sbaglio)
-    if (!Bc.alive || !near(Bc, B.x, B.y, BENCH + 0.5)) { G.test = null; say(G, 'tx', { a: T.a, b: T.b }); return; }
-    T.p += dt / TEST;
-    if (T.p >= 1) {
-      G.test = null; G.kits--; setKits(G);
-      for (const c of [A, Bc]) { if (c.th) c.rv = true; G.res.push([dispName(G, c), c.th ? 1 : 0]); if (!c.th) G.clear[dispId(c)] = 1; }
-      say(G, 'tres', { an: dispName(G, A), bn: dispName(G, Bc), ra: A.th ? 1 : 0, rb: Bc.th ? 1 : 0 });
-    }
-  }
-  function setKits(G) { const p = CQ_PROPS.find(p => p[0] === 'blood'); if (p) { p[3].n = G.kits; const B = MP().bench; cqBgCell(B.x, B.y); } }
-  function setRack(G) { const p = CQ_PROPS.find(p => p[0] === 'flamer'); if (p) { const on = G.fl.h < 0 && G.fl.n > 0; if (p[3].on !== on) { p[3].on = on; cqBgCell(MP().flamer.x, MP().flamer.y); } } }
-  function setGen(G) { const p = CQ_PROPS.find(p => p[0] === 'pgen'); if (p && p[3].on !== G.gen.on) { p[3].on = G.gen.on; cqBgCell(MP().gen.x, MP().gen.y); } }
-  function take(G, c) {
-    const F = MP().flamer; if (!c.alive || busy(G) || G.fl.h >= 0 || G.fl.n <= 0 || !near(c, F.x, F.y, 1.6)) return false;
-    G.fl.h = c.id; setRack(G); say(G, 'take', { an: dispName(G, c), n: G.fl.n }); return true;
-  }
-  function flTarget(G, c) {
-    let best = null, bd = FLR;
-    for (const o of G.chars) { if (o === c || !o.alive) continue; const d = dist(c, o); if (d < bd) { bd = d; best = o; } }
-    return best;
-  }
-  function burn(G, c, v) {
-    if (G.fl.h !== c.id || !c.alive || busy(G) || G.fl.n <= 0) return false;
-    const p = P(c); G.fl.n--;
-    if (!v || !v.alive || dist(c, v) > FLR + 0.7) { const q = { x: p.x + (c === G.me ? cq.wdx || 0.7 : 0.7) * 2, y: p.y + (c === G.me ? cq.wdy || 0.7 : 0.7) * 2 }; say(G, 'miss', { a: c.id, n: G.fl.n, sx: p.x, sy: p.y, x: q.x, y: q.y }); if (G.fl.n <= 0) G.fl.h = -1; return true; }
-    const q = P(v), an = dispName(G, v), real = v.name;
-    die(G, v, 1);
-    if (v.th) { v.burned = 1; c.bt = (c.bt || 0) + 1; say(G, 'burn', { th: 1, an, real, bn: dispName(G, c), sx: p.x, sy: p.y, x: q.x, y: q.y }); if (G.fl.n <= 0) G.fl.h = -1; }
-    else { c.ff = (c.ff || 0) + 1; G.fl.h = -1; say(G, 'burn', { th: 0, an, bn: dispName(G, c), sx: p.x, sy: p.y, x: q.x, y: q.y }); }
-    setRack(G);
-    return true;
-  }
-  function sabotage(G, c) {
-    const Gp = MP().gen; if (!c.th || !c.alive || busy(G) || !G.gen.on || G.time < G.gen.cd || !near(c, Gp.x, Gp.y, 2.2)) return false;
-    G.gen.on = false; G.gen.p = 0; G.gen.cd = G.time + SAB_CD; setGen(G); say(G, 'sab', {}); return true;
-  }
-
-  // ---- personaggi del computer ----
-  function go(c, x, y) { c.path = cqPath(c.x, c.y, x, y); if (!c.path.length) c.path = [[x, y]]; }
-  const spotNear = (x, y) => cqSpot(x, y);
-  function rndRoomSpot(G, inside) {
-    for (let i = 0; i < 40; i++) { const R = CQ_ROOMS[inside ? 1 + Math.floor(Math.random() * 11) : Math.floor(Math.random() * CQ_ROOMS.length)], x = R.x + Math.floor(Math.random() * R.w), y = R.y + Math.floor(Math.random() * R.h); if (cqCellFree(x, y)) return { x: x + 0.5, y: y + 0.5 }; }
-    return { x: 30.5, y: 21.5 };
-  }
-  function padSpot() { for (let i = 0; i < 30; i++) { const x = 39 + Math.floor(Math.random() * 6), y = 45 + Math.floor(Math.random() * 4); if (cqCellFree(x, y)) return { x: x + 0.5, y: y + 0.5 }; } return { x: 42.5, y: 47.5 }; }
-  const seesP = (G, c, x, y) => { const d = Math.hypot(x - c.x, y - c.y), o = isOut(c.x, c.y); return o || isOut(x, y) ? d < SEE_OUT : genOn(G) ? d < 9 && (roomAt(c.x, c.y) === roomAt(x, y) || d < 3) : d < (c.th ? 7 : 4); };
-  function botHuman(G, c) {
-    const B = MP().bench, Gp = MP().gen, F = MP().flamer;
-    if (G.left < 50) { if (!padIn(c.x, c.y) && (!c.path.length || !c.toPad)) { const s = padSpot(); c.toPad = 1; go(c, s.x, s.y); } return; }
-    if (G.test && G.test.b === c.id) { c.path = []; return; }
-    if (G.test && G.test.a === c.id) { if (!near(c, B.x, B.y, BENCH - 0.3) && !c.path.length) { const s = spotNear(B.x, B.y - 1); go(c, s.x, s.y); } return; }
-    // esame del sangue: se mi hanno invitato ci vado subito (un umano non ha niente da nascondere)
-    if (G.test && G.test.b == null && G.test.inv === c.id) { if (near(c, B.x, B.y, BENCH - 0.3)) { c.path = []; testAsk(G, c); } else if (!c.path.length) { const p = spotNear(B.x, B.y + 1); go(c, p.x, p.y); } return; }
-    // un mostro scoperto qui vicino
-    const rv = things(G).find(k => k.rv && dist(k, c) < 9 && seesP(G, c, k.x, k.y));
-    // il sospetto piu' forte (chi era vicino ai corpi, chi ha rifiutato l'esame), se non e' stato esaminato
-    const sus = G.chars.filter(o => o !== c && o.alive && !G.clear[dispId(o)] && (G.sus[dispId(o)] || 0) >= 2).sort((a, b) => (G.sus[dispId(b)] || 0) - (G.sus[dispId(a)] || 0))[0];
-    if (G.fl.h === c.id) {
-      const tg = rv || (sus && dist(sus, c) < 12 ? sus : null);
-      if (tg) { if (dist(tg, c) < FLR - 0.2) { if (tg.rv || Math.random() < 0.35) { c.path = []; burn(G, c, tg); } } else go(c, tg.x, tg.y); return; }
-    } else if (rv && dist(rv, c) < 5) { const a = Math.atan2(c.y - rv.y, c.x - rv.x); for (let i = 0; i < 8; i++) { const x = Math.floor(c.x + Math.cos(a + (i - 4) * 0.3) * 5), y = Math.floor(c.y + Math.sin(a + (i - 4) * 0.3) * 5); if (cqCellFree(x, y)) { go(c, x + 0.5, y + 0.5); break; } } return; }
-    // c'e' una Cosa scoperta o un sospetto forte: qualcuno va a prendere il lanciafiamme
-    if ((things(G).some(k => k.rv) || sus) && G.fl.h < 0 && G.fl.n > 0 && (c.id % 2 === 0 || dist(c, { x: F.x, y: F.y }) < 10)) { if (near(c, F.x, F.y, 1.5)) take(G, c); else if (!c.path.length) { const p = spotNear(F.x, F.y); go(c, p.x, p.y); } return; }
-    // corpo visto: si va a segnalarlo
-    const bd = G.bodies.find(b => seesP(G, c, b.x, b.y) && Math.hypot(b.x - c.x, b.y - c.y) < 8);
-    if (bd) { if (Math.hypot(bd.x - c.x, bd.y - c.y) < 1.4) { c.path = []; report(G, c); } else go(c, bd.x, bd.y); return; }
-    // freddo: dentro!
-    if (outC(c) && (c.cold || 100) < 45) { if (!c.path.length || !c.warm) { c.warm = 1; const p = rndRoomSpot(G, true); go(c, p.x, p.y); } return; }
-    c.warm = 0;
-    // generatore spento: chi e' vicino va a ripararlo
-    if (!genOn(G) && (c.id % 3 !== 0 || Math.hypot(c.x - Gp.x, c.y - Gp.y) < 14)) { if (!near(c, Gp.x, Gp.y, 1.9)) { if (!c.path.length || !c.fix) { c.fix = 1; const p = spotNear(Gp.x - 1, Gp.y); go(c, p.x, p.y); } } else c.path = []; return; }
-    c.fix = 0;
-    // voglio fare l'esame: invito chi mi sta vicino (se non viene… sospetto!) e vado al bancone
-    if (!G.test && G.kits > 0 && !G.clear[c.id] && G.time > 25 && !c.wantT && Math.random() < 0.03) {
-      const o = G.chars.filter(o => o !== c && o.alive && !G.clear[dispId(o)] && dist(o, c) < 12).sort((a, b) => dist(a, c) - dist(b, c))[0];
-      if (o) { c.wantT = o.id; const p = spotNear(B.x, B.y - 1); go(c, p.x, p.y); return; }
-    }
-    if (c.wantT) { if (near(c, B.x, B.y, BENCH)) { const o = byId(G, c.wantT); c.wantT = 0; if (o && o.alive) testAsk(G, c, o); } else if (!c.path.length) { const p = spotNear(B.x, B.y - 1); go(c, p.x, p.y); } return; }
-    // in giro: quasi sempre in coppia con qualcuno (in compagnia si e' piu' sicuri… se il compagno e' umano)
-    const bu = c.buddy != null && byId(G, c.buddy);
-    if (bu && bu.alive && G.time < c.buT && !outC(bu)) { if (dist(bu, c) > 2.2 && (!c.path.length || Math.random() < 0.3)) go(c, bu.x + (Math.random() - 0.5) * 1.5, bu.y + (Math.random() - 0.5) * 1.5); return; }
-    if (Math.random() < 0.6) { const o = G.chars.filter(o => o !== c && o.alive && !outC(o) && (G.sus[dispId(o)] || 0) < 2).sort((a, b) => dist(a, c) - dist(b, c))[Math.floor(Math.random() * 2)]; if (o) { c.buddy = o.id; c.buT = G.time + 20 + Math.random() * 25; return; } }
-    c.buddy = null;
-    if (!c.path.length) { const p = rndRoomSpot(G, Math.random() < 0.88); go(c, p.x, p.y); }
-  }
-  function botThing(G, c) {
-    const Gp = MP().gen;
-    if (c.rv) {   // scoperta: caccia aperta, scappa dal lanciafiamme
-      const fh = G.fl.h >= 0 ? byId(G, G.fl.h) : null;
-      if (fh && fh.alive && dist(fh, c) < 5) { const a = Math.atan2(c.y - fh.y, c.x - fh.x), x = Math.floor(c.x + Math.cos(a) * 5), y = Math.floor(c.y + Math.sin(a) * 5); if (cqCellFree(x, y)) go(c, x + 0.5, y + 0.5); return; }
-      const v = humans(G).sort((a, b) => dist(a, c) - dist(b, c))[0];
-      if (v) { if (dist(v, c) < REACH && canAtk(G, c)) attack(G, c, v); else go(c, v.x, v.y); }
-      return;
-    }
-    if (G.left < 50) { if (!padIn(c.x, c.y) && (!c.path.length || !c.toPad)) { const s = padSpot(); c.toPad = 1; go(c, s.x, s.y); } return; }
-    if (G.test && G.test.b === c.id) { c.path = []; return; }
-    if (G.test && G.test.inv === c.id && G.test.b == null && (c.bluff == null ? (c.bluff = Math.random() < 0.12) : c.bluff)) { const B = MP().bench; if (near(c, B.x, B.y, BENCH - 0.3)) { c.path = []; testAsk(G, c); } else if (!c.path.length) { const p = spotNear(B.x, B.y + 1); go(c, p.x, p.y); } return; }
-    if (!G.test) c.bluff = null;
-    // appena preso qualcuno: a volte lo assorbe, a volte scappa
-    if (c.fresh && G.time - c.fresh.t < ABS_T) {
-      if (c.wabs == null) c.wabs = Math.random() < 0.4;
-      const b = G.bodies.find(o => o.id === c.fresh.id);
-      if (c.wabs && b) { if (Math.hypot(b.x - c.x, b.y - c.y) < 1.3) { if (!witness(G, c, null)) absorb(G, c); } else go(c, b.x, b.y); return; }
-      if (!c.path.length) { const s = rndRoomSpot(G, true); go(c, s.x, s.y); }
-      return;
-    }
-    c.wabs = null;
-    // sabotaggio del generatore ogni tanto
-    if (genOn(G) && G.time > G.gen.cd && G.time > 50 && (c.wsab || Math.random() < 0.01)) {
-      c.wsab = 1; if (near(c, Gp.x, Gp.y, 2)) { if (!witness(G, c, null)) { sabotage(G, c); c.wsab = 0; } } else if (!c.path.length) { const s = spotNear(Gp.x + 1, Gp.y); go(c, s.x, s.y); }
-      return;
-    }
-    c.wsab = 0;
-    // corpo altrui: a volte lo segnala per sembrare innocente
-    const bd = G.bodies.find(b => Math.hypot(b.x - c.x, b.y - c.y) < 1.4 && (!c.fresh || b.id !== c.fresh.id));
-    if (bd && Math.random() < 0.3) { report(G, c); return; }
-    // caccia: una vittima da sola
-    if ((c.kcd || 0) <= 2) {
-      const v = c.prey && byId(G, c.prey);
-      if (v && v.alive && !v.th) {
-        if (dist(v, c) < REACH && canAtk(G, c)) { if (attack(G, c, v)) { c.prey = null; c.path = []; } else if (Math.random() < 0.15) c.prey = null; return; }
-        if (!c.path.length || Math.random() < 0.35) go(c, v.x, v.y);
-        if (Math.random() < 0.02) c.prey = null;
-        return;
-      }
-      const alone = humans(G).filter(h => !G.chars.some(o => o !== h && o !== c && o.alive && !o.th && dist(o, h) < WIT)).sort((a, b) => dist(a, c) - dist(b, c))[0];
-      if (alone) { c.prey = alone.id; go(c, alone.x, alone.y); return; }
-    }
-    if (!c.path.length) { if (Math.random() < 0.5) { const o = humans(G).sort(() => Math.random() - 0.5)[0]; if (o) { go(c, o.x, o.y); return; } } const s = rndRoomSpot(G, Math.random() < 0.9); go(c, s.x, s.y); }
-  }
-
-  // ---- riunione: pannello per tutti ----
-  function meetUI(G) {
-    const m = G.mt; if (!m) return;
-    const list = (a, e) => a.length ? a.map(n => esc(n)).join(', ') : '<i>' + e + '</i>';
-    cqCloseTask();
-    $('#tkTitle').textContent = '📢 Riunione in Mensa';
-    $('#tkBody').innerHTML = `<p class="lead"><b>${esc(m.an)}</b> ha trovato il corpo di <b>${esc(m.vn)}</b> ${esc(m.r)}.</p>
-      <p class="hint">🗣️ Parlate in vocale (adesso vi sentite tutti): chi era dove? Non si vota: alla fine si riparte. Se avete dei sospetti… c'è l'esame del sangue, oppure il lanciafiamme.</p>
-      <div class="row"><div class="lbl">🧪 Esami del sangue</div>${m.res.length ? m.res.map(r => r[1] ? '<b style="color:#ff6a5a">' + esc(r[0]) + ': LA COSA</b>' : '<span style="color:#7be0a0">' + esc(r[0]) + ': umano</span>').join(' · ') : '<i>nessuno, per ora</i>'}</div>
-      <div class="row"><div class="lbl">🙋 All'appello</div>${list(m.pres, 'nessuno')}</div>
-      <div class="row"><div class="lbl">💀 Morti</div>${list(m.dead, 'nessuno')}</div>
-      ${m.miss.length ? '<div class="row"><div class="lbl">❓ Dispersi (nessun corpo trovato)</div>' + list(m.miss, '') + '</div>' : ''}
-      <p class="hint" style="text-align:center">Si riparte tra <b id="ctMt">${Math.ceil(m.end - G.time)}</b> s</p>
-      <div class="mtAct"><button class="btn primary" id="ctOk" type="button">✅ Ho finito di parlare</button></div>`;
-    $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
-    $('#ctOk').onclick = () => { if (G.guest) cqNetSend({ k: 'ok' }); else meetOk(G, G.me); G.myOk = G.mt && G.mt.end; $('#ctOk').disabled = true; $('#ctOk').textContent = '✅ Aspetto gli altri…'; };
-    if (!G.me.alive) $('#ctOk').hidden = true;
-  }
-
   // ---- elicottero (disegnato sopra alla mappa): alt = altezza in tessere ----
   function heli(g, X, Y, TW, alt, rot, mon) {
     const u = TW / 34, H = alt * TW;
@@ -569,56 +338,405 @@
     g.font = '14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(icon, ex, ey + 1);
   }
 
+  // ================= REGOLE =================
+  const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
+  const P = c => cqModePos(c);
+  const dist = (a, b) => { const p = P(a), q = P(b); return Math.hypot(p.x - q.x, p.y - q.y); };
+  const byId = (G, id) => G.chars.find(c => c.id === id);
+  const roomAt = (x, y) => (cqRoomOf[Math.floor(y)] || [])[Math.floor(x)];
+  const isOut = (x, y) => { const r = roomAt(x, y); return r === 0 || r === 12 || r == null || r < 0; };
+  const outC = c => { const p = P(c); return isOut(p.x, p.y); };
+  const things = G => G.chars.filter(c => c.th && c.alive);
+  const humans = G => G.chars.filter(c => !c.th && c.alive);
+  const near = (c, x, y, r) => { const p = P(c); return Math.hypot(p.x - x - 0.5, p.y - y - 0.5) < r; };
+  const MP = () => CQ_MAP;
+  const genOn = G => G.gen.on;
+  const padIn = (x, y) => { const p = MP().pad; return x > p.x0 - 0.4 && x < p.x1 + 0.4 && y > p.y0 - 0.4 && y < p.y1 + 0.4; };
+  const busy = G => !!(G.mt || G.out);
+  const landed = G => !!(G.heli && G.time >= G.heli.t + HELI_LAND);
+  const canBoard = c => c.alive && !c.on && !(c.th && c.rv);
+
+  // ---- compiti: [id, nome, mini-gioco, x, y dell'oggetto, fuori?, extra (spiegazione e ritocchi del mini-gioco)] ----
+  const TASKS = [
+    ['radio', 'Sintonizza la radio', 'fuoco', 28, 37, 0, { lead: 'Gira la manopola finché il segnale è pulito, poi tienila ferma.', scr: 'SOS · BASE' }],
+    ['cavir', 'Collega i cavi della radio', 'cavi', 30, 37, 0],
+    ['fusi', 'Controlla i fusibili', 'luci', 38, 37, 0, { lead: 'Riaccendi tutti i fusibili del quadro.' }],
+    ['gaso', 'Rifornisci il generatore', 'pieno', 32, 37, 0, { lead: 'Tieni premuta la pompa finché il serbatoio del generatore è pieno.' }],
+    ['caffe', 'Prepara il caffè caldo', 'caffe', 40, 22, 0],
+    ['campi', 'Ordina i campioni', 'montaggio', 49, 29, 0, { lead: 'Metti in ordine le provette dei campioni, da 1 a 5.' }],
+    ['serra', 'Accendi le lampade della serra', 'luci', 58, 39, 0, { lead: 'Accendi tutte le lampade della serra.' }],
+    ['medi', 'Prepara le medicine', 'costume', 50, 47, 0, { lead: 'Guarda in che ordine si illuminano le medicine, poi toccale nello stesso ordine.', labels: ['Sciroppo', 'Pillole', 'Garze', 'Pomata'] }],
+    ['moto', 'Ripara la motoslitta', 'cavi', 27, 49, 0, { lead: 'Ricollega i cavi del motore: tocca un attacco a sinistra, poi quello dello stesso colore a destra.' }],
+    ['valv', 'Apri la valvola del termosifone', 'bobina', 23, 29, 0, { lead: 'Gira la valvola col dito in senso orario finché il termosifone è aperto.' }],
+    ['inve', 'Fai l\'inventario', 'montaggio', 41, 42, 0, { lead: 'Conta le casse in ordine, da 1 a 5.' }],
+    ['ante', 'Raddrizza l\'antenna', 'ciak', 8, 40, 1, { lead: 'Tira i cavi dell\'antenna quando la barretta è nella zona verde.', lab: 'TIRA!', hitTxt: 'Cavo ' }],
+    ['meteo', 'Leggi la stazione meteo', 'fuoco', 72, 14, 1, { lead: 'Metti a fuoco il display della stazione meteo, poi tienilo fermo.', scr: 'VENTO 92 km/h' }],
+    ['sola', 'Spala la neve dai pannelli', 'sella', 31, 9, 1, { lead: 'I pannelli solari sono coperti di neve: tocca tutti i mucchi per spalarli.' }],
+    ['fari', 'Riaccendi i fari della pista', 'luci', 74, 62, 1, { lead: 'Riaccendi tutti i fari della pista per l\'elicottero.' }],
+    ['caro', 'Recupera la carota di ghiaccio', 'bobina', 12, 66, 1, { lead: 'Gira la manovella della trivella finché la carota di ghiaccio è fuori.' }],
+    ['tani', 'Riempi la tanica di gasolio', 'pieno', 70, 44, 1, { lead: 'Tieni premuta la pompa finché la tanica è piena.' }]];
+  // compiti di squadra (fuori, in due): stare in due accanto all'argano per TEAM_T secondi -> un kit
+  const TEAMS = [[15, 61, 'Libera la trivella dal ghiaccio'], [64, 10, 'Rialza il palo della stazione meteo']];
+  const tnear = (c, i, r) => near(c, TASKS[i][3], TASKS[i][4], r || 1.7);
+  const left = c => (c.tl || []).filter(i => !(c.td || []).includes(i));
+  // a ognuno i suoi compiti: prima quelli che hanno meno persone (cosi' la squadra si sparpaglia)
+  function assign(G) {
+    const nin = G.opt.nt5 === 3 ? 2 : G.opt.nt5 === 5 ? 3 : 2, nout = G.opt.nt5 === 3 ? 1 : 2, cnt = TASKS.map(() => 0);
+    const pick = (out, n) => { const r = []; for (let k = 0; k < n; k++) { const L = TASKS.map((t, i) => i).filter(i => !!TASKS[i][5] === out && !r.includes(i)).sort((a, b) => cnt[a] - cnt[b] || Math.random() - 0.5); cnt[L[0]]++; r.push(L[0]); } return r; };
+    for (const c of G.chars.slice().sort(() => Math.random() - 0.5)) { c.tl = pick(false, nin).concat(pick(true, nout)).sort(() => Math.random() - 0.5); c.td = []; }
+    G.tk = { done: 0, tot: G.chars.filter(c => !c.th).reduce((s, c) => s + c.tl.length, 0) };
+  }
+  function taskDone(G, c, i) {
+    if (!(c.tl || []).includes(i) || c.td.includes(i)) return false;
+    c.td.push(i);
+    if (c.th) return true;   // la Cosa fa finta
+    G.tk.done++; G.kp++;
+    if (G.kp >= KIT_EVERY) { G.kp = 0; addKit(G, 'tasks'); }
+    radioCheck(G);
+    return true;
+  }
+  function addKit(G, why, who) { G.kits++; setKits(G); say(G, 'kit', { w: why, an: who || '' }); }
+  function radioCheck(G) { if (!G.heli && G.tk.tot > 0 && G.tk.done >= G.tk.tot) { G.heli = { t: G.time }; say(G, 'radio', {}); } }
+
+  // cronaca: l'host scrive (G.lg), ognuno la racconta dal suo punto di vista (le cose segrete solo a chi le deve sapere)
+  function say(G, k, o) { const e = Object.assign({ n: ++G.lgN, k }, o); G.lg.push(e); if (G.lg.length > 12) G.lg.shift(); show(G, e); }
+  function show(G, e) {
+    const me = G.me, b = s => '<b>' + esc(s || '') + '</b>';
+    let t = '';
+    if (e.k === 'kill') {
+      if (e.v === me.id) t = '👾 La Cosa ti ha preso! Ora sei un fantasma: puoi ancora fare i tuoi compiti (i vivi non ti sentono).';
+      else if (me.th && e.a !== me.id) t = '👾 Un\'altra Cosa ha preso ' + b(e.vn) + '.';
+      if (e.v === me.id || Math.hypot(e.x - cq.x, e.y - cq.y) < 7) { beep(110, 0.35, 0.05, 0, 'sawtooth'); beep(80, 0.5, 0.05, 0.2, 'sawtooth'); }
+    } else if (e.k === 'inf') {
+      if (e.v === me.id) { t = '🧬 Sei stato ASSORBITO: ora sei anche tu una COSA! Fai finta di niente, elimina gli umani e non farti scoprire (l\'esame ti scoprirebbe).'; beep(90, 0.6, 0.05, 0, 'sawtooth'); }
+      else if (e.a === me.id) t = '🧬 Hai assorbito ' + b(e.vn) + ': ora è una Cosa come te.';
+      else if (me.th) t = '🧬 ' + b(e.vn) + ' è stato assorbito: ora è dei vostri.';
+    } else if (e.k === 'rep') { t = '📢 ' + b(e.an) + ' ha trovato il corpo di ' + b(e.vn) + ' ' + (e.r || '') + '! Riunione in Mensa.'; beep(880, 0.15, 0.05); beep(660, 0.15, 0.05, 0.18); beep(880, 0.25, 0.05, 0.36); }
+    else if (e.k === 'kit') { t = e.w === 'team' ? '🧪 ' + b(e.an) + ': compito di squadra fatto! Nuovo kit per l\'esame del sangue.' : '🧪 Avete finito ' + KIT_EVERY + ' compiti: il laboratorio ha preparato un kit per l\'esame del sangue!'; beep(784, 0.1, 0.04); beep(988, 0.15, 0.04, 0.1); }
+    else if (e.k === 'call') { t = e.a === me.id ? '🧪 Il kit ha estratto TE: hai ' + CALL + ' secondi per arrivare al bancone del laboratorio! Se non ci vai diventi sospetto.' : '🧪 Il kit ha estratto ' + b(e.an) + ': deve presentarsi al laboratorio entro ' + CALL + ' secondi.'; beep(660, 0.12, 0.05); beep(880, 0.12, 0.05, 0.14); }
+    else if (e.k === 'tgo') t = '🧪 ' + b(e.an) + ' è al bancone: esame in corso (' + TEST + ' s)…';
+    else if (e.k === 'noshow') { t = '❓ ' + b(e.an) + ' non si è presentato all\'esame: ora è SOSPETTO.'; beep(300, 0.3, 0.05, 0, 'square'); }
+    else if (e.k === 'flee') { t = '❓ ' + b(e.an) + ' è scappato durante l\'esame: ora è SOSPETTO.'; beep(300, 0.3, 0.05, 0, 'square'); }
+    else if (e.k === 'tres') {
+      t = e.th ? '🧪 Esame del sangue: <b style="color:#ff6a5a">' + esc(e.an) + ' è LA COSA!</b>' : '🧪 Esame del sangue: ' + b(e.an) + ' è umano.';
+      if (e.th) { beep(220, 0.4, 0.06, 0, 'sawtooth'); beep(160, 0.6, 0.06, 0.3, 'sawtooth'); } else { beep(784, 0.12, 0.04); beep(1047, 0.2, 0.04, 0.12); }
+    } else if (e.k === 'burn') {
+      t = e.th ? '🔥 ' + b(e.bn) + ' ha bruciato ' + b(e.an) + ': era LA COSA!' : '🔥 ' + b(e.bn) + ' ha bruciato ' + b(e.an) + '… ed era umano! Il lanciafiamme torna in magazzino.';
+      G.fx.push({ a: [e.sx, e.sy], b: [e.x, e.y], t: performance.now() }); beep(140, 0.5, 0.05, 0, 'sawtooth'); beep(200, 0.3, 0.04, 0.1, 'square');
+    } else if (e.k === 'miss') { if (e.a === me.id) t = '🔥 Fiammata a vuoto! Colpi rimasti: ' + e.n; G.fx.push({ a: [e.sx, e.sy], b: [e.x, e.y], t: performance.now() }); beep(150, 0.3, 0.04, 0, 'sawtooth'); }
+    else if (e.k === 'take') t = '🔥 ' + b(e.an) + ' ha preso il lanciafiamme (' + e.n + (e.n === 1 ? ' colpo' : ' colpi') + ').';
+    else if (e.k === 'sab') { t = '⚡ Il generatore si è spento! Buio e freddo anche dentro: ripariamolo!'; beep(300, 0.2, 0.05, 0, 'square'); beep(200, 0.4, 0.05, 0.22, 'square'); }
+    else if (e.k === 'fix') { t = '⚡ Generatore riparato: luce e caldo tornano.'; beep(523, 0.1, 0.04); beep(784, 0.18, 0.04, 0.1); }
+    else if (e.k === 'frz') { if (e.v === me.id) t = '🥶 Sei morto congelato! Ora sei un fantasma: puoi ancora fare i tuoi compiti.'; }
+    else if (e.k === 'radio') { t = '📻 Radio riparata! L\'elicottero sta arrivando alla piazzola (a sud, fuori dall\'Ingresso): salite premendo Sali. Se sale anche la Cosa… vince lei!'; for (let i = 0; i < 4; i++) beep(90, 0.08, 0.04, i * 0.12, 'sawtooth'); }
+    else if (e.k === 'board') { if (e.a === me.id) t = '🚁 Sei a bordo. Speriamo che accanto a te ci sia un umano…'; }
+    else if (e.k === 'mend') t = '📢 Riunione finita: si riparte.';
+    if (t) cqToast(t);
+  }
+
+  // ---- azioni (sull'host o da solo) ----
+  function body(G, v, k) { const q = P(v); G.bodies.push({ id: v.id, x: q.x, y: q.y, face: v === G.me ? cq.face : v.face, look: cqLookOf(v), name: v.name, t: G.time, nk: 1, k: k || 0 }); }
+  function die(G, v, k) {
+    v.alive = false; v.path = []; v.walk = 0; v.dt = G.time; v.how = k; body(G, v, k);
+    if (v === G.me && G.tkOpen != null && !$('#cqTask').hidden && !$('#ctOk')) { cqCloseTask(); G.tkOpen = null; }
+    if (G.call && G.call.id === v.id) { G.call = null; G.kits++; setKits(G); }   // il kit non va perso
+    if (G.fl.h === v.id) { G.fl.h = -1; setRack(G); }   // il lanciafiamme torna in magazzino
+  }
+  // testimoni: un altro umano vivo vicino, nella stessa stanza (fuori nella bufera solo molto vicino; al buio meno)
+  function witness(G, k, v) {
+    const p = P(k), rk = roomAt(p.x, p.y), out = isOut(p.x, p.y), R = out ? SEE_OUT - 0.6 : genOn(G) ? WIT : 3.8;
+    return G.chars.some(h => { if (!h.alive || h.th || h === v || h === k || h.on) return false; const q = P(h), d = Math.hypot(q.x - p.x, q.y - p.y); return d < R && (out ? isOut(q.x, q.y) : roomAt(q.x, q.y) === rk || d < 2.5); });
+  }
+  const canAtk = (G, k) => k.th && k.alive && !k.on && !busy(G) && (k.kcd || 0) <= 0;
+  function atkTarget(G, k) { let best = null, bd = REACH + (k.rv ? 0.2 : 0); for (const c of humans(G)) { if (c.on) continue; const d = dist(k, c); if (d < bd) { bd = d; best = c; } } return best; }
+  function attack(G, k, v) {
+    if (!canAtk(G, k) || !v || !v.alive || v.th || v.on || dist(k, v) > REACH + 0.8) return false;
+    if (!k.rv && witness(G, k, v)) return false;
+    die(G, v, 0); k.kcd = k.rv ? KCD_RV : KCD; k.atkT = G.time; k.kl = (k.kl || 0) + 1;
+    const q = P(v); say(G, 'kill', { a: k.id, v: v.id, vn: v.name, x: Math.round(q.x * 10) / 10, y: Math.round(q.y * 10) / 10 });
+    return true;
+  }
+  // contagio: la vittima diventa una Cosa (continua a giocare e a parlare); ogni Cosa "di partenza" puo' farlo una volta
+  function infect(G, k, v) {
+    if (!canInf(G, k) || !v || !v.alive || v.th || v.on || dist(k, v) > REACH + 0.8 || witness(G, k, v)) return false;
+    k.ab--; k.kcd = KCD; k.atkT = G.time; k.inf = (k.inf || 0) + 1;
+    G.tk.tot -= left(v).length; v.th = true; v.ab = 0; v.kcd = KCD; v.rv = false; v.cold = 100; v.infT = G.time;
+    say(G, 'inf', { a: k.id, v: v.id, vn: v.name }); radioCheck(G);
+    return true;
+  }
+  // il contagio: una volta per Cosa di partenza, non nel primo minuto, e solo se e' rimasta una Cosa sola (mai piu' di due insieme)
+  function canInf(G, k) { return canAtk(G, k) && !k.rv && (k.ab || 0) > 0 && G.time >= INF_T && things(G).length < 2; }
+  const bodyNear = (G, c) => { const p = P(c); return G.bodies.find(b => Math.hypot(b.x - p.x, b.y - p.y) < 1.6); };
+  function report(G, c) {
+    const b = bodyNear(G, c); if (!b || !c.alive || busy(G)) return false;
+    const R = MP().ring;
+    for (const o of G.bodies) if (!G.dead.includes(o.name)) G.dead.push(o.name);
+    G.bodies = [];
+    if (G.call) { G.call = null; G.kits++; setKits(G); }   // l'esame si rifa' dopo la riunione
+    const live = G.chars.filter(o => o.alive && !o.on);
+    G.mt = { end: G.time + MEET, an: c.name, vn: b.name, r: CQ_IN[cqRoomName(b.x, b.y)] || '', ok: [], pres: live.map(o => o.name), dead: G.dead.slice(), res: G.res.slice(), flg: G.chars.filter(o => G.flag[o.id] && o.alive).map(o => o.name) };
+    live.forEach((o, i) => { const [x, y] = R[i % R.length]; o.x = x + 0.5; o.y = y + 0.5; o.path = []; o.wk = 0; if (o === G.me) { cq.x = o.x; cq.y = o.y; } });
+    G.ep++;
+    say(G, 'rep', { an: G.mt.an, vn: G.mt.vn, r: G.mt.r }); meetUI(G);
+    for (const o of G.chars) if (o.th) o.kcd = Math.max(o.kcd || 0, KCD * 0.6);
+    return true;
+  }
+  function meetOk(G, c) { if (G.mt && c.alive && !G.mt.ok.includes(c.id)) G.mt.ok.push(c.id); }
+  function meetEnd(G) { G.mt = null; say(G, 'mend', {}); if ($('#ctOk')) cqCloseTask(); }
+  // esame del sangue: un kit pronto estrae un nome (la Cosa esce meno spesso: si va anche per esclusione);
+  // l'estratto ha CALL secondi per arrivare al bancone, poi TEST secondi fermo li'. Chi non viene o scappa diventa sospetto.
+  function callTick(G) {
+    const B = MP().bench;
+    if (!G.call) {
+      if (G.kits <= 0 || busy(G)) return;
+      const L = G.chars.filter(c => c.alive && !c.on && !G.clear[c.id] && !c.rv); if (!L.length) return;
+      const w = L.map(c => c.th ? 0.4 : 1), tot = w.reduce((a, b) => a + b, 0); let r = Math.random() * tot, k = 0; while (r > w[k] && k < L.length - 1) r -= w[k++];
+      const v = L[k]; G.kits--; setKits(G); G.call = { id: v.id, st: 0, end: G.time + CALL };
+      say(G, 'call', { a: v.id, an: v.name }); return;
+    }
+    const C = G.call, v = byId(G, C.id);
+    if (!v || !v.alive || v.on) { G.call = null; return; }
+    if (C.st === 0) {
+      if (near(v, B.x, B.y, BENCH)) { C.st = 1; C.end = G.time + TEST; say(G, 'tgo', { an: v.name }); }
+      else if (G.time >= C.end) { G.call = null; G.flag[v.id] = 1; say(G, 'noshow', { an: v.name }); }
+      return;
+    }
+    if (!near(v, B.x, B.y, BENCH + 0.7)) { G.call = null; G.flag[v.id] = 1; say(G, 'flee', { an: v.name }); return; }
+    if (G.time >= C.end) {
+      G.call = null; G.res.push([v.name, v.th ? 1 : 0]);
+      if (v.th) v.rv = true; else { G.clear[v.id] = 1; delete G.flag[v.id]; }
+      say(G, 'tres', { an: v.name, th: v.th ? 1 : 0 });
+    }
+  }
+  function teamTick(G, dt) {
+    G.ts.forEach((T, i) => {
+      if (G.time < T.cd) { T.p = 0; return; }
+      const here = G.chars.filter(c => c.alive && !c.on && near(c, TEAMS[i][0], TEAMS[i][1], 1.9));
+      if (here.length >= 2) { T.p += dt / TEAM_T; if (T.p >= 1) { T.p = 0; T.cd = G.time + TEAM_CD; addKit(G, 'team', here.slice(0, 2).map(c => c.name).join(' e ')); } }
+      else T.p = Math.max(0, T.p - dt * 0.4);
+    });
+  }
+  function setKits(G) { const p = CQ_PROPS.find(p => p[0] === 'blood'); if (p && p[3].n !== Math.min(4, G.kits)) { p[3].n = Math.min(4, G.kits); cqBgCell(MP().bench.x, MP().bench.y); } }
+  function setRack(G) { const p = CQ_PROPS.find(p => p[0] === 'flamer'); if (p) { const on = G.fl.h < 0 && G.fl.n > 0; if (p[3].on !== on) { p[3].on = on; cqBgCell(MP().flamer.x, MP().flamer.y); } } }
+  function setGen(G) { const p = CQ_PROPS.find(p => p[0] === 'pgen'); if (p && p[3].on !== G.gen.on) { p[3].on = G.gen.on; cqBgCell(MP().gen.x, MP().gen.y); } }
+  function take(G, c) {
+    const F = MP().flamer; if (!c.alive || busy(G) || G.fl.h >= 0 || G.fl.n <= 0 || !near(c, F.x, F.y, 1.6)) return false;
+    G.fl.h = c.id; setRack(G); say(G, 'take', { an: c.name, n: G.fl.n }); return true;
+  }
+  function flTarget(G, c) { let best = null, bd = FLR; for (const o of G.chars) { if (o === c || !o.alive || o.on) continue; const d = dist(c, o); if (d < bd) { bd = d; best = o; } } return best; }
+  function burn(G, c, v) {
+    if (G.fl.h !== c.id || !c.alive || busy(G) || G.fl.n <= 0) return false;
+    const p = P(c); G.fl.n--;
+    if (!v || !v.alive || v.on || dist(c, v) > FLR + 0.7) { const q = { x: p.x + (c === G.me ? cq.wdx || 0.7 : 0.7) * 2, y: p.y + (c === G.me ? cq.wdy || 0.7 : 0.7) * 2 }; say(G, 'miss', { a: c.id, n: G.fl.n, sx: p.x, sy: p.y, x: q.x, y: q.y }); if (G.fl.n <= 0) G.fl.h = -1; setRack(G); return true; }
+    const q = P(v), th = v.th;
+    die(G, v, 1);
+    if (th) { c.bt = (c.bt || 0) + 1; if (G.fl.n <= 0) G.fl.h = -1; } else { c.ff = (c.ff || 0) + 1; G.fl.h = -1; }
+    say(G, 'burn', { th: th ? 1 : 0, an: v.name, bn: c.name, sx: p.x, sy: p.y, x: q.x, y: q.y });
+    setRack(G); return true;
+  }
+  function sabotage(G, c) {
+    const Gp = MP().gen; if (!c.th || !c.alive || busy(G) || !G.gen.on || G.time < G.gen.cd || !near(c, Gp.x, Gp.y, 2.2)) return false;
+    G.gen.on = false; G.gen.p = 0; G.gen.cd = G.time + SAB_CD; setGen(G); say(G, 'sab', {}); return true;
+  }
+  function board(G, c) { if (!landed(G) || G.out || !canBoard(c) || !near(c, MP().pad.x, MP().pad.y, 3.4)) return false; c.on = 1; c.path = []; c.wk = 0; say(G, 'board', { a: c.id }); return true; }
+  function takeoff(G) { const on = G.chars.filter(c => c.on); G.out = { t: G.time, thing: on.some(c => c.th) ? 1 : 0, n: on.filter(c => !c.th).length }; say(G, 'off', {}); }
+  // nome con il punto di domanda per i sospetti (dname lo usa il motore per i nomi degli altri)
+  function names(G) { for (const c of G.chars) c.dname = G.flag[c.id] && c.alive ? c.name + ' ❓' : ''; }
+
+  // ---- mini-giochi dei compiti (quelli di Ciack US, con la spiegazione della base) ----
+  function openTask(G, i) {
+    const T = TASKS[i], X = T[6] || {};
+    cqCloseTask(); $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask;
+    cqOpenTask({ id: T[2], n: (T[5] ? '❄️ ' : '') + T[1], lead: X.lead, lab: X.lab, hitTxt: X.hitTxt, fix: () => {
+      const me = G.me; if (G.phase !== 'play') return;
+      if (G.guest) { if (!me.td.includes(i)) me.td.push(i); me.tdH = G.time + 2; cqNetSend({ k: 'task', i }); } else taskDone(G, me, i);
+      cqToast(me.th ? '🎭 Compito finto fatto (la barra non sale, ma sembri impegnato).' : '✅ ' + esc(T[1]) + ': fatto!');
+    } });
+    $('#tkClose').hidden = false;
+    if (X.scr) { const e = $('#scr'); if (e) e.textContent = X.scr; }
+    if (X.labels) $('#tkBody').querySelectorAll('.sq4 button').forEach((b, k) => { b.textContent = X.labels[k]; });
+    G.tkOpen = i;
+  }
+
+  // ---- personaggi del computer ----
+  function go(c, x, y) { c.path = cqPath(c.x, c.y, x, y); if (!c.path.length) c.path = [[x, y]]; }
+  function rndRoomSpot(G, inside) {
+    for (let i = 0; i < 40; i++) { const R = CQ_ROOMS[inside ? 1 + Math.floor(Math.random() * 11) : Math.floor(Math.random() * CQ_ROOMS.length)], x = R.x + Math.floor(Math.random() * R.w), y = R.y + Math.floor(Math.random() * R.h); if (cqCellFree(x, y)) return { x: x + 0.5, y: y + 0.5 }; }
+    return { x: 30.5 + O, y: 21.5 + O };
+  }
+  function padSpot() { const p = MP().pad; for (let i = 0; i < 30; i++) { const x = p.x - 2 + Math.floor(Math.random() * 5), y = p.y - 2 + Math.floor(Math.random() * 4); if (cqCellFree(x, y)) return { x: x + 0.5, y: y + 0.5 }; } return { x: p.x + 0.5, y: p.y + 0.5 }; }
+  const seesP = (G, c, x, y) => { const d = Math.hypot(x - c.x, y - c.y), o = isOut(c.x, c.y); return o || isOut(x, y) ? d < SEE_OUT : genOn(G) ? d < 9 && (roomAt(c.x, c.y) === roomAt(x, y) || d < 3) : d < (c.th ? 7 : 4); };
+  const flee = (c, from) => { const a = Math.atan2(c.y - from.y, c.x - from.x); for (let i = 0; i < 8; i++) { const x = Math.floor(c.x + Math.cos(a + (i - 4) * 0.3) * 5), y = Math.floor(c.y + Math.sin(a + (i - 4) * 0.3) * 5); if (cqCellFree(x, y)) { go(c, x + 0.5, y + 0.5); return; } } };
+  // lavora a un compito: ci va, poi resta li' qualche secondo (come il mini-gioco); fuori serve essere ben caldi
+  function botWork(G, c, i) {
+    const T = TASKS[i];
+    if (c.wk && c.wi === i) { if (!tnear(c, i, 2)) { c.wk = 0; return; } c.path = []; if (G.time >= c.wk) { c.wk = 0; taskDone(G, c, i); } return; }
+    if (tnear(c, i, 1.6)) { c.wi = i; c.wk = G.time + (T[5] ? 8 : 5) + Math.random() * 5 + (Math.random() < 0.15 ? 5 : 0); c.path = []; return; }
+    if (!c.path.length || c.goT !== i) { c.goT = i; const s = cqSpot(T[3], T[4]); go(c, s.x, s.y); }
+  }
+  // il prossimo compito: fuori solo se ho caldo abbastanza (e uno alla volta), altrimenti prima quelli dentro
+  function nextTask(G, c) {
+    const L = left(c); if (!L.length) return null;
+    const ins = L.filter(i => !TASKS[i][5]), out = L.filter(i => TASKS[i][5]);
+    if (c.wk && L.includes(c.wi)) return c.wi;
+    if (c.goT != null && L.includes(c.goT) && (!TASKS[c.goT][5] || !c.alive || c.th || c.cold > 50)) return c.goT;   // un compito alla volta: niente avanti e indietro
+    c.goT = null;
+    if (out.length && (c.cold >= 88 || !c.alive || c.th) && (!ins.length || Math.random() < 0.5)) return out.sort((a, b) => Math.hypot(TASKS[a][3] - c.x, TASKS[a][4] - c.y) - Math.hypot(TASKS[b][3] - c.x, TASKS[b][4] - c.y))[0];
+    if (ins.length) return ins.sort((a, b) => Math.hypot(TASKS[a][3] - c.x, TASKS[a][4] - c.y) - Math.hypot(TASKS[b][3] - c.x, TASKS[b][4] - c.y))[0];
+    return -1;   // restano solo compiti fuori: prima scaldarsi
+  }
+  function botGhost(G, c) { const i = nextTask(G, c); if (i != null && i >= 0) botWork(G, c, i); else if (!c.path.length && Math.random() < 0.05) { const s = rndRoomSpot(G, true); go(c, s.x, s.y); } }
+  function botHuman(G, c) {
+    const B = MP().bench, Gp = MP().gen, F = MP().flamer;
+    if (c.on) return;
+    if (G.heli) { if (landed(G) && near(c, MP().pad.x, MP().pad.y, 3)) { board(G, c); return; } if (!padIn(c.x, c.y) && (!c.path.length || !c.toPad)) { const s = padSpot(); c.toPad = 1; go(c, s.x, s.y); } return; }
+    if (G.call && G.call.id === c.id) { if (!near(c, B.x, B.y, BENCH - 0.3)) { if (!c.path.length) { const s = cqSpot(B.x, B.y - 1); go(c, s.x, s.y); } } else c.path = []; return; }
+    const rv = things(G).find(k => k.rv && dist(k, c) < 9 && seesP(G, c, k.x, k.y));
+    const sus = G.chars.filter(o => o !== c && o.alive && !o.on && (o.rv || G.flag[o.id]) && !G.clear[o.id]).sort((a, b) => dist(a, c) - dist(b, c))[0];
+    if (G.fl.h === c.id) {
+      const tg = rv || (sus && dist(sus, c) < 14 ? sus : null);
+      if (tg) { if (dist(tg, c) < FLR - 0.2) { if (tg.rv || Math.random() < 0.3) { c.path = []; burn(G, c, tg); } } else go(c, tg.x, tg.y); return; }
+    } else if (rv && dist(rv, c) < 5) { flee(c, rv); return; }
+    if (sus && G.fl.h < 0 && G.fl.n > 0 && (c.id % 2 === 0 || near(c, F.x, F.y, 10))) { if (near(c, F.x, F.y, 1.5)) take(G, c); else if (!c.path.length) { const p = cqSpot(F.x, F.y); go(c, p.x, p.y); } return; }
+    const bd = G.bodies.find(b => seesP(G, c, b.x, b.y) && Math.hypot(b.x - c.x, b.y - c.y) < 8);
+    if (bd) { if (Math.hypot(bd.x - c.x, bd.y - c.y) < 1.4) { c.path = []; report(G, c); } else go(c, bd.x, bd.y); return; }
+    // freddo: dentro subito!
+    if (outC(c) && c.cold < 42) { c.wk = 0; if (!c.path.length || !c.warm) { c.warm = 1; const p = rndRoomSpot(G, true); go(c, p.x, p.y); } return; }
+    c.warm = 0;
+    if (!genOn(G) && (c.id % 3 !== 0 || Math.hypot(c.x - Gp.x, c.y - Gp.y) < 14)) { if (!near(c, Gp.x, Gp.y, 1.9)) { if (!c.path.length || !c.fix) { c.fix = 1; const p = cqSpot(Gp.x - 1, Gp.y); go(c, p.x, p.y); } } else c.path = []; return; }
+    c.fix = 0;
+    // compito di squadra: qualcuno aspetta all'argano? ci vado (se ho caldo)
+    const ti = G.ts.findIndex((T, i) => G.time >= T.cd && G.chars.some(o => o !== c && o.alive && near(o, TEAMS[i][0], TEAMS[i][1], 1.9)));
+    if (c.tm != null || (ti >= 0 && c.cold > 80 && Math.random() < 0.35)) {
+      const i = c.tm != null ? c.tm : ti; c.tm = i; const T = G.ts[i];
+      if (G.time < T.cd || c.cold < 45 || (c.tmT && G.time > c.tmT)) { c.tm = null; c.tmT = 0; return; }
+      if (!c.tmT) c.tmT = G.time + 35;
+      if (!near(c, TEAMS[i][0], TEAMS[i][1], 1.7)) { if (!c.path.length) { const p = cqSpot(TEAMS[i][0], TEAMS[i][1]); go(c, p.x, p.y); } } else c.path = [];
+      return;
+    }
+    const i = nextTask(G, c);
+    if (i != null && i >= 0) { botWork(G, c, i); return; }
+    if (i === -1) { if (outC(c) || !c.path.length) { const p = rndRoomSpot(G, true); go(c, p.x, p.y); } return; }   // aspetta al caldo
+    // finiti i miei compiti: ogni tanto un compito di squadra, altrimenti in giro
+    if (c.cold > 90 && Math.random() < 0.06) { const k = G.ts.findIndex(T => G.time >= T.cd); if (k >= 0) { c.tm = k; return; } }
+    if (!c.path.length) { const p = rndRoomSpot(G, true); go(c, p.x, p.y); }
+  }
+  function botThing(G, c) {
+    const Gp = MP().gen, B = MP().bench;
+    if (c.on) return;
+    if (c.rv) {
+      const fh = G.fl.h >= 0 ? byId(G, G.fl.h) : null;
+      if (fh && fh.alive && dist(fh, c) < 5) { flee(c, fh); return; }
+      const v = humans(G).filter(h => !h.on).sort((a, b) => dist(a, c) - dist(b, c))[0];
+      if (v) { if (dist(v, c) < REACH && canAtk(G, c)) attack(G, c, v); else go(c, v.x, v.y); }
+      return;
+    }
+    if (G.heli) { if (landed(G) && near(c, MP().pad.x, MP().pad.y, 3)) { if (c.bdT == null) c.bdT = G.time + Math.random() * 15; if (G.time > c.bdT) board(G, c); return; } if (!padIn(c.x, c.y) && (!c.path.length || !c.toPad)) { const s = padSpot(); c.toPad = 1; go(c, s.x, s.y); } return; }
+    // estratta per l'esame: quasi sempre non ci va (e diventa sospetta), ogni tanto bluffa
+    if (G.call && G.call.id === c.id) { if (c.bluff == null) c.bluff = Math.random() < 0.25; if (c.bluff) { if (!near(c, B.x, B.y, BENCH - 0.3)) { if (!c.path.length) { const s = cqSpot(B.x, B.y - 1); go(c, s.x, s.y); } } else c.path = []; return; } }
+    else c.bluff = null;
+    if (genOn(G) && G.time > G.gen.cd && G.time > 50 && (c.wsab || Math.random() < 0.008)) {
+      c.wsab = 1; if (near(c, Gp.x, Gp.y, 2)) { if (!witness(G, c, null)) { sabotage(G, c); c.wsab = 0; } } else if (!c.path.length) { const s = cqSpot(Gp.x + 1, Gp.y); go(c, s.x, s.y); }
+      return;
+    }
+    c.wsab = 0;
+    const bd = G.bodies.find(b => Math.hypot(b.x - c.x, b.y - c.y) < 1.4);
+    if (bd && G.time - bd.t > 8 && Math.random() < 0.3) { report(G, c); return; }
+    // caccia: un umano da solo (fuori al freddo o in una stanza vuota)
+    if ((c.kcd || 0) <= 3) {
+      const v = c.prey != null && byId(G, c.prey);
+      if (v && v.alive && !v.th && !v.on) {
+        if (dist(v, c) < REACH && canAtk(G, c)) { const ok = (canInf(G, c) && Math.random() < 0.5) ? infect(G, c, v) : attack(G, c, v); if (ok) { c.prey = null; c.path = []; } else if (Math.random() < 0.12) c.prey = null; return; }
+        if (!c.path.length || Math.random() < 0.35) go(c, v.x, v.y);
+        if (Math.random() < 0.015) c.prey = null;
+        return;
+      }
+      const alone = humans(G).filter(h => !h.on && !G.chars.some(o => o !== h && o !== c && o.alive && !o.th && dist(o, h) < WIT)).sort((a, b) => dist(a, c) - dist(b, c))[0];
+      if (alone && dist(alone, c) < 30) { c.prey = alone.id; go(c, alone.x, alone.y); return; }
+    }
+    // intanto fa finta di lavorare
+    const i = nextTask(G, c); if (i != null && i >= 0) { botWork(G, c, i); return; }
+    if (!c.path.length) { const p = rndRoomSpot(G, Math.random() < 0.85); go(c, p.x, p.y); }
+  }
+
+  // ---- riunione: pannello per tutti ----
+  function meetUI(G) {
+    const m = G.mt; if (!m) return;
+    const list = (a, e) => a.length ? a.map(n => esc(n)).join(', ') : '<i>' + e + '</i>';
+    cqCloseTask();
+    $('#tkTitle').textContent = '📢 Riunione in Mensa';
+    $('#tkBody').innerHTML = `<p class="lead"><b>${esc(m.an)}</b> ha trovato il corpo di <b>${esc(m.vn)}</b> ${esc(m.r)}.</p>
+      <p class="hint">🗣️ Parlate in vocale (adesso vi sentite tutti): chi era dove? Chi è rimasto da solo? Non si vota: alla fine si riparte. I kit dell'esame li guadagnate con i compiti.</p>
+      <div class="row"><div class="lbl">🧪 Esami del sangue</div>${m.res.length ? m.res.map(r => r[1] ? '<b style="color:#ff6a5a">' + esc(r[0]) + ': LA COSA</b>' : '<span style="color:#7be0a0">' + esc(r[0]) + ': umano</span>').join(' · ') : '<i>nessuno, per ora</i>'}</div>
+      ${m.flg.length ? '<div class="row"><div class="lbl">❓ Sospetti (non si sono fatti esaminare)</div><span style="color:#ffb35a">' + list(m.flg, '') + '</span></div>' : ''}
+      <div class="row"><div class="lbl">🙋 All'appello</div>${list(m.pres, 'nessuno')}</div>
+      <div class="row"><div class="lbl">💀 Morti</div>${list(m.dead, 'nessuno')}</div>
+      <p class="hint" style="text-align:center">Si riparte tra <b id="ctMt">${Math.ceil(m.end - G.time)}</b> s</p>
+      <div class="mtAct"><button class="btn primary" id="ctOk" type="button">✅ Ho finito di parlare</button></div>`;
+    $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
+    $('#ctOk').onclick = () => { if (G.guest) cqNetSend({ k: 'ok' }); else meetOk(G, G.me); $('#ctOk').disabled = true; $('#ctOk').textContent = '✅ Aspetto gli altri…'; };
+    if (!G.me.alive) $('#ctOk').hidden = true;
+  }
+  // la Cosa vicino a un umano con il contagio ancora da usare: sceglie se uccidere o assorbire
+  function atkMenu(G, v) {
+    cqCloseTask();
+    $('#tkTitle').textContent = '👾 ' + v.name;
+    $('#tkBody').innerHTML = `<p class="hint">Nessuno ti vede. <b>Uccidi</b>: resta il corpo (se lo trovano, riunione). <b>Assorbi</b>: diventa una Cosa come te e continua a giocare per voi (puoi farlo una volta sola).</p>
+      <div class="mtAct"><button class="btn" id="akK" type="button">🩸 Uccidi</button><button class="btn primary" id="akA" type="button">🧬 Assorbi</button></div>`;
+    $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
+    const doIt = k => { cqCloseTask(); const me = G.me; if (G.guest) { cqNetSend({ k, id: v.id }); me.atkT = G.time; } else if (k === 'atk') attack(G, me, v); else infect(G, me, v); };
+    $('#akK').onclick = () => doIt('atk'); $('#akA').onclick = () => doIt('inf');
+  }
+
   // il pulsante grande: cosa posso fare adesso (in ordine di importanza)
   function action(G) {
-    const me = G.me; if (!me.alive || G.out) return null;
-    if (G.mt) return null;
+    const me = G.me; if (G.out || G.mt || me.on) return null;
     const B = MP().bench, F = MP().flamer, Gp = MP().gen;
-    if (me.th && !me.rv && me.fresh && G.time - me.fresh.t < ABS_T) { const b = G.bodies.find(o => o.id === me.fresh.id); if (b && Math.hypot(b.x - cq.x, b.y - cq.y) < 1.6) return { k: 'abs', t: '🎭 Assorbi ' + byId(G, b.id).name, on: true }; }
+    if (!me.alive) { const i = left(me).find(i => tnear(me, i)); return i != null && !me.th ? { k: 'task', i, t: '🔧 ' + TASKS[i][1], on: true } : null; }
+    if (landed(G) && canBoard(me) && near(me, MP().pad.x, MP().pad.y, 3.4)) return { k: 'board', t: '🚁 Sali', on: true };
     if (me.th) { const v = atkTarget(G, me); if (v) { const w = !me.rv && witness(G, me, v); return { k: 'atk', v, t: (me.kcd || 0) > 0 ? '🩸 ' + Math.ceil(me.kcd) + ' s' : w ? '🩸 Ti vedono!' : '🩸 Attacca', on: (me.kcd || 0) <= 0 && !w }; } }
     if (G.bodies.length && bodyNear(G, me)) return { k: 'rep', t: '📢 Segnala il corpo', on: true };
     if (G.fl.h === me.id) { const v = flTarget(G, me); return { k: 'burn', v, t: '🔥 Brucia (' + G.fl.n + ')', on: true }; }
     if (G.fl.h < 0 && G.fl.n > 0 && near(me, F.x, F.y, 1.6)) return { k: 'take', t: '🔥 Prendi il lanciafiamme', on: true };
+    const i = left(me).find(i => tnear(me, i)); if (i != null) return { k: 'task', i, t: '🔧 ' + TASKS[i][1], on: true };
     if (me.th && genOn(G) && near(me, Gp.x, Gp.y, 2.2)) return { k: 'sab', t: G.time < G.gen.cd ? '⚡ ' + Math.ceil(G.gen.cd - G.time) + ' s' : '⚡ Spegni il generatore', on: G.time >= G.gen.cd };
-    if (G.kits > 0 && near(me, B.x, B.y, BENCH)) { const T = G.test; return { k: 'test', t: T ? (T.a === me.id || T.b === me.id ? '🧪 Esame in corso…' : T.b == null ? '🧪 Fai l\'esame con ' + dispName(G, byId(G, T.a)) : '🧪 Bancone occupato') : '🧪 Esame del sangue (' + G.kits + ')', on: !T || (T.b == null && T.a !== me.id) }; }
+    const ti = TEAMS.findIndex(T => near(me, T[0], T[1], 1.9));
+    if (ti >= 0) { const T = G.ts[ti]; return { k: 'team', t: G.time < T.cd ? '🤝 Già fatto (' + Math.ceil(T.cd - G.time) + ' s)' : T.p > 0 ? '🤝 Insieme… ' + Math.round(T.p * 100) + '%' : '🤝 Serve un compagno qui', on: false }; }
+    if (G.call && G.call.id === me.id && near(me, B.x, B.y, BENCH)) return { k: 'test', t: '🧪 Resta fermo…', on: false };
     if (me.th) return { k: 'atk', t: (me.kcd || 0) > 0 ? '🩸 ' + Math.ceil(me.kcd) + ' s' : '🩸 Attacca', on: false };
     return null;
   }
 
   CQ_MODES.cosa = {
     n: 'La Cosa',
-    desc: '❄️ Stazione di ricerca in Antartide, fuori la bufera. Uno di voi è <b>LA COSA</b> (due se siete in 8 o più): elimina in segreto chi resta da solo e può <b>assorbirlo</b>, prendendone aspetto e nome. 📢 Chi trova un corpo chiama la <b>riunione</b> (niente voto: si parla in vocale). 🧪 L\'<b>esame del sangue</b> si fa in due al bancone del laboratorio (pochi kit). 🔥 Un solo <b>lanciafiamme</b> in magazzino, 2 colpi: se bruci un innocente muore e perdi l\'arma. 🥶 Fuori si gela; dentro fa caldo finché va il <b>generatore</b>. 🚁 Allo scadere l\'elicottero parte dalla piazzola con chi c\'è sopra: se a bordo c\'è una Cosa non scoperta, vince lei!',
-    maps: [['base', 'Base polare']],
-    def: { time: 360, nt: 'auto', kits: 3, me: 'rnd', map: 'base', n: 8, fill: true },
-    opts: o => `<div class="row"><div class="lbl">Quante Cose</div>${seg('nt', [['auto', 'Auto (2 da 8 in su)'], ['1', '1'], ['2', '2']], String(o.nt || 'auto'))}</div>
-      <div class="row"><div class="lbl">Kit per l'esame del sangue</div>${seg('kits', [[2, '2'], [3, '3'], [4, '4']], o.kits || 3)}</div>${cq.net ? '' : '<div class="row"><div class="lbl">Il mio ruolo</div>' + seg('me', [['rnd', 'A caso'], ['h', 'Squadra'], ['t', 'La Cosa']], o.me || 'rnd') + '</div>'}
-      <div class="row"><div class="lbl">Durata (poi arriva l'elicottero)</div>${seg('time', [[300, '5:00'], [360, '6:00'], [420, '7:00']], o.time || 360)}</div>`,
-    read: d => ({ time: +d.get('time') || 360, nt: d.get('nt') || 'auto', kits: +d.get('kits') || 3, me: d.get('me') || 'rnd' }),
+    desc: '❄️ Stazione di ricerca in Antartide, fuori la bufera. Uno di voi è <b>LA COSA</b>. 🔧 Ognuno ha i suoi <b>compiti</b>, dentro e fuori nella neve (fuori si gela in fretta: sbrigatevi!): finiti tutti, la <b>radio</b> chiama l\'elicottero. Se il tempo finisce prima, vince la Cosa. 🧪 Ogni ' + KIT_EVERY + ' compiti (o un compito di squadra fuori, in due) arriva un <b>kit</b>: estrae un nome che deve farsi esaminare al laboratorio. Chi non si presenta diventa sospetto ❓. La Cosa può <b>uccidere</b> chi resta solo (resta il corpo: 📢 riunione, senza voto) o <b>assorbirlo</b> (diventa una Cosa anche lui). 🔥 Un solo lanciafiamme, 2 colpi. 🚁 Quando atterra l\'elicottero premete <b>Sali</b>: se a bordo c\'è una Cosa, vince lei!',
+    maps: [['base', 'Base polare']], TASKS, TEAMS,   // TASKS e TEAMS anche per le prove
+    def: { time: 420, nt: 'auto', nt5: 3, me: 'rnd', map: 'base', n: 8, fill: true },
+    opts: o => `<div class="row"><div class="lbl">Quante Cose all'inizio</div>${seg('nt', [['auto', 'Auto (2 da 9 in su)'], ['1', '1'], ['2', '2']], String(o.nt || 'auto'))}</div>
+      <div class="row"><div class="lbl">Compiti a testa</div>${seg('nt5', [[3, '3'], [4, '4'], [5, '5']], o.nt5 || 3)}</div>${cq.net ? '' : '<div class="row"><div class="lbl">Il mio ruolo</div>' + seg('me', [['rnd', 'A caso'], ['h', 'Squadra'], ['t', 'La Cosa']], o.me || 'rnd') + '</div>'}
+      <div class="row"><div class="lbl">Tempo per riparare la radio</div>${seg('time', [[360, '6:00'], [420, '7:00'], [480, '8:00']], o.time || 420)}</div>`,
+    read: d => ({ time: +d.get('time') || 420, nt: d.get('nt') || 'auto', nt5: +d.get('nt5') || 3, me: d.get('me') || 'rnd' }),
     start(G) {
-      const n = G.chars.length, nt = Math.max(1, Math.min(G.opt.nt === '2' ? 2 : G.opt.nt === '1' ? 1 : n >= 8 ? 2 : 1, Math.floor((n - 1) / 2)));
+      const n = G.chars.length, nt = Math.max(1, Math.min(G.opt.nt === '2' ? 2 : G.opt.nt === '1' ? 1 : n >= 9 ? 2 : 1, Math.floor((n - 1) / 3)));
       const sh = G.chars.slice().sort(() => Math.random() - 0.5), mr = cq.net ? 'rnd' : G.opt.me;
       if (mr !== 'rnd') { sh.splice(sh.indexOf(G.me), 1); if (mr === 't') sh.unshift(G.me); else sh.push(G.me); }
-      sh.forEach((c, i) => Object.assign(c, { th: i < nt, rv: false, disg: null, cold: 100, kcd: 30, kl: 0, atkT: -9, fresh: null, on: 0, prey: null }));
-      G.disg = null;
-      this.gstart(G);
-      G.kits = G.opt.kits || 3; G.fl = { h: -1, n: 2 }; G.gen = { on: true, p: 0, cd: 45 };
-      setKits(G); setRack(G); setGen(G);
+      sh.forEach((c, i) => Object.assign(c, { th: i < nt, ab: i < nt ? 1 : 0, rv: false, cold: 100, kcd: 35, kl: 0, inf: 0, atkT: -9, on: 0, prey: null, wk: 0 }));
+      this.gstart(G); assign(G);
     },
     gstart(G) {
-      G.lg = []; G.lgN = 0; G.fx = []; G.left = G.opt.time || 360; G.res = []; G.clear = {}; G.dead = []; G.sus = {}; G.mt = null; G.test = null; G.out = null; G.heli = null;
-      G.kits = G.opt.kits || 3; G.fl = { h: -1, n: 2 }; G.gen = { on: true, p: 0, cd: 45 }; G.flk = [];
-      // la mappa si rimette com'era (kit, lanciafiamme, generatore)
-      const p = CQ_PROPS.find(p => p[0] === 'blood'); if (p) p[3].n = G.kits; const q = CQ_PROPS.find(p => p[0] === 'flamer'); if (q) q[3].on = true; const r = CQ_PROPS.find(p => p[0] === 'pgen'); if (r) r[3].on = true; cq.bg = null;
-      if (G.guest) for (const c of G.chars) { c.th = false; c.cold = 100; }
+      G.lg = []; G.lgN = 0; G.fx = []; G.left = G.opt.time || 420; G.res = []; G.clear = {}; G.flag = {}; G.dead = []; G.mt = null; G.call = null; G.out = null; G.heli = null;
+      G.kits = 0; G.kp = 0; G.fl = { h: -1, n: 2 }; G.gen = { on: true, p: 0, cd: 45 }; G.flk = []; G.tk = { done: 0, tot: 1 }; G.ts = TEAMS.map(() => ({ p: 0, cd: 0 }));
+      const p = CQ_PROPS.find(p => p[0] === 'blood'); if (p) p[3].n = 0; const q = CQ_PROPS.find(p => p[0] === 'flamer'); if (q) q[3].on = true; const r = CQ_PROPS.find(p => p[0] === 'pgen'); if (r) r[3].on = true; cq.bg = null;
+      if (G.guest) for (const c of G.chars) { c.th = false; c.cold = 100; c.tl = []; c.td = []; }
     },
-    intro: G => G.me.th ? '👾 Sei LA COSA: elimina chi resta solo, non farti scoprire!' : '🧑‍🔬 Tra voi c\'è LA COSA. Fidati solo degli esami!',
-    speed(c) { const G = cq.g; if (!G || busy(G)) return 0; if (!c.alive) return 1.15; return c.th && c.rv ? 1.12 : (c.cold || 100) < 25 && !c.th ? 0.82 : 1; },
+    intro: G => G.me.th ? '👾 Sei LA COSA: elimina o assorbi chi resta solo!' : '🧑‍🔬 Fate i compiti e riparate la radio. Tra voi c\'è LA COSA!',
+    speed(c) { const G = cq.g; if (!G || busy(G) || c.on) return 0; if (!c.alive) return 1.15; if (G.call && G.call.id === c.id && G.call.st === 1) return 0.35; return c.th && c.rv ? 1.12 : (c.cold == null ? 100 : c.cold) < 25 && !c.th ? 0.82 : 1; },
     big(G) {
       const me = G.me;
-      if (G.out) return G.out.thing ? '🚁 …' : '🚁 Decollo!';
+      if (G.out) return G.out.thing && G.time - G.out.t > 1.5 ? '🚁 …' : '🚁 Decollo!';
       if (G.mt) return '';
-      if (G.test && (G.test.a === me.id || G.test.b === me.id) && G.test.b != null) return '🧪 Esame… ' + Math.round(G.test.p * 100) + '%';
-      if (G.heli && G.left > 0) return '🚁 L\'elicottero parte tra ' + Math.ceil(G.left) + ' s: alla piazzola!';
+      if (G.heli) { const l = G.heli.t + HELI_LAND; return G.time < l ? '🚁 L\'elicottero sta atterrando sulla piazzola…' : me.on ? '🚁 A bordo · si parte tra ' + Math.max(0, Math.ceil(l + HELI_WAIT - G.time)) + ' s' : '🚁 Sali sull\'elicottero! Parte tra ' + Math.max(0, Math.ceil(l + HELI_WAIT - G.time)) + ' s'; }
+      if (G.call) { const v = byId(G, G.call.id), s = Math.max(0, Math.ceil(G.call.end - G.time)); if (v) return G.call.st ? '🧪 Esame di ' + v.name + '… ' + s : v === me ? '🧪 Ti chiamano all\'esame: corri al laboratorio! ' + s : '🧪 ' + v.name + ' deve andare al laboratorio: ' + s + ' s'; }
       if (!me.alive) return '';
       if (me.th && me.rv) return '👾 Ti hanno scoperta!';
       if (!genOn(G) && !me.th) return '⚡ Generatore spento: ripariamolo!';
@@ -626,18 +744,24 @@
       return '';
     },
     hud(G) {
-      const me = G.me, tm = G.mt ? '📢 ' + Math.max(0, Math.ceil(G.mt.end - G.time)) + ' s' : '⏱ ' + mmss(Math.max(0, G.left)), fl = G.fl.h === me.id ? ' · 🔥' + G.fl.n : '';
+      const me = G.me, fl = G.fl.h === me.id ? ' · 🔥' + G.fl.n : '', rad = ' · 📻 ' + Math.min(100, Math.floor(G.tk.done / Math.max(1, G.tk.tot) * 100)) + '%';
+      const tm = G.mt ? '📢 ' + Math.max(0, Math.ceil(G.mt.end - G.time)) + ' s' : G.heli ? '🚁' : '⏱ ' + mmss(Math.max(0, G.left));
       if (G.mt) { const e = $('#ctMt'); if (e) e.textContent = Math.max(0, Math.ceil(G.mt.end - G.time)); }
       const cold = c => { const v = Math.round(c); return '<span style="color:' + (v < 30 ? '#ff7a6a' : v < 60 ? '#ffd27a' : '#9ad0ff') + '">❄️ ' + v + '%</span>'; };
-      if (!me.alive) return '👻 <b>Fantasma</b> · vedi tutto (anche chi è la Cosa) · ' + tm;
-      if (me.th) return '👾 <b style="color:#ff6a5a">' + (me.rv ? 'La Cosa (scoperta!)' : 'Sei LA COSA') + '</b>' + (me.disg ? ' · 🎭 ' + esc(dispName(G, me)) : '') + ' · 🩸 ' + ((me.kcd || 0) > 0 ? Math.ceil(me.kcd) + ' s' : 'pronta') + fl + ' · ' + tm;
-      return '🧑‍🔬 <b style="color:#9ad0ff">Squadra</b> · ' + cold(me.cold == null ? 100 : me.cold) + ' · 🧪 ' + G.kits + fl + (genOn(G) ? '' : ' · <span style="color:#ff7a6a">⚡ spento</span>') + ' · ' + tm;
+      const tl = (me.tl || []).map(i => '<span style="opacity:' + (me.td.includes(i) ? 0.45 : 1) + '">' + (me.td.includes(i) ? '✅' : TASKS[i][5] ? '❄️' : '🔧') + ' ' + esc(TASKS[i][1]) + '</span>').join(' · ');
+      const line2 = tl ? '<div style="font-size:11px;font-weight:400;margin-top:3px;line-height:1.35">' + (me.th ? '🎭 finti: ' : '') + tl + '</div>' : '';
+      const kit = ' · 🧪 ' + G.kits + ' (' + G.kp + '/' + KIT_EVERY + ')';
+      if (!me.alive) return '👻 <b>Fantasma</b> · fai ancora i tuoi compiti' + rad + ' · ' + tm + (me.th ? '' : line2);
+      if (me.on) return '🚁 <b>A bordo</b>' + rad + ' · ' + tm;
+      if (me.th) return '👾 <b style="color:#ff6a5a">' + (me.rv ? 'La Cosa (scoperta!)' : 'Sei LA COSA') + '</b> · 🩸 ' + ((me.kcd || 0) > 0 ? Math.ceil(me.kcd) + ' s' : 'pronta') + (me.ab > 0 ? ' · 🧬 ' + (canInf(G, me) || (me.kcd || 0) > 0 && G.time >= INF_T && things(G).length < 2 ? 'pronto' : 'non ora') : '') + fl + rad + ' · ' + tm + line2;
+      return '🧑‍🔬 <b style="color:#9ad0ff">Squadra</b> · ' + cold(me.cold == null ? 100 : me.cold) + rad + kit + fl + (genOn(G) ? '' : ' · <span style="color:#ff7a6a">⚡</span>') + ' · ' + tm + line2;
     },
     nameCol(c) {
       const G = cq.g;
       if (c.th && (c.rv || !G.me.alive)) return '#ff5a5a';
       if (G.me.th && c.th) return '#ff9a8a';
-      if (G.clear[dispId(c)]) return '#7be0a0';
+      if (G.clear[c.id]) return '#7be0a0';
+      if (G.flag[c.id]) return '#ffb35a';
       return null;
     },
     draw(c) {
@@ -653,100 +777,100 @@
       if (G.time < (me.actH || 0)) return; me.actH = G.time + 0.5;
       const send = o => cqNetSend(o);
       switch (a.k) {
-        case 'abs': if (G.guest) send({ k: 'abs' }); else absorb(G, me); break;
-        case 'atk': if (G.guest) { send({ k: 'atk', id: a.v.id }); me.atkT = G.time; } else attack(G, me, a.v); break;
+        case 'atk': if (canInf(G, me)) { atkMenu(G, a.v); return; } if (G.guest) { send({ k: 'atk', id: a.v.id }); me.atkT = G.time; } else attack(G, me, a.v); break;
         case 'rep': if (G.guest) send({ k: 'rep' }); else report(G, me); break;
         case 'burn': if (G.guest) send({ k: 'burn', id: a.v ? a.v.id : -1 }); else burn(G, me, a.v); break;
         case 'take': if (G.guest) send({ k: 'take' }); else take(G, me); break;
         case 'sab': if (G.guest) send({ k: 'sab' }); else sabotage(G, me); break;
-        case 'test': if (G.guest) send({ k: 'test' }); else testAsk(G, me); break;
+        case 'board': if (G.guest) { send({ k: 'board' }); me.on = 1; me.onH = G.time + 2; } else board(G, me); break;
+        case 'task': openTask(G, a.i); return;
       }
       beep(700, 0.05, 0.04);
     },
     ev(G, c, o) {
       if (!o) return;
       if (o.k === 'atk') attack(G, c, byId(G, o.id));
-      else if (o.k === 'abs') absorb(G, c);
+      else if (o.k === 'inf') infect(G, c, byId(G, o.id));
       else if (o.k === 'rep') report(G, c);
       else if (o.k === 'burn') burn(G, c, o.id >= 0 ? byId(G, o.id) : null);
       else if (o.k === 'take') take(G, c);
       else if (o.k === 'sab') sabotage(G, c);
-      else if (o.k === 'test') testAsk(G, c);
+      else if (o.k === 'board') board(G, c);
       else if (o.k === 'ok') meetOk(G, c);
+      else if (o.k === 'task' && tnear(c, o.i, 2.8)) taskDone(G, c, o.i);
     },
     tick(G, dt) {
-      if (G.out) { if (G.time - G.out.t > 5.5) this.finish(G); return; }
+      if (G.out) { if (G.time - G.out.t > OUT_T) this.finish(G); return; }
       if (G.mt) {
-        if (G.time >= G.mt.end || G.chars.every(c => !c.alive || c.bot || G.mt.ok.includes(c.id))) meetEnd(G);
+        if (G.time >= G.mt.end || G.chars.every(c => !c.alive || c.bot || c.on || G.mt.ok.includes(c.id))) meetEnd(G);
         for (const c of G.chars) c.walk = 0;
         return;
       }
-      G.left -= dt;
-      if (!G.heli && G.left <= HELI_T) { G.heli = { t: G.time }; say(G, 'heli', {}); }
-      if (G.left <= 0) { this.board(G); return; }
+      if (!G.heli) { G.left -= dt; if (G.left <= 0) { this.finish(G, 't', '📻 La radio non è stata riparata in tempo: nessuno verrà a salvarvi.'); return; } }
+      else if (landed(G)) { const el = G.chars.filter(canBoard); if (G.time >= G.heli.t + HELI_LAND + HELI_WAIT || (!el.length && G.chars.some(c => c.on))) { takeoff(G); return; } }
       // generatore: si ripara stando vicino (piu' in fretta in due)
       const Gp = MP().gen;
-      if (!G.gen.on) {
-        const n = G.chars.filter(c => c.alive && near(c, Gp.x, Gp.y, 2.2) && (!c.th || !c.bot)).length;   // anche una Cosa vera puo' far finta di riparare (e ripara davvero)
-        if (n) { G.gen.p += dt / FIX * (n > 1 ? 1.6 : 1); if (G.gen.p >= 1) { G.gen.on = true; G.gen.p = 0; setGen(G); say(G, 'fix', {}); } }
-      }
+      if (!G.gen.on) { const n = G.chars.filter(c => c.alive && near(c, Gp.x, Gp.y, 2.2) && (!c.th || !c.bot)).length; if (n) { G.gen.p += dt / FIX * (n > 1 ? 1.6 : 1); if (G.gen.p >= 1) { G.gen.on = true; G.gen.p = 0; setGen(G); say(G, 'fix', {}); } } }
       // freddo (la Cosa non lo sente)
       for (const c of G.chars) {
-        if (!c.alive) continue;
-        if (c.th) { c.cold = 100; } else {
-          const o = outC(c); c.cold = Math.max(0, Math.min(100, (c.cold == null ? 100 : c.cold) + dt * (o ? -2.1 : G.gen.on ? 5 : -0.65)));
+        if (!c.alive || c.on) continue;
+        if (c.th) c.cold = 100;
+        else {
+          c.cold = Math.max(0, Math.min(100, (c.cold == null ? 100 : c.cold) + dt * (outC(c) ? -COLD_OUT : G.gen.on ? 6 : -0.6)));
           if (c.cold <= 0) { die(G, c, 2); say(G, 'frz', { v: c.id }); continue; }
         }
         if (c.kcd > 0) c.kcd -= dt;
       }
-      testTick(G, dt);
+      callTick(G); teamTick(G, dt); names(G);
       for (const c of G.chars) {
-        if (!c.bot || !c.alive) continue;
+        if (!c.bot || c.on) continue;
+        if (!c.alive) { if (c.th) continue; if ((c.think -= dt) <= 0) { c.think = 0.5; botGhost(G, c); } cqModeStep(c, dt, 1.1); continue; }
         if ((c.think -= dt) <= 0) { c.think = 0.4 + Math.random() * 0.2; c.th ? botThing(G, c) : botHuman(G, c); }
         cqModeStep(c, dt, (c.th && c.rv ? 1.08 : 0.94) * (!c.th && c.cold < 25 ? 0.82 : 1));
       }
-      if (!things(G).length) this.finish(G, 'h', 'Tutte le Cose sono state bruciate!');
-      else if (things(G).length >= humans(G).length) this.finish(G, 't', humans(G).length ? 'Le Cose sono tante quanti gli umani rimasti: la base è loro.' : 'Non è rimasto nessun umano.');
-    },
-    // allo scadere: sale chi e' sulla piazzola (una Cosa scoperta non la fanno salire)
-    board(G) {
-      const on = G.chars.filter(c => c.alive && padIn(P(c).x, P(c).y) && !(c.th && c.rv));
-      for (const c of on) { c.on = 1; c.path = []; }
-      G.out = { t: G.time, thing: on.some(c => c.th) ? 1 : 0, n: on.filter(c => !c.th).length };
+      if (!things(G).length) this.finish(G, 'h', '🔥 Tutte le Cose sono state bruciate!');
+      else if (things(G).length >= humans(G).length && !G.out) this.finish(G, 't', humans(G).length ? 'Le Cose sono tante quanti gli umani rimasti: la base è loro.' : 'Non è rimasto nessun umano.');
     },
     finish(G, w, why) {
       const name = c => c.name + (c === G.me ? ' (tu)' : '');
       if (!w) {   // fine col decollo
-        const O = G.out; w = O.thing || !O.n ? 't' : 'h';
-        why = O.thing ? '🚁 L\'elicottero è partito… con una Cosa a bordo, travestita da umano!' : O.n ? '🚁 ' + O.n + (O.n === 1 ? ' umano è scappato' : ' umani sono scappati') + ' con l\'elicottero, senza la Cosa.' : '🚁 Nessuno è salito sull\'elicottero.';
+        const Oo = G.out; w = Oo.thing || !Oo.n ? 't' : 'h';
+        why = Oo.thing ? '🚁 L\'elicottero è partito… con la Cosa a bordo!' : Oo.n ? '🚁 ' + Oo.n + (Oo.n === 1 ? ' umano è scappato' : ' umani sono scappati') + ' con l\'elicottero, senza la Cosa.' : '🚁 Nessuno è salito sull\'elicottero.';
       }
       const how = c => c.on ? '🚁 sull\'elicottero' : c.alive ? (G.out ? '❄️ rimasto alla base' : 'vivo') : c.how === 1 ? '🔥 bruciato' : c.how === 2 ? '🥶 congelato' : '💀 preso dalla Cosa';
-      const line = c => [name(c), c.th ? '— 👾 la Cosa' + (c.disg ? ' (sembrava ' + byId(G, c.disg.id).name + ')' : '') + ' · 🩸 ' + (c.kl || 0) + ' prese · ' + how(c) : '— 🧑‍🔬 ' + how(c) + (c.bt ? ' · 🔥 ha bruciato la Cosa' : '') + (c.ff ? ' · 🔥 ha bruciato un innocente' : '')];
-      const score = c => (c.on ? 100 : c.alive ? 50 : 0) + (c.kl || 0) * 10 + (c.bt || 0) * 30 - (c.ff || 0) * 20;
+      const nd = c => (c.td || []).length + '/' + (c.tl || []).length;
+      const line = c => [name(c), c.th ? '— 👾 la Cosa' + (c.infT ? ' (assorbito)' : '') + ' · 🩸 ' + (c.kl || 0) + ' prese' + (c.inf ? ' · 🧬 ' + c.inf : '') + ' · ' + how(c) : '— 🧑‍🔬 🔧 ' + nd(c) + ' · ' + how(c) + (c.bt ? ' · 🔥 ha bruciato la Cosa' : '') + (c.ff ? ' · 🔥 ha bruciato un innocente' : '')];
+      const score = c => (c.on ? 100 : c.alive ? 50 : 0) + (c.kl || 0) * 10 + (c.td || []).length * 5 + (c.bt || 0) * 30 - (c.ff || 0) * 20;
       const win = G.chars.filter(c => w === 't' ? c.th : !c.th);
       const rank = G.chars.slice().sort((a, b) => (win.includes(b) - win.includes(a)) || score(b) - score(a)).map(line);
       cqModeEnd(w === 't' ? { t: '👾 Vince la Cosa!', why, win: win.map(c => c.id), rank } : { t: '🧑‍🔬 Vince la squadra!', why, win: win.map(c => c.id), rank });
     },
-    // online: Cosa?, scoperta, travestimento, freddo, ricarica, attacco (secondi fa), sull'elicottero, quante prese, morte
-    csnap: c => { const G = cq.g; return [c.th ? 1 : 0, c.rv ? 1 : 0, c.disg ? c.disg.id : -1, Math.round(c.cold == null ? 100 : c.cold), Math.max(0, Math.ceil(c.kcd || 0)), Math.min(9, Math.round((G.time - (c.atkT == null ? -9 : c.atkT)) * 10) / 10), c.on ? 1 : 0, c.kl || 0, c.how || 0, c.fresh ? Math.round((G.time - c.fresh.t) * 10) / 10 : -1, c.fresh ? c.fresh.id : -1]; },
+    // online: Cosa?, scoperta, freddo, ricarica, attacco (secondi fa), a bordo, prese, morte, contagio, compiti (testo: "1.5.9"), fatti
+    csnap: c => { const G = cq.g; return [c.th ? 1 : 0, c.rv ? 1 : 0, Math.round(c.cold == null ? 100 : c.cold), Math.max(0, Math.ceil(c.kcd || 0)), Math.min(9, Math.round((G.time - (c.atkT == null ? -9 : c.atkT)) * 10) / 10), c.on ? 1 : 0, c.kl || 0, c.how || 0, c.ab || 0, (c.tl || []).join('.'), (c.td || []).join('.'), c.inf || 0]; },
     capply(G, c, a) {
-      c.th = !!a[0]; c.rv = !!a[1]; c.disg = a[2] >= 0 ? { id: a[2], until: 1e9 } : null; if (c === G.me) G.disg = c.disg;
-      c.cold = a[3]; c.kcd = a[4]; if (!(c === G.me && G.time - (c.atkT || -9) < 1)) c.atkT = G.time - a[5]; c.on = a[6]; c.kl = a[7]; c.how = a[8];
-      c.fresh = a[9] >= 0 ? { t: G.time - a[9], id: a[10] } : null;
+      c.th = !!a[0]; c.rv = !!a[1]; c.cold = a[2]; c.kcd = a[3]; if (!(c === G.me && G.time - (c.atkT || -9) < 1)) c.atkT = G.time - a[4];
+      if (!(c === G.me && G.time < (c.onH || 0))) c.on = a[5];
+      c.kl = a[6]; c.how = a[7]; c.ab = a[8]; c.inf = a[11];
+      const sp = s => s === '' || s == null ? [] : String(s).split('.').map(Number);
+      c.tl = sp(a[9]); if (!(c === G.me && G.time < (c.tdH || 0))) c.td = sp(a[10]);
+      if (c === G.me) { if (G.meA && !c.alive && G.tkOpen != null && !$('#cqTask').hidden && !$('#ctOk')) { cqCloseTask(); G.tkOpen = null; } G.meA = c.alive; }   // morto mentre facevo un compito: si chiude
     },
     snap: G => ({ bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10, b.k || 0]), left: Math.round(G.left * 10) / 10, lg: G.lg,
-      kt: G.kits, fl: [G.fl.h, G.fl.n], gn: [G.gen.on ? 1 : 0, Math.round(G.gen.p * 100) / 100, Math.round(G.gen.cd)], ts: G.test ? [G.test.a, G.test.b == null ? -1 : G.test.b, Math.round(G.test.p * 100) / 100] : 0,
-      mt: G.mt, res: G.res, cl: Object.keys(G.clear).map(Number), he: G.heli ? 1 : 0, ou: G.out ? [G.out.t, G.out.thing, G.out.n] : 0 }),
+      kt: G.kits, kp: G.kp, fl: [G.fl.h, G.fl.n], gn: [G.gen.on ? 1 : 0, Math.round(G.gen.p * 100) / 100, Math.round(G.gen.cd)], ca: G.call ? [G.call.id, G.call.st, Math.round((G.call.end - G.time) * 10) / 10] : 0,
+      mt: G.mt, res: G.res, cl: Object.keys(G.clear).map(Number), fg: Object.keys(G.flag).map(Number), tk: [G.tk.done, G.tk.tot], he: G.heli ? Math.round((G.time - G.heli.t) * 10) / 10 : -1,
+      ou: G.out ? [Math.round((G.time - G.out.t) * 10) / 10, G.out.thing, G.out.n] : 0, ts: G.ts.map(T => [Math.round(T.p * 100) / 100, Math.max(0, Math.round(T.cd - G.time))]) }),
     apply(G, x) {
       G.bodies = (x.bd || []).map(a => { const c = byId(G, a[0]); return c ? { id: a[0], x: a[1], y: a[2], face: a[3], t: a[4], k: a[5], nk: 1, look: cqLookOf(c), name: c.name } : null; }).filter(Boolean);
-      G.left = x.left; G.res = x.res || []; G.clear = {}; for (const i of x.cl || []) G.clear[i] = 1;
-      if (G.kits !== x.kt) { G.kits = x.kt; setKits(G); }
+      G.left = x.left; G.res = x.res || []; G.clear = {}; for (const i of x.cl || []) G.clear[i] = 1; G.flag = {}; for (const i of x.fg || []) G.flag[i] = 1; names(G);
+      if (G.kits !== x.kt) { G.kits = x.kt; setKits(G); } G.kp = x.kp || 0;
       if (x.fl) { G.fl = { h: x.fl[0], n: x.fl[1] }; setRack(G); }
       if (x.gn) { G.gen.on = !!x.gn[0]; G.gen.p = x.gn[1]; G.gen.cd = x.gn[2]; setGen(G); }
-      G.test = x.ts ? { a: x.ts[0], b: x.ts[1] < 0 ? null : x.ts[1], p: x.ts[2] } : null;
-      if (x.he && !G.heli) G.heli = { t: G.time - Math.max(0, HELI_T - G.left) };
-      if (x.ou && !G.out) G.out = { t: x.ou[0], thing: x.ou[1], n: x.ou[2] };
-      const was = G.mt; G.mt = x.mt || null; if (G.mt) for (const k of ['ok', 'pres', 'dead', 'miss', 'res']) G.mt[k] = G.mt[k] || [];
+      G.call = x.ca ? { id: x.ca[0], st: x.ca[1], end: G.time + x.ca[2] } : null;
+      if (x.tk) G.tk = { done: x.tk[0], tot: x.tk[1] };
+      G.heli = x.he >= 0 ? { t: G.time - x.he } : null;
+      if (x.ou && !G.out) G.out = { t: G.time - x.ou[0], thing: x.ou[1], n: x.ou[2] };
+      if (x.ts) G.ts = x.ts.map(a => ({ p: a[0], cd: G.time + a[1] }));
+      const was = G.mt; G.mt = x.mt || null; if (G.mt) for (const k of ['ok', 'pres', 'dead', 'res', 'flg']) G.mt[k] = G.mt[k] || [];
       if (G.mt && (!was || was.end !== G.mt.end)) meetUI(G);
       if (!G.mt && was && $('#ctOk')) cqCloseTask();
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
@@ -760,29 +884,27 @@
       return { a: !on && !out ? (me.th ? 0.72 : 0.9) : 0, r: me.th ? 5 : 3.6, lights,
         see: (x, y) => { const d = Math.hypot(x - cq.x, y - cq.y); if (out || isOut(x, y)) return d < SEE_OUT; return on ? true : d < R; } };
     },
-    // sopra alla mappa: bufera (nebbia bianca e neve che vola) quando sono fuori, brina col freddo, bersagli, fiamme, elicottero, frecce
+    // sopra alla mappa: corpi bruciati/congelati, fiammate, elicottero, bufera, brina, bersagli, segni dei compiti, frecce
     over(g, G, sx, sy, TW) {
       const me = G.me, now = performance.now(), W = cq.w, H = cq.h, out = isOut(cq.x, cq.y), mx = sx(cq.x, cq.y), my = sy(cq.x, cq.y) - TW * 0.6;
-      // corpi bruciati (fumo) e congelati (ghiaccio)
       for (const b of G.bodies) if (b.k) { const X = sx(b.x, b.y), Y = sy(b.x, b.y); if (X < -60 || X > W + 60 || Y < -60 || Y > H + 60) continue;
         if (b.k === 1) for (let i = 0; i < 4; i++) { const a = ((now / 1000 + i * 0.7) % 2.8) / 2.8; g.fillStyle = 'rgba(60,60,60,' + (0.4 * (1 - a)) + ')'; g.beginPath(); g.arc(X + Math.sin(i * 2 + a * 3) * 8, Y - 10 - a * 50, 6 + a * 10, 0, 7); g.fill(); }
         else { g.fillStyle = 'rgba(190,225,255,.55)'; g.beginPath(); g.ellipse(X, Y - 8, TW * 0.7, TW * 0.32, 0, 0, 7); g.fill(); g.fillStyle = 'rgba(255,255,255,.8)'; for (const [a, c] of [[-14, -12], [6, -18], [16, -8]]) g.fillRect(X + a, Y + c, 3, 3); } }
-      // fiammate
       G.fx = G.fx.filter(f => now - f.t < 900);
       for (const f of G.fx) {
         const a = (now - f.t) / 900, X0 = sx(f.a[0], f.a[1]), Y0 = sy(f.a[0], f.a[1]) - TW * 0.7, X1 = sx(f.b[0], f.b[1]), Y1 = sy(f.b[0], f.b[1]) - TW * 0.6;
         for (let i = 0; i < 14; i++) { const k = i / 13, j = Math.sin(i * 7.3 + now / 40) * 8; g.fillStyle = ['rgba(255,240,150,', 'rgba(255,160,40,', 'rgba(230,70,30,'][i % 3] + (0.85 * (1 - a)) + ')'; g.beginPath(); g.arc(X0 + (X1 - X0) * k + j, Y0 + (Y1 - Y0) * k - j * 0.5, 4 + k * 12, 0, 7); g.fill(); }
       }
-      // elicottero
+      // elicottero: scende, resta sulla piazzola, poi riparte
       const pd = MP().pad, PX = sx(pd.x, pd.y), PY = sy(pd.x, pd.y);
       if (G.heli) {
-        const ta = G.time - G.heli.t, land = Math.max(0, 1 - ta / 7), up = G.out ? Math.max(0, G.time - G.out.t - 0.6) : 0;
+        const ta = G.time - G.heli.t, land = Math.max(0, 1 - ta / HELI_LAND), up = G.out ? Math.max(0, G.time - G.out.t - 0.6) : 0;
         const alt = land * land * 14 + up * up * 1.4, ox = land * 8 * TW;
-        heli(g, PX + ox, PY - land * 3 * TW, TW, alt, now / 45, G.out && G.out.thing && up > 0);
-        if (!out || Math.hypot(pd.x - cq.x, pd.y - cq.y) > 4) edge(g, PX, PY, W, H, '🚁', '#e8b830');
+        heli(g, PX + ox, PY - land * 3 * TW, TW, alt, now / (landed(G) && !G.out ? 70 : 40), G.out && G.out.thing && up > 0);
+        if (!G.out && (!out || Math.hypot(pd.x - cq.x, pd.y - cq.y) > 4)) edge(g, PX, PY, W, H, '🚁', '#e8b830');
+        if (!G.out && Math.hypot(pd.x - cq.x, pd.y - cq.y) < 14 && (G.rotT = (G.rotT || 0) - 1) <= 0) { G.rotT = 9; if (store.settings.sound) beep(70, 0.06, 0.012 * (1 - Math.hypot(pd.x - cq.x, pd.y - cq.y) / 14), 0, 'sawtooth'); }
       }
       if (G.out) return;
-      // bufera: se sono fuori la nebbia bianca copre lontano e la neve vola
       const fk = G.flk || (G.flk = []);
       if (out) {
         const gr = g.createRadialGradient(mx, my, TW * 2.6, mx, my, TW * 6.2); gr.addColorStop(0, 'rgba(236,243,250,0)'); gr.addColorStop(1, 'rgba(236,243,250,.94)');
@@ -791,27 +913,36 @@
         const gust = 1 + 0.6 * Math.sin(now / 900);
         g.fillStyle = 'rgba(255,255,255,.9)';
         for (const f of fk) { f.x -= 9 * f.v * gust; f.y += 3.2 * f.v; if (f.x < -10) f.x += W + 20; if (f.y > H + 10) f.y -= H + 20; g.fillRect(f.x, f.y, f.r * 2.4, f.r); }
-        if ((G.windT = (G.windT || 0) - 1) <= 0) { G.windT = 70 + Math.random() * 60; if (store.settings.sound) beep(120 + Math.random() * 40, 0.9, 0.006, 0, 'triangle'); }
       }
-      // brina ai bordi quando si congela
-      if (me.alive && !me.th && me.cold < 40) {
+      if (me.alive && !me.th && !me.on && me.cold < 40) {
         const k = (40 - me.cold) / 40, gr = g.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.25, W / 2, H / 2, Math.max(W, H) * 0.7);
         gr.addColorStop(0, 'rgba(200,230,255,0)'); gr.addColorStop(1, 'rgba(200,230,255,' + (0.7 * k) + ')'); g.fillStyle = gr; g.fillRect(0, 0, W, H);
       }
-      if (!me.alive || G.phase !== 'play' || G.pre > 0 || G.mt) return;
-      // contorno rosso su chi sto per prendere o bruciare
+      if (G.phase !== 'play' || G.pre > 0 || G.mt || me.on) return;
+      // i miei compiti: segno giallo sopra l'oggetto, freccia sul bordo (fuori: azzurra)
+      const bob = Math.sin(now / 300) * 4;
+      if (!(me.th && !me.alive)) for (const i of left(me)) {
+        const T = TASKS[i], X = sx(T[3] + 0.5, T[4] + 0.5), Y = sy(T[3] + 0.5, T[4] + 0.5) - TW * 2.1 + bob;
+        if (X > -20 && X < W + 20 && Y > -20 && Y < H + 20) { g.fillStyle = T[5] ? '#7ac8ff' : '#f2d24a'; g.globalAlpha = 0.85; g.beginPath(); g.arc(X, Y, 9, 0, 7); g.fill(); g.beginPath(); g.moveTo(X - 5, Y + 7); g.lineTo(X + 5, Y + 7); g.lineTo(X, Y + 14); g.fill(); g.globalAlpha = 1; }
+        else edge(g, X, Y, W, H, T[5] ? '❄️' : '🔧', T[5] ? '#7ac8ff' : '#f2d24a');
+      }
+      // compiti di squadra: cerchio con la mano e la barra
+      G.ts.forEach((T, i) => {
+        const X = sx(TEAMS[i][0] + 0.5, TEAMS[i][1] + 0.5), Y = sy(TEAMS[i][0] + 0.5, TEAMS[i][1] + 0.5); if (X < -60 || X > W + 60 || Y < -80 || Y > H + 60) return;
+        g.font = '18px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = G.time < T.cd ? 0.35 : 1; g.fillText('🤝', X, Y - TW * 1.9 + bob); g.globalAlpha = 1;
+        if (T.p > 0) { g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, X - 32, Y - TW * 2.5, 64, 9, 4.5); g.fill(); g.fillStyle = '#7be0a0'; cqRR(g, X - 30, Y - TW * 2.5 + 2, 60 * T.p, 5, 2.5); g.fill(); }
+      });
+      if (!me.alive) return;
       const a = action(G);
       if (a && a.v && (a.k === 'burn' || (a.k === 'atk' && a.on))) {
         const q = a.v, X = sx(q.x, q.y), Y = sy(q.x, q.y), pu = 0.6 + 0.4 * Math.sin(now / 160);
         g.strokeStyle = '#ff6a5a'; g.globalAlpha = pu; g.lineWidth = 3; g.beginPath(); g.ellipse(X, Y, TW * 0.55, TW * 0.27, 0, 0, 7); g.stroke(); g.globalAlpha = 1;
       }
-      // frecce: generatore spento (squadra), bancone dell'esame se qualcuno aspetta
       const Gp = MP().gen, B = MP().bench;
       if (!genOn(G) && !me.th) edge(g, sx(Gp.x + 0.5, Gp.y + 0.5), sy(Gp.x + 0.5, Gp.y + 0.5), W, H, '⚡', '#ff6a5a');
-      if (G.test && G.test.b == null && G.test.a !== me.id) edge(g, sx(B.x + 0.5, B.y + 0.5), sy(B.x + 0.5, B.y + 0.5), W, H, '🧪', '#7be0a0');
-      // barra della riparazione del generatore
+      if (G.call && G.call.id === me.id) edge(g, sx(B.x + 0.5, B.y + 0.5), sy(B.x + 0.5, B.y + 0.5), W, H, '🧪', '#7be0a0');
       if (!genOn(G) && G.gen.p > 0) { const X = sx(Gp.x + 0.5, Gp.y + 0.5), Y = sy(Gp.x + 0.5, Gp.y + 0.5) - TW * 2.2; g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, X - 32, Y - 4, 64, 9, 4.5); g.fill(); g.fillStyle = '#7be0a0'; cqRR(g, X - 30, Y - 2, 60 * G.gen.p, 5, 2.5); g.fill(); }
-      if (G.test && G.test.b != null) { const X = sx(B.x + 0.5, B.y + 0.5), Y = sy(B.x + 0.5, B.y + 0.5) - TW * 1.9; g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, X - 32, Y - 4, 64, 9, 4.5); g.fill(); g.fillStyle = '#ff9aa8'; cqRR(g, X - 30, Y - 2, 60 * G.test.p, 5, 2.5); g.fill(); }
+      if (G.call && G.call.st === 1) { const X = sx(B.x + 0.5, B.y + 0.5), Y = sy(B.x + 0.5, B.y + 0.5) - TW * 1.9; g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, X - 32, Y - 4, 64, 9, 4.5); g.fill(); g.fillStyle = '#ff9aa8'; cqRR(g, X - 30, Y - 2, 60 * Math.max(0, 1 - (G.call.end - G.time) / TEST), 5, 2.5); g.fill(); }
     }
   };
 })();
