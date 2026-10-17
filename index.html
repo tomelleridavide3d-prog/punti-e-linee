@@ -2361,6 +2361,18 @@ function cqVoiceUI() {
   $('#cqMic').classList.toggle('off', !cqV.mic); $('#cqMic').classList.toggle('live', !!cqV.mic);
   $('#cqHear').classList.toggle('off', !cqV.hear);
 }
+function cqOpus(d) {
+  const m = /a=rtpmap:(\d+) opus\/48000/i.exec(d.sdp); if (!m) return d;
+  const pt = m[1], extra = 'useinbandfec=1;usedtx=0;stereo=0;maxaveragebitrate=40000';
+  const re = new RegExp('a=fmtp:' + pt + ' ([^\\r\\n]*)');
+  const sdp = re.test(d.sdp) ? d.sdp.replace(re, (a, p) => 'a=fmtp:' + pt + ' ' + p.split(';').filter(x => !/^(useinbandfec|usedtx|stereo|maxaveragebitrate)=/.test(x)).concat(extra).join(';')) : d.sdp;
+  return { type: d.type, sdp };
+}
+function cqVoiceSend(P) {   // il mio microfono verso un amico, con priorita' alta
+  const sd = P.tr && P.tr.sender; if (!sd) return;
+  sd.replaceTrack(cqV.mic ? cqV.mic.getAudioTracks()[0] : null).catch(() => {});
+  try { const p = sd.getParameters(); if (p.encodings && p.encodings[0]) { p.encodings[0].maxBitrate = 48000; p.encodings[0].priority = 'high'; p.encodings[0].networkPriority = 'high'; sd.setParameters(p).catch(() => {}); } } catch {}
+}
 function cqVoiceSig(to, o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/rtc/${to}`), Object.assign({ f: N.sid }, o)).catch(() => {}); }
 function cqVoicePeer(sid, offer) {
   let P = cqV.peers[sid]; if (P) return P;
@@ -2370,27 +2382,31 @@ function cqVoicePeer(sid, offer) {
   if (offer) cqVoiceTr(P);
   pc.onicecandidate = e => { if (e.candidate) cqVoiceSig(sid, { k: 'ice', d: JSON.stringify(e.candidate) }); };
   pc.ontrack = e => {
-    // voce dell'amico: un <audio> la fa partire (necessario su Chrome), il volume passa da WebAudio (per la vicinanza)
+    // voce dell'amico: esce diretta dall'<audio> (meno ritardo, e l'anti-eco del telefono la riconosce) e il volume si regola li'.
+    // Dove il volume dell'<audio> non si puo' cambiare (iPhone) passa da WebAudio (P.g). L'analyser serve solo per il 🔊
     const st = e.streams[0] || new MediaStream([e.track]);
-    const au = P.au || (P.au = document.createElement('audio')); au.autoplay = true; au.playsInline = true; au.srcObject = st; au.muted = true; au.play().catch(() => {});
+    if (cqV.canVol == null) { const t = new Audio(); t.volume = 0.5; cqV.canVol = t.volume === 0.5; }
+    const au = P.au || (P.au = document.createElement('audio')); au.autoplay = true; au.playsInline = true; au.srcObject = st;
+    P.direct = cqV.canVol; au.muted = !P.direct; au.volume = P.direct ? 0 : 1; P.v = 0; au.play().catch(() => {});
     try {
       actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume();
       if (P.src) P.src.disconnect();
-      P.src = actx.createMediaStreamSource(st); P.g = P.g || actx.createGain(); P.an = P.an || actx.createAnalyser(); P.an.fftSize = 256;
-      P.src.connect(P.an); P.src.connect(P.g); P.g.connect(actx.destination); cqVoiceVol();
-    } catch { au.muted = false; }   // senza WebAudio: si sente comunque dall'<audio>
+      P.src = actx.createMediaStreamSource(st); P.an = P.an || actx.createAnalyser(); P.an.fftSize = 256; P.src.connect(P.an);
+      if (!P.direct) { P.g = P.g || actx.createGain(); P.src.connect(P.g); P.g.connect(actx.destination); }
+    } catch { P.direct = true; au.muted = false; }   // senza WebAudio: si sente comunque dall'<audio>
+    cqVoiceVol();
   };
   pc.onconnectionstatechange = () => { if (pc.connectionState === 'failed') { cqVoiceDrop(sid); setTimeout(cqVoiceSync, 1500); } };
   return P;
 }
 function cqVoiceTr(P) {
   P.tr = P.tr || P.pc.getTransceivers().find(t => t.receiver.track && t.receiver.track.kind === 'audio'); if (!P.tr) return;
-  P.tr.direction = 'sendrecv'; P.tr.sender.replaceTrack(cqV.mic ? cqV.mic.getAudioTracks()[0] : null).catch(() => {});
+  P.tr.direction = 'sendrecv'; cqVoiceSend(P);
 }
 function cqVoiceDrop(sid) { const P = cqV.peers[sid]; if (!P) return; delete cqV.peers[sid]; try { P.pc.close(); } catch {} if (P.src) P.src.disconnect(); if (P.g) P.g.disconnect(); if (P.au) P.au.srcObject = null; }
 async function cqVoiceCall(sid) {
   const P = cqVoicePeer(sid, true);
-  try { await P.pc.setLocalDescription(await P.pc.createOffer()); cqVoiceSig(sid, { k: 'offer', d: JSON.stringify(P.pc.localDescription) }); } catch (e) { console.warn(e); }
+  try { await P.pc.setLocalDescription(cqOpus(await P.pc.createOffer())); cqVoiceSig(sid, { k: 'offer', d: JSON.stringify(P.pc.localDescription) }); } catch (e) { console.warn(e); }
 }
 async function cqVoiceMsg(m) {
   const N = cq.net; if (!N || !m || !m.f || m.f === N.sid) return;
@@ -2400,7 +2416,7 @@ async function cqVoiceMsg(m) {
       const P = cqV.peers[m.f] && cqV.peers[m.f].pc.remoteDescription ? (cqVoiceDrop(m.f), cqVoicePeer(m.f)) : cqVoicePeer(m.f);
       await P.pc.setRemoteDescription(JSON.parse(m.d)); cqVoiceTr(P);
       for (const c of P.q.splice(0)) await P.pc.addIceCandidate(c).catch(() => {});
-      await P.pc.setLocalDescription(await P.pc.createAnswer()); cqVoiceSig(m.f, { k: 'answer', d: JSON.stringify(P.pc.localDescription) });
+      await P.pc.setLocalDescription(cqOpus(await P.pc.createAnswer())); cqVoiceSig(m.f, { k: 'answer', d: JSON.stringify(P.pc.localDescription) });
     } else if (m.k === 'answer') {
       const P = cqV.peers[m.f]; if (!P || P.pc.signalingState !== 'have-local-offer') return;
       await P.pc.setRemoteDescription(JSON.parse(m.d));
@@ -2430,11 +2446,12 @@ function cqVoiceSync() {
 function cqVoiceVol() {
   const on = cqV.hear && store.settings.sound !== false, G = cq.g, play = G && G.phase === 'play';
   for (const P of Object.values(cqV.peers)) {
-    if (!P.g) continue;
+    if (!P.g && !P.direct) continue;
     let v = on ? 1 : 0;
     const c = play && G.chars.find(o => o.sid === P.sid);
     if (v && c && G.me.alive) v = !c.alive ? 0 : Math.max(0, Math.min(1, 1 - (Math.hypot(c.x - cq.x, c.y - cq.y) - 2) / 6));
-    P.g.gain.setTargetAtTime(v, actx.currentTime, 0.08);
+    if (P.direct) { P.v += (v - P.v) * 0.6; if (Math.abs(P.v - v) < 0.02) P.v = v; if (P.au) P.au.volume = Math.max(0, Math.min(1, P.v)); }
+    else P.g.gain.setTargetAtTime(v, actx.currentTime, 0.08);
   }
 }
 const cqVBuf = new Uint8Array(256);
@@ -2457,8 +2474,8 @@ function cqVoiceTick(dt) {
 async function cqVoiceMic() {
   if (cqV.mic) { cqV.mic.getTracks().forEach(t => t.stop()); cqV.mic = null; for (const P of Object.values(cqV.peers)) if (P.tr) P.tr.sender.replaceTrack(null).catch(() => {}); cqVoiceUI(); return; }
   try {
-    cqV.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
-    const t = cqV.mic.getAudioTracks()[0]; for (const P of Object.values(cqV.peers)) if (P.tr) P.tr.sender.replaceTrack(t).catch(() => {});
+    cqV.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    for (const P of Object.values(cqV.peers)) cqVoiceSend(P);
     cqToast('🎤 Microfono acceso: gli amici del set ti sentono.');
   } catch { cqToast('🎤 Il microfono non è disponibile: controlla il permesso nelle impostazioni del browser.'); }
   cqVoiceUI();
