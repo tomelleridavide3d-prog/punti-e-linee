@@ -913,7 +913,7 @@ const U = 64, MG = 30;
 function render() {
   renderScores(); renderStatus();
   $('#bUndo').disabled = !game || game.over || game.online || !game.history.length;
-  $('#bQuit').hidden = !(game && game.online && !game.over);
+  $('#bQuit').hidden = !(game && !game.over);
   if (!game) { svg.setAttribute('viewBox', '0 0 300 120'); svg.innerHTML = `<text x="150" y="60" text-anchor="middle" fill="var(--muted)" font-size="14">Scegli le impostazioni per iniziare</text>`; return; }
   const T = game.T, W = T.C * U + 2 * MG, H = T.R * U + 2 * MG;
   svg.setAttribute('viewBox', `0 0 ${W} ${H}`);
@@ -1193,7 +1193,18 @@ $('#bSound').onclick = () => { store.settings.sound = !store.settings.sound; sav
 $('#bNew').onclick = openSetup;
 // Abbandona: conta come sconfitta (e vittoria per l'avversario); senza mosse fatte si esce e basta.
 function quitGame() {
-  if (!game || !game.online || game.over || !net) return;
+  if (!game || game.over) return;
+  if (!game.online) {   // contro il computer o sullo stesso dispositivo: si esce; contro il computer conta come partita persa (la forza adattiva non cambia)
+    const ai = game.vsAI, moved = game.history.length > 0;
+    if (!confirm(ai && moved ? 'Abbandonare la partita? Conta come sconfitta contro il computer.' : 'Uscire dalla partita?')) return;
+    if (ai && moved) {
+      const P = store.profile, r = P.rec[game.level] || (P.rec[game.level] = { w: 0, l: 0, d: 0 });
+      r.l++; P.games++; saveStore();
+    }
+    aiToken++; clearTimeout(aiTimer);
+    game = null; render(); openSetup(); return;
+  }
+  if (!net) return;
   const me = game.players.findIndex(p => p.kind === 'human'), opp = game.players[1 - me].name;
   if (!game.history.length) {
     if (!confirm('Uscire dalla partita? Non è stata fatta nessuna mossa, quindi non perdi punti.')) return;
