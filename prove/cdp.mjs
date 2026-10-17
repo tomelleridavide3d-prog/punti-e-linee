@@ -5,7 +5,7 @@ const [dir, jsFile, shot, W = '412', H = '860'] = process.argv.slice(2);
 const srv = http.createServer((q, r) => { const p = path.join(dir, decodeURIComponent(q.url.split('?')[0]) === '/' ? 'index.html' : decodeURIComponent(q.url.split('?')[0])); fs.readFile(p, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': p.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript' }); r.end(d); }); }).listen(0);
 const port = srv.address().port, dport = 9300 + Math.floor(Math.random() * 500);
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'cq-prof-'));
-const edge = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', ['--headless=new', '--autoplay-policy=no-user-gesture-required', `--remote-debugging-port=${dport}`, `--user-data-dir=${prof}`, `--window-size=${W},${H}`, 'about:blank']);
+const edge = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', ['--headless=new', '--autoplay-policy=no-user-gesture-required', '--mute-audio', `--remote-debugging-port=${dport}`, `--user-data-dir=${prof}`, `--window-size=${W},${H}`, 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let tabs; for (let i = 0; i < 50; i++) { try { tabs = await (await fetch(`http://127.0.0.1:${dport}/json`)).json(); if (tabs.find(t => t.type === 'page')) break; } catch { } await sleep(200); }
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);
