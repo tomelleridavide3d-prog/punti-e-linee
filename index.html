@@ -1869,7 +1869,7 @@ function cqMapBosco() {
     help: '<p class="hint">🌲 Siete sperduti nel bosco: bisogna anche <b>sopravvivere</b>. Taglia gli alberi per la legna, porta 3 legna al cerchio di sassi per fare il <b>falò</b> e accendilo, 4 legna per la <b>tenda</b>. Pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Guarda le barre di fame 🍗 e freddo ❄️: di notte, lontano dal fuoco, si gela e ogni notte fa più freddo. La tenda ripara chi sta all\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Nel bosco c\'è anche un <b>mercante</b> (a nord, oltre gli alberi).</p>' };
 }
 // mappe da scegliere nella stanza d'attesa (soon = non ancora pronta, solo = per ora solo contro il computer)
-const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco, solo: true } };
+const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco } };
 const cqMapOk = k => CQ_MAPS[k] && !CQ_MAPS[k].soon && !(cq.net && CQ_MAPS[k].solo);
 const cqMapIds = () => Object.keys(CQ_MAPS).filter(cqMapOk);
 // mette in uso una mappa: riempie le variabili della mappa e prepara le celle (pavimento, oggetti, muri)
@@ -2133,16 +2133,16 @@ function cqUseItem(i) {
       else { me.alive = false; cqPanel('Hai sparato a un innocente!', `<p class="lead"><b>${esc(v.name)}</b> era della troupe. Sei fuori: ora sei un fantasma e puoi ancora finire i compiti.</p>`, 'Continua'); }
       cqHud(); cqCheckWin(); return; }
     case 'torcia': me.torch = true; cqToast('🔦 Torcia accesa: di notte vedi lontano.'); break;
-    case 'coperta': me.blanket = true; cqToast('🧣 Coperta addosso: il freddo ti scende la metà.'); break;
+    case 'coperta': cqSvAction('blanket'); break;
     case 'esca': me.bait = (me.bait || 0) + 3; cqToast('🪱 Esca pronta: le prossime 3 pesche sono immediate.'); break;
     case 'rete': me.net = true; cqToast('🕸️ Rete pronta: basta un colpo per pescare.'); break;
-    case 'trappola': G.sv.traps.push({ x: cq.x, y: cq.y }); cqToast('🪤 Trappola piazzata qui.'); break;
-    case 'scatolette': me.hun = 100; cqToast('🥫 Pancia piena!'); break;
+    case 'trappola': cqSvAction('trap', { x: cq.x, y: cq.y }); break;
+    case 'scatolette': cqSvAction('full'); break;
     case 'radio': {
       G.radio = G.time + 30; used(); cqOpenMap(); cqToast('📡 Sulla mappa: animali in rosso, fucile in giallo.');
       const iv = setInterval(() => { if ($('#cqMap').hidden || !cq.g || cq.g.radio < cq.g.time) { clearInterval(iv); return; } cqOpenMap(); }, 400);
       return; }
-    case 'fischietto': { let n = 0; for (const m of G.sv.mobs) if (Math.hypot(m.x - cq.x, m.y - cq.y) < 8) { const p = cqSvFarCell(16, { x: cq.x, y: cq.y }); if (p) { m.x = p.x; m.y = p.y; m.path = []; n++; } } beep(1800, 0.3, 0.04); cqToast(n ? '📯 Gli animali scappano lontano!' : '📯 Fischio… nessun animale qui vicino.'); break; }
+    case 'fischietto': beep(1800, 0.3, 0.04); cqSvAction('whistle', { x: cq.x, y: cq.y }); break;
     case 'colpi': if (me.gun < 0) { cqToast('Prima devi trovare il fucile.'); return; } me.gun += 3; cqToast('🎯 3 colpi in più.'); break;
     case 'lente': {
       const v = cqNearest(2.6); if (!v) { cqToast('Avvicinati a qualcuno per guardarlo con la lente.'); return; }
@@ -2311,7 +2311,38 @@ function cqNetSnap() {
     bo: G.bodies.map(b => [b.id, f2(b.x), f2(b.y), b.face, b.room, Math.round(b.t)]),
     c: G.chars.map(c => { const me = c === G.me; return [c.id, c.name, cqLookOf(c), f2(me ? cq.x : c.x), f2(me ? cq.y : c.y), me ? cq.face : c.face, (me ? cq.walk : c.walk) ? 1 : 0, c.alive ? 1 : 0, c.imp ? 1 : 0, c.done.size, c.sid || '', c.remote ? c.tasks : 0, c.imp ? Math.ceil(Math.max(0, c.kcd)) : 0, c.killer || '']; }),
     mt: M ? { id: M.id, title: M.body ? 'Corpo trovato!' : 'Riunione d\'emergenza!', log: M.log || [], rv: M.revealed ? 1 : 0, res: M.res || '', fv: M.fv || null, tl: M.tl == null ? 60 : M.tl } : null,
-    end: G.endInfo || null };
+    end: G.endInfo || null, sv: G.sv ? cqNetSvSnap() : null };
+}
+// stato del bosco per gli amici: giorno/notte, fuoco, tenda, animali, fucile, trappole, alberi tagliati, barre di ognuno
+function cqNetSvSnap() {
+  const G = cq.g, S = G.sv, f2 = v => Math.round(v * 100) / 100;
+  return { t: f2(S.t), d: f2(S.dark), n: S.n, fw: S.fw, tw: S.tw, fu: Math.round(S.fuel), l: S.lit ? 1 : 0,
+    m: S.mobs.map(m => [m.id, m.k, f2(m.x), f2(m.y), f2(m.dx), f2(m.dy), m.hp]), dr: S.drop ? [f2(S.drop.x), f2(S.drop.y), S.drop.ammo] : null, ad: [f2(S.adv.x), f2(S.adv.y), S.adv.rifle ? 1 : 0],
+    tr: S.traps.map(p => [f2(p.x), f2(p.y)]), cut: CQ_MAP.trees.reduce((a, t, i) => (t.cut && a.push(i), a), []),
+    c: G.chars.map(c => [Math.round(c.hun), Math.round(c.cold), c.hp, c.gun, c.carry === 'wood' ? 1 : c.carry === 'fish' ? 2 : 0]) };
+}
+// amici: rimettono il bosco come quello di chi ha creato il set
+function cqNetSvApply(G, v) {
+  let S = G.sv;
+  if (!S) { S = G.sv = { mobs: [], traps: [], drop: null, adv: null, fw: -1, tw: -1, n: 0, dark: 0 }; G.chars.forEach(c => { c.hp = 3; c.gun = -1; c.carry = null; c.hun = 80; c.cold = 100; }); }
+  if (v.n > S.n && v.d > 0) cqToast('🌙 Cala la notte ' + v.n + (v.n > 1 ? ': fa ancora più freddo!' : ': stai vicino al fuoco!'));
+  if (S.dark > 0 && v.d === 0) cqToast('☀️ È mattina: notte ' + S.n + ' superata!');
+  if (!S.mobs.length && v.m.length) cqToast('🐺 Ululati nel bosco: arrivano gli animali!');
+  if (S.fw !== v.fw) { S.fw = v.fw; cqBgCell(CQ_MAP.fire.x, CQ_MAP.fire.y); }
+  if (S.tw !== v.tw) { S.tw = v.tw; cqBgCell(CQ_MAP.tent.x, CQ_MAP.tent.y); }
+  Object.assign(S, { t: v.t, dark: v.d, n: v.n, fuel: v.fu, lit: !!v.l });
+  const old = new Map(S.mobs.map(m => [m.id, m]));
+  S.mobs = v.m.map(a => { const m = old.get(a[0]) || { id: a[0], walk: 0 }; Object.assign(m, { k: a[1], tx: a[2], ty: a[3], dx: a[4], dy: a[5], hp: a[6] }); if (m.x == null || Math.hypot(m.tx - m.x, m.ty - m.y) > 3) { m.x = m.tx; m.y = m.ty; } return m; });
+  S.drop = v.dr ? { x: v.dr[0], y: v.dr[1], ammo: v.dr[2] } : null; S.adv = { x: v.ad[0], y: v.ad[1], rifle: !!v.ad[2] };
+  S.traps = v.tr.map(([x, y]) => ({ x, y }));
+  const cut = new Set(v.cut);
+  CQ_MAP.trees.forEach((t, i) => { const c = cut.has(i); if (c !== !!t.cut) { t.cut = c ? 1 : 0; t.a = 1; cqSolid[t.y][t.x] = { prop: c ? 'stump' : 'tree', o: t }; cqBgCell(t.x, t.y); } });
+  const hold = performance.now() < (cq.svHold || 0);   // appena fatta un'azione: tengo la mia versione finche' chi ha creato il set non l'ha ricevuta
+  v.c.forEach((a, i) => {
+    const c = G.chars[i]; if (!c) return;
+    if (c === G.me) { if (a[2] < c.hp) { cq.hurt = performance.now(); beep(150, 0.15, 0.06); } if (hold) { c.hp = a[2]; return; } }
+    c.hun = a[0]; c.cold = a[1]; c.hp = a[2]; c.gun = a[3]; c.carry = a[4] === 1 ? 'wood' : a[4] === 2 ? 'fish' : null;
+  });
 }
 // ogni fotogramma: l'host legge le posizioni degli amici e manda lo stato; gli altri mandano la loro posizione
 function cqNetTick(dt) {
@@ -2331,6 +2362,7 @@ function cqNetTick(dt) {
     G.time += dt;
     const k = Math.min(1, dt * 12);   // gli altri scivolano verso l'ultima posizione ricevuta
     for (const c of G.chars) if (c !== G.me && c.tx != null) { c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.walk = c.mv ? c.walk + dt * 10 : 0; }
+    if (G.sv) for (const m of G.sv.mobs) if (m.tx != null) { const d = Math.hypot(m.tx - m.x, m.ty - m.y); m.x += (m.tx - m.x) * k; m.y += (m.ty - m.y) * k; m.walk = d > 0.02 ? m.walk + dt * 12 : 0; }
     G.me.x = cq.x; G.me.y = cq.y;
     if (now - N.posT > 120) { N.posT = now; N.F.set(cqNetRef(`cq/${N.code}/pos/${N.sid}`), { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, e: G.ep }).catch(() => {}); }
   }
@@ -2350,12 +2382,14 @@ function cqNetEvent(sid, o) {
     case 'vote': { const M = G.meet; if (G.phase === 'meet' && M && !M.revealed && c.alive && M.votes[c.id] === undefined) { const t = G.chars[o.t]; M.votes[c.id] = t && t.alive ? t.id : 'skip'; M.firm.add(c.id); cqMeetMaybeReveal(); } break; }
     case 'chat': if (G.phase === 'meet' && c.alive) cqMeetSayFrom(c, String(o.t || '').slice(0, 120)); break;
     case 'shield': if (play && c.alive) c.shield = true; break;
+    case 'sv': if (play && G.sv) cqSvDo(c, String(o.a), o.o || {}); break;
     case 'shoot': {
       const v = G.chars[o.v]; if (!play || !c.alive || !v || !v.alive || v === c || cqDist(v, c) > 2.4) break;
       if (v.imp) { v.alive = false; v.path = []; } else { c.alive = false; c.killer = 'la tua pistola (era innocente)'; }
       cqHud(); cqCheckWin(); break; }
   }
 }
+const CQ_SV_DEATH = { 'il freddo': 'Sei morto di freddo!', 'la fame': 'Sei morto di fame!', 'un lupo': 'Ti ha preso un lupo!', 'un orso': 'Ti ha preso un orso!' };
 // ---- amici: ricostruiscono la partita dallo stato dell'host ----
 function cqNetApply(s) {
   const N = cq.net; if (!N) return;
@@ -2381,11 +2415,13 @@ function cqNetApply(s) {
     if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
   }
   G.time = s.t; G.button = s.bt; G.sabCd = s.sc; G.sab = s.sab;
+  if (s.sv && CQ_MAP.surv) cqNetSvApply(G, s.sv);
   G.bodies = s.bo.map(b => ({ id: b[0], x: b[1], y: b[2], face: b[3], room: b[4], t: b[5], look: G.chars[b[0]].look, name: G.chars[b[0]].name }));
   if (s.ph === 'end') { if (prev !== 'end' && s.end) { $('#cqMeet').hidden = true; cq.gm = null; G.phase = 'play'; cqEnd(s.end.win, s.end.why); } return; }
   G.phase = s.ph;
   if (wasAlive && !me.alive) {
     if (s.ph === 'meet') cq.ejMe = true;
+    else if (CQ_SV_DEATH[me.killer]) cqPanel(CQ_SV_DEATH[me.killer], '<p class="lead">Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua');
     else cqPanel('Sei stato eliminato!', `<p class="lead">${me.killer ? 'Ti ha eliminato <b>' + esc(me.killer) + '</b>. ' : ''}Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>`, 'Continua');
   }
   if (s.ph === 'meet' && s.mt) cqNetMeet(s.mt);
@@ -2822,7 +2858,7 @@ function cqSabMenu() {
 // G.sv = { t: tempo, dark: 0 giorno .. 1 notte, n: notte in corso, fw: legna nel falo' da costruire (3 = fatto), tw: legna della tenda (4 = montata),
 //          fuel: legna che brucia 0-100, lit: acceso }
 // ogni personaggio: hun (fame, 100 = sazio), cold (100 = al caldo), carry ('wood' / 'fish' / null). La legna si fa tagliando gli alberi (ricrescono).
-const CQ_DAY = 180, CQ_DUSK = 100;   // un giro dura 3 minuti: giorno fino a 100 s, poi 10 s di tramonto, notte, 10 s di alba
+const CQ_DAY = 150, CQ_DUSK = 80;   // un giro dura 2 minuti e mezzo: giorno fino a 80 s, poi 10 s di tramonto, notte, 10 s di alba
 const CQ_FIREW = 3, CQ_TENTW = 4, CQ_REGROW = 90;   // legna per il falo', per la tenda; secondi perche' un albero tagliato ricresca
 const cqSeeR = () => { const G = cq.g; return G.sab && G.sab.type === 'luci' ? 2.5 : G.sv && G.sv.dark > 0.5 ? 3.5 : CQ_VIS; };
 const cqFireD = (x, y) => Math.hypot(x - CQ_MAP.fire.x - 0.5, y - CQ_MAP.fire.y - 0.5);
@@ -2902,16 +2938,42 @@ function cqSvAct(me) {
   for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const o = cqSolid[cy + dy] && cqSolid[cy + dy][cx + dx]; if (o && o.prop === 'water') return { k: 'fishing' }; }
   return null;
 }
+// un'azione di sopravvivenza fatta da un personaggio c (o = dati). Ritorna il messaggio da mostrare (solo a chi l'ha fatta)
+function cqSvDo(c, a, o) {
+  const G = cq.g, S = G.sv; if (!c.alive || G.phase !== 'play') return null;
+  switch (a) {
+    case 'chop': { const t = CQ_MAP.trees[o.t]; if (!t || c.carry) return null; if (!t.cut) cqCutTree(t); c.carry = 'wood'; return '🪵 Hai la legna: portala all\'accampamento.'; }
+    case 'wood': return c.carry === 'wood' ? cqSvWood(c, !!o.tent) : null;
+    case 'light': if (S.fuel > 0 && S.fw >= CQ_FIREW) S.lit = true; return null;
+    case 'fish': c.carry = 'fish'; return null;
+    case 'cook': if (c.carry !== 'fish' || !S.lit) return null; c.carry = null; c.hun = Math.min(100, c.hun + 55); return '🍗 Che buono! (+55)';
+    case 'eat': if (c.carry !== 'fish') return null; c.carry = null; c.hun = Math.min(100, c.hun + 15); return '🐟 Pesce crudo… meglio di niente (+15).';
+    case 'full': c.hun = 100; return '🥫 Pancia piena!';
+    case 'blanket': c.blanket = true; return '🧣 Coperta addosso: il freddo ti scende la metà.';
+    case 'gun': return cqSvTakeGun(c);
+    case 'shoot': { const m = S.mobs.find(m => m.id === o.m); if (!m || c.gun <= 0) return null; c.gun--; cqSvShotFx(c, m); cqSvHit(m, c); return c.gun ? null : '🔫 Munizioni finite!'; }
+    case 'trap': S.traps.push({ x: o.x, y: o.y }); return '🪤 Trappola piazzata qui.';
+    case 'whistle': { let n = 0; for (const m of S.mobs) if (Math.hypot(m.x - o.x, m.y - o.y) < 8) { const p = cqSvFarCell(16, o); if (p) { m.x = p.x; m.y = p.y; m.tx = p.x; m.ty = p.y; m.path = []; n++; } } return n ? '📯 Gli animali scappano lontano!' : '📯 Fischio… nessun animale qui vicino.'; }
+  }
+  return null;
+}
+// io faccio un'azione: subito qui (e se sono un amico online la mando anche a chi ha creato il set, che decide per tutti)
+function cqSvAction(a, o) {
+  const G = cq.g, m = cqSvDo(G.me, a, o || {});
+  if (G.guest) { cqNetSend({ k: 'sv', a, o: o || {} }); cq.svHold = performance.now() + 700; }
+  if (m) cqToast(m);
+  return m;
+}
 function cqSvUse(k, a) {
   const G = cq.g, S = G.sv, me = G.me, done = () => { cq.actKey = ''; cqNearCheck(); cqHud(); };
-  if (k === 'chop') cqOpenTask({ id: 'ciak', n: 'Taglia l\'albero', lab: 'TAGLIA!', hits: 3, hitTxt: 'Colpi d\'ascia: ', lead: 'Premi <b>TAGLIA!</b> quando la barretta è sulla zona verde.', fix: () => { if (!a.t.cut) cqCutTree(a.t); me.carry = 'wood'; cqToast('🪵 Hai la legna: portala all\'accampamento.'); done(); } });
-  else if (k === 'gun') { const m = cqSvTakeGun(me); if (m) { beep(700, 0.1, 0.05); beep(500, 0.12, 0.05, 0.1); cqToast(m); } done(); }
-  else if (k === 'build' || k === 'feed' || k === 'pitch') { beep(600, 0.08, 0.04); cqToast(cqSvWood(me, k === 'pitch')); done(); }
-  else if (k === 'eat') { me.carry = null; me.hun = Math.min(100, me.hun + 15); beep(400, 0.06, 0.04); cqToast('🐟 Pesce crudo… meglio di niente (+15).'); done(); }
-  else if (k === 'light') cqOpenTask({ id: 'bobina', n: 'Accendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.', fix: () => { if (S.fuel > 0 && S.fw >= CQ_FIREW) S.lit = true; done(); } });
-  else if (k === 'fishing' && me.bait > 0) { me.bait--; me.carry = 'fish'; beep(900, 0.08, 0.05); cqToast('🪱 Abbocca subito! (esche rimaste: ' + me.bait + ')'); done(); }
-  else if (k === 'fishing') cqOpenTask({ id: 'ciak', n: 'Pesca', lab: 'TIRA!', hits: me.net ? 1 : 2, hitTxt: 'Pesci presi: ', lead: 'Premi <b>TIRA!</b> quando il galleggiante è sulla zona verde.', fix: () => { me.carry = 'fish'; cqToast('🐟 Preso! Cuocilo sul fuoco (o mangialo crudo).'); done(); } });
-  else if (k === 'cook') cqOpenTask({ id: 'caffe', n: 'Cuoci il pesce', lead: 'Tieni premuto: il pesce cuoce sul fuoco.', fix: () => { me.carry = null; me.hun = Math.min(100, me.hun + 55); cqToast('🍗 Che buono! (+55)'); done(); } });
+  if (k === 'chop') cqOpenTask({ id: 'ciak', n: 'Taglia l\'albero', lab: 'TAGLIA!', hits: 3, hitTxt: 'Colpi d\'ascia: ', lead: 'Premi <b>TAGLIA!</b> quando la barretta è sulla zona verde.', fix: () => { cqSvAction('chop', { t: CQ_MAP.trees.indexOf(a.t) }); done(); } });
+  else if (k === 'gun') { if (cqSvAction('gun')) { beep(700, 0.1, 0.05); beep(500, 0.12, 0.05, 0.1); } done(); }
+  else if (k === 'build' || k === 'feed' || k === 'pitch') { beep(600, 0.08, 0.04); cqSvAction('wood', { tent: k === 'pitch' }); done(); }
+  else if (k === 'eat') { beep(400, 0.06, 0.04); cqSvAction('eat'); done(); }
+  else if (k === 'light') cqOpenTask({ id: 'bobina', n: 'Accendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.', fix: () => { cqSvAction('light'); done(); } });
+  else if (k === 'fishing' && me.bait > 0) { me.bait--; cqSvAction('fish'); beep(900, 0.08, 0.05); cqToast('🪱 Abbocca subito! (esche rimaste: ' + me.bait + ')'); done(); }
+  else if (k === 'fishing') cqOpenTask({ id: 'ciak', n: 'Pesca', lab: 'TIRA!', hits: me.net ? 1 : 2, hitTxt: 'Pesci presi: ', lead: 'Premi <b>TIRA!</b> quando il galleggiante è sulla zona verde.', fix: () => { cqSvAction('fish'); cqToast('🐟 Preso! Cuocilo sul fuoco (o mangialo crudo).'); done(); } });
+  else if (k === 'cook') cqOpenTask({ id: 'caffe', n: 'Cuoci il pesce', lead: 'Tieni premuto: il pesce cuoce sul fuoco.', fix: () => { cqSvAction('cook'); done(); } });
 }
 // posto vicino al fuoco (per scaldarsi, cuocere, mettere legna)
 const cqFireSpot = () => { const [x, y] = cqPickOne(CQ_RING); return { x: x + 0.5, y: y + 0.5 }; };
@@ -2927,7 +2989,7 @@ function cqSvBotGoal(b) {
   const busy = k => G.chars.filter(o => o !== b && o.alive && o.bot && o.goal && o.goal.k === k).length;
   if (built && !S.lit && S.fuel > 0 && !busy('light')) return Object.assign(cqFireSpot(), { k: 'light' });
   const carriers = busy('wood') + G.chars.filter(o => o !== b && o.alive && o.carry === 'wood').length;
-  const need = !built ? 3 : !tent ? 2 : S.fuel < 20 ? 2 : S.fuel < 45 ? 1 : 0;
+  const need = !built ? 2 : !tent ? 1 : S.fuel < 20 ? 2 : S.fuel < 45 ? 1 : 0;   // aiutano, ma lasciano lavoro anche a te
   if (carriers < need) {   // un albero a caso tra i piu' vicini al campo
     const F = CQ_MAP.fire, near = CQ_MAP.trees.filter(t => !t.cut && !G.chars.some(o => o.goal && o.goal.t === t)).sort((p, q) => Math.hypot(p.x - F.x, p.y - F.y) - Math.hypot(q.x - F.x, q.y - F.y)).slice(0, 8);
     const t = cqPickOne(near); if (t) return Object.assign(cqSpot(t.x, t.y), { k: 'wood', t });
@@ -2935,7 +2997,7 @@ function cqSvBotGoal(b) {
   return null;
 }
 // arrivato: quanto aspetta (prima) e cosa succede (dopo l'attesa)
-function cqSvBotWait(b, k) { return { gun: 1, wood: 3, feed: 1, pitch: 1.5, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
+function cqSvBotWait(b, k) { return { gun: 1, wood: 4.5, feed: 1, pitch: 1.5, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
 function cqSvBotDone(b, k) {
   const S = cq.g.sv, goal = b.goal;
   if (k === 'gun') { const m = cqSvTakeGun(b); if (m && cqDist(b, { x: cq.x, y: cq.y }) < 8) cqToast('🔫 <b>' + esc(b.name) + '</b> ha preso il fucile.'); }
@@ -2962,7 +3024,7 @@ function cqSvFarCell(dF, from) {
 function cqSvSpawn(n) {
   const S = cq.g.sv, list = n <= 1 ? ['weak'] : Array(Math.min(4, n)).fill('wolf');
   if (n >= 2 && Math.random() < 0.35) list.push('bear');
-  for (const k of list) { const p = cqSvFarCell(16, { x: cq.x, y: cq.y }); if (p) S.mobs.push({ k, x: p.x, y: p.y, hp: CQ_MOBS[k].hp, path: [], re: Math.random(), cd: 0, walk: 0, dx: 1, dy: 0, tgt: null }); }
+  for (const k of list) { const p = cqSvFarCell(16, { x: cq.x, y: cq.y }); if (p) S.mobs.push({ id: S.mid = (S.mid || 0) + 1, k, x: p.x, y: p.y, hp: CQ_MOBS[k].hp, path: [], re: Math.random(), cd: 0, walk: 0, dx: 1, dy: 0, tgt: null }); }
   cqToast(list.includes('bear') ? '🐻 Si sente un orso nel bosco… e dei lupi!' : n <= 1 ? '🐺 Un lupo ulula nel bosco: stai vicino al fuoco!' : '🐺 Ululati nel bosco: arrivano i lupi!');
   beep(180, 0.6, 0.03); beep(240, 0.5, 0.03, 0.3);
 }
@@ -3018,8 +3080,7 @@ function cqShoot() {
   const G = cq.g; if (!G || !G.sv || G.phase !== 'play' || cqBusy()) return;
   const me = G.me; if (!me.alive || me.gun <= 0) return;
   const m = cqMobNear({ x: cq.x, y: cq.y }, 5.5); if (!m) return;
-  me.gun--; cqSvShotFx(me, m); cqSvHit(m, me); cqHud();
-  if (!me.gun) cqToast('🔫 Munizioni finite!');
+  cqSvAction('shoot', { m: m.id }); cqHud();
 }
 // dove si trova il fucile da raccogliere: sul corpo dell'avventuriero oppure dove e' caduto
 const cqGunSpot = () => { const S = cq.g.sv; return S.adv && S.adv.rifle ? S.adv : S.drop; };
