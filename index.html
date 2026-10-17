@@ -2511,7 +2511,7 @@ function cqVoicePeer(sid, offer) {
     const s = pc.connectionState;
     if (s === 'connected') { P.ok = Date.now(); P.dis = 0; (cqV.fail || (cqV.fail = {}))[sid] = 0; }
     if (s === 'disconnected') P.dis = Date.now();
-    if (s === 'failed') { cqVoiceBad(sid); cqVoiceDrop(sid); setTimeout(cqVoiceSync, 1500); }
+    if (s === 'failed') { cqVoiceBad(sid); setTimeout(() => cqVoiceRedo(sid), 1000); }
     cqVoiceUI();
   };
   return P;
@@ -2526,6 +2526,14 @@ function cqVoiceBad(sid) {
   const N = cq.net, p = N && N.pl[sid]; if (f[sid] !== 2 || !p) return;
   cqToast('🔇 La voce con <b>' + esc(String(p.name || 'un amico')) + '</b> non riesce a collegarsi: succede con alcune reti del telefono (4G). Il gioco funziona lo stesso, riprovo da solo.');
 }
+// rifa' da capo il collegamento voce con sid (o con tutti): chi propone lo rifa', l'altro lo chiede (al massimo ogni 5 s per persona)
+function cqVoiceRedo(sid) {
+  const N = cq.net; if (!N || sid === N.sid) return;
+  const t = cqV.reT || (cqV.reT = {}), now = Date.now(); if (now - (t[sid] || 0) < 5000) return; t[sid] = now;
+  cqVoiceDrop(sid);
+  if (N.sid < sid) cqVoiceCall(sid); else cqVoiceSig(sid, { k: 're', d: '' });
+}
+function cqVoiceRedoAll() { const N = cq.net; if (N) for (const sid of Object.keys(N.pl)) if (sid !== N.sid) cqVoiceRedo(sid); }
 function cqVoiceDrop(sid) { const P = cqV.peers[sid]; if (!P) return; delete cqV.peers[sid]; try { P.pc.close(); } catch {} if (P.src) P.src.disconnect(); if (P.g) P.g.disconnect(); if (P.au) P.au.srcObject = null; }
 async function cqVoiceCall(sid) {
   const P = cqVoicePeer(sid, true); if (!P) return;
@@ -2545,6 +2553,8 @@ async function cqVoiceMsg(m) {
       const P = cqV.peers[m.f]; if (!P || P.pc.signalingState !== 'have-local-offer') return;
       await P.pc.setRemoteDescription(JSON.parse(m.d));
       for (const c of P.q.splice(0)) await P.pc.addIceCandidate(c).catch(() => {});
+    } else if (m.k === 're') {   // l'altro chiede di rifare il collegamento: lo rifaccio io (se tocca a me proporre)
+      if (N.sid < m.f) { const t = cqV.reT || (cqV.reT = {}); t[m.f] = 0; cqVoiceRedo(m.f); }
     } else if (m.k === 'ice') {
       const P = cqV.peers[m.f], c = JSON.parse(m.d); if (!P) return;
       if (P.pc.remoteDescription) await P.pc.addIceCandidate(c).catch(() => {}); else P.q.push(c);
@@ -2567,9 +2577,14 @@ function cqVoiceSync0() {
   // chi non si collega da 15 s, o e' scollegato da 6 s (rete cambiata): si riprova (lo fa chi propone)
   const now = Date.now();
   for (const P of Object.values(cqV.peers)) {
-    if (N.sid > P.sid) continue;
     const st = P.pc.connectionState, stuck = st !== 'connected' && st !== 'disconnected' && now - P.t0 > 15000, lost = st === 'disconnected' && P.dis && now - P.dis > 6000;
-    if (stuck || lost) { if (stuck) cqVoiceBad(P.sid); cqVoiceDrop(P.sid); cqVoiceCall(P.sid); }
+    if (stuck || lost) { if (stuck) cqVoiceBad(P.sid); cqVoiceRedo(P.sid); }
+  }
+  // chi non propone e non ha ancora nessun collegamento con qualcuno da 10 s: lo chiede
+  const w = cqV.wait || (cqV.wait = {});
+  for (const sid of Object.keys(N.pl)) {
+    if (sid === N.sid || cqV.peers[sid] || N.sid < sid) { delete w[sid]; continue; }
+    if (!w[sid]) w[sid] = now; else if (now - w[sid] > 10000) { w[sid] = now; cqVoiceRedo(sid); }
   }
   cqVoiceUI();
 }
@@ -2613,11 +2628,18 @@ async function cqVoiceMic() {
   try {
     cqV.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
     for (const P of Object.values(cqV.peers)) cqVoiceSend(P);
+    // su alcuni Android il microfono aggiunto a un collegamento gia' fatto non parte: si rifanno quelli non perfetti
+    setTimeout(() => { for (const P of Object.values(cqV.peers)) if (P.pc.connectionState !== 'connected') cqVoiceRedo(P.sid); }, 3000);
     cqToast('🎤 Microfono acceso: gli amici del set ti sentono.');
   } catch { cqToast('🎤 Il microfono non è disponibile: controlla il permesso nelle impostazioni del browser.'); }
   cqVoiceUI();
 }
-window.addEventListener('online', () => setTimeout(cqVoiceSync, 800));
+window.addEventListener('online', () => setTimeout(() => { if (cqV.reT) cqV.reT = {}; cqVoiceRedoAll(); }, 1500));
+try { if (navigator.connection) navigator.connection.addEventListener('change', () => setTimeout(() => { if (cqV.reT) cqV.reT = {}; cqVoiceRedoAll(); }, 2000)); } catch {}
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState !== 'visible' || !cq.net) return;
+  setTimeout(() => { for (const P of Object.values(cqV.peers)) if (P.pc.connectionState !== 'connected') cqVoiceRedo(P.sid); cqVoiceSync(); }, 1500);
+});
 document.addEventListener('pointerdown', () => {
   if (!Object.keys(cqV.peers).length) return;
   try { if (actx && actx.state === 'suspended') actx.resume(); } catch {}
