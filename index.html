@@ -2095,6 +2095,11 @@ function cqOpenCams() {
   requestAnimationFrame(loop);
 }
 // una inquadratura: la stanza vista dall'alto in piccolo, con chi c'e' dentro in quel momento
+// riquadro da ridisegnare intorno a cio' che si muove (o.sx, o.sy = piedi sullo schermo): corpo (piu' alto finche' sta cadendo), fiamme/fucile/trappola, personaggio
+function cqBox(o, TW) {
+  const x = o.sx, y = o.sy;
+  return o.body || o.adv ? [x - 1.7 * TW, y - (o.a < 1.2 ? 2.4 : 1.3) * TW, x + 1.7 * TW, y + 0.6 * TW] : o.fire || o.rf || o.trap ? [x - 0.8 * TW, y - 1.5 * TW, x + 0.8 * TW, y + 0.4 * TW] : [x - 1.2 * TW, y - 2.35 * TW, x + 1.2 * TW, y + 0.4 * TW];
+}
 function cqCamDraw(cv, cx, cy) {
   const w = cv.clientWidth || 160, h = cv.clientHeight || 120, dpr = Math.min(window.devicePixelRatio || 1, 3);
   if (cv.width !== Math.round(w * dpr)) { cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); }
@@ -2105,7 +2110,7 @@ function cqCamDraw(cv, cx, cy) {
     for (const b of G.bodies) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face, a: G.time - b.t });
     for (const c of G.chars) if (c.alive) { const me = c === G.me; list.push({ x: me ? cq.x : c.x, y: me ? cq.y : c.y, L: cqLookOf(c), w: me ? cq.walk : c.walk, f: me ? cq.face : c.face }); }
   }
-  for (const o of list) { o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y); o.r = o.body ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]; }
+  for (const o of list) { o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y); o.r = cqBox(o, TW); }
   cqRedraw(g, cqTools(g, TW), [0, 0, w, h], tx, ty, TW, list, Math.ceil((w / TW + h / TH) / 2) + 8);
   g.fillStyle = 'rgba(140,255,170,.06)'; for (let y = 0; y < h; y += 3) g.fillRect(0, y, w, 1);
 }
@@ -3933,7 +3938,7 @@ function cqBuildBg() {
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) { const o = cqSolid[y][x], tall = o.prop === 'tree', sd = tall ? 1.7 * TW : TW; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? 9.8 : 3.5) * U - TW, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) { const o = cqSolid[y][x], tall = o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? CQ_TREE_UP : 3.5) * U - TW, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
   cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true;
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
@@ -3951,6 +3956,8 @@ function cqBuildBg() {
   cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc, ver: 0 };
 }
 // chiome degli alberi: un'immagine per tipo, colore e altezza (disegnata dal processore), incollata sopra a ogni fotogramma da cqCanopies
+// quanto sporge un albero con la chioma: di lato (in tessere) e in alto (in U). Se si ingrandiscono le chiome vanno cambiati qui
+const CQ_TREE_SD = 1.7, CQ_TREE_UP = 9.8;
 function cqCanopySprites(TW, sc) {
   const can = {}, TH = TW / 2;
   if (CQ_MAP.trees) for (const k of ['pine', 'oak']) for (let v = 0; v < 3; v++) for (const h of [1.25, 1.4]) {
@@ -3966,7 +3973,7 @@ function cqCanopySprites(TW, sc) {
 function cqTreePatch(t, B) {
   const p = t.patch; if (p && p.B === B && p.ver === B.ver) return p;
   const TW = B.TW, TH = TW / 2, sc = B.dpr, sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2;
-  const r = [Math.floor(sx - 1.7 * TW), Math.floor(sy - 5.6 * TW), Math.ceil(sx + 1.7 * TW), Math.ceil(sy + 0.7 * TW)];
+  const r = [Math.floor(sx - CQ_TREE_SD * TW), Math.floor(sy - 5.6 * TW), Math.ceil(sx + CQ_TREE_SD * TW), Math.ceil(sy + 0.7 * TW)];   // 5,6 TW = CQ_TREE_UP in U
   const c = (p && p.c) || document.createElement('canvas'); c.width = Math.ceil((r[2] - r[0]) * sc); c.height = Math.ceil((r[3] - r[1]) * sc);
   const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -r[0] * sc, -r[1] * sc);
   t.skipCan = true; cq.baking = true;
@@ -3988,7 +3995,7 @@ function cqFadeImg(t, B) {
 function cqBgCell(x, y) {
   const B = cq.bg; if (!B) return;
   const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
-  const r = [B.ox + (x - y - 1) * TW / 2 - 1.7 * TW, B.oy + (x + y) * TH / 2 - 9.8 * U - TW, B.ox + (x - y + 1) * TW / 2 + 1.7 * TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  const r = [B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - CQ_TREE_UP * U - TW, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW];
   cq.baking = true;
   for (const t of B.tiles) {
     const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
@@ -4044,7 +4051,7 @@ function cqDraw() {
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
   for (const o of list) {
     o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y);
-    o.r = (o.body || o.adv ? [o.sx - 1.7 * TW, o.sy - (o.a < 1.2 ? 2.4 : 1.3) * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : o.fire || o.rf || o.trap ? [o.sx - 0.8 * TW, o.sy - 1.5 * TW, o.sx + 0.8 * TW, o.sy + 0.4 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]).map(al);
+    o.r = cqBox(o, TW).map(al);
     o.on = o.r[2] > 0 && o.r[0] < W && o.r[3] > 0 && o.r[1] < H;
   }
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
@@ -4181,8 +4188,8 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
       if (!B && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x];
-      const tall = o && o.prop === 'tree', sd = tall ? 1.7 * TW : TW;
-      if (o && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? 9.8 : 3.5) * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
+      const tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW;
+      if (o && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? CQ_TREE_UP : 3.5) * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
   if (!B) T.decals();
