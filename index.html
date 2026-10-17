@@ -2047,7 +2047,7 @@ function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBl
 function openCiack() {
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
-  cq.g = null; cqHallEnter(); cqOpenPick();
+  cq.g = null; cqHallUI(false); cqOpenPick();
 }
 const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
 const CQ_HATS = [['borsalino', 'Borsalino'], ['basco', 'Basco'], ['cilindro', 'Cilindro'], ['cappellino', 'Cappellino'], ['cuffie', 'Cuffie'], ['corona', 'Corona'], ['nessuno', 'Nessuno']];
@@ -2091,7 +2091,8 @@ function cqOpenPick() {
   $('#pkGo').onclick = () => {
     box.hidden = true; cq.picking = false;
     const N = cq.net; if (N) N.F.set(cqNetRef(`cq/${N.code}/pl/${N.sid}`), { name: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', look: cqLook(), ts: Date.now() }).catch(() => {});   // aspetto nuovo per gli altri
-    if (!cq.g || cq.g.phase === 'end' || cq.g.hall) cqHallEnter();
+    if (cq.net && (!cq.g || cq.g.phase === 'end' || cq.g.hall)) cqHallEnter();   // nel set: la hall
+    else if (!cq.g || cq.g.phase === 'end') cqLobby();   // da solo: le impostazioni, come prima
   };
   store.settings.cqLook = L; sync();
   box.hidden = false; cq.picking = true; cq.joy = null; cq.keys = {};
@@ -2386,7 +2387,7 @@ async function cqNetOpen(code, role) {
     let seen = false;
     N.unsubs.push(F.onValue(cqNetRef('cqlist/' + code), s => {
       if (s.val()) { seen = true; return; }
-      if (seen && cq.net === N) { cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok'); cq.g = null; cqHallEnter(); }
+      if (seen && cq.net === N) { cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok', cqLobby); }
     }));
   }
   return N;
@@ -2551,7 +2552,6 @@ function cqNetLeave() {
   cqVoiceStop();
   cq.net = null; cq.gm = null; cqVoiceUI();
   if (N.role !== 'host') { N.F.remove(cqNetRef(`cq/${N.code}/hl/${N.sid}`)).catch(() => {}); }
-  if (cq.g && cq.g.hall) cqHallReset();
   N.unsubs.forEach(u => { try { u(); } catch {} });
   const F = N.F;
   if (N.role === 'host') { F.remove(cqNetRef('cqlist/' + N.code)).catch(() => {}); F.remove(cqNetRef('cq/' + N.code)).catch(() => {}); }
@@ -2566,7 +2566,7 @@ function cqNetList(o) {
 function cqNetSend(o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/ev`), { s: N.sid, m: JSON.stringify(o) }).catch(() => {}); }
 async function cqNetJoin(code) {
   try { await cqNetOpen(code, 'guest'); } catch { cqToast('Collegamento non riuscito: riprova.'); return; }
-  cqNetWait();
+  cqCloseTask(); cqHallEnter();
 }
 // riquadro "Gioca con gli amici" nella stanza d'attesa
 function cqNetBox() {
@@ -2575,13 +2575,13 @@ function cqNetBox() {
   if (!WEB || !hub.fb) { box.innerHTML = WEB ? '<p class="hint">Collegamento in corso…</p>' : ''; return; }
   if (N && N.role === 'host') {
     box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano in Ciack US, qui sotto "Set aperti". Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><button class="btn" id="netClose" type="button">Chiudi il set</button></div>`;
-    $('#netClose').onclick = () => { cqNetLeave(); cqNetBox(); };   // (cqNetLeave rifa' la hall da solo)
+    $('#netClose').onclick = () => { cqNetLeave(); cqHallExit(); cqLobby(); };
     return;
   }
   const sets = Object.entries(cq.sets || {}).filter(([, v]) => v && v.o && Date.now() - v.ts < 6 * 3600e3);
   box.innerHTML = `<div class="netBox"><b>🎬 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">Crea un set</button>`
     + (sets.length ? '<div class="hint">Set aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>Set di <b>${esc(v.h)}</b> · ${v.n || 1} dentro</span><button class="btn" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '<div class="hint">Nessun set aperto dagli amici in questo momento.</div>') + '</div>';
-  $('#netNew').onclick = async () => { try { await cqNetOpen(randCode(6), 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); } cqNetBox(); };
+  $('#netNew').onclick = async () => { try { await cqNetOpen(randCode(6), 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); cqToast('🏨 Set aperto! Questa è la sua hall: gli amici lo trovano in "Set aperti". Le impostazioni sono in ⚙️ Partita.'); };
   box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => cqNetJoin(b.dataset.join); });
 }
 // chi e' entrato in un set aspetta qui che l'host faccia partire la partita
@@ -2595,7 +2595,7 @@ function cqNetWait() {
     <button class="btn" id="nwShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn go" id="nwOut" type="button">Esci dal set</button>`;
   cqNetPlayers(); cqBagPick();
   $('#nwShop').onclick = () => cqShop(cqNetWait);
-  $('#nwOut').onclick = () => { cqNetLeave(); cqCloseTask(); cqHallEnter(); };
+  $('#nwOut').onclick = () => { cqNetLeave(); cqHallExit(); cqLobby(); };
   $('#tkHint').textContent = ''; $('#tkClose').hidden = !(cq.g && cq.g.hall); $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
 }
 function cqNetPlayers() {
@@ -2836,7 +2836,7 @@ function cqPath(sx, sy, ex, ey) {
   return path.reverse();
 }
 // ---- HALL DELL'HOTEL: prima della partita si gira insieme, ci si elimina per scherzo (si risorge da angelo dopo 3 s).
-// Pronto = nella hall senza pannelli aperti (personaggio, impostazioni, negozio). Da solo: personaggi del computer e "Si gira!".
+// C'e' solo dentro un set (creato o raggiunto): e' la sua sala d'attesa. Pronto = nella hall senza pannelli aperti (personaggio, impostazioni, negozio).
 // Online ognuno scrive il suo stato in cq/<set>/hl/<sid> {x, y, f, w, r: pronto, d: a terra}; gli scherzi a cq/<set>/hk/<vittima>;
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_AUTO = 10, CQ_HALL_MAN = 5;
@@ -2856,17 +2856,9 @@ function cqHallEnter() {
 function cqHallReset() {
   const G = cq.g; if (!G || !G.hall) return;
   G.chars = [G.me]; G.bodies = []; G.cd = null; G.force = false; G.me.sid = cq.net ? cq.net.sid : null;
-  if (!cq.net) {
-    const used = [G.me.name.toLowerCase()], names = CQ_NAMES.filter(n => !used.includes(n.toLowerCase())).sort(() => Math.random() - 0.5);
-    const skins = Object.keys(CQ_SKINS).filter(k => k !== 'omino').sort(() => Math.random() - 0.5), cols = CQ_COLORS.slice().sort(() => Math.random() - 0.5);
-    for (let i = 0; i < 5; i++) {
-      const [x, y] = CQ_RING[(i + 3) % CQ_RING.length];
-      G.chars.push({ id: G.nid++, name: names[i], bot: true, alive: true, imp: false, x: x + 0.5, y: y + 0.5, face: 1, walk: 0, path: [], pt: 8 + Math.random() * 20, rest: Math.random() * 3,
-        look: i < 2 ? { skin: skins[i], col: CQ_SKINS[skins[i]].col, hat: 'nessuno' } : { skin: 'omino', col: cols[i], hat: cqPickOne(CQ_HATS)[0] } });
-    }
-  }
   cqHallPub(true);
 }
+function cqHallExit() { if (cq.g && cq.g.hall) cq.g = null; cqHallUI(false); if (cq.map === 'hotel') cqUseMap('studio'); }
 function cqHallUI(on) {
   $('#ciack').classList.toggle('hallMode', !!on);
   $('#cqHallBar').hidden = !on; $('#cqHallSet').hidden = !on; if (!on) $('#cqCount').hidden = true;
@@ -2933,17 +2925,7 @@ function cqHallTick(dt) {
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
-    if (c.bot) {   // personaggi del computer: passeggiano, si fermano, ogni tanto fanno uno scherzo
-      if (!c.alive) { if (G.time >= c.dead) cqHallLive(c); continue; }
-      if (c.path.length) cqBotStep(c, dt);
-      else if ((c.rest -= dt) <= 0) { c.rest = 1 + Math.random() * 4; c.walk = 0; for (let i = 0; i < 20; i++) { const x = 1 + Math.floor(Math.random() * 20), y = 1 + Math.floor(Math.random() * 15); if (cqCellFree(x, y)) { c.path = cqPath(c.x, c.y, x, y); break; } } }
-      else c.walk = 0;
-      if ((c.pt -= dt) <= 0) {
-        c.pt = 12 + Math.random() * 25;
-        const v = G.chars.find(o => o !== c && o.alive && Math.hypot((o === me ? cq.x : o.x) - c.x, (o === me ? cq.y : o.y) - c.y) < 1.5);
-        if (v && (v !== me || cqHallReady())) cqHallDie(v, c.name);
-      }
-    } else if (c.remote) {   // persone del set: scivolano verso l'ultima posizione ricevuta
+    if (c.remote) {   // persone del set: scivolano verso l'ultima posizione ricevuta
       const k = Math.min(1, dt * 12); c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.walk = c.mv ? c.walk + dt * 10 : 0;
       if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
       if (!c.alive && c.pred && c.pred <= G.time && c.dead <= G.time) { c.pred = 0; cqHallLive(c); }   // lo scherzo non e' arrivato: torna in piedi
@@ -2967,7 +2949,7 @@ function cqHallTick(dt) {
     G.uiT = 0.2;
     const n = boss ? (G.cd != null ? Math.ceil(G.cd) : null) : G.hc;
     $('#hlInfo').innerHTML = N ? 'Pronti ' + rd + ' su ' + tot + (wait.length ? ' · si stanno preparando: <b>' + wait.map(esc).join(', ') + '</b>' : '') + (tot < 2 && boss ? ' · aspetta gli amici o premi ⚙️ Partita → Si gira!' : '')
-      : 'Gira, saluta, elimina per scherzo! Quando vuoi: ⚙️ Partita → <b>Si gira!</b>';
+      : '';
     const ce = $('#cqCount'), txt = n != null && n > 0 ? '🎬 La partita inizia tra ' + n + '…' : '';
     if (ce.textContent !== txt) { ce.textContent = txt; ce.hidden = !txt; }
   }
@@ -3609,7 +3591,7 @@ function cqEnd(win, why) {
     <div class="credits"><div>${G.chars.map(c => esc(c.name)).join('<br><br>')}</div></div>
     <p class="hint" style="text-align:center">🪙 Monete guadagnate: <b>+${G.earn}</b> (bonus ${won ? 'vittoria 5' : 'partecipazione 1'}) · ne hai <b>${cqBank().coins}</b></p>
     <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn" id="enShop" type="button">🪙 Negozio</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
-  const back = () => cqHallEnter();
+  const back = () => cq.net ? cqHallEnter() : cqLobby();
   $('#enShop').onclick = () => cqShop(back);
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#enHome').onclick = closeCiack;
