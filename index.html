@@ -4807,7 +4807,9 @@ function cqTools(g, TW) {
     zcell(x, y, o) {
       const z = cqHc(x, y); if (!z) { if (o) this.cell(x, y, o); return; }
       const hb = CQ_MAP.hb || 0.7;
-      for (let i = 0; i < z; i++) bx(x, y, x + 1, y + 1, i * hb, (i + 1) * hb, CQ_MAP.hzSide ? CQ_MAP.hzSide(x, y, i, z) : '#7d6f58');
+      const sd = (i) => CQ_MAP.hzSide ? CQ_MAP.hzSide(x, y, i, z) : '#7d6f58';   // due blocchi (roccia + strato di prato in cima) e le righe degli strati: poco lavoro anche ridisegnando a ogni fotogramma
+      if (z > 1) bx(x, y, x + 1, y + 1, 0, (z - 1) * hb, sd(0)); bx(x, y, x + 1, y + 1, (z - 1) * hb, z * hb, sd(z - 1));
+      if (z > 2 && TW >= 40) { const L = []; for (let i = 1; i < z - 1; i++) L.push([S(x, y + 1, i * hb), S(x + 1, y + 1, i * hb)], [S(x + 1, y + 1, i * hb), S(x + 1, y, i * hb)]); strokes(L, 'rgba(40,30,20,.28)'); }
       g.save(); g.translate(0, -z * hb * U); this.floor(x, y); if (o) this.cell(x, y, o); g.restore();
     },
     floor(x, y) {
@@ -5124,8 +5126,10 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
   // con le altezze chi sta su una casella si disegna dopo la sua colonna (e prima di quelle davanti)
   for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: CQ_MAP.hz ? Math.max(c.x + c.y, Math.floor(c.x) + Math.floor(c.y) + 1.001) : c.x + c.y, c });
   items.sort((a, b) => a.d - b.d);
+  // con la mappa pronta sotto (B) quello che sta dietro a tutti i personaggi del riquadro c'e' gia': si ridisegna solo da quello piu' indietro in poi
+  const dmin = B && !cq.noSkip ? items.reduce((m, it) => it.c ? Math.min(m, it.d) : m, Infinity) : -Infinity;
   for (const it of items) {
-    if (!it.c) { T.zcell(it.x, it.y, it.o); continue; }
+    if (!it.c) { if (it.d >= dmin || dmin === Infinity) T.zcell(it.x, it.y, it.o); continue; }
     const c = it.c, X = c.sx - tx, Y = c.sy - ty;
     if (c.body) cqBody(g, X, Y, TW, c.L, c.f, c.a, c.nk);
     else if (c.fire) cqFlames(g, X, Y, TW, c.fu);

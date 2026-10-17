@@ -117,16 +117,16 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
       if (!free(x, y) || isClear(x, y)) continue;
       const t = ter[y][x], r = rnd();
-      if (t === 2) { if (r < 0.03 && !nearT(x, y, 3)) tree(x, y, 'palm'); else if (r < 0.06) decals.push([x + rnd() * 0.7, y + rnd() * 0.7, 0.14, 0.1, rnd() < 0.5 ? '#f4e8e0' : '#e8b8a8']); continue; }
+      if (t === 2) { if (r < 0.015 && !nearT(x, y, 4)) tree(x, y, 'palm'); else if (r < 0.06) decals.push([x + rnd() * 0.7, y + rnd() * 0.7, 0.14, 0.1, rnd() < 0.5 ? '#f4e8e0' : '#e8b8a8']); continue; }
       if (t === 3) {
-        if (r < 0.12 && !nearT(x, y, 1.9)) { tree(x, y, rnd() < 0.65 ? 'palm' : 'oak'); continue; }
+        if (r < 0.045 && !nearT(x, y, 3)) { tree(x, y, rnd() < 0.75 ? 'palm' : 'oak'); continue; }
         if (r < 0.162) { pp('bigrock', x, y); continue; }
         if (r < 0.17) { pp('rock', x, y); continue; }
         if (r < 0.3) { deco.push([x, y, 'bush']); continue; }
         if (r < 0.55) deco.push([x, y, r < 0.38 ? 'fern' : r < 0.47 ? 'tuft' : r < 0.52 ? 'shrub' : 'mush']);
         continue;
       }
-      if (t === 4) { if (r < 0.07 && !nearT(x, y, 2.2)) tree(x, y, rnd() < 0.3 ? 'palm' : 'oak'); else if (r < 0.1) pp('bigrock', x, y); else if (r < 0.11) pp('rock', x, y); else if (r < 0.17) deco.push([x, y, 'bush']); else if (r < 0.4) deco.push([x, y, 'tuft']); }
+      if (t === 4) { if (r < 0.025 && !nearT(x, y, 3.5)) tree(x, y, rnd() < 0.5 ? 'palm' : 'oak'); else if (r < 0.1) pp('bigrock', x, y); else if (r < 0.11) pp('rock', x, y); else if (r < 0.17) deco.push([x, y, 'bush']); else if (r < 0.4) deco.push([x, y, 'tuft']); }
     }
     // dove si arriva (un gradino alla volta) partendo dal campo dei Granchi
     const nf = (x, y) => { for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [2, 0], [0, 2]]) if (free(x + dx, y + dy)) return [x + dx, y + dy]; return [x, y]; };
@@ -291,7 +291,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
         else K.strokes([[S(x + 0.2, y + 1, 0.4), S(x + 0.8, y + 1, 0.4)], [S(x + 0.5, y + 1, 0.3), S(x + 0.5, y + 1, 1.3)], [S(x + 0.3, y + 1, 1.1), S(x + 0.7, y + 1, 1.1)]], '#5a5244', 2);
         break; }
       case 'lever': { const R = cq.g && cq.g.R, on = R && R.lev[o.h]; bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 0.5, '#6f6858'); line(S(x + 0.5, y + 0.5, 0.5), S(x + (on ? 0.85 : 0.15), y + 0.5, 1.2), '#5a3e26', Math.max(3, K.TW / 10)); dot(x + (on ? 0.85 : 0.15), y + 0.5, 1.22, 0.06, on ? '#e8c040' : '#c0392b'); break; }
-      case 'stairs': for (let i = 0; i < 4; i++) bx(x + i * 0.22, y + 0.05, x + 1, y + 0.95, 0, 0.3 + i * 0.3, '#8c8371'); glow(x + 0.9, y + 0.5, 1.4, 0.7, 'rgba(255,240,200,.45)'); break;
+      case 'stairs': for (let i = 0; i < 4; i++) { if (o.h) bx(x + i * 0.22, y + 0.05, x + 1, y + 0.95, 0, 0.3 + i * 0.3, '#8c8371'); else bx(x, y + 0.05, x + 1 - i * 0.22, y + 0.95, 0, 0.3 + i * 0.3, '#8c8371'); } glow(x + (o.h ? 0.9 : 0.1), y + 0.5, 1.4, 0.7, 'rgba(255,240,200,.45)'); break;   // salgono verso la parete: da li' si torna fuori
       case 'pillar': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.2, '#7a7262'); cyl(x + 0.5, y + 0.5, 0.22, 0.2, 1.8, '#958c7a'); cyl(x + 0.5, y + 0.5, 0.3, 1.8, 2.0, '#7a7262'); break;
       case 'brazier': bx(x + 0.42, y + 0.42, x + 0.58, y + 0.58, 0, 0.7, '#4a4038'); cyl(x + 0.5, y + 0.5, 0.25, 0.7, 0.9, '#6a5a48'); dot(x + 0.5, y + 0.5, 1.0, 0.1, '#ffb030'); dot(x + 0.5, y + 0.5, 1.1, 0.06, '#ffe070'); glow(x + 0.5, y + 0.5, 1.0, 1.2, 'rgba(255,180,60,.5)'); break;
       case 'idol': bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0, 0.6, '#6f6858'); bx(x + 0.35, y + 0.35, x + 0.65, y + 0.65, 0.6, 1.3, '#d8a830'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.3, 1.45, '#e8c040'); break;
@@ -493,6 +493,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     if (chestOk(G) && lvl(c.x) === 0 && dxy(c, C, C) < 9 && (c.co || 0) < 6) { const ch = MP().top.chest; if (nearChest(c)) { doAct(G, c, { k: 'chest' }); return; } go(G, c, ch[0] + 0.5, ch[1] + 0.5); return; }
     // esploratori: la bussola nelle rovine
     const comp = G.it.find(i => i.k === 'comp');
+    const hp = G.hlp || (G.hlp = [-1, -1]); if (hp[t] < 0 && c.role === 'g' && comp.st === 0 && G.chars.some(o => o.t === t && !o.bot && o.alive && lvl(P(o).x))) { hp[t] = c.id; c.role = 'x'; }   // una persona della squadra e' nelle rovine: un computer la raggiunge
     if (c.role === 'x' && comp.st === 0 && lvl(comp.x) === 1 && G.time > 4) { if (ruins(G, c, comp)) return; }
     // difensore: vicino alla zattera, di notte nascosto
     if (c.role === 'd') {
@@ -522,8 +523,11 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const to = pt => { if (!there(pt)) go(G, c, pt.x, pt.y); else c.path = []; };
     const open = g => !!G.R.o[g];
     if (lvl(c.x) && cqPath(c.x, c.y, comp.x, comp.y).length) { go(G, c, comp.x, comp.y); return true; }   // la stanza della bussola e' raggiungibile
+    const mate = pt => G.chars.some(o => o !== c && o.t === c.t && o.alive && !jailed(G, o) && dxy(o, pt.x, pt.y) < 0.75);
+    if (!G.R.p[H.g[0]] && mate(H.p1)) { if (there(H.lev, 1.4)) doAct(G, c, { k: 'lev', i: c.t }); else go(G, c, H.lev.x, H.lev.y); return true; }
+    if (!G.R.p[H.g[1]] && G.R.p[H.g[0]] && (mate(H.p2[0]) || mate(H.p2[1]))) { to(mate(H.p2[0]) ? H.p2[1] : H.p2[0]); return true; }
     if (!G.R.p[H.g[0]]) {
-      if (k <= 0) { if (xs.length < 2 && G.time - (c.wt || (c.wt = G.time)) > 30) { c.role = 'g'; return false; } to(H.p1); return true; }
+      if (k <= 0) { if (xs.length < 2 && !G.chars.some(o => o.t === c.t && !o.bot && o.alive && lvl(P(o).x)) && G.time - (c.wt || (c.wt = G.time)) > 30) { c.role = 'g'; return false; } to(H.p1); return true; }
       if (open(H.g[0]) || lvl(c.x) && c.y < H.p1.y - 5) { if (there(H.lev, 1.4)) doAct(G, c, { k: 'lev', i: c.t }); else go(G, c, H.lev.x, H.lev.y); return true; }
       to({ x: H.p1.x - 2, y: H.p1.y - 3 }); return true;
     }
@@ -623,6 +627,12 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (jailed(G, me)) return '🔪 Colpito! Torni al campo tra ' + Math.ceil(me.jail - G.time) + '…';
       if (me.op) return me.op.k === 'steal' ? '🫳 Rubando… resta fermo!' : '💰 Apro il forziere… resta fermo!';
       if (me.hd) return '🌿 Nascosto: chi è dell\'altra squadra non ti vede. Muoviti per uscire.';
+      if (lvl(cq.x)) for (const H2 of MP().RZ.half) {
+        const at = (pt, r) => Math.hypot(cq.x - pt.x, cq.y - pt.y) < r, gc = MP().RZ.gates[H2.g[0]].cells[0];
+        if (!G.R.p[H2.g[0]] && at(H2.p1, 0.7)) return '🟫 Resta sulla pedana: la porta è aperta finché ci stai sopra. Un compagno passi e tiri la leva di là!';
+        if (!G.R.p[H2.g[0]] && !G.R.o[H2.g[0]] && at({ x: gc[0] + 1, y: gc[1] + 0.5 }, 2.6)) return '🚪 Porta chiusa: qualcuno deve stare sulla pedana (il quadrato dorato) in fondo alla stanza.';
+        if (G.R.p[H2.g[0]] && !G.R.p[H2.g[1]] && (at(H2.p2[0], 0.7) || at(H2.p2[1], 0.7))) return '🟫 Servono due persone sulle due pedane insieme per aprire la porta!';
+      }
       return '';
     },
     hud(G) {
@@ -765,19 +775,31 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (lvl(cq.x)) for (const H2 of MP().RZ.half) for (const pt of [H2.p1, ...H2.p2]) {
         if (!see(pt.x, pt.y)) continue;
         const on = active(G).some(c => { const q = P(c); return Math.floor(q.x) === Math.floor(pt.x) && Math.floor(q.y) === Math.floor(pt.y); });
-        if (on) { const X = sx(pt.x, pt.y), Y = sy(pt.x, pt.y); g.fillStyle = 'rgba(255,220,100,.45)'; g.beginPath(); g.ellipse(X, Y, TW * 0.45, TW * 0.22, 0, 0, 7); g.fill(); }
+        const fx = Math.floor(pt.x), fy = Math.floor(pt.y), Q = [[fx + 0.1, fy + 0.1], [fx + 0.9, fy + 0.1], [fx + 0.9, fy + 0.9], [fx + 0.1, fy + 0.9]].map(([a, b]) => [sx(a, b), sy(a, b)]);
+        g.beginPath(); Q.forEach((q, i) => i ? g.lineTo(...q) : g.moveTo(...q)); g.closePath(); if (on) { g.fillStyle = 'rgba(255,220,100,.45)'; g.fill(); } g.strokeStyle = on ? '#ffe070' : 'rgba(224,184,74,' + (0.55 + 0.3 * Math.sin(now * 3)) + ')'; g.lineWidth = 2; g.stroke();
       }
-      // pezzi a terra e in mano
-      OB.draw(g, G, sx, sy, TW, (x, y) => lit(x, y) || (!MN && lvl(x) === lvl(cq.x)), c => { if (c !== me && (this.hide(c) || (MN && !MN.see(c.x, c.y)))) return false; return lvl(P(c).x) === lvl(cq.x); });
-      // rovine: nero pieno fuori dalla stanza dove sono (con le sue pareti)
+      // rovine: buio pieno fuori dalla stanza dove sono (stanza + pareti, bordi precisi). Entrando la luce si allarga da me (0,65 s).
+      // Le parti dei personaggi della stanza che escono dal bordo (teste, cappelli) si ridisegnano sopra il buio
       if (lvl(cq.x) && me.alive) {
         const R = CQ_ROOMS[ruinRoom(G)];
         if (R) {
-          const x0 = R.x - 1, y0 = R.y - 1, x1 = R.x + R.w + 1, y1 = R.y + R.h + 1, up = TW * 0.5 * 1.15 * 1.6, pt = (x, y, u) => [sx(x, y), sy(x, y) - (u ? up : 0)];
-          const L = [pt(x0, y1, 1), pt(x0, y0, 1), pt(x1, y0, 1), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
-          g.save(); g.beginPath(); g.rect(0, 0, W, H); g.moveTo(...L[0]); for (const q of L.slice(1)) g.lineTo(...q); g.closePath(); g.fillStyle = '#050608'; g.fill('evenodd'); g.restore();
+          const k0 = Math.min(1, (performance.now() - (G.rrT || 0)) / 650), k = 1 - Math.pow(1 - k0, 3), mx = sx(cq.x, cq.y), my = sy(cq.x, cq.y) - TW * 0.6;
+          const x0 = R.x - 1, y0 = R.y - 1, x1 = R.x + R.w + 1, y1 = R.y + R.h + 1, up = TW * 0.575 * 1.42, sc = 0.1 + 0.9 * k;
+          const pt = (x, y, u) => { const X = sx(x, y), Y = sy(x, y) - (u ? up : 0); return [mx + (X - mx) * sc, my + (Y - my) * sc]; };
+          const L = [pt(x0, y1, 1), pt(x0, y0, 1), pt(x1, y0, 1), pt(x1, y0), pt(x1, y1), pt(x0, y1)], hole = () => { g.moveTo(...L[0]); for (const q of L.slice(1)) g.lineTo(...q); g.closePath(); };
+          g.save(); g.beginPath(); g.rect(0, 0, W, H); hole(); g.fillStyle = '#050608'; g.fill('evenodd');
+          if (k < 1) { g.beginPath(); hole(); g.fillStyle = 'rgba(5,6,8,' + (0.8 * (1 - k)) + ')'; g.fill(); }
+          g.beginPath(); g.rect(0, 0, W, H); hole(); g.clip('evenodd');
+          for (const c of G.chars) {
+            if (c !== me && (!c.alive || this.hide(c) || (MN && !MN.see(c.x, c.y)))) continue;
+            const q = P(c); if (c !== me && roomAt(q.x, q.y) !== G.rr) continue;
+            cqPlayer(g, sx(q.x, q.y), sy(q.x, q.y), TW, cqLookOf(c), c === me ? cq.walk : c.walk, c === me ? cq.face : c.face);
+          }
+          g.restore();
         }
       }
+      // pezzi a terra e in mano
+      OB.draw(g, G, sx, sy, TW, (x, y) => lvl(x) ? lvl(cq.x) === 1 && !!MN && MN.see(x, y) : lit(x, y) || (!MN && lvl(x) === lvl(cq.x)), c => { if (c !== me && (this.hide(c) || (MN && !MN.see(c.x, c.y)))) return false; return lvl(P(c).x) === lvl(cq.x); });
       // spari
       for (const f of G.fx) { const k = 1 - (G.time - f[4]) / 0.5; if (k <= 0) continue; g.strokeStyle = 'rgba(255,230,140,' + k + ')'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx(f[0], f[1]), sy(f[0], f[1]) - TW * 0.8); g.lineTo(sx(f[2], f[3]), sy(f[2], f[3]) - TW * 0.8); g.stroke(); }
       // mappa del tesoro comprata: dove sono corde e vela
