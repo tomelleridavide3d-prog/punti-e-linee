@@ -187,6 +187,11 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #cqUse{position:absolute;right:18px;bottom:44px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:18px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqUse.on{background:#f2c230;color:#1d2127;cursor:pointer}
 #cqMapBtn{position:absolute;left:18px;bottom:44px}
+#cqHallSet{position:absolute;left:18px;bottom:44px}
+#cqHallBar{position:absolute;left:12px;right:12px;top:62px;background:rgba(20,22,28,.72);color:#fff;border-radius:12px;padding:8px 12px;font-size:14px;pointer-events:none;display:flex;flex-direction:column;gap:2px}
+#cqHallBar span{font-size:13px;opacity:.9}
+#cqCount{position:absolute;left:0;right:0;top:34%;text-align:center;font-size:30px;font-weight:800;color:#fff;text-shadow:0 3px 12px rgba(0,0,0,.6);pointer-events:none}
+#ciack.hallMode #cqHud,#ciack.hallMode #cqUse,#ciack.hallMode #cqMapBtn,#ciack.hallMode #cqItems,#ciack.hallMode #cqSabBtn,#ciack.hallMode #cqShoot{display:none!important}
 #cqMapC{display:block;width:100%;background:var(--bg);border-radius:12px}
 .tg-track{position:relative;height:30px;background:var(--bg);border-radius:15px;overflow:hidden;margin:18px 0 8px;border:1px solid var(--line)}
 .tg-zone{position:absolute;top:0;bottom:0;background:#2fa35a}
@@ -336,6 +341,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   </div></div>
   <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqSurv" id="cqSurv" hidden></div><div class="cqList" id="cqList"></div></div>
   <button class="btn" id="cqMapBtn" type="button">Mappa</button>
+  <div id="cqHallBar" hidden><b>🏨 Hall dell'hotel</b><span id="hlInfo"></span></div><div id="cqCount" hidden></div>
+  <button class="btn" id="cqHallSet" type="button" hidden>⚙️ Partita</button>
   <button id="cqUse" type="button">Usa</button>
   <div id="cqCams" hidden><div class="pk"><div class="tk-h"><b>Telecamere di sorveglianza</b><button class="btn" id="camClose" type="button">Chiudi</button></div>
     <div class="camG"><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div><div class="cam"><canvas></canvas><span></span></div></div></div></div>
@@ -1963,10 +1970,31 @@ function cqMapBosco(seed) {
     help: '<p class="hint">🌲 Siete sperduti nel bosco: bisogna anche <b>sopravvivere</b>. Taglia gli alberi per la legna, porta 3 legna al cerchio di sassi per fare il <b>falò</b> e accendilo, 4 legna per la <b>tenda</b>. Pesca al ruscello e cuoci il pesce sul fuoco (crudo sazia poco). Guarda le barre di fame 🍗 e freddo ❄️: di notte, lontano dal fuoco, si gela e ogni notte fa più freddo. La tenda ripara chi sta all\'accampamento.</p><p class="hint">✨ Dove vedi le stelline puoi <b>frugare</b>: monete e oggetti! Il <b>mercante</b> oggi è ' + dir(M) + ' rispetto al fuoco (guarda la Mappa).</p>' };
 }
 // mappe da scegliere nella stanza d'attesa (soon = non ancora pronta, solo = per ora solo contro il computer)
-const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco, seeded: true } };   // seeded = diversa a ogni partita (seme)
-const cqMapOk = k => CQ_MAPS[k] && !CQ_MAPS[k].soon && !(cq.net && CQ_MAPS[k].solo);
+const CQ_MAPS = { studio: { n: 'Studio', make: cqMapStudio }, bosco: { n: 'Notte nel bosco', make: cqMapBosco, seeded: true }, hotel: { n: 'Hall dell\'hotel', make: cqMapHotel, lobby: true } };   // seeded = diversa a ogni partita (seme)
+const cqMapOk = k => CQ_MAPS[k] && !CQ_MAPS[k].soon && !CQ_MAPS[k].lobby && !(cq.net && CQ_MAPS[k].solo);
 const cqMapIds = () => Object.keys(CQ_MAPS).filter(cqMapOk);
 // mette in uso una mappa: riempie le variabili della mappa e prepara le celle (pavimento, oggetti, muri)
+// hall dell'hotel: la stanza d'attesa prima della partita (non si sceglie tra le mappe di gioco)
+function cqMapHotel() {
+  const rooms = [{ n: 'Hall', x: 1, y: 1, w: 20, h: 15, c: ['#d8cfbd', '#c9bfab'], wc: '#6e3b34', k: 'tile', nl: true, nm: true }];
+  const decals = [
+    [7, 5, 8, 6, '#8a2a2a'], [7.25, 5.25, 7.5, 5.5, '#e0b84a'], [7.4, 5.4, 7.2, 5.2, '#a83434'],   // tappeto rosso con il bordo d'oro
+    [9.5, 11, 3, 5, '#a83434'], [9.65, 11, 2.7, 5, '#b8403e'],   // passatoia verso l'ingresso
+    [9, 15.4, 4, 0.6, '#5a4a3a'],   // zerbino
+    [2, 2, 8, 1, '#b8a888']];   // davanti alla reception
+  const props = [], pp = (t, x, y, o) => props.push([t, x, y, o]), prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
+  // reception
+  prow('counter', 3, 1, 6, 1, 0); pp('monitor', 9, 1); pp('plant', 2, 1); pp('plant', 10, 1); pp('bell', 6, 3);
+  // ascensori dorati
+  prow('locker', 14, 1, 4, 1, 0, () => '#c9a24a'); pp('plant', 13, 1); pp('plant', 18, 1); pp('lamp', 19, 1);
+  // salottini
+  prow('sofa', 2, 12, 3, 1, 0); pp('table', 3, 10); pp('lamp', 1, 14); pp('plant', 5, 14); pp('tv', 1, 9);
+  prow('sofa', 16, 12, 3, 1, 0); pp('table', 17, 10); pp('lamp', 20, 14); pp('plant', 15, 14); pp('coffee', 20, 9);
+  // bagagli, piante e lampade
+  pp('rack', 20, 5); pp('rack', 20, 6); pp('crate', 1, 5); pp('crate2', 1, 6); pp('plant', 7, 14); pp('plant', 14, 14); pp('lamp', 6, 7); pp('lamp', 15, 7);
+  const ring = [[10, 8], [11, 8], [12, 8], [9, 9], [13, 9], [10, 10], [12, 10], [8, 8], [14, 8], [11, 12]];
+  return { w: 22, h: 17, rooms, doors: [], decals, props, tasks: [], hall: 0, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: { Hall: 'nella hall' }, help: '', btnTxt: '', sabTxt: '' };
+}
 function cqUseMap(id, seed) {
   if (!CQ_MAPS[id] || CQ_MAPS[id].soon) id = 'studio';
   const MP = CQ_MAPS[id], sd = MP.seeded ? seed || 1 : 0;
@@ -2019,7 +2047,7 @@ function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBl
 function openCiack() {
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
-  cqOpenPick();
+  cq.g = null; cqHallEnter(); cqOpenPick();
 }
 const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
 const CQ_HATS = [['borsalino', 'Borsalino'], ['basco', 'Basco'], ['cilindro', 'Cilindro'], ['cappellino', 'Cappellino'], ['cuffie', 'Cuffie'], ['corona', 'Corona'], ['nessuno', 'Nessuno']];
@@ -2060,7 +2088,11 @@ function cqOpenPick() {
   $('#pkCols').onclick = e => { const b = e.target.closest('[data-c]'); if (b) set('col', b.dataset.c); };
   $('#pkHats').onclick = e => { const b = e.target.closest('[data-h]'); if (b) set('hat', b.dataset.h); };
   $('#pkSkins').onclick = e => { const b = e.target.closest('[data-s]'); if (b) set('skin', b.dataset.s); };
-  $('#pkGo').onclick = () => { box.hidden = true; cq.picking = false; if (!cq.g || cq.g.phase === 'end') cqLobby(); };
+  $('#pkGo').onclick = () => {
+    box.hidden = true; cq.picking = false;
+    const N = cq.net; if (N) N.F.set(cqNetRef(`cq/${N.code}/pl/${N.sid}`), { name: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', look: cqLook(), ts: Date.now() }).catch(() => {});   // aspetto nuovo per gli altri
+    if (!cq.g || cq.g.phase === 'end' || cq.g.hall) cqHallEnter();
+  };
   store.settings.cqLook = L; sync();
   box.hidden = false; cq.picking = true; cq.joy = null; cq.keys = {};
   // anteprima: il personaggio cammina sul posto e si gira ogni tanto
@@ -2105,6 +2137,7 @@ function cqOpenCams() {
 // riquadro da ridisegnare intorno a cio' che si muove (o.sx, o.sy = piedi sullo schermo): corpo (piu' alto finche' sta cadendo), fiamme/fucile/trappola, personaggio
 function cqBox(o, TW) {
   const x = o.sx, y = o.sy;
+  if (o.ang != null && o.ang < 2.6) return [x - 1.6 * TW, y - 4.4 * TW, x + 1.6 * TW, y + 0.5 * TW];   // angelo che scende
   return o.body || o.adv ? [x - 1.7 * TW, y - (o.a < 1.2 ? 2.4 : 1.3) * TW, x + 1.7 * TW, y + 0.6 * TW] : o.fire || o.rf || o.trap ? [x - 0.8 * TW, y - 1.5 * TW, x + 0.8 * TW, y + 0.4 * TW] : [x - 1.2 * TW, y - 2.35 * TW, x + 1.2 * TW, y + 0.4 * TW];
 }
 function cqCamDraw(cv, cx, cy) {
@@ -2337,6 +2370,12 @@ async function cqNetOpen(code, role) {
   F.onDisconnect(r).remove(); F.onDisconnect(cqNetRef(`cq/${code}/pos/${N.sid}`)).remove();
   await F.set(r, { name: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', look: cqLook(), ts: Date.now() });
   N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/pl`), s => { N.pl = s.val() || {}; cqNetPlayers(); }));
+  // hall: stato di tutti, scherzi per me, conto alla rovescia dell'host
+  F.onDisconnect(cqNetRef(`cq/${code}/hl/${N.sid}`)).remove(); F.onDisconnect(cqNetRef(`cq/${code}/hk/${N.sid}`)).remove();
+  N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hl`), s => { N.hl = s.val() || {}; }));
+  N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) cqHallDie(G.me, String(v.n || '').slice(0, 14)); }));
+  if (role !== 'host') N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hc`), s => { const v = s.val(); N.hc = v ? v.n : null; }));
+  if (cq.g && cq.g.hall) cqHallReset();
   if (role === 'host') {
     F.onDisconnect(cqNetRef('cqlist/' + code)).remove(); F.onDisconnect(cqNetRef('cq/' + code)).remove();
     cqNetList();
@@ -2347,7 +2386,7 @@ async function cqNetOpen(code, role) {
     let seen = false;
     N.unsubs.push(F.onValue(cqNetRef('cqlist/' + code), s => {
       if (s.val()) { seen = true; return; }
-      if (seen && cq.net === N) { cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok', cqLobby); }
+      if (seen && cq.net === N) { cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok'); cq.g = null; cqHallEnter(); }
     }));
   }
   return N;
@@ -2511,6 +2550,8 @@ function cqNetLeave() {
   const N = cq.net; if (!N) return;
   cqVoiceStop();
   cq.net = null; cq.gm = null; cqVoiceUI();
+  if (N.role !== 'host') { N.F.remove(cqNetRef(`cq/${N.code}/hl/${N.sid}`)).catch(() => {}); }
+  if (cq.g && cq.g.hall) cqHallReset();
   N.unsubs.forEach(u => { try { u(); } catch {} });
   const F = N.F;
   if (N.role === 'host') { F.remove(cqNetRef('cqlist/' + N.code)).catch(() => {}); F.remove(cqNetRef('cq/' + N.code)).catch(() => {}); }
@@ -2534,7 +2575,7 @@ function cqNetBox() {
   if (!WEB || !hub.fb) { box.innerHTML = WEB ? '<p class="hint">Collegamento in corso…</p>' : ''; return; }
   if (N && N.role === 'host') {
     box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano in Ciack US, qui sotto "Set aperti". Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><button class="btn" id="netClose" type="button">Chiudi il set</button></div>`;
-    $('#netClose').onclick = () => { cqNetLeave(); cqNetBox(); };
+    $('#netClose').onclick = () => { cqNetLeave(); cqNetBox(); };   // (cqNetLeave rifa' la hall da solo)
     return;
   }
   const sets = Object.entries(cq.sets || {}).filter(([, v]) => v && v.o && Date.now() - v.ts < 6 * 3600e3);
@@ -2549,13 +2590,13 @@ function cqNetWait() {
   cqCloseTask();
   const host = (cq.sets && cq.sets[N.code] && cq.sets[N.code].h) || '';
   $('#tkTitle').textContent = 'Set di ' + host;
-  $('#tkBody').innerHTML = `<p class="lead">Sei dentro! Aspetta che <b>${esc(host)}</b> faccia partire la partita.</p><p id="nwList"></p>
+  $('#tkBody').innerHTML = `<p class="lead">Sei dentro! Chiudi questa finestra per entrare nella hall: la partita parte quando siete tutti pronti (o quando <b>${esc(host)}</b> preme Si gira!).</p><p id="nwList"></p>
     <div class="row"><div class="lbl">Oggetti da portare (al massimo 2)</div><div class="bagPick" id="lbBag"></div></div>
     <button class="btn" id="nwShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn go" id="nwOut" type="button">Esci dal set</button>`;
   cqNetPlayers(); cqBagPick();
   $('#nwShop').onclick = () => cqShop(cqNetWait);
-  $('#nwOut').onclick = () => { cqNetLeave(); cqLobby(); };
-  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#nwOut').onclick = () => { cqNetLeave(); cqCloseTask(); cqHallEnter(); };
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = !(cq.g && cq.g.hall); $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
 }
 function cqNetPlayers() {
   const N = cq.net; if (!N) return;
@@ -2677,14 +2718,15 @@ function cqNetApply(s) {
   const N = cq.net; if (!N) return;
   let G = cq.g;
   if (s.lt && (!G || !G.guest || G.mid !== s.mid)) return;   // per cominciare serve uno stato completo
+  if (G && G.hall && s.ph === 'end') return;   // la partita vecchia, finita: resto nella hall
   if (!G || !G.guest || G.mid !== s.mid) {
     const mine = s.c.find(a => a[10] === N.sid); if (!mine) return;   // partita cominciata senza di me
     cqUseMap(s.map || 'studio', s.seed);   // la mappa (e il seme) scelti dall'host (versioni vecchie: lo studio)
     const chars = s.c.map(a => ({ id: a[0], name: a[1], look: cqNetLook(a[2]), bot: true, x: a[3], y: a[4], tx: a[3], ty: a[4], face: a[5], walk: 0, alive: !!a[7], imp: !!a[8], done: { size: a[9] }, sid: a[10], st: {}, kcd: 0 }));
     const me = chars[mine[0]];
     me.bot = false; me.tasks = mine[11] || []; me.done = new Set();
-    G = cq.g = { song: Math.floor(Math.random() * CQ_SONGS.length), guest: true, mid: s.mid, map: cq.map, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
-    cqShopStart(G);
+    G = cq.g = { song: Math.floor(Math.random() * CQ_SONGS.game), guest: true, mid: s.mid, map: cq.map, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
+    cqShopStart(G); cqHallOff(); cq.picking = false;
     cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = ''; cq.ejMe = false;
     cqCloseTask(); $('#cqPick').hidden = true; cqHud(); cqRolePanel();
   }
@@ -2793,6 +2835,156 @@ function cqPath(sx, sy, ex, ey) {
   const path = []; for (let c = e; c !== s; c = prev[c]) path.push([c % W + 0.5, ((c / W) | 0) + 0.5]);
   return path.reverse();
 }
+// ---- HALL DELL'HOTEL: prima della partita si gira insieme, ci si elimina per scherzo (si risorge da angelo dopo 3 s).
+// Pronto = nella hall senza pannelli aperti (personaggio, impostazioni, negozio). Da solo: personaggi del computer e "Si gira!".
+// Online ognuno scrive il suo stato in cq/<set>/hl/<sid> {x, y, f, w, r: pronto, d: a terra}; gli scherzi a cq/<set>/hk/<vittima>;
+// l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
+const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_AUTO = 10, CQ_HALL_MAN = 5;
+const cqHallReady = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
+function cqHallEnter() {
+  const old = cq.g;
+  if (old && old.hall) { cqHallUI(true); cqHallPub(true); return; }
+  cqUseMap('hotel');
+  const me = { id: 0, name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', bot: false, alive: true, imp: false, sid: cq.net ? cq.net.sid : null, face: 1, walk: 0 };
+  const [x, y] = cqPickOne(CQ_RING); me.x = x + 0.5; me.y = y + 0.5;
+  cq.g = { hall: true, phase: 'hall', chars: [me], me, bodies: [], time: 0, known: {}, opt: cqOpt(), sab: null, nid: 1, cd: null, song: 3 };
+  cq.x = me.x; cq.y = me.y; cq.face = 1; cq.near = null; cq.act = null; cq.actKey = ''; cq.tasks = []; cq.done = new Set();   // niente compiti della partita finita
+  if (cq.net && cq.net.role === 'host') { cq.net.F.remove(cqNetRef(`cq/${cq.net.code}/st`)).catch(() => {}); cqNetList(1); }
+  cqHallReset(); cqHallUI(true);
+}
+// chi c'e' nella hall: da solo i personaggi del computer, online le persone del set
+function cqHallReset() {
+  const G = cq.g; if (!G || !G.hall) return;
+  G.chars = [G.me]; G.bodies = []; G.cd = null; G.force = false; G.me.sid = cq.net ? cq.net.sid : null;
+  if (!cq.net) {
+    const used = [G.me.name.toLowerCase()], names = CQ_NAMES.filter(n => !used.includes(n.toLowerCase())).sort(() => Math.random() - 0.5);
+    const skins = Object.keys(CQ_SKINS).filter(k => k !== 'omino').sort(() => Math.random() - 0.5), cols = CQ_COLORS.slice().sort(() => Math.random() - 0.5);
+    for (let i = 0; i < 5; i++) {
+      const [x, y] = CQ_RING[(i + 3) % CQ_RING.length];
+      G.chars.push({ id: G.nid++, name: names[i], bot: true, alive: true, imp: false, x: x + 0.5, y: y + 0.5, face: 1, walk: 0, path: [], pt: 8 + Math.random() * 20, rest: Math.random() * 3,
+        look: i < 2 ? { skin: skins[i], col: CQ_SKINS[skins[i]].col, hat: 'nessuno' } : { skin: 'omino', col: cols[i], hat: cqPickOne(CQ_HATS)[0] } });
+    }
+  }
+  cqHallPub(true);
+}
+function cqHallUI(on) {
+  $('#ciack').classList.toggle('hallMode', !!on);
+  $('#cqHallBar').hidden = !on; $('#cqHallSet').hidden = !on; if (!on) $('#cqCount').hidden = true;
+  if (!on) { $('#cqKill').hidden = true; }
+}
+function cqHallDie(c, by) {
+  const G = cq.g; if (!c.alive) return;
+  c.alive = false; c.dead = G.time + CQ_HALL_DEAD; c.path = []; c.angel = null;
+  G.bodies = G.bodies.filter(b => b.id !== c.id);
+  G.bodies.push({ id: c.id, x: c === G.me ? cq.x : c.x, y: c === G.me ? cq.y : c.y, face: c === G.me ? cq.face : c.face, look: cqLookOf(c), name: c.name, t: G.time });
+  for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square');
+  if (c === G.me) { cqToast('😵 ' + (by ? '<b>' + esc(by) + '</b> ti ha eliminato per scherzo!' : 'Eliminato per scherzo!') + ' Torni tra ' + CQ_HALL_DEAD + ' secondi…'); cqHallPub(true); }
+}
+function cqHallLive(c) {
+  const G = cq.g; if (c.alive) return;
+  c.alive = true; c.dead = 0; c.angel = G.time; G.bodies = G.bodies.filter(b => b.id !== c.id);
+  if (c === G.me || Math.hypot(c.x - cq.x, c.y - cq.y) < 9) { beep(880, 0.35, 0.025, 0, 'triangle'); beep(1109, 0.35, 0.025, 0.12, 'triangle'); beep(1319, 0.5, 0.025, 0.24, 'triangle'); }
+  if (c === G.me) cqHallPub(true);
+}
+// il mio scherzo: al personaggio piu' vicino (anche del computer); poi un po' di attesa
+function cqHallPrank() {
+  const G = cq.g, me = G.me; if (!me.alive || (me.pcd || 0) > 0 || !cqHallReady()) return;
+  const v = cqKillTarget(); if (!v) return;
+  me.pcd = CQ_HALL_CD;
+  if (v.remote) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/hk/${v.sid}`), { f: N.sid, n: me.name }).catch(() => {}); v.pred = G.time + 1.5; }
+  cqHallDie(v, me.name);
+}
+// il mio stato per gli altri del set (ogni 0,15 s se cambia, altrimenti ogni 2 s)
+function cqHallPub(now) {
+  const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
+  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1 }, k = JSON.stringify(o), t = performance.now();
+  if (!now && (t - (N.hlT || 0) < 150 || (k === N.hlK && t - N.hlT < 2000))) return;
+  N.hlT = t; N.hlK = k; N.F.set(cqNetRef(`cq/${N.code}/hl/${N.sid}`), o).catch(() => {});
+}
+// fuori dalla hall (partita cominciata): non sono pronto
+function cqHallOff() { const N = cq.net; if (N) { N.hlK = ''; N.F.set(cqNetRef(`cq/${N.code}/hl/${N.sid}`), { x: 0, y: 0, r: 0, d: 0 }).catch(() => {}); } cqHallUI(false); }
+// gli altri del set: chi e' pronto compare nella hall, chi si sta preparando aspetta fuori
+function cqHallNet() {
+  const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
+  const hl = N.hl || {};
+  for (const [sid, p] of Object.entries(N.pl)) {
+    if (sid === N.sid) continue;
+    const h = hl[sid], ready = !!(h && h.r);
+    let c = G.chars.find(o => o.sid === sid);
+    if (!ready) { if (c) { G.chars.splice(G.chars.indexOf(c), 1); G.bodies = G.bodies.filter(b => b.id !== c.id); } continue; }
+    if (!c) { c = { id: G.nid++, sid, remote: true, alive: true, imp: false, x: h.x, y: h.y, tx: h.x, ty: h.y, face: 1, walk: 0 }; G.chars.push(c); }
+    c.name = String(p.name || 'Amico').slice(0, 14); c.look = cqNetLook(p.look);
+    c.tx = h.x; c.ty = h.y; c.face = h.f === -1 ? -1 : 1; c.mv = h.w;
+    if (h.d && c.alive && !(c.pred > G.time)) cqHallDie(c, '');
+    if (h.d) c.pred = 0;
+    if (!h.d && !c.alive && !(c.pred > G.time)) cqHallLive(c);
+  }
+  for (const c of G.chars.slice()) if (c.remote && !N.pl[c.sid]) { G.chars.splice(G.chars.indexOf(c), 1); G.bodies = G.bodies.filter(b => b.id !== c.id); }
+}
+// stato di "pronto" di tutto il set: [pronti, totale, nomi di chi si sta preparando]
+function cqHallCount() {
+  const N = cq.net, hl = (N && N.hl) || {}; if (!N) return [1, 1, []];
+  const ids = Object.keys(N.pl), wait = ids.filter(sid => sid === N.sid ? !cqHallReady() : !(hl[sid] && hl[sid].r));
+  return [ids.length - wait.length, ids.length, wait.map(sid => String((N.pl[sid] || {}).name || '?'))];
+}
+function cqHallTick(dt) {
+  const G = cq.g, me = G.me, N = cq.net;
+  G.time += dt; me.x = cq.x; me.y = cq.y; me.face = cq.face; me.pcd = Math.max(0, (me.pcd || 0) - dt);
+  if (!me.alive && G.time >= me.dead) cqHallLive(me);
+  for (const c of G.chars) {
+    if (c === G.me) continue;
+    if (c.bot) {   // personaggi del computer: passeggiano, si fermano, ogni tanto fanno uno scherzo
+      if (!c.alive) { if (G.time >= c.dead) cqHallLive(c); continue; }
+      if (c.path.length) cqBotStep(c, dt);
+      else if ((c.rest -= dt) <= 0) { c.rest = 1 + Math.random() * 4; c.walk = 0; for (let i = 0; i < 20; i++) { const x = 1 + Math.floor(Math.random() * 20), y = 1 + Math.floor(Math.random() * 15); if (cqCellFree(x, y)) { c.path = cqPath(c.x, c.y, x, y); break; } } }
+      else c.walk = 0;
+      if ((c.pt -= dt) <= 0) {
+        c.pt = 12 + Math.random() * 25;
+        const v = G.chars.find(o => o !== c && o.alive && Math.hypot((o === me ? cq.x : o.x) - c.x, (o === me ? cq.y : o.y) - c.y) < 1.5);
+        if (v && (v !== me || cqHallReady())) cqHallDie(v, c.name);
+      }
+    } else if (c.remote) {   // persone del set: scivolano verso l'ultima posizione ricevuta
+      const k = Math.min(1, dt * 12); c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.walk = c.mv ? c.walk + dt * 10 : 0;
+      if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
+      if (!c.alive && c.pred && c.pred <= G.time && c.dead <= G.time) { c.pred = 0; cqHallLive(c); }   // lo scherzo non e' arrivato: torna in piedi
+    }
+  }
+  if (N) { cqHallNet(); cqHallPub(false); }
+  // conto alla rovescia: da solo lo fa partire "Si gira!"; online l'host quando sono tutti pronti (o con "Si gira!")
+  const [rd, tot, wait] = cqHallCount(), boss = !N || N.role === 'host';
+  if (boss) {
+    const all = rd === tot, ok = cqHallReady() && (N ? (all && tot >= 2) || (G.force && cqHallReady()) : G.force);
+    if (ok && G.cd == null) { G.cd = N && all && !G.force ? CQ_HALL_AUTO : CQ_HALL_MAN; G.cdS = -1; }
+    if (!ok && G.cd != null) { G.cd = null; G.force = false; if (N) N.F.remove(cqNetRef(`cq/${N.code}/hc`)).catch(() => {}); }
+    if (G.cd != null) {
+      G.cd -= dt; const n = Math.ceil(G.cd);
+      if (n !== G.cdS) { G.cdS = n; if (n > 0) beep(n <= 3 ? 880 : 660, 0.08, 0.04); if (N) N.F.set(cqNetRef(`cq/${N.code}/hc`), { n: Math.max(0, n) }).catch(() => {}); }
+      if (G.cd <= 0) { G.cd = null; G.force = false; if (N) N.F.remove(cqNetRef(`cq/${N.code}/hc`)).catch(() => {}); cqNewMatch(); return; }
+    }
+  } else if ((G.hc = N.hc) !== G.cdS) { G.cdS = G.hc; if (G.hc > 0) beep(G.hc <= 3 ? 880 : 660, 0.08, 0.04); }
+  // scritte: chi e' pronto, chi aspettiamo, conto alla rovescia
+  if ((G.uiT = (G.uiT || 0) - dt) <= 0) {
+    G.uiT = 0.2;
+    const n = boss ? (G.cd != null ? Math.ceil(G.cd) : null) : G.hc;
+    $('#hlInfo').innerHTML = N ? 'Pronti ' + rd + ' su ' + tot + (wait.length ? ' · si stanno preparando: <b>' + wait.map(esc).join(', ') + '</b>' : '') + (tot < 2 && boss ? ' · aspetta gli amici o premi ⚙️ Partita → Si gira!' : '')
+      : 'Gira, saluta, elimina per scherzo! Quando vuoi: ⚙️ Partita → <b>Si gira!</b>';
+    const ce = $('#cqCount'), txt = n != null && n > 0 ? '🎬 La partita inizia tra ' + n + '…' : '';
+    if (ce.textContent !== txt) { ce.textContent = txt; ce.hidden = !txt; }
+  }
+}
+// pulsante Elimina della hall (sempre, con la piccola attesa tra uno scherzo e l'altro)
+function cqHallHud() {
+  const G = cq.g, me = G.me, kb = $('#cqKill'), show = me.alive && cqHallReady();
+  if (kb.hidden === show) kb.hidden = !show;
+  if (show) { const cd = Math.ceil(me.pcd || 0), txt = cd ? 'Elimina ' + cd : 'Elimina', on = !cd && !!cqKillTarget(); if (kb.textContent !== txt) kb.textContent = txt; if (kb.classList.contains('on') !== on) kb.classList.toggle('on', on); }
+}
+// "Si gira!" dalle impostazioni: nella hall parte il conto alla rovescia
+function cqHallGo() {
+  const G = cq.g; if (!G || !G.hall) { cqNewMatch(); return; }
+  G.force = true;
+  const [rd, tot, wait] = cqHallCount();
+  if (cq.net && rd < tot) cqToast('🎬 Si parte! Chi si sta ancora preparando (' + wait.map(esc).join(', ') + ') entra direttamente in partita.');
+}
 // stanza d'attesa: impostazioni prima di ogni partita
 function cqLobby() {
   const o = cqOpt();
@@ -2800,7 +2992,7 @@ function cqLobby() {
   $('#tkTitle').textContent = 'Impostazioni della partita';
   if (cq.net && cq.net.role === 'guest') { cqNetWait(); return; }
   $('#tkBody').innerHTML = `<div id="lbNet"></div><form id="lbF">
-    <div class="row"><div class="lbl">Mappa</div>${seg('map', Object.entries(CQ_MAPS).map(([k, m]) => [k, m.n]).concat([['rnd', 'Casuale']]), cqMapOk(o.map) || o.map === 'rnd' ? o.map : 'studio')}<div class="hint">${Object.values(CQ_MAPS).map(m => m.soon ? m.n + ': in arrivo.' : m.solo ? m.n + ': per ora solo contro il computer (con gli amici arriverà più avanti).' : '').join(' ')}</div></div>
+    <div class="row"><div class="lbl">Mappa</div>${seg('map', Object.entries(CQ_MAPS).filter(([, m]) => !m.lobby).map(([k, m]) => [k, m.n]).concat([['rnd', 'Casuale']]), cqMapOk(o.map) || o.map === 'rnd' ? o.map : 'studio')}<div class="hint">${Object.values(CQ_MAPS).filter(m => !m.lobby).map(m => m.soon ? m.n + ': in arrivo.' : m.solo ? m.n + ': per ora solo contro il computer (con gli amici arriverà più avanti).' : '').join(' ')}</div></div>
     <div class="row"><div class="lbl">Personaggi (tu compreso)</div>${seg('n', [[4, '4'], [6, '6'], [8, '8'], [10, '10']], o.n)}</div>
     <div class="row"><div class="lbl">Sabotatori</div>${seg('imps', [[1, '1'], [2, '2'], [3, '3']], o.imps)}<div class="hint" id="lbImpH"></div></div>
     <div class="row"><div class="lbl">Compiti a testa</div>${seg('tasks', [[3, '3'], [5, '5'], [7, '7']], o.tasks)}</div>
@@ -2816,8 +3008,9 @@ function cqLobby() {
   f.querySelectorAll('input[name=map]').forEach(i => { if (CQ_MAPS[i.value] && !cqMapOk(i.value)) i.disabled = true; });
   const sync = () => { const r = read(); f.querySelectorAll('input[name=imps]').forEach(i => { i.disabled = +i.value > cqMaxImps(r.n); if (+i.value === r.imps) i.checked = true; }); $('#lbImpH').textContent = r.n <= 5 ? 'Con 4 personaggi c\'è un solo sabotatore.' : r.n <= 7 ? 'Con 6 personaggi al massimo 2 sabotatori.' : ''; };
   f.oninput = sync; sync();
-  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
-  $('#lbGo').onclick = () => { store.settings.cqOpt = read(); saveStore(); cqCloseTask(); cqNewMatch(); };
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = !(cq.g && cq.g.hall); $('#cqTask').hidden = false;
+  $('#tkClose').onclick = () => { if ($('#lbF')) { store.settings.cqOpt = read(); saveStore(); } cqCloseTask(); };
+  $('#lbGo').onclick = () => { store.settings.cqOpt = read(); saveStore(); cqCloseTask(); cqHallGo(); };
   $('#lbShop').onclick = () => { store.settings.cqOpt = read(); saveStore(); cqShop(cqLobby); };
   cqBagPick(); cqNetBox(); cqNetWatch();
 }
@@ -2845,8 +3038,8 @@ function cqNewMatch() {
     Object.assign(c, { x: x + 0.5, y: y + 0.5, face: x < CQ_BUTTON.x ? 1 : -1, walk: 0, alive: true, imp: imps.has(i), tasks: CQ_TASKS.map(t => t.id).sort(() => Math.random() - 0.5).slice(0, Math.min(O.tasks, CQ_TASKS.length)),
       done: new Set(), path: [], goal: null, wait: 0, doing: null, hunt: null, kcd: O.kcd * (CQ_MAP.kcdMul || 1) * 0.5, think: 0, sus: new Set(), saw: null, seen: {}, st: {}, eye: Math.random() * 0.5 });
   });
-  cq.g = { song: Math.floor(Math.random() * CQ_SONGS.length), chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, seed: cq.mapSeed, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
-  cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid;
+  cq.g = { song: Math.floor(Math.random() * CQ_SONGS.game), chars, me, bodies: [], phase: 'role', sab: null, sabCd: 30, button: 1, meet: null, time: 0, opt: O, map: cq.map, seed: cq.mapSeed, nt: Math.min(O.tasks, CQ_TASKS.length), blackAt: 60 + Math.random() * 60 };
+  cqShopStart(cq.g); cq.g.mid = randCode(6); cq.g.ep = 1; me.sid = hub.sid; cqHallOff();
   if (CQ_MAP.surv) cqSvStart(cq.g);
   if (cq.net) cqNetList(0);
   cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = '';
@@ -2881,7 +3074,7 @@ function cqPanel(title, html, btn, then) {
   $('#tkGo').onclick = () => { cqCloseTask(); if (then) then(); };
 }
 function cqHud() {
-  const G = cq.g; if (!G) return;
+  const G = cq.g; if (!G || G.hall) return;
   const me = G.me, crew = G.chars.filter(c => !c.imp), tot = crew.length * G.nt, n = crew.reduce((a, c) => a + c.done.size, 0);
   $('#cqBarTxt').textContent = 'Riprese ' + Math.round(n / tot * 100) + '%';
   $('#cqBarFill').style.width = (n / tot * 100) + '%';
@@ -2898,6 +3091,7 @@ function cqHud() {
 // cose che cambiano a ogni fotogramma (solo se cambiano davvero)
 function cqHudFast() {
   const G = cq.g; if (!G) return;
+  if (G.hall) { cqHallHud(); return; }
   const me = G.me, play = G.phase === 'play', kb = $('#cqKill'), sb = $('#cqSabBtn'), ban = $('#cqSab');
   const showK = me.imp && me.alive && play;
   if (kb.hidden === showK) kb.hidden = !showK;
@@ -2929,7 +3123,7 @@ function cqHudFast() {
 }
 // cosa fa il pulsante grande: segnalare un corpo, riparare un sabotaggio, chiamare una riunione o fare un compito
 function cqNearCheck() {
-  const G = cq.g; if (!G) return;
+  const G = cq.g; if (!G || G.hall) return;
   const me = G.me, pos = { x: cq.x, y: cq.y }; let act = null;
   if (G.phase === 'play') {
     if (me.alive) { const b = G.bodies.find(o => cqDist(o, pos) < 1.8); if (b) act = { k: 'rep', body: b }; }
@@ -3068,6 +3262,7 @@ function cqKillTarget() {
   return best;
 }
 function cqMyKill() {
+  if (cq.g && cq.g.hall) { cqHallPrank(); return; }
   const G = cq.g; if (!G || G.phase !== 'play' || cqBusy()) return;
   const me = G.me; if (!me.imp || !me.alive || me.kcd > 0) return;
   const v = cqKillTarget(); if (v) { if (G.guest) cqNetSend({ k: 'kill', v: v.id }); else cqKill(v, me); }
@@ -3414,7 +3609,7 @@ function cqEnd(win, why) {
     <div class="credits"><div>${G.chars.map(c => esc(c.name)).join('<br><br>')}</div></div>
     <p class="hint" style="text-align:center">🪙 Monete guadagnate: <b>+${G.earn}</b> (bonus ${won ? 'vittoria 5' : 'partecipazione 1'}) · ne hai <b>${cqBank().coins}</b></p>
     <div class="mtAct"><button class="btn" id="enHome" type="button">Torna ai giochi</button><button class="btn" id="enShop" type="button">🪙 Negozio</button><button class="btn primary" id="enNew" type="button">Nuova partita</button></div>`;
-  const back = () => cq.net && cq.net.role === 'guest' ? cqNetWait() : cqLobby();
+  const back = () => cqHallEnter();
   $('#enShop').onclick = () => cqShop(back);
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#enHome').onclick = closeCiack;
@@ -3692,7 +3887,7 @@ function cqOpenMap() {
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { cqWake(false); if (cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+function closeCiack() { cqHallUI(false); cqWake(false); if (cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   // la tela deve avere esattamente i pixel veri dello schermo: se il telefono la ingrandisce anche di poco
   // (es. Redmi con 2,75 pixel per punto) i bordi scuri tremano mentre ci si muove
@@ -3720,6 +3915,7 @@ function cqInit() {
   $('#cqBack').onclick = closeCiack;
   $('#cqLookBtn').onclick = cqOpenPick;
   const mus = () => { $('#cqMusic').style.opacity = store.settings.music === false ? 0.4 : 1; };
+  $('#cqHallSet').onclick = () => { if (cq.net && cq.net.role === 'guest') cqNetWait(); else cqLobby(); };
   $('#cqMic').onclick = () => cqVoiceMic();
   $('#cqRadio').onclick = async () => {
     if (cqV.radio) { cqRadioSet(false); cqToast('📻 Radio spenta: ora parli normalmente.'); return; }
@@ -3762,7 +3958,9 @@ function cqWake(want) {
 const CQ_SONGS = [
   { n: 'Ciak si gira', st: 0.45, root: 330, w: 'triangle', v: 0.012, mel: [0, 4, 7, 12, 7, 4, 9, 7], bass: [196] },
   { n: 'Giallo', st: 0.4, root: 294, w: 'triangle', v: 0.012, mel: [0, 3, 7, 3, 10, 7, 3, 7, 0, 3, 8, 3, 7, 5, 3, 2], bass: [147, 117, 131, 110] },
-  { n: 'Swing del set', st: 0.27, root: 392, w: 'square', v: 0.005, mel: [0, 4, 7, 9, 7, 4, 2, 4, 0, 4, 7, 12, 9, 7, 4, null], bass: [98, 131, 147, 131] } ];
+  { n: 'Swing del set', st: 0.27, root: 392, w: 'square', v: 0.005, mel: [0, 4, 7, 9, 7, 4, 2, 4, 0, 4, 7, 12, 9, 7, 4, null], bass: [98, 131, 147, 131] },
+  { n: 'Ascensore', st: 0.5, root: 349, w: 'sine', v: 0.014, mel: [4, null, 7, 11, 9, null, 7, 4, 2, null, 5, 9, 7, null, 4, 0], bass: [87, 98, 110, 98], hall: true } ];   // musica d'ascensore: solo nella hall (song 3)
+CQ_SONGS.game = CQ_SONGS.filter(m => !m.hall).length;   // le musiche delle partite (l'ultima e' quella della hall)
 const CQ_SAB_SONG = { st: 0.3, root: 330, w: 'triangle', v: 0.012, mel: [0, 1, 0, 3, 0, 1, 6, 1], bass: [165] };
 // ---- suoni d'ambiente del bosco: ruscello (piu' forte vicino all'acqua), fuoco che scoppietta, vento; uccellini di giorno, grilli e gufo di notte ----
 let cqAmbN = null;
@@ -3829,7 +4027,7 @@ function cqFrame(t) {
   cq.raf = requestAnimationFrame(cqFrame);   // subito: se qualcosa va storto in questo fotogramma, il gioco non si blocca
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
-  const d = !G || playing ? cqDir() : null;
+  const d = !G || playing || (G.hall && G.me.alive && $('#cqPick').hidden) ? cqDir() : null;
   if (d) {
     const sp = CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
     if (cqFree(nx, cq.y)) cq.x = nx;
@@ -3841,10 +4039,11 @@ function cqFrame(t) {
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
   if (playing) { if (!G.guest) cqBots(dt); cqCloneStep(dt); }
+  if (G && G.hall) cqHallTick(dt);
   if (cq.net) cqNetTick(dt);
   if (cq.net && actx) cqVoiceTick(dt);
   // musichetta di sottofondo (si spegne col pulsante o con i suoni)
-  if (G && playing && store.settings.music !== false && store.settings.sound && (cq.mT = (cq.mT || 0) - dt) <= 0) {
+  if (G && (playing || G.hall) && store.settings.music !== false && store.settings.sound && (cq.mT = (cq.mT || 0) - dt) <= 0) {
     const sab = !!G.sab, M = sab ? CQ_SAB_SONG : CQ_SONGS[G.song || 0] || CQ_SONGS[0]; cq.mT = M.st; cq.mI = ((cq.mI || 0) + 1) % 16;
     const n = M.mel[cq.mI % M.mel.length]; if (n != null) beep(M.root * Math.pow(2, n / 12), M.st * 0.7 + 0.05, M.v, 0, M.w);
     if (cq.mI % 4 === 0) beep(M.bass[Math.floor(cq.mI / 4) % M.bass.length], M.st * 1.1, 0.014, 0, 'triangle');
@@ -4278,8 +4477,9 @@ function cqDraw() {
   if (G) {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face, a: G.time - b.t });
     for (const ch of G.chars) {
-      if (ch === G.me) list.push({ talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if (ch.alive && seen(ch.x, ch.y)) list.push({ talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      if (ch === G.me && G.hall && !ch.alive) continue;
+      if (ch === G.me) list.push({ ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
+      else if (ch.alive && seen(ch.x, ch.y)) list.push({ ang: G.hall && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
     for (const C of cqOtherClones()) if (seen(C.x, C.y)) list.push({ x: C.x, y: C.y, L: C.o.look, w: C.walk, f: C.face, name: C.o.name });
@@ -4445,6 +4645,7 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     else if (c.mob) T.mob(c.mob);
     else if (c.trap) T.trap(c.x, c.y);
     else if (c.adv || c.rf) { if (c.adv) cqBody(g, X, Y, TW, CQ_ADV_LOOK, 1); if (c.rf) T.rifle(c.x + (c.adv ? 0.4 : 0), c.y + (c.adv ? 0.3 : 0)); }
+    else if (c.ang != null && c.ang < 2.6) cqAngel(g, X, Y, TW, c.L, c.w, c.f, c.ang);
     else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y, TW, c.L, c.w, c.f); g.globalAlpha = 1; }
   }
   g.restore();
@@ -4507,6 +4708,28 @@ function cqBody(g, X, Y, TW, L, f, a) {
     }
   }
   if (e === 1) { g.fillStyle = '#f2c230'; for (const [dx, dy] of [[-8, -26], [4, -32], [14, -24]]) { g.beginPath(); g.arc(X + dx * u, Y + dy * u, 2.4 * u, 0, 7); g.fill(); } }
+}
+// resurrezione nella hall: scende dall'alto in un raggio di luce, con le ali che sbattono e l'aureola (t = secondi)
+function cqAngel(g, X, Y, TW, L, walk, f, t) {
+  const u = TW / 34, k = Math.min(1, t / 0.9), dy = (1 - (1 - (1 - k) * (1 - k))) * 70 * u, top = Y - dy - (cqTop(L) - 0.42) * TW;
+  if (t < 1.4) {   // raggio di luce
+    const a = 0.45 * (1 - t / 1.4), gr = g.createLinearGradient(0, Y - 4 * TW, 0, Y);
+    gr.addColorStop(0, 'rgba(255,248,200,0)'); gr.addColorStop(1, 'rgba(255,248,200,' + a + ')');
+    g.fillStyle = gr; g.fillRect(X - 22 * u, Y - 4 * TW, 44 * u, 4 * TW);
+    g.fillStyle = 'rgba(255,240,170,' + a + ')'; g.beginPath(); g.ellipse(X, Y, 24 * u, 8 * u, 0, 0, 7); g.fill();
+  }
+  const wa = t < 1.8 ? 1 : Math.max(0, 1 - (t - 1.8) / 0.6);
+  if (wa > 0) {   // ali (dietro)
+    const fl = Math.sin(t * 16) * (k < 1 ? 0.45 : 0.15);
+    g.save(); g.globalAlpha = wa; g.fillStyle = '#fbfbff'; g.strokeStyle = 'rgba(160,170,200,.8)'; g.lineWidth = 1.2 * u;
+    for (const sd of [-1, 1]) { g.beginPath(); g.ellipse(X + sd * 15 * u, Y - dy - 30 * u, 13 * u, 6 * u, sd * (0.6 + fl), 0, 7); g.fill(); g.stroke(); g.beginPath(); g.ellipse(X + sd * 12 * u, Y - dy - 24 * u, 9 * u, 4 * u, sd * (0.9 + fl), 0, 7); g.fill(); g.stroke(); }
+    g.restore();
+  }
+  cqPlayer(g, X, Y - dy, TW, L, k < 1 ? 0 : walk, f, dy > 3 * u);
+  if (dy > 3 * u) { g.fillStyle = 'rgba(0,0,0,' + (0.28 * k) + ')'; g.beginPath(); g.ellipse(X, Y, 14 * u * (0.5 + 0.5 * k), 6 * u * (0.5 + 0.5 * k), 0, 0, 7); g.fill(); }
+  const ha = t < 2 ? 1 : Math.max(0, 1 - (t - 2) / 0.6);   // aureola
+  if (ha > 0) { g.save(); g.globalAlpha = ha; g.strokeStyle = '#f2d24a'; g.lineWidth = 2.6 * u; g.beginPath(); g.ellipse(X + f * 2 * u, top - 7 * u, 9 * u, 3 * u, 0, 0, 7); g.stroke(); g.restore(); }
+  if (t < 1.2) { g.fillStyle = '#fff6c0'; for (let i = 0; i < 6; i++) { const a = i * 1.05 + t * 3, r = (14 + 10 * t) * u; g.fillRect(X + Math.cos(a) * r - 1.2 * u, Y - dy - 22 * u + Math.sin(a) * r * 0.6 - 1.2 * u, 2.4 * u, 2.4 * u); } }
 }
 function cqName(g, X, Y, name, col) {
   if (!name) return;

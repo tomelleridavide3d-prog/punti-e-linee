@@ -60,6 +60,9 @@
         "pos": { "$sid": { ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()" } },
         "st": { ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 60000" },
         "ev": { "$id": { ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 4000" } },
+        "hl": { "$sid": { ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()" } },
+        "hk": { "$to": { "$id": { ".validate": "newData.hasChildren(['f', 'n']) && newData.child('n').isString() && newData.child('n').val().length <= 14" } } },
+        "hc": { ".validate": "newData.hasChildren(['n']) && newData.child('n').isNumber()" },
         "rtc": { "$to": { "$id": { ".validate": "newData.hasChildren(['f', 'k', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 20000" } } },
         "$other": { ".validate": false }
       }
