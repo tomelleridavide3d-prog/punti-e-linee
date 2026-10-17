@@ -2393,7 +2393,7 @@ async function cqNetOpen(code, role) {
   // dopo un buco di rete (il telefono si riconnette) bisogna rifarle e rimettere il nome (N.arm), altrimenti per gli altri sono uscito
   const r = cqNetRef(`cq/${code}/pl/${N.sid}`);
   N.arm = () => {
-    for (const k of ['pl', 'pos', 'hl', 'hk', 'rtc']) F.onDisconnect(cqNetRef(`cq/${code}/${k}/${N.sid}`)).remove();
+    for (const k of ['pl', 'pos', 'hl', 'hk', 'rtc', 'dg']) F.onDisconnect(cqNetRef(`cq/${code}/${k}/${N.sid}`)).remove();
     if (N.role === 'host') { F.onDisconnect(cqNetRef('cqlist/' + code)).remove(); F.onDisconnect(cqNetRef('cq/' + code)).remove(); }
     return F.set(r, { name: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', look: cqLook(), ts: Date.now() });
   };
@@ -2481,7 +2481,7 @@ function cqVoiceSend(P) {   // il mio microfono verso un amico, con priorita' al
   sd.replaceTrack(cqV.mic && (!cqV.radio || cqImpSid(P.sid)) ? cqV.mic.getAudioTracks()[0] : null).catch(() => {});
   try { const p = sd.getParameters(); if (p.encodings && p.encodings[0]) { p.encodings[0].maxBitrate = 48000; p.encodings[0].priority = 'high'; p.encodings[0].networkPriority = 'high'; sd.setParameters(p).catch(() => {}); } } catch {}
 }
-function cqVoiceSig(to, o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/rtc/${to}`), Object.assign({ f: N.sid }, o)).catch(() => {}); }
+function cqVoiceSig(to, o) { const N = cq.net; const c = cqV.sent || (cqV.sent = {}); c[o.k] = (c[o.k] || 0) + 1; if (N) N.F.push(cqNetRef(`cq/${N.code}/rtc/${to}`), Object.assign({ f: N.sid }, o)).catch(() => {}); }
 function cqVoicePeer(sid, offer) {
   let P = cqV.peers[sid]; if (P) return P;
   // se la rete e' giu' (o sta cambiando) il telefono rifiuta: si riprova al prossimo giro di cqVoiceSync (ogni 4 s)
@@ -2541,6 +2541,7 @@ async function cqVoiceCall(sid) {
 }
 async function cqVoiceMsg(m) {
   const N = cq.net; if (!N || !m || !m.f || m.f === N.sid) return;
+  { const c = cqV.got || (cqV.got = {}); c[m.k] = (c[m.k] || 0) + 1; }
   try {
     if (m.k === 'offer') {
       if (cqV.peers[m.f] && cqV.peers[m.f].pc.signalingState !== 'stable') cqVoiceDrop(m.f);
@@ -2607,6 +2608,7 @@ const cqVBuf = new Uint8Array(256);
 function cqVoiceTick(dt) {
   if ((cqV.t = (cqV.t || 0) - dt) > 0) return; cqV.t = 0.1;
   if (cq.net && (cqV.st = (cqV.st || 0) - 0.1) <= 0) { cqV.st = 4; cqVoiceSync(); }
+  if (cq.net && (cqV.dt = (cqV.dt || 0) - 0.1) <= 0) { cqV.dt = 5; cqVoiceDiag().catch(() => {}); }
   const ok = cqRadioOk(); if (cqV.radio && !ok) cqRadioSet(false);
   if (ok !== cqV.rOk) { cqV.rOk = ok; cqVoiceUI(); }
   cqVoiceVol();
@@ -2645,6 +2647,38 @@ document.addEventListener('pointerdown', () => {
   try { if (actx && actx.state === 'suspended') actx.resume(); } catch {}
   for (const P of Object.values(cqV.peers)) if (P.au && P.au.paused && P.au.srcObject) P.au.play().catch(() => {});
 }, true);
+async function cqVoiceDiag() {
+  const N = cq.net; if (!N) return;
+  const peers = [];
+  for (const P of Object.values(cqV.peers)) {
+    const o = { to: (N.pl[P.sid] && N.pl[P.sid].name) || P.sid, c: P.pc.connectionState, i: P.pc.iceConnectionState, s: P.pc.signalingState, g: P.pc.iceGatheringState, age: Math.round((Date.now() - P.t0) / 1000), tr: !!P.tr, snd: !!(P.tr && P.tr.sender && P.tr.sender.track) };
+    try {
+      const L = new Set(), R = new Set(); let pair = '', rx = 0, tx = 0;
+      (await P.pc.getStats()).forEach(r => {
+        if (r.type === 'local-candidate') L.add(r.candidateType + '/' + (r.protocol || ''));
+        if (r.type === 'remote-candidate') R.add(r.candidateType + '/' + (r.protocol || ''));
+        if (r.type === 'candidate-pair' && (r.nominated || r.state === 'succeeded')) pair = r.state;
+        if (r.type === 'inbound-rtp' && r.kind === 'audio') rx = r.bytesReceived;
+        if (r.type === 'outbound-rtp' && r.kind === 'audio') tx = r.bytesSent;
+      });
+      Object.assign(o, { L: [...L].join(','), R: [...R].join(','), pair, rx, tx });
+    } catch {}
+    peers.push(o);
+  }
+  const d = { n: (store.settings.myName || '').slice(0, 14), t: Date.now(), mic: !!cqV.mic, hear: cqV.hear, sent: cqV.sent || {}, got: cqV.got || {}, ua: navigator.userAgent.slice(0, 160), peers,
+    others: Object.keys(N.pl).filter(x => x !== N.sid).length, prop: Object.keys(N.pl).filter(x => x !== N.sid).map(x => N.sid < x ? 'io' : 'altro').join(',') };
+  cqV.diag = d;
+  N.F.set(cqNetRef(`cq/${N.code}/dg/${N.sid}`), JSON.stringify(d).slice(0, 3900)).catch(() => {});
+  const el = $('#vDiag'); if (el) el.innerHTML = cqVoiceDiagTxt(d);
+}
+// lo stato della voce in parole semplici
+function cqVoiceDiagTxt(d) {
+  if (!d) return '';
+  const st = { connected: '✅ collegata', connecting: '⏳ si sta collegando', new: '⏳ in partenza', disconnected: '⚠️ interrotta', failed: '❌ non riesce', closed: '❌ chiusa' };
+  const rows = d.peers.map(p => '<b>' + esc(String(p.to)) + '</b>: ' + (st[p.c] || p.c) + (p.c === 'connected' ? (p.rx > 0 ? ', la sua voce arriva' : ', la sua voce non arriva (microfono spento?)') + (d.mic ? (p.tx > 0 ? ', la tua parte' : ', la tua non parte') : '') : ''));
+  if (d.others > d.peers.length) rows.push('⏳ con ' + (d.others - d.peers.length) + ' persona/e non è ancora partito il collegamento');
+  return '🔧 <b>Stato della voce</b> · microfono ' + (d.mic ? 'acceso' : 'spento') + '<br>' + (rows.join('<br>') || 'nessun amico nel set') + '<br><span style="opacity:.6">messaggi: mandati ' + JSON.stringify(d.sent) + ' · arrivati ' + JSON.stringify(d.got) + '</span>';
+}
 function cqVoiceStop(keepCode) {
   for (const sid of Object.keys(cqV.peers)) cqVoiceDrop(sid);
   if (cqV.unsub) { try { cqV.unsub(); } catch {} cqV.unsub = null; }
@@ -2689,7 +2723,7 @@ function cqNetBox() {
   const N = cq.net;
   if (!WEB || !hub.fb) { box.innerHTML = WEB ? '<p class="hint">Collegamento in corso…</p>' : ''; return; }
   if (N && N.role === 'host') {
-    box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano nell'Hotel dei Giochi, in "Set aperti". Il gioco lo scegli entrando in una porta della hall. Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><button class="btn" id="netClose" type="button" style="color:#ff8a7a">🗑️ Elimina il set (escono tutti)</button></div>`;
+    box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano nell'Hotel dei Giochi, in "Set aperti". Il gioco lo scegli entrando in una porta della hall. Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><div class="hint" id="vDiag">${cqVoiceDiagTxt(cqV.diag)}</div><button class="btn" id="netClose" type="button" style="color:#ff8a7a">🗑️ Elimina il set (escono tutti)</button></div>`;
     $('#netClose').onclick = () => { cqNetLeave(); cqHallExit(); cqReception(); };
     return;
   }
@@ -2710,7 +2744,7 @@ function cqNetWait() {
   cqCloseTask();
   const host = (cq.sets && cq.sets[N.code] && cq.sets[N.code].h) || '';
   $('#tkTitle').textContent = 'Set di ' + host;
-  $('#tkBody').innerHTML = `<p class="lead">Sei dentro! Chiudi questa finestra per entrare nella hall: la partita parte quando siete tutti pronti (o quando <b>${esc(host)}</b> preme Si gira!).</p><p id="nwList"></p>
+  $('#tkBody').innerHTML = `<p class="lead">Sei dentro! Chiudi questa finestra per entrare nella hall: la partita parte quando siete tutti pronti (o quando <b>${esc(host)}</b> preme Si gira!).</p><p id="nwList"></p><div class="hint" id="vDiag">${cqVoiceDiagTxt(cqV.diag)}</div>
     <div class="row"><div class="lbl">Oggetti da portare (al massimo 2)</div><div class="bagPick" id="lbBag"></div></div>
     <button class="btn" id="nwShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn go" id="nwOut" type="button">Esci dal set</button>`;
   cqNetPlayers(); cqBagPick();

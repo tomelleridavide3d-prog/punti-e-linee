@@ -63,6 +63,7 @@
         "hl": { "$sid": { ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()" } },
         "hk": { "$to": { "$id": { ".validate": "newData.hasChildren(['f', 'n']) && newData.child('n').isString() && newData.child('n').val().length <= 14" } } },
         "hc": { ".validate": "newData.hasChildren(['n']) && newData.child('n').isNumber()" },
+        "dg": { "$sid": { ".validate": "newData.isString() && newData.val().length < 4000" } },
         "rtc": { "$to": { "$id": { ".validate": "newData.hasChildren(['f', 'k', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 20000" } } },
         "$other": { ".validate": false }
       }
