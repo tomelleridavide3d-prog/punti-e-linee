@@ -6,7 +6,7 @@ https://tomelleridavide3d-prog.github.io/punti-e-linee/
 **Rispondi sempre in italiano, con parole semplici: l'utente non è un programmatore.**
 
 ## Struttura
-- `index.html`: tutto il gioco (HTML, CSS, JS). `WEB` = aperto dal sito (solo partite a distanza); da file locale ci sono anche computer (IA a livelli/adattiva) e "stesso dispositivo".
+- `index.html`: tutto il gioco (HTML, CSS, JS). `WEB` = aperto dal sito; da file locale (collegamento sul desktop) c'è in più "Stesso dispositivo". Il gioco dei punti, sia sul sito sia in locale, ha due modi: **Computer** (IA a livelli + adattiva, statistiche e profilo appreso) e **Amico a distanza** (sala giochi).
 - `peerjs.min.js`: PeerJS 1.5.4 (collegamento diretto tra telefoni, ora solo di riserva).
 - `database.rules.json`: regole del Realtime Database Firebase (progetto `linee-quadrettini-rh-f9552`). Si pubblicano da qui con `firebase deploy --only database` (servono `firebase.json` e `.firebaserc`, nel repo). Sul PC dell'utente firebase-tools è installato e collegato a tomelleridavide3d@gmail.com; se il login scade: `firebase login --no-localhost`, dare all'utente il link e farsi incollare il codice. Se lavori in cloud e non puoi pubblicarle, daglielo da incollare per intero nella console (Realtime Database > Regole > Pubblica).
 
@@ -24,11 +24,11 @@ Perché il canale Firebase: PeerJS (WebRTC) non passava tra telefoni su reti mob
 Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi = stessa persona, e non si vede nella lista "Giocatori online" (l'utente all'inizio ha provato così e pensava non funzionasse).
 
 ## Scelte di prodotto già fatte (non rimetterle)
-- Una sola regola: chi chiude un quadrato rigioca (tolti i "turni alterni", in tutte le versioni).
-- Chi inizia è sempre casuale nelle partite a distanza, anche nelle rivincite (la scelta resta solo contro il computer, versione da file locale).
-- Tolta la sezione a tendina "Come si gioca e qualche consiglio".
+- Partite a distanza: una sola regola (chi chiude un quadrato rigioca). Contro il computer c'è la scelta delle regole (`S.aiRule`: classic / turni alterni).
+- Chi inizia è sempre casuale nelle partite a distanza, anche nelle rivincite. Contro il computer c'è la scelta (Tu / Computer / A caso).
+- La tendina "Come si gioca e qualche consiglio" c'è solo contro il computer (tolta dalle partite a distanza). Il 17-10 l'utente ha chiesto di reintegrare il gioco contro il computer completo di tutto, anche sul sito.
 - Pulsante "Abbandona" (partite a distanza): conta come sconfitta per chi esce e vittoria per l'avversario; se non c'è nessuna mossa si esce senza penalità. Messaggio `forfeit` sul canale, `game.forfeit` = indice del giocatore che ha abbandonato.
-- Sito pubblicato (`WEB`): solo "Amico a distanza", niente PIN, nome chiesto la prima volta e ricordato, classifica visibile a tutti.
+- Sito pubblicato (`WEB`): nome chiesto la prima volta e ricordato, niente PIN, classifica visibile a tutti. Il modo scelto (Computer / Amico) si ricorda (`modeChosen`); alla prima visita parte "Amico a distanza". Le statistiche del sito hanno tre schede: Le mie / Classifica / Computer.
 
 ## Ambiente
 - Repo locale dell'utente: `C:\Users\Dadidk\punti-e-linee` (VS Code). Pubblicare = commit + push su `master`.
