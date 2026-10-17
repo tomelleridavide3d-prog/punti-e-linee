@@ -4898,7 +4898,8 @@ function cqDraw() {
   // posizioni allineate ai pixel dello schermo: l'immagine pronta e i riquadri ridisegnati combaciano senza righe
   const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
-  g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
+  g.setTransform(dp, 0, 0, dp, 0, 0);
+  { const bc = CQ_MAP.bg && CQ_MAP.bg(cq.x, cq.y); if (bc) { g.fillStyle = bc; g.fillRect(0, 0, W, H); } else g.clearRect(0, 0, W, H); }   // bg: colore dietro la mappa (il mare aperto dell'isola)
   for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
   // personaggi e corpi a terra (con le luci spente si vede solo vicino a se')
   const G = cq.g, meLook = G ? cqLookOf(G.me) : cqLook(), list = [];

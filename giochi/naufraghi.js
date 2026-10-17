@@ -11,7 +11,7 @@
 // a INGRANAGGI (enigma) che da' sulla stanza della bussola, l'unica in comune. A meta' partita scende la notte: torce sempre accese.
 CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   const SQ = L.squadre, OB = L.oggetti, MG = L.mappe, IZ = L.indizi;
-  const N = 80, C = 40, RX = 82, RY = 2;   // isola 80x80 col centro in 40,40; le rovine a parte, a destra (lontane: dall'isola non si vedono)
+  const N = 128, C = 64, RX = 130, RY = 2;   // isola 128x128 col centro in 64,64 (il mare aperto e' lo sfondo blu, non caselle); le rovine a parte, a destra (lontane: dall'isola non si vedono)
   const REACH = 1.2, KCD = 6, JAIL = 5, SAFE = 2.5, LIVES = 2, TOUCH = 0.7, PICK = 0.8, RAFT_R = 1.9, STEAL_T = 3, CHEST_T = 3, CHEST_CD = 45, CHEST_N = 3;
   const GUN = 6, FAST_T = 40, MAP_T = 20, SAIL_T = 6, SEE_N = 4.2, SEEN_T = 11, RUIN_SEE = 2.6, COVER = 1.5;
   const NEED = { log: 4, rope: 2, sail: 1, comp: 1 }, ORDER = ['comp', 'sail', 'rope', 'log'];
@@ -51,14 +51,14 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   function build(seed) {
     const rnd = MG.rnd(seed), W = RX + 40, H = N;
     const a0 = rnd() * Math.PI * 2, wob = MG.wobble(rnd, 3, 0.11), wobH = MG.wobble(rnd, 2, 0.07);
-    const R = a => 26 * wob(a), RH = a => 12.5 * wobH(a), RS = 5.4;
+    const R = a => 41 * wob(a), RH = a => 20 * wobH(a), RS = 7.5;
     const ad = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
     const ramp1 = [0, 1, 2, 3].map(k => a0 + 0.62 + k * Math.PI / 2), ramp2 = [a0 + Math.PI / 2, a0 - Math.PI / 2];
     const ter = []; for (let y = 0; y < H; y++) ter.push(new Uint8Array(W).fill(255));
     const AD = (x, y) => [Math.hypot(x + 0.5 - C, y + 0.5 - C), Math.atan2(y + 0.5 - C, x + 0.5 - C)];
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
       const [d, a] = AD(x, y), r = R(a), rh = RH(a);
-      ter[y][x] = d >= r + 2.5 ? 0 : d >= r ? 1 : d >= r - 3 ? 2 : d >= rh + 1.4 ? 3 : d >= rh ? (ramp1.some(q => ad(a, q) * d < 1.7) ? 7 : 6) : d >= RS + 1.4 ? 4 : d >= RS ? (ramp2.some(q => ad(a, q) * d < 1.4) ? 7 : 6) : 5;
+      ter[y][x] = d >= r + 4 ? 255 : d >= r + 2.5 ? 0 : d >= r ? 1 : d >= r - 3 ? 2 : d >= rh + 1.4 ? 3 : d >= rh ? (ramp1.some(q => ad(a, q) * d < 1.7) ? 7 : 6) : d >= RS + 1.4 ? 4 : d >= RS ? (ramp2.some(q => ad(a, q) * d < 1.4) ? 7 : 6) : 5;
     }
     const land = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ter[y][x] >= 2 && ter[y][x] <= 7 && ter[y][x] !== 6;
     const props = [], taken = new Set(), K = (x, y) => x + ',' + y, pp = (t, x, y, o) => { props.push([t, x, y, o]); taken.add(K(x, y)); };
@@ -71,7 +71,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     // sulla sabbia o in giungla: se il punto cade in acqua si scende verso il centro
     const inland = (x, y, a) => { for (let i = 0; i < 6 && !(ter[y] && ter[y][x] >= 2 && ter[y][x] <= 3); i++) { x = Math.round(x - Math.cos(a)); y = Math.round(y - Math.sin(a)); } return [x, y]; };
     const camps = [0, 1].map(t => {
-      const a = a0 + t * Math.PI, r = R(a), [cx, cy] = pol(a, r - 7.5), [rx, ry] = inland(...pol(a, r - 1.8), a), px = -Math.sin(a), py = Math.cos(a);
+      const a = a0 + t * Math.PI, r = R(a), [cx, cy] = pol(a, r - 9), [rx, ry] = inland(...pol(a, r - 1.8), a), px = -Math.sin(a), py = Math.cos(a);
       return { t, a, x: cx + 0.5, y: cy + 0.5, cx, cy, rx, ry, tent: inland(Math.round(cx + px * 3), Math.round(cy + py * 3), a), fl: inland(Math.round(rx + px * 1.6), Math.round(ry + py * 1.6), a) };
     });
     const clear = [];   // zone da lasciare libere: campi, ingressi, rampe, cima
@@ -103,7 +103,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     for (const [k, n, a, tt] of LM) {
       for (let i = 0; i < 400; i++) {
         const x = 3 + Math.floor(rnd() * (N - 6)), y = 3 + Math.floor(rnd() * (N - 6));
-        if (ter[y][x] !== tt || isClear(x, y) || camps.some(c => Math.hypot(c.cx - x, c.cy - y) < 11) || lms.some(l => Math.hypot(l.x - x, l.y - y) < 10)) continue;
+        if (ter[y][x] !== tt || isClear(x, y) || camps.some(c => Math.hypot(c.cx - x, c.cy - y) < 14) || lms.some(l => Math.hypot(l.x - x, l.y - y) < 15)) continue;
         const cells = k === 'pond' ? [[0, 0], [1, 0], [0, 1], [1, 1]] : k === 'wreck' ? [[0, 0], [1, 0]] : k === 'stones' ? [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -2], [0, 2], [-2, 0], [2, 0]] : [[0, 0]];
         if (!cells.every(([dx, dy]) => free(x + dx, y + dy) && ter[y + dy][x + dx] === tt)) continue;
         if (k === 'pond') cells.forEach(([dx, dy]) => pp('water', x + dx, y + dy)); else if (k === 'wreck') { pp('wreck', x, y); pp('wreck2', x + 1, y); }
@@ -142,9 +142,9 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const sl = lmSh.find(l => ['wreck', 'hut', 'tower', 'whale'].includes(l.k)) || lmSh[0];
     const sp = sl && spot(sl.x, sl.y, 2.5) || rspot([3, 4], 0, []) || [C + 0.5, C + 3.5]; items.push(['sail', ...sp]); used.push(sp);
     for (const l of lmSh.filter(l => l !== sl).slice(0, 3)) { const p = spot(l.x, l.y, 2.5); if (p) { items.push(['rope', ...p]); used.push(p); } }
-    while (items.filter(i => i[0] === 'rope').length < 5) { const p = rspot([3, 4], 8, used); if (!p) break; items.push(['rope', ...p]); used.push(p); }
-    for (let i = 0; i < 9; i++) { const p = rspot([2], 4, used); if (p) { items.push(['log', ...p]); used.push(p); } }
-    for (let i = 0; i < 7; i++) { const p = rspot([3], 4, used); if (p) { items.push(['log', ...p]); used.push(p); } }
+    while (items.filter(i => i[0] === 'rope').length < 5) { const p = rspot([3, 4], 14, used); if (!p) break; items.push(['rope', ...p]); used.push(p); }
+    for (let i = 0; i < 12; i++) { const p = rspot([2], 6, used); if (p) { items.push(['log', ...p]); used.push(p); } }
+    for (let i = 0; i < 10; i++) { const p = rspot([3], 6, used); if (p) { items.push(['log', ...p]); used.push(p); } }
     // ---- ROVINE (coordinate "da 0" spostate di RX, RY), meta' 0 a sinistra, meta' 1 a destra (speculare) ----
     const rooms = [{ n: 'Isola', x: 0, y: 0, w: N, h: N, c: ['#4f8a3c', '#4a8338'], wc: 'none', k: 'isle', nl: 1, nm: 1 }];
     const RZ = { half: [], gates: [], comp: null };
@@ -176,7 +176,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     // squali: girano nel mare intorno all'isola
     const sharks = []; for (let i = 0; i < 5; i++) sharks.push({ d: 3 + rnd() * 6, w: (0.05 + rnd() * 0.05) * (rnd() < 0.5 ? -1 : 1), p: rnd() * 7 });
     const ring = []; for (let i = 0; i < 10; i++) ring.push([camps[0].cx + (i % 3) - 1, camps[0].cy + Math.floor(i / 3) - 1]);
-    return { ok: okAll, w: W, h: H, rooms, doors: [], decals, props, holes: [], trees, deco: deco2, tasks: [], hall: 0, cams: [], vending: [], ring: ring.filter(([x, y]) => free(x, y)).concat([[camps[0].cx, camps[0].cy + 1]]),
+    const holes = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ter[y][x] === 255) { let w = 1; while (x + w < N && ter[y][x + w] === 255) w++; holes.push([x, y, w, 1]); x += w - 1; }
+    return { ok: okAll, w: W, h: H, rooms, doors: [], decals, props, holes, trees, bg: x => x >= RX - 8 ? '#050608' : '#2e79b3', deco: deco2, tasks: [], hall: 0, cams: [], vending: [], ring: ring.filter(([x, y]) => free(x, y)).concat([[camps[0].cx, camps[0].cy + 1]]),
       button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm'], canopy, trunk,
       ter, camps, mouths, RZ, lms, items, sharks, top, R, RS, seed };
   }
@@ -293,6 +294,12 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     if (b.hd && b.t !== a.t) return d < 0.9;
     if (lvl(p.x)) return d < RUIN_SEE || roomAt(p.x, p.y) === roomAt(q.x, q.y);
     return dark(G) > 0.5 ? d < SEE_N || d < SEEN_T : d < 14;
+  }
+  // stanza delle rovine dove sono (sulla soglia di una porta resta quella di prima)
+  function ruinRoom(G) {
+    const r = roomAt(cq.x, cq.y), R = CQ_ROOMS[r];
+    if (R && R.k === 'ruin' && R.n !== 'Porta' && r !== G.rr) { G.rr = r; G.rrT = performance.now(); if (G.time > 0.5) { thud(0.35, 180); beep(220, 0.25, 0.02, 0.05, 'triangle'); } }
+    return G.rr;
   }
   const cover = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const s = cqSolid[Math.floor(y) + dy] && cqSolid[Math.floor(y) + dy][Math.floor(x) + dx]; if (s && (s.prop === 'bush' || s.prop === 'bigrock') && Math.hypot(Math.floor(x) + dx + 0.5 - x, Math.floor(y) + dy + 0.5 - y) < COVER) return true; } return false; };
   const raftOf = (G, t) => { const c = MP().camps[t]; return { x: c.rx + 0.5, y: c.ry + 0.5 }; };
@@ -432,7 +439,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   }
   function wander(G, c) {
     if (c.path.length && Math.random() > 0.05) return;
-    for (let i = 0; i < 30; i++) { const a = Math.random() * 7, r = 4 + Math.random() * 20, x = Math.floor(C + Math.cos(a) * r), y = Math.floor(C + Math.sin(a) * r); if (cqCellFree(x, y)) { if (go(G, c, x + 0.5, y + 0.5)) return; } }
+    for (let i = 0; i < 30; i++) { const a = Math.random() * 7, r = 4 + Math.random() * 36, x = Math.floor(C + Math.cos(a) * r), y = Math.floor(C + Math.sin(a) * r); if (cqCellFree(x, y)) { if (go(G, c, x + 0.5, y + 0.5)) return; } }
   }
   function cover4(c) {   // nascondiglio piu' vicino entro 6
     let b = null, bd = 6;
@@ -444,7 +451,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const t = c.t, h = held(G, c), foes = active(G).filter(e => e.t !== t && canSee(G, c, e)), RZ = MP().RZ;
     // attacco
     const v = stabTarget(G, c);
-    if (v && G.time >= (c.kcd || 0) && (Math.random() < 0.85 || held(G, v))) { doAct(G, c, { k: 'stab', v: v.id }); return; }
+    if (v && G.time >= (c.kcd || 0) && (held(G, v) || v.op || held(G, c) || (c.role === 'd' && nearRaft(G, c, t)) || Math.random() < 0.12)) { doAct(G, c, { k: 'stab', v: v.id }); return; }   // sempre chi porta o ruba, gli altri ogni tanto
     const gt = gunTarget(G, c); if (gt && Math.random() < 0.4) { doAct(G, c, { k: 'shoot', v: gt.id }); return; }
     if (c.hd) { if (foes.some(e => dist(c, e) < 2.6) || Math.random() < 0.02) { c.hd = 0; } else return; }
     // con un pezzo in mano: alla zattera
@@ -572,7 +579,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     desc: '🏝️ Due squadre naufragate, <b>Granchi</b> 🦀 e <b>Delfini</b> 🐬, su un\'isola diversa ogni volta. Costruite la <b>zattera</b> al vostro campo: 4 tronchi 🪵, 2 corde 🪢 (poche!), la <b>vela</b> ⛵ (una sola) e la <b>bussola</b> 🧭 (una sola, nel cuore delle rovine). Salpa chi la finisce per primo. Un pezzo alla volta in mano. Si ruba tutto: da terra, toccando chi porta un pezzo, o dalla zattera nemica. 🔪 Gli avversari si colpiscono: 2 vite, poi fantasma. 🌿 Nasconditi nei cespugli o dietro le grandi rocce per le imboscate. ⛰️ Sulla cima: forziere 💰 e mercante 🛒. Nelle rovine servono almeno in due: pedane, leva e la porta degli ingranaggi. A metà partita scende la notte.',
     maps: [['isola', 'Isola misteriosa']], TEAMS, SHOP,
     def: { time: 420, map: 'isola', n: 8, fill: true },
-    opts: o => `<div class="row"><div class="lbl">Durata</div>${seg('time', [[300, '5:00'], [420, '7:00']], o.time || 420)}</div>`,
+    opts: o => `<div class="row"><div class="lbl">Durata</div>${seg('time', [[300, '5:00'], [420, '7:00'], [600, '10:00']], o.time || 420)}</div>`,
     read: d => ({ time: +d.get('time') || 420 }),
     start(G) {
       setup(G);
@@ -694,10 +701,11 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (!me.alive) { const d = lvl(cq.x) ? 0.5 : 0.45 * dark(G); return d > 0 ? { a: d, r: 6, lights: [], see: () => true } : null; }
       const lights = [];
       if (lvl(cq.x)) {
-        lights.push([cq.x, cq.y, 3.4, 0.95]);
-        const ri = roomAt(cq.x, cq.y), R = CQ_ROOMS[ri]; if (R && R.k === 'ruin' && R.n !== 'Porta') lights.push([R.x + R.w / 2, R.y + R.h / 2, Math.max(R.w, R.h) * 0.75, 0.6]);
-        for (const c of G.chars) if (c !== me && c.alive && !jailed(G, c) && lvl(c.x) && c.t === me.t && Math.hypot(c.x - cq.x, c.y - cq.y) < 14) lights.push([c.x, c.y, 2.6, 0.8]);
-        return { a: 0.97, r: 3.4, lights, see: (x, y) => lvl(x) === 1 && (Math.hypot(x - cq.x, y - cq.y) < RUIN_SEE || roomAt(x, y) === ri) };
+        const ri = ruinRoom(G), R = CQ_ROOMS[ri], ig = Math.min(1, (performance.now() - (G.rrT || 0)) / 500);   // la torcia si accende (mezzo secondo)
+        lights.push([cq.x, cq.y, 3.2, 0.95 * ig]);
+        if (R) lights.push([R.x + R.w / 2, R.y + R.h / 2, Math.max(R.w, R.h) * 0.72, 0.75 * ig]);
+        for (const c of G.chars) if (c !== me && c.alive && !jailed(G, c) && lvl(c.x) && c.t === me.t && roomAt(c.x, c.y) === ri) lights.push([c.x, c.y, 2.6, 0.8]);
+        return { a: 0.94, r: 3.2, lights, see: (x, y) => lvl(x) === 1 && (Math.hypot(x - cq.x, y - cq.y) < 1.6 || roomAt(x, y) === ri) };
       }
       const dk = dark(G); if (dk <= 0) return null;
       lights.push([cq.x, cq.y, 3.6, 0.95]);
@@ -731,6 +739,15 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       }
       // pezzi a terra e in mano
       OB.draw(g, G, sx, sy, TW, (x, y) => lit(x, y) || (!MN && lvl(x) === lvl(cq.x)), c => { if (c !== me && (this.hide(c) || (MN && !MN.see(c.x, c.y)))) return false; return lvl(P(c).x) === lvl(cq.x); });
+      // rovine: nero pieno fuori dalla stanza dove sono (con le sue pareti)
+      if (lvl(cq.x) && me.alive) {
+        const R = CQ_ROOMS[ruinRoom(G)];
+        if (R) {
+          const x0 = R.x - 1, y0 = R.y - 1, x1 = R.x + R.w + 1, y1 = R.y + R.h + 1, up = TW * 0.5 * 1.15 * 1.6, pt = (x, y, u) => [sx(x, y), sy(x, y) - (u ? up : 0)];
+          const L = [pt(x0, y1, 1), pt(x0, y0, 1), pt(x1, y0, 1), pt(x1, y0), pt(x1, y1), pt(x0, y1)];
+          g.save(); g.beginPath(); g.rect(0, 0, W, H); g.moveTo(...L[0]); for (const q of L.slice(1)) g.lineTo(...q); g.closePath(); g.fillStyle = '#050608'; g.fill('evenodd'); g.restore();
+        }
+      }
       // spari
       for (const f of G.fx) { const k = 1 - (G.time - f[4]) / 0.5; if (k <= 0) continue; g.strokeStyle = 'rgba(255,230,140,' + k + ')'; g.lineWidth = 3; g.beginPath(); g.moveTo(sx(f[0], f[1]), sy(f[0], f[1]) - TW * 0.8); g.lineTo(sx(f[2], f[3]), sy(f[2], f[3]) - TW * 0.8); g.stroke(); }
       // mappa del tesoro comprata: dove sono corde e vela
