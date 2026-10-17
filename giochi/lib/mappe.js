@@ -3,7 +3,7 @@
 //   rnd(seme) -> funzione che da' numeri a caso 0-1 (sempre uguali con lo stesso seme)
 //   inR(x, y, [rx, ry, rw, rh], margine), hit(a, b, margine): rettangoli
 //   wobble(rnd, n, forza) -> f(angolo) = 1 +- forza: bordo irregolare (isole, laghi, radure)
-//   flood(W, H, free, x, y) -> celle raggiungibili da x, y (Uint8Array W*H)
+//   flood(W, H, free, x, y, edge) -> celle raggiungibili da x, y (Uint8Array W*H); edge facoltativo = passaggio permesso tra due celle
 //   scatter(rnd, n, prova, ok, lontani, gia) -> fino a n punti [x, y] dove ok(x, y), lontani almeno 'lontani' tra loro e da quelli in gia
 (() => {
   CQ_LIB.mappe = {
@@ -14,10 +14,10 @@
       const W = []; for (let i = 0; i < n; i++) W.push([2 + i * 2 + Math.floor(rnd() * 2), rnd() * 7, (0.5 + rnd() * 0.5) * k / (i + 1)]);
       return a => 1 + W.reduce((s, [f, p, m]) => s + Math.sin(a * f + p) * m, 0);
     },
-    flood(W, H, free, x, y) {
+    flood(W, H, free, x, y, edge) {   // edge(ax, ay, bx, by): si puo' passare dalla cella a alla b? (es. un gradino alla volta)
       const seen = new Uint8Array(W * H); if (!free(x, y)) return seen;
       const q = [y * W + x]; seen[q[0]] = 1;
-      while (q.length) { const i = q.pop(), cx = i % W, cy = (i / W) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy, j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[j] && free(nx, ny)) { seen[j] = 1; q.push(j); } } }
+      while (q.length) { const i = q.pop(), cx = i % W, cy = (i / W) | 0; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = cx + dx, ny = cy + dy, j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && !seen[j] && free(nx, ny) && (!edge || edge(cx, cy, nx, ny))) { seen[j] = 1; q.push(j); } } }
       return seen;
     },
     scatter(rnd, n, tries, ok, sep = 0, have = []) {

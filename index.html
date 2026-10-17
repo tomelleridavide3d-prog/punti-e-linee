@@ -2975,6 +2975,25 @@ const CQ_OPT_DEF = { n: 8, imps: 1, tasks: 5, kcd: 30, blackout: true, torch: tr
 const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
 const cqMaxImps = n => n <= 5 ? 1 : n <= 7 ? 2 : 3;
 const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
+// ---- ALTEZZE (solo le mappe con CQ_MAP.hz = livello di ogni casella; CQ_MAP.hb = altezza di un livello in U): colline a gradini di blocchi.
+// Si sale o si scende un livello alla volta (2 o piu' = parete di roccia), in salita si va piu' piano. Le caselle alzate si disegnano come colonne
+// (cqTools.zcell) in ordine di profondita' con oggetti e personaggi: una collina davanti copre chi sta dietro.
+const cqHc = (x, y) => { const h = CQ_MAP.hz; return h && h[y] ? h[y][x] || 0 : 0; };
+function cqHz(x, y) {   // livello sotto un punto, sfumato a cavallo dei gradini (0,2 casella per parte): niente salti
+  if (!CQ_MAP.hz) return 0;
+  const cx = Math.floor(x), cy = Math.floor(y), fx = x - cx, fy = y - cy, z0 = cqHc(cx, cy); let z = z0;
+  if (fx > 0.8) z += (cqHc(cx + 1, cy) - z0) * (fx - 0.8) / 0.4; else if (fx < 0.2) z += (cqHc(cx - 1, cy) - z0) * (0.2 - fx) / 0.4;
+  if (fy > 0.8) z += (cqHc(cx, cy + 1) - z0) * (fy - 0.8) / 0.4; else if (fy < 0.2) z += (cqHc(cx, cy - 1) - z0) * (0.2 - fy) / 0.4;
+  return z;
+}
+const cqZpx = (x, y, TW) => CQ_MAP.hz ? cqHz(x, y) * (CQ_MAP.hb || 0.7) * TW * 0.575 : 0;   // in pixel (U = TW / 2 * 1,15)
+// da x0, y0 a x1, y1: libero e al massimo un gradino rispetto alla casella di partenza
+function cqFreeZ(x0, y0, x1, y1) {
+  if (!cqFree(x1, y1)) return false; if (!CQ_MAP.hz) return true;
+  const a = cqHc(Math.floor(x0), Math.floor(y0)), r = CQ_R;
+  for (const [dx, dy] of [[-r, -r], [r, -r], [-r, r], [r, r]]) if (Math.abs(cqHc(Math.floor(x1 + dx), Math.floor(y1 + dy)) - a) > 1) return false;
+  return true;
+}
 const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return CQ_ROOMS[r >= 0 ? r : CQ_HALL].n; };
 const cqLookOf = c => c.bot || c.remote ? (c.disg && cq.g && c.disg.until > cq.g.time ? cq.g.chars[c.disg.id].look : c.look) : cq.g && cq.g.disg && cq.g.disg.until > cq.g.time ? cq.g.chars[cq.g.disg.id].look : cqLook();
 const cqDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -2995,6 +3014,7 @@ function cqPath(sx, sy, ex, ey) {
       const nx = x + dx, ny = y + dy, n = ny * W + nx;
       if (!cqCellFree(nx, ny) || prev[n] >= 0) continue;
       if (dx && dy && (!cqCellFree(x + dx, y) || !cqCellFree(x, y + dy))) continue;
+      if (CQ_MAP.hz) { const h = cqHc(x, y); if (Math.abs(cqHc(nx, ny) - h) > 1 || (dx && dy && (Math.abs(cqHc(x + dx, y) - h) > 1 || Math.abs(cqHc(x, y + dy) - h) > 1))) continue; }   // un gradino alla volta
       prev[n] = c; q.push(n);
     }
   }
@@ -3072,6 +3092,7 @@ function cqModeUI(on) { $('#ciack').classList.toggle('hallMode', !!on); $('#cqMo
 // passo di un personaggio del computer lungo il suo percorso (sp = velocita' rispetto alla mia)
 function cqModeStep(c, dt, sp) {
   const p = c.path && c.path[0]; if (!p) { c.walk = 0; return; }
+  if (CQ_MAP.hz && cqHc(Math.floor(p[0]), Math.floor(p[1])) > cqHc(Math.floor(c.x), Math.floor(c.y))) sp *= 0.72;   // in salita piu' piano
   const dx = p[0] - c.x, dy = p[1] - c.y, d = Math.hypot(dx, dy), st = CQ_SPEED * sp * dt;
   if (d <= st) { c.x = p[0]; c.y = p[1]; c.path.shift(); } else { c.x += dx / d * st; c.y += dy / d * st; }
   if (Math.abs(dx - dy) > 0.01) c.face = dx - dy > 0 ? 1 : -1;
@@ -4418,9 +4439,10 @@ function cqFrame(t) {
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
   const d = (!G || playing || (G.hall && G.me.alive && $('#cqPick').hidden)) && !(G && G.mode && G.pre > 0) ? cqDir() : null;
   if (d) {
-    const sp = CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1) * (G && G.mode && G.M.speed ? G.M.speed(G.me) : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
-    if (cqFree(nx, cq.y)) cq.x = nx;
-    if (cqFree(cq.x, ny)) cq.y = ny;
+    const up = CQ_MAP.hz && cqHz(cq.x + d.wx * 1.5, cq.y + d.wy * 1.5) > cqHz(cq.x, cq.y) + 0.3 ? 0.72 : 1;   // in salita piu' piano
+    const sp = up * CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1) * (G && G.mode && G.M.speed ? G.M.speed(G.me) : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
+    if (cqFreeZ(cq.x, cq.y, nx, cq.y)) cq.x = nx;
+    if (cqFreeZ(cq.x, cq.y, cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.lx = d.wx - d.wy; cq.ly = (d.wx + d.wy) / 2;   // dove guardo, sullo schermo
     cq.walk += dt * 11;
@@ -4741,6 +4763,7 @@ function cqTools(g, TW) {
     else if (t === 'shrub') { bx(x + a - 0.2, y + b - 0.2, x + a + 0.2, y + b + 0.2, 0, 0.32, '#3f7a36'); bx(x + a - 0.12, y + b - 0.12, x + a + 0.12, y + b + 0.12, 0.32, 0.45, '#4a8a40'); }
     else if (t === 'tuft') { const L = []; for (let i = 0; i < 5; i++) { const u = a + (i - 2) * 0.05; L.push([S(x + u, y + b, 0), S(x + u + (i - 2) * 0.04, y + b, 0.22 + 0.06 * (i % 2))]); } strokes(L, '#6a9a48', Math.max(1.5, TW / 26)); }
     else if (t === 'mush') { cyl(x + a, y + b, 0.04, 0, 0.12, '#efe6d2'); cyl(x + a, y + b, 0.1, 0.12, 0.17, '#c8402a'); dot(x + a, y + b, 0.18, 0.012, '#fff'); }
+    else if (CQ_MAP.decoDraw) CQ_MAP.decoDraw(K, t, x, y);   // decorazioni di una mappa dei giochi (es. cespugli attraversabili)
   };
   // animali a blocchetti (lupo grigio, orso marrone), girati verso dove vanno; x, y anche non interi
   const mob = m => {
@@ -4780,6 +4803,13 @@ function cqTools(g, TW) {
   };
   return {
     px, py,
+    // casella alzata (mappe con le altezze): colonna di blocchi a strati, pavimento in cima, poi l'oggetto che c'e' sopra
+    zcell(x, y, o) {
+      const z = cqHc(x, y); if (!z) { if (o) this.cell(x, y, o); return; }
+      const hb = CQ_MAP.hb || 0.7;
+      for (let i = 0; i < z; i++) bx(x, y, x + 1, y + 1, i * hb, (i + 1) * hb, CQ_MAP.hzSide ? CQ_MAP.hzSide(x, y, i, z) : '#7d6f58');
+      g.save(); g.translate(0, -z * hb * U); this.floor(x, y); if (o) this.cell(x, y, o); g.restore();
+    },
     floor(x, y) {
       const col = cqFloor[y] && cqFloor[y][x]; if (!col) return;
       const q = [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)]; poly(q, col);
@@ -4818,10 +4848,10 @@ function cqBuildBg() {
   const sc = cq.dpr, TP = 1024, TS = TP / sc;   // tessere da 1024 pixel veri
   // cosa disegnare, con il rettangolo che occupa (per disegnare in ogni tessera solo quello che la tocca)
   const job = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x] && !cqHc(x, y)) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) { const o = cqSolid[y][x], tall = o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? CQ_TREE_UP : 3.5) * U - TW, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] || cqHc(x, y)) { const o = cqSolid[y][x], tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW, zp = cqHc(x, y) * (CQ_MAP.hb || 0.7) * U; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? CQ_TREE_UP : 3.5) * U - TW - zp, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
   cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true;
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
@@ -4833,7 +4863,7 @@ function cqBuildBg() {
     const T = cqTools(g, TW), x0 = tx * TS - ox, y0 = ty * TS - oy, x1 = x0 + c.width / sc, y1 = y0 + c.height / sc;
     for (const j of job) {
       if (j.b[2] < x0 || j.b[0] > x1 || j.b[3] < y0 || j.b[1] > y1) continue;
-      if (j.k === 0) T.floor(j.x, j.y); else if (j.k === 1) T.decals(); else T.cell(j.x, j.y, j.o);
+      if (j.k === 0) T.floor(j.x, j.y); else if (j.k === 1) T.decals(); else T.zcell(j.x, j.y, j.o);
     }
     tiles.push({ c, x: tx * TS, y: ty * TS, w: c.width / sc, h: c.height / sc });
   }
@@ -4857,7 +4887,7 @@ function cqCanopySprites(TW, sc) {
 // ritaglio della mappa pronta nel riquadro della chioma di un albero, ma senza quella chioma (si fa una volta e si riusa finche' la mappa non cambia)
 function cqTreePatch(t, B) {
   const p = t.patch; if (p && p.B === B && p.ver === B.ver) return p;
-  const TW = B.TW, TH = TW / 2, sc = B.dpr, sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2;
+  const TW = B.TW, TH = TW / 2, sc = B.dpr, sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2 - cqHc(t.x, t.y) * (CQ_MAP.hb || 0.7) * TW * 0.575;
   const r = [Math.floor(sx - CQ_TREE_SD * TW), Math.floor(sy - 5.6 * TW), Math.ceil(sx + CQ_TREE_SD * TW), Math.ceil(sy + 0.7 * TW)];   // 5,6 TW = CQ_TREE_UP in U
   const c = (p && p.c) || document.createElement('canvas'); c.width = Math.ceil((r[2] - r[0]) * sc); c.height = Math.ceil((r[3] - r[1]) * sc);
   const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -r[0] * sc, -r[1] * sc);
@@ -4880,7 +4910,7 @@ function cqFadeImg(t, B) {
 function cqBgCell(x, y) {
   const B = cq.bg; if (!B) return;
   const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
-  const r = [B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - CQ_TREE_UP * U - TW, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  const r = [B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - CQ_TREE_UP * U - TW - cqHc(x, y) * (CQ_MAP.hb || 0.7) * U, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW];
   cq.baking = true;
   for (const t of B.tiles) {
     const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
@@ -4896,7 +4926,7 @@ function cqDraw() {
   const B = cq.bg, TW = B.TW, TH = TW / 2, U = TH * 1.15;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   // posizioni allineate ai pixel dello schermo: l'immagine pronta e i riquadri ridisegnati combaciano senza righe
-  const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
+  const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y) - cqZpx(cq.x, cq.y, TW);   // con le altezze la telecamera sale con me
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0);
   { const bc = CQ_MAP.bg && CQ_MAP.bg(cq.x, cq.y); if (bc) { g.fillStyle = bc; g.fillRect(0, 0, W, H); } else g.clearRect(0, 0, W, H); }   // bg: colore dietro la mappa (il mare aperto dell'isola)
@@ -4942,7 +4972,7 @@ function cqDraw() {
     if (fR) list.push({ fire: 1, x: F.x + 0.5, y: F.y + 0.5, fu: S.fuel });   // fiamme del falo' (si muovono: si ridisegnano come un personaggio)
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
   for (const o of list) {
-    o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y);
+    o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y) - cqZpx(o.x, o.y, TW);
     o.r = cqBox(o, TW).map(al);
     o.on = o.r[2] > 0 && o.r[0] < W && o.r[3] > 0 && o.r[1] < H;
   }
@@ -4957,7 +4987,7 @@ function cqDraw() {
       const d = cq.x + cq.y, mx = tx + X, my = ty + Y;
       for (const t of CQ_MAP.trees) {
         if (t.cut || Math.abs(t.x - cq.x) > 6 || Math.abs(t.y - cq.y) > 6) { t.a = 1; continue; }
-        const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5);
+        const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5) - cqZpx(t.x + 0.5, t.y + 0.5, TW);
         const cy = my - 0.9 * TW, behind = cq.fading.length < 2 && d < t.x + t.y + 1.2 && Math.abs(mx - sx) < 1.2 * TW && cy > sy - 5.0 * TW && cy < sy - 0.8 * TW;   // copre davvero il mio corpo
         t.a += ((behind ? 0.3 : 1) - t.a) * 0.15; if (t.a > 0.99) t.a = 1;
         if (t.a < 1 && cqTreePatch(t, B)) cq.fading.push(t);
@@ -4985,7 +5015,7 @@ function cqDraw() {
   }
   if (nl > 0) {
     const lights = [[tx + X, ty + Y - TH, (MN ? MN.r : G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
-    if (MN) for (const [lx, ly, lr, ls] of MN.lights) lights.push([tx + px(lx, ly), ty + py(lx, ly) - TH * 0.5, lr * TW, ls]);
+    if (MN) for (const [lx, ly, lr, ls] of MN.lights) lights.push([tx + px(lx, ly), ty + py(lx, ly) - TH * 0.5 - cqZpx(lx, ly, TW), lr * TW, ls]);
     if (fR) {
       const fx = tx + px(F.x + 0.5, F.y + 0.5), fy = ty + py(F.x + 0.5, F.y + 0.5) - TH * 0.5;
       lights.push([fx, fy, fR * TW, 1]);
@@ -5039,7 +5069,7 @@ function cqDraw() {
   }
   if (G && G.hall) cqHallSigns(g, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y), TW);
   if (G && G.mode) {   // giochi del motore: cose sopra alla mappa e sopra ai personaggi
-    if (G.M.over) G.M.over(g, G, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y), TW);
+    if (G.M.over) G.M.over(g, G, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y) - cqZpx(x, y, TW), TW);
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
   }
   for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
@@ -5085,16 +5115,17 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     for (let x = fx - rng; x <= fx + rng; x++) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
       if (!B && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
-      const o = cqSolid[y][x];
+      const o = cqSolid[y][x], zc = cqHc(x, y);
       const tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW;
-      if (o && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? CQ_TREE_UP : 3.5) * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
+      if ((o || zc) && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? CQ_TREE_UP : 3.5) * U - TW - zc * (CQ_MAP.hb || 0.7) * U < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
   if (!B) T.decals();
-  for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: c.x + c.y, c });
+  // con le altezze chi sta su una casella si disegna dopo la sua colonna (e prima di quelle davanti)
+  for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: CQ_MAP.hz ? Math.max(c.x + c.y, Math.floor(c.x) + Math.floor(c.y) + 1.001) : c.x + c.y, c });
   items.sort((a, b) => a.d - b.d);
   for (const it of items) {
-    if (!it.c) { T.cell(it.x, it.y, it.o); continue; }
+    if (!it.c) { T.zcell(it.x, it.y, it.o); continue; }
     const c = it.c, X = c.sx - tx, Y = c.sy - ty;
     if (c.body) cqBody(g, X, Y, TW, c.L, c.f, c.a, c.nk);
     else if (c.fire) cqFlames(g, X, Y, TW, c.fu);

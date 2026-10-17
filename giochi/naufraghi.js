@@ -46,27 +46,38 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   OB.kind('comp', { n: 'bussola', a: 'la bussola', e: '🧭', w: 1, draw: compD });
 
   // ======================= MAPPA: l'isola (col seme) e le rovine =======================
-  // ter[y][x]: 0 mare aperto, 1 mare basso, 2 sabbia, 3 giungla, 4 collina, 5 cima, 6 roccia (gradino), 7 rampa, 255 fuori dall'isola
+  // ter[y][x]: 0 mare aperto, 1 mare basso, 2 sabbia, 3 giungla, 4 collina, 5 cima, 255 fuori dall'isola.
+  // hz[y][x]: livello (altezze del motore): collina a campana fino a 7 gradini al centro; due pareti di roccia con gli ingressi delle miniere (rovine)
   function mapIsola(seed) { let M = null; for (let k = 0; k < 8 && !(M && M.ok); k++) M = build((seed | 0) * 7 + k); return M; }
   function build(seed) {
     const rnd = MG.rnd(seed), W = RX + 40, H = N;
-    const a0 = rnd() * Math.PI * 2, wob = MG.wobble(rnd, 3, 0.11), wobH = MG.wobble(rnd, 2, 0.07);
-    const R = a => 41 * wob(a), RH = a => 20 * wobH(a), RS = 7.5;
+    const a0 = rnd() * Math.PI * 2, wob = MG.wobble(rnd, 3, 0.11), wobH = MG.wobble(rnd, 3, 0.12);
+    const R = a => 41 * wob(a);
     const ad = (a, b) => Math.abs(Math.atan2(Math.sin(a - b), Math.cos(a - b)));
-    const ramp1 = [0, 1, 2, 3].map(k => a0 + 0.62 + k * Math.PI / 2), ramp2 = [a0 + Math.PI / 2, a0 - Math.PI / 2];
-    const ter = []; for (let y = 0; y < H; y++) ter.push(new Uint8Array(W).fill(255));
+    const ter = [], hz = []; for (let y = 0; y < H; y++) { ter.push(new Uint8Array(W).fill(255)); hz.push(new Uint8Array(W)); }
     const AD = (x, y) => [Math.hypot(x + 0.5 - C, y + 0.5 - C), Math.atan2(y + 0.5 - C, x + 0.5 - C)];
+    const bell = (d, a) => Math.max(0, Math.min(7, Math.round(7.5 * Math.exp(-Math.pow(d / wobH(a) / 21, 2)) - 0.4)));
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
-      const [d, a] = AD(x, y), r = R(a), rh = RH(a);
-      ter[y][x] = d >= r + 4 ? 255 : d >= r + 2.5 ? 0 : d >= r ? 1 : d >= r - 3 ? 2 : d >= rh + 1.4 ? 3 : d >= rh ? (ramp1.some(q => ad(a, q) * d < 1.7) ? 7 : 6) : d >= RS + 1.4 ? 4 : d >= RS ? (ramp2.some(q => ad(a, q) * d < 1.4) ? 7 : 6) : 5;
+      const [d, a] = AD(x, y), r = R(a);
+      if (d >= r + 4) continue;
+      if (d >= r - 3) { ter[y][x] = d >= r + 2.5 ? 0 : d >= r ? 1 : 2; continue; }
+      const L = bell(d, a); hz[y][x] = L; ter[y][x] = L >= 6 ? 5 : L >= 4 ? 4 : 3;
     }
-    const land = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ter[y][x] >= 2 && ter[y][x] <= 7 && ter[y][x] !== 6;
+    const pol = (a, d) => [Math.floor(C + Math.cos(a) * d), Math.floor(C + Math.sin(a) * d)];
+    // ---- ingressi delle rovine: una parete di roccia a meta' collina (gradino di 2) con l'imbocco della miniera, uno per lato ----
+    const mouths = [0, 1].map(h => {
+      const a = a0 + h * Math.PI + 0.38; let dm = 6; while (dm < 30 && bell(dm, a) > 3) dm += 0.5;
+      const top = bell(dm - 1, a), low = Math.max(0, top - 2);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const [d, b] = AD(x, y); if (d >= dm && d < dm + 3.4 && ad(b, a) * d < 3.4 && ter[y][x] >= 3) hz[y][x] = Math.min(hz[y][x], low); }
+      const [mx, my] = pol(a, dm + 0.5), [tx, ty] = pol(a, dm + 1.7), [ox, oy] = pol(a, dm + 2.9);
+      return { h, a, x: mx, y: my, tx, ty, ox: ox + 0.5, oy: oy + 0.5, z: low };
+    });
+    const land = (x, y) => x >= 0 && y >= 0 && x < N && y < N && ter[y][x] >= 2 && ter[y][x] <= 5;
     const props = [], taken = new Set(), K = (x, y) => x + ',' + y, pp = (t, x, y, o) => { props.push([t, x, y, o]); taken.add(K(x, y)); };
     const free = (x, y) => land(x, y) && !taken.has(K(x, y));
+    const step = (ax, ay, bx, by) => Math.abs(hz[by][bx] - hz[ay][ax]) <= 1;
     const decals = [], deco = [], trees = [];
-    const pol = (a, d) => [Math.floor(C + Math.cos(a) * d), Math.floor(C + Math.sin(a) * d)];
-    // mare e gradini di roccia
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) { const t = ter[y][x]; if (t <= 1) pp('sea', x, y); else if (t === 6) pp('cliff', x, y); }
+    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ter[y][x] <= 1) pp('sea', x, y);
     // ---- campi delle squadre su spiagge opposte: zattera sulla sabbia, tenda, falo', casse, bandiera ----
     // sulla sabbia o in giungla: se il punto cade in acqua si scende verso il centro
     const inland = (x, y, a) => { for (let i = 0; i < 6 && !(ter[y] && ter[y][x] >= 2 && ter[y][x] <= 3); i++) { x = Math.round(x - Math.cos(a)); y = Math.round(y - Math.sin(a)); } return [x, y]; };
@@ -74,7 +85,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       const a = a0 + t * Math.PI, r = R(a), [cx, cy] = pol(a, r - 9), [rx, ry] = inland(...pol(a, r - 1.8), a), px = -Math.sin(a), py = Math.cos(a);
       return { t, a, x: cx + 0.5, y: cy + 0.5, cx, cy, rx, ry, tent: inland(Math.round(cx + px * 3), Math.round(cy + py * 3), a), fl: inland(Math.round(rx + px * 1.6), Math.round(ry + py * 1.6), a) };
     });
-    const clear = [];   // zone da lasciare libere: campi, ingressi, rampe, cima
+    const clear = [];   // zone da lasciare libere: campi, ingressi, cima
     for (const c of camps) {
       pp('raft', c.rx, c.ry, { t: c.t }); pp('tent', c.tent[0], c.tent[1], TEAMS[c.t].c); pp('campfire', c.cx, c.cy); pp('tflag', c.fl[0], c.fl[1], { c: TEAMS[c.t].c });
       const px = -Math.sin(c.a), py = Math.cos(c.a); pp('crate', Math.round(c.cx - px * 3), Math.round(c.cy - py * 3)); pp('crate2', Math.round(c.cx - px * 3 + Math.cos(c.a)), Math.round(c.cy - py * 3 + Math.sin(c.a)));
@@ -83,57 +94,45 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     // ---- cima: statua, forziere, mercante, bracieri ----
     const top = { statue: [C, C - 1], chest: [C + 1, C], trader: [C - 3, C + 1] };
     pp('statue', ...top.statue); pp('chestT', ...top.chest); pp('trader', ...top.trader); pp('brazier', C + 2, C - 2); pp('brazier', C - 2, C + 2);
-    // ---- ingressi delle rovine a meta' collina (nel gradino della cima), uno per lato ----
-    const mouths = [0, 1].map(h => {
-      const a = a0 + h * Math.PI + 0.38, [mx, my] = pol(a, RS + 0.7), [tx, ty] = pol(a, RS + 2.2), [ox, oy] = pol(a, RS + 3.6);
-      ter[my][mx] = 6; return { h, a, x: mx, y: my, tx, ty, ox: ox + 0.5, oy: oy + 0.5 };
-    });
-    for (const m of mouths) {
-      const i = props.findIndex(p => p[1] === m.x && p[2] === m.y); if (i >= 0) { props.splice(i, 1); taken.delete(K(m.x, m.y)); }
-      pp('cave', m.x, m.y, { a: m.a }); ter[m.ty][m.tx] = 4; taken.delete(K(m.tx, m.ty)); clear.push([m.tx, m.ty, 2.2]);
-      const i2 = props.findIndex(p => p[1] === m.tx && p[2] === m.ty); if (i2 >= 0) props.splice(i2, 1);
-      decals.push([m.tx + 0.1, m.ty + 0.1, 0.8, 0.8, '#5a5246'], [m.tx + 0.2, m.ty + 0.2, 0.6, 0.6, '#3a342c']);
-    }
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ter[y][x] === 7) clear.push([x, y, 1.6]);
-    clear.push([C, C, RS + 0.2]);
+    clear.push([C, C, 4.5]);
+    for (const m of mouths) { pp('mine', m.x, m.y, { a: m.a }); clear.push([m.tx, m.ty, 2.4], [m.x, m.y, 1.6]); }
     const isClear = (x, y) => clear.some(([a, b, r]) => Math.hypot(x - a, y - b) < r);
     // ---- punti di riferimento (per gli indizi) ----
     const lms = [];
-    const LM = [['wreck', 'il relitto', 'al relitto', 2], ['whale', 'lo scheletro di balena', 'allo scheletro di balena', 2], ['totem', 'il totem', 'al totem', 3], ['pond', 'la pozza', 'alla pozza', 3], ['tower', 'la torre crollata', 'alla torre crollata', 3], ['stones', 'il cerchio di pietre', 'al cerchio di pietre', 3], ['hut', 'la capanna', 'alla capanna', 3]];
+    const LM = [['wreck', 'il relitto', 'al relitto', 2], ['whale', 'lo scheletro di balena', 'allo scheletro di balena', 2], ['totem', 'il totem', 'al totem', 3], ['pond', 'la pozza', 'alla pozza', 3], ['tower', 'la torre crollata', 'alla torre crollata', 4], ['stones', 'il cerchio di pietre', 'al cerchio di pietre', 3], ['hut', 'la capanna', 'alla capanna', 3]];
     for (const [k, n, a, tt] of LM) {
-      for (let i = 0; i < 400; i++) {
+      for (let i = 0; i < 600; i++) {
         const x = 3 + Math.floor(rnd() * (N - 6)), y = 3 + Math.floor(rnd() * (N - 6));
         if (ter[y][x] !== tt || isClear(x, y) || camps.some(c => Math.hypot(c.cx - x, c.cy - y) < 14) || lms.some(l => Math.hypot(l.x - x, l.y - y) < 15)) continue;
-        const cells = k === 'pond' ? [[0, 0], [1, 0], [0, 1], [1, 1]] : k === 'wreck' ? [[0, 0], [1, 0]] : k === 'stones' ? [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -2], [0, 2], [-2, 0], [2, 0]] : [[0, 0]];
-        if (!cells.every(([dx, dy]) => free(x + dx, y + dy) && ter[y + dy][x + dx] === tt)) continue;
+        const cells = k === 'pond' ? [[0, 0], [1, 0], [0, 1], [1, 1]] : k === 'wreck' ? [[0, 0], [1, 0]] : k === 'stones' ? [[-1, -1], [1, -1], [-1, 1], [1, 1], [0, -2], [0, 2], [-2, 0], [2, 0], [0, 0]] : [[0, 0]];
+        if (!cells.every(([dx, dy]) => free(x + dx, y + dy) && ter[y + dy][x + dx] === tt && hz[y + dy][x + dx] === hz[y][x])) continue;
         if (k === 'pond') cells.forEach(([dx, dy]) => pp('water', x + dx, y + dy)); else if (k === 'wreck') { pp('wreck', x, y); pp('wreck2', x + 1, y); }
-        else if (k === 'stones') cells.forEach(([dx, dy]) => pp('rock', x + dx, y + dy)); else pp(k, x, y);
+        else if (k === 'stones') cells.forEach(([dx, dy]) => { if (dx || dy) pp('rock', x + dx, y + dy); }); else pp(k, x, y);
         lms.push({ k, n, a, x: x + 0.5 + (k === 'pond' || k === 'wreck' ? 0.5 : 0), y: y + 0.5 + (k === 'pond' ? 0.5 : 0) }); clear.push([x, y, 1.6]); break;
       }
     }
-    // ---- palme, cespugli (nascondigli), grandi rocce (nascondigli), sassi, felci ----
-    const nearT = (x, y, r) => trees.some(t => Math.hypot(t.x - x, t.y - y) < r);
+    // ---- bosco: palme e alberi fitti, cespugli attraversabili (nascondigli), grandi rocce (nascondigli), sassi, felci ----
+    const nearT = (x, y, r) => trees.some(t => Math.abs(t.x - x) < r && Math.abs(t.y - y) < r && Math.hypot(t.x - x, t.y - y) < r);
+    const tree = (x, y, k) => { const o = { x, y, k, v: Math.floor(rnd() * 3), h: 1.2 + rnd() * 0.25 }; trees.push(o); pp('tree', x, y, o); };
     for (let y = 1; y < N - 1; y++) for (let x = 1; x < N - 1; x++) {
       if (!free(x, y) || isClear(x, y)) continue;
       const t = ter[y][x], r = rnd();
-      if (t === 2) { if (r < 0.025 && !nearT(x, y, 3)) { const o = { x, y, k: 'palm', v: Math.floor(rnd() * 3), h: 1.2 + rnd() * 0.25 }; trees.push(o); pp('tree', x, y, o); } else if (r < 0.06) decals.push([x + rnd() * 0.7, y + rnd() * 0.7, 0.14, 0.1, rnd() < 0.5 ? '#f4e8e0' : '#e8b8a8']); continue; }
+      if (t === 2) { if (r < 0.03 && !nearT(x, y, 3)) tree(x, y, 'palm'); else if (r < 0.06) decals.push([x + rnd() * 0.7, y + rnd() * 0.7, 0.14, 0.1, rnd() < 0.5 ? '#f4e8e0' : '#e8b8a8']); continue; }
       if (t === 3) {
-        if (r < 0.075 && !nearT(x, y, 2.2)) { const o = { x, y, k: 'palm', v: Math.floor(rnd() * 3), h: 1.2 + rnd() * 0.25 }; trees.push(o); pp('tree', x, y, o); continue; }
-        if (r < 0.125) { pp('bush', x, y); continue; }
-        if (r < 0.137) { pp('bigrock', x, y); continue; }
-        if (r < 0.145) { pp('rock', x, y); continue; }
-        if (r < 0.45) deco.push([x, y, r < 0.25 ? 'fern' : r < 0.36 ? 'tuft' : r < 0.42 ? 'shrub' : 'mush']);
+        if (r < 0.12 && !nearT(x, y, 1.9)) { tree(x, y, rnd() < 0.65 ? 'palm' : 'oak'); continue; }
+        if (r < 0.162) { pp('bigrock', x, y); continue; }
+        if (r < 0.17) { pp('rock', x, y); continue; }
+        if (r < 0.3) { deco.push([x, y, 'bush']); continue; }
+        if (r < 0.55) deco.push([x, y, r < 0.38 ? 'fern' : r < 0.47 ? 'tuft' : r < 0.52 ? 'shrub' : 'mush']);
         continue;
       }
-      if (t === 4) { if (r < 0.03) pp('bigrock', x, y); else if (r < 0.06) pp('bush', x, y); else if (r < 0.08) pp('rock', x, y); else if (r < 0.3) deco.push([x, y, 'tuft']); }
+      if (t === 4) { if (r < 0.07 && !nearT(x, y, 2.2)) tree(x, y, rnd() < 0.3 ? 'palm' : 'oak'); else if (r < 0.1) pp('bigrock', x, y); else if (r < 0.11) pp('rock', x, y); else if (r < 0.17) deco.push([x, y, 'bush']); else if (r < 0.4) deco.push([x, y, 'tuft']); }
     }
-    // celle libere chiuse (dove non si arriverebbe): cespugli
-    const fr = (x, y) => free(x, y);
+    // dove si arriva (un gradino alla volta) partendo dal campo dei Granchi
     const nf = (x, y) => { for (const [dx, dy] of [[1, 0], [0, 1], [-1, 0], [0, -1], [1, 1], [-1, -1], [2, 0], [0, 2]]) if (free(x + dx, y + dy)) return [x + dx, y + dy]; return [x, y]; };
-    const seen = MG.flood(W, H, fr, ...nf(camps[0].cx, camps[0].cy));
+    const seen = MG.flood(W, H, free, ...nf(camps[0].cx, camps[0].cy), step);
     const ok = (x, y) => !!seen[y * W + x];
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (free(x, y) && !ok(x, y)) pp('bush', x, y);
-    const okAll = ok(...nf(camps[1].cx, camps[1].cy)) && mouths.every(m => ok(m.tx, m.ty)) && ok(top.chest[0], top.chest[1] + 1) && ok(top.trader[0] + 1, top.trader[1]);
+    const okAll = ok(...nf(camps[1].cx, camps[1].cy)) && mouths.every(m => ok(m.tx, m.ty) && ok(Math.floor(m.ox), Math.floor(m.oy))) && ok(...nf(top.chest[0], top.chest[1])) && ok(...nf(top.trader[0], top.trader[1]));
     const deco2 = deco.filter(([x, y]) => !taken.has(K(x, y)));
     // ---- pezzi della zattera (posti decisi dal seme: uguali per tutti) ----
     const spot = (x0, y0, r) => { for (let i = 0; i < 80; i++) { const x = Math.floor(x0 + (rnd() - 0.5) * 2 * r), y = Math.floor(y0 + (rnd() - 0.5) * 2 * r); if (free(x, y) && ok(x, y) && Math.hypot(x + 0.5 - x0, y + 0.5 - y0) > 0.9) return [x + 0.5, y + 0.5]; } return null; };
@@ -178,8 +177,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const ring = []; for (let i = 0; i < 10; i++) ring.push([camps[0].cx + (i % 3) - 1, camps[0].cy + Math.floor(i / 3) - 1]);
     const holes = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ter[y][x] === 255) { let w = 1; while (x + w < N && ter[y][x + w] === 255) w++; holes.push([x, y, w, 1]); x += w - 1; }
     return { ok: okAll, w: W, h: H, rooms, doors: [], decals, props, holes, trees, bg: x => x >= RX - 8 ? '#050608' : '#2e79b3', deco: deco2, tasks: [], hall: 0, cams: [], vending: [], ring: ring.filter(([x, y]) => free(x, y)).concat([[camps[0].cx, camps[0].cy + 1]]),
-      button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm'], canopy, trunk,
-      ter, camps, mouths, RZ, lms, items, sharks, top, R, RS, seed };
+      button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm', 'oak'], canopy, trunk, hz, hb: 1, hzSide, decoDraw,
+      ter, camps, mouths, RZ, lms, items, sharks, top, R, seed };
   }
 
   // ---- disegno della mappa (K = attrezzi di cqTools) ----
@@ -205,6 +204,14 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (K.hsh(x, y, 6) < 0.12) K.speck(x, y, 5, ['rgba(90,140,60,.6)', 'rgba(60,110,40,.6)'], K.TW / 14);
     }
   };
+  // fianchi della collina: strati di roccia, l'ultimo strato del colore del prato
+  function hzSide(x, y, i, z) { const t = CQ_MAP.ter[y][x]; if (i === z - 1) return t === 5 ? '#9a917a' : t === 4 ? '#6a8f44' : '#4f7f38'; return i % 2 ? '#857a64' : '#7a6f5a'; }
+  // cespuglio grande: ci si passa attraverso (si disegna col pavimento; chi ci sta dentro ha le foglie davanti, vedi deco)
+  function decoDraw(K, t, x, y) {
+    if (t !== 'bush') return;
+    K.bx(x + 0.08, y + 0.1, x + 0.92, y + 0.92, 0, 0.55, '#3f7a36'); K.bx(x + 0.2, y + 0.22, x + 0.8, y + 0.8, 0.55, 0.82, '#4a8a40'); K.bx(x + 0.32, y + 0.34, x + 0.62, y + 0.64, 0.82, 0.95, '#56984a');
+    if (K.hsh(x, y, 65) < 0.4) { K.dot(x + 0.3, y + 0.92, 0.35, 0.03, '#c8304a'); K.dot(x + 0.62, y + 0.92, 0.25, 0.03, '#c8304a'); K.dot(x + 0.92, y + 0.5, 0.4, 0.03, '#c8304a'); }
+  }
   function drawWall(K, x, y, col) {
     if (col === 'none') return;
     const h = 1.25 + 0.15 * K.hsh(x, y, 70);
@@ -255,6 +262,13 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
         const ca = Math.cos(o.a), sa = Math.sin(o.a);   // l'apertura guarda fuori dalla cima
         if (ca + sa > 0 || true) { if (sa > -0.3) qL(x + 0.22, x + 0.78, y + 1.1, 0, 1.0, '#16120e'); if (ca > -0.3) poly([S(x + 1.1, y + 0.22, 1.0), S(x + 1.1, y + 0.78, 1.0), S(x + 1.1, y + 0.78, 0), S(x + 1.1, y + 0.22, 0)], '#16120e'); }
         break; }
+      case 'mine': {   // imbocco della miniera nella parete di roccia: travi di legno, buio dentro, una lanterna
+        bx(x - 0.05, y - 0.05, x + 1.05, y + 1.05, 0, 1.55, '#857a64'); bx(x - 0.05, y - 0.05, x + 1.05, y + 1.05, 1.55, 1.7, '#6a8f44');
+        for (const F of [(u, z) => S(x + u, y + 1.05, z), (u, z) => S(x + 1.05, y + u, z)]) {
+          poly([F(0.2, 0), F(0.8, 0), F(0.8, 1.0), F(0.2, 1.0)], '#120e0a');
+          poly([F(0.12, 0), F(0.22, 0), F(0.22, 1.1), F(0.12, 1.1)], '#6b4a2e'); poly([F(0.78, 0), F(0.88, 0), F(0.88, 1.1), F(0.78, 1.1)], '#6b4a2e'); poly([F(0.08, 1.0), F(0.92, 1.0), F(0.92, 1.18), F(0.08, 1.18)], '#7a5232');
+        }
+        dot(x + 1.08, y + 1.08, 1.0, 0.05, '#ffd25a'); glow(x + 1.08, y + 1.08, 1.0, 0.8, 'rgba(255,210,90,.5)'); break; }
       case 'statue': {   // statua di pietra (testa gigante) con gli occhi d'oro
         bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 0.4, '#7a7468'); bx(x + 0.18, y + 0.2, x + 0.82, y + 0.8, 0.4, 2.9, '#8f897a'); bx(x + 0.12, y + 0.15, x + 0.88, y + 0.85, 2.9, 3.2, '#6f6a5e');
         bx(x + 0.3, y + 0.8, x + 0.7, y + 0.88, 1.6, 2.4, '#a29c8c'); qL(x + 0.28, x + 0.42, y + 0.81, 2.3, 2.45, '#e8c040'); qL(x + 0.58, x + 0.72, y + 0.81, 2.3, 2.45, '#e8c040'); qL(x + 0.35, x + 0.65, y + 0.81, 1.25, 1.35, '#5a564c'); break; }
@@ -288,11 +302,19 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
 
   // ======================= REGOLE =======================
   // vede a -> b? (stesso livello; nascosto nei cespugli = no; nelle rovine solo nella stessa stanza o vicino; di notte vicino o per la torcia)
+  // si vedono a -> b? la collina in mezzo copre (terreno piu' alto della linea degli occhi)
+  function los(ax, ay, bx, by) {
+    if (!CQ_MAP.hz) return true;
+    const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 2), za = cqHz(ax, ay) + 1.3, zb = cqHz(bx, by) + 1.3;
+    for (let i = 1; i < n; i++) { const t = i / n; if (cqHc(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t)) > za + (zb - za) * t + 0.2) return false; }
+    return true;
+  }
   function canSee(G, a, b) {
     const p = P(a), q = P(b); if (lvl(p.x) !== lvl(q.x)) return false;
     const d = Math.hypot(p.x - q.x, p.y - q.y);
     if (b.hd && b.t !== a.t) return d < 0.9;
     if (lvl(p.x)) return d < RUIN_SEE || roomAt(p.x, p.y) === roomAt(q.x, q.y);
+    if (d > 1.5 && !los(p.x, p.y, q.x, q.y)) return false;
     return dark(G) > 0.5 ? d < SEE_N || d < SEEN_T : d < 14;
   }
   // stanza delle rovine dove sono (sulla soglia di una porta resta quella di prima)
@@ -301,7 +323,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     if (R && R.k === 'ruin' && R.n !== 'Porta' && r !== G.rr) { G.rr = r; G.rrT = performance.now(); if (G.time > 0.5) { thud(0.35, 180); beep(220, 0.25, 0.02, 0.05, 'triangle'); } }
     return G.rr;
   }
-  const cover = (x, y) => { for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const s = cqSolid[Math.floor(y) + dy] && cqSolid[Math.floor(y) + dy][Math.floor(x) + dx]; if (s && (s.prop === 'bush' || s.prop === 'bigrock') && Math.hypot(Math.floor(x) + dx + 0.5 - x, Math.floor(y) + dy + 0.5 - y) < COVER) return true; } return false; };
+  const inBush = (x, y) => !!(cqDeco && cqDeco[Math.floor(y)] && cqDeco[Math.floor(y)][Math.floor(x)] === 'bush');
+  const cover = (x, y) => { if (inBush(x, y)) return true; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const s = cqSolid[Math.floor(y) + dy] && cqSolid[Math.floor(y) + dy][Math.floor(x) + dx]; if (s && (s.prop === 'bush' || s.prop === 'bigrock') && Math.hypot(Math.floor(x) + dx + 0.5 - x, Math.floor(y) + dy + 0.5 - y) < COVER) return true; } return false; };
   const raftOf = (G, t) => { const c = MP().camps[t]; return { x: c.rx + 0.5, y: c.ry + 0.5 }; };
   const nearRaft = (G, c, t) => dxy(c, raftOf(G, t).x, raftOf(G, t).y) < RAFT_R;
   const chestOk = G => G.chest <= G.time;
@@ -319,7 +342,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     if (c.op) return { k: 'wait', t: (c.op.k === 'steal' ? '🫳 Rubando… ' : '💰 Apro… ') + Math.round(Math.min(1, (G.time - c.op.t0) / (c.op.k === 'steal' ? STEAL_T : CHEST_T)) * 100) + '%', on: false };
     const v = stabTarget(G, c); if (v) return { k: 'stab', v: v.id, t: G.time < (c.kcd || 0) ? '🔪 ' + Math.ceil(c.kcd - G.time) + ' s' : '🔪 Colpisci', on: G.time >= (c.kcd || 0) };
     const gt = gunTarget(G, c); if (gt) return { k: 'shoot', v: gt.id, t: '🔫 Spara (' + c.gun + ')', on: true };
-    if (!h && nearRaft(G, c, 1 - c.t) && OB.count(G, 1 - c.t)) return { k: 'steal', t: '🫳 Ruba dalla zattera', on: true };
+    if (!h && nearRaft(G, c, 1 - c.t) && OB.count(G, 1 - c.t)) return { k: 'steal', t: G.time < (c.stc || 0) ? '🫳 Aspetta ' + Math.ceil(c.stc - G.time) + ' s' : '🫳 Ruba dalla zattera', on: G.time >= (c.stc || 0) };
     if (nearChest(c)) return { k: 'chest', t: chestOk(G) ? '💰 Apri il forziere' : '💰 Si riapre tra ' + Math.ceil(G.chest - G.time) + ' s', on: chestOk(G) };
     if (me && nearTrader(c)) return { k: 'shop', t: '🛒 Mercante (' + (c.co || 0) + ' 🪙)', on: true };
     const lv = leverNear(G, c); if (lv >= 0) return { k: 'lev', i: lv, t: '🔧 Tira la leva', on: true };
@@ -336,7 +359,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const p = P(c);
     if (a.k === 'stab') { const v = byId(G, a.v); if (v && v.alive && !jailed(G, v) && v.t !== c.t && dist(c, v) < REACH + 0.4 && G.time >= (c.kcd || 0)) kill(G, v, c, 'k'); }
     else if (a.k === 'shoot') { const v = byId(G, a.v); if (c.gun > 0 && v && v.alive && !jailed(G, v) && v.t !== c.t && dist(c, v) < GUN + 0.5) { c.gun--; const q = P(v); G.fx.push([p.x, p.y, q.x, q.y, G.time]); kill(G, v, c, 'g'); } }
-    else if (a.k === 'steal' && real.k === 'steal') { c.op = { k: 'steal', t0: G.time, x: p.x, y: p.y }; say(G, 'stl', { a: c.id, b: 1 - c.t }); }
+    else if (a.k === 'steal' && real.k === 'steal' && real.on) { c.op = { k: 'steal', t0: G.time, x: p.x, y: p.y }; say(G, 'stl', { a: c.id, b: 1 - c.t }); }
     else if (a.k === 'chest' && real.k === 'chest' && real.on) { c.op = { k: 'chest', t0: G.time, x: p.x, y: p.y }; }
     else if (a.k === 'lev' && real.k === 'lev') { G.R.lev[a.i] = 1; G.R.p[MP().RZ.half[a.i].g[0]] = 1; say(G, 'lev', { a: c.id, h: a.i }); }
     else if (a.k === 'gearok') { const g = a.i, gt = MP().RZ.gates[g]; if (gt && gt.n === 2 && !G.R.p[g]) { G.R.p[g] = 1; say(G, 'gear', { a: c.id, h: gt.h }); } }
@@ -355,7 +378,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   }
   function kill(G, v, by, w) {
     const h = held(G, v), p = P(v); if (h) OB.drop(G, h, p.x, p.y);
-    v.lv = (v.lv || LIVES) - 1; v.hd = 0; v.op = null; v.path = []; v.walk = 0; by.kcd = G.time + KCD; by.hd = 0; by.tg = (by.tg || 0) + 1;
+    v.lv = (v.lv || LIVES) - 1; v.hd = 0; v.op = null; v.path = []; v.walk = 0; by.kcd = G.time + (by.bot ? 14 : KCD); by.hd = 0; by.tg = (by.tg || 0) + 1;
     G.bodies = G.bodies.filter(b => b.id !== v.id);
     G.bodies.push({ id: v.id, x: p.x, y: p.y, face: v === G.me ? cq.face : v.face, look: cqLookOf(v), name: v.name, t: G.time });
     if (v.lv > 0) v.jail = G.time + JAIL; else { v.alive = false; v.jail = 0; }
@@ -607,7 +630,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       const T = TEAMS[me.t], hearts = me.alive ? '❤️'.repeat(Math.max(0, me.lv || 0)) : '👻';
       return `${TEAMS[0].e} ${pieces(G, 0)}/${TOT} – ${pieces(G, 1)}/${TOT} ${TEAMS[1].e} · <b style="color:${T.l}">${T.n}</b> · ${hearts} · 🪙 ${me.co || 0}${me.gun > 0 ? ' · 🔫' + me.gun : ''}${fastOn(G, me) ? ' · 👟' : ''} · ${dark(G) > 0.5 ? '🌙' : '☀️'} ${mmss(Math.max(0, G.left))}`;
     },
-    hide: c => { const G = cq.g; return jailed(G, c) || (!!c.hd && c.t !== G.me.t && G.me.alive); },
+    hide: c => { const G = cq.g; return jailed(G, c) || (G.me.alive && c.t !== G.me.t && (!!c.hd || (!lvl(c.x) && !lvl(cq.x) && !los(cq.x, cq.y, c.x, c.y)))); },   // nascosto o dietro la collina
     nameCol: c => c.t != null ? TEAMS[c.t].l : null,
     btn(G) { const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
     act(G) {
@@ -640,13 +663,13 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       OB.orphans(G, c => !c.alive || jailed(G, c));
       for (const c of active(G)) {
         const p = P(c);
-        if (c.op) { const done = G.time - c.op.t0 >= (c.op.k === 'steal' ? STEAL_T : CHEST_T); if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.6 || (c.op.k === 'steal' && held(G, c))) c.op = null; else if (done) finishOp(G, c); }
+        if (c.op) { const done = G.time - c.op.t0 >= (c.op.k === 'steal' ? STEAL_T : CHEST_T); if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.6 || (c.op.k === 'steal' && (held(G, c) || active(G).some(e => e.t !== c.t && !e.hd && dist(e, c) < 1.4)))) c.op = null; else if (done) finishOp(G, c); }
         const got = !c.hd && OB.pickup(G, c, p, PICK, (cc, it) => need(G, cc.t, it.k) > 0 || OB.count(G, 1 - cc.t, it.k) < NEED[it.k] || cc.bot === false);
         if (got) { if (got.k === 'sail' || got.k === 'comp') say(G, 'take', { a: c.id, i: got.k }); G.kn[c.t].add(got.id); }
         const h = held(G, c);
         if (h && nearRaft(G, c, c.t) && OB.count(G, c.t, h.k) < NEED[h.k]) { OB.put(G, h, c.t); c.pc = (c.pc || 0) + 1; say(G, 'put', { a: c.id, b: c.t, i: h.k, c: pieces(G, c.t) }); }
       }
-      for (const c of active(G)) { const h = held(G, c); if (!h || (c.safe || 0) > G.time) continue; const by = active(G).find(e => e.t !== c.t && !e.hd && dist(e, c) < TOUCH); if (by) { const p = P(c); OB.drop(G, h, p.x, p.y, c); say(G, 'drop', { a: c.id, b: by.id, i: h.k }); } }
+      for (const c of active(G)) { const h = held(G, c); if (!h || (c.safe || 0) > G.time) continue; const by = active(G).find(e => e.t !== c.t && !e.hd && dist(e, c) < TOUCH); if (by) { const p = P(c); OB.drop(G, h, p.x, p.y, c); c.stc = G.time + 5; say(G, 'drop', { a: c.id, b: by.id, i: h.k }); } }
       // cosa conosce ogni squadra: i pezzi visti da vicino (e la vela, a meta' partita, anche dal computer)
       if ((G.knT = (G.knT || 0) - dt) <= 0) {
         G.knT = 0.5; const r = dark(G) > 0.5 ? 3.5 : 6;
@@ -716,6 +739,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     },
     deco(g, c, X, Y, TW, G) {
       SQ.ring(g, c, X, Y, TW, TEAMS);
+      { const q = P(c); if (inBush(q.x, q.y)) { for (const [dx, dy, r, col] of [[-0.22, -0.12, 0.3, '#3f7a36'], [0.2, -0.1, 0.28, '#4a8a40'], [0, -0.02, 0.32, '#45823c']]) { g.fillStyle = col; g.beginPath(); g.ellipse(X + dx * TW, Y + dy * TW, r * TW, r * TW * 0.7, 0, 0, 7); g.fill(); } } }
       if (c.hd) { g.font = Math.round(TW * 0.42) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌿', X + TW * 0.38, Y - TW * 1.2); }
       if (c.op) { const k = Math.min(1, (G.time - c.op.t0) / (c.op.k === 'steal' ? STEAL_T : CHEST_T)); g.strokeStyle = c.op.k === 'steal' ? '#ff6050' : '#f2c84a'; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 1.9, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
     },
@@ -730,6 +754,12 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
         const X = sx(x, y), Y = sy(x, y), dir = s.w > 0 ? 1 : -1, sw = Math.sin(now * 3 + s.p) * 2;
         g.strokeStyle = 'rgba(255,255,255,.55)'; g.lineWidth = 2; g.beginPath(); g.ellipse(X - dir * 10, Y + 2, 16, 4, 0, 0, 7); g.stroke();
         g.fillStyle = '#4a5866'; g.beginPath(); g.moveTo(X - 9 * dir, Y); g.lineTo(X + 4 * dir + sw, Y - 20); g.lineTo(X + 9 * dir, Y); g.closePath(); g.fill();
+      }
+      // cartello ⛏️ sopra gli ingressi delle miniere (le rovine)
+      if (!lvl(cq.x)) for (const m of MP().mouths) {
+        const x = m.tx + 0.5, y = m.ty + 0.5; if (Math.abs(x - cq.x) > 14 || Math.abs(y - cq.y) > 14 || (MN && !lit(x, y))) continue;
+        const X = sx(x, y), Y = sy(x, y) - TW * 1.1 + Math.sin(now * 3) * 2; g.fillStyle = 'rgba(20,16,10,.8)'; g.beginPath(); g.arc(X, Y, 12, 0, 7); g.fill();
+        g.font = '14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⛏️', X, Y + 1);
       }
       // pedane premute (rovine)
       if (lvl(cq.x)) for (const H2 of MP().RZ.half) for (const pt of [H2.p1, ...H2.p2]) {

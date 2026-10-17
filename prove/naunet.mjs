@@ -27,7 +27,7 @@ export default [
   [0, st('host'), 0], [1, `(() => 'amico: ' + __T.slice(-1)[0] + ' | ' + $('#cqCount').textContent)()`, 0],
   [1, `(() => { const G = cq.g, c = CQ_MAP.camps[1]; return 'amico risorto? posizione ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ' campo ' + c.cx + ',' + c.cy; })()`, 6000],
   // l'amico si nasconde vicino a un cespuglio
-  [1, `(() => { const G = cq.g; const b = CQ_PROPS.find(p => p[0] === 'bush' && cqCellFree(p[1] + 1, p[2]) && p[1] < 80); cq.x = b[1] + 1.5; cq.y = b[2] + 0.5; return 'amico vicino a un cespuglio'; })()`, 800],
+  [1, `(() => { const G = cq.g; let b = null; for (let y = 0; y < CQ_H && !b; y++) for (let x = 0; x < 120 && !b; x++) if (cqDeco && cqDeco[y][x] === 'bush' && cqCellFree(x, y)) b = [x, y]; cq.x = b[0] + 0.5; cq.y = b[1] + 0.5; return 'amico vicino a un cespuglio'; })()`, 800],
   [1, `(() => { const b = cq.g.M.btn(cq.g); cqMyKill(); return 'amico: pulsante ' + JSON.stringify(b) + ' -> ' + $('#cqCount').textContent; })()`, 1200],
   [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'); return 'host vede l amico nascosto? ' + !G.M.hide(a) + ' (hd ' + a.hd + ')'; })()`, 0],
   // nelle rovine: l'amico entra dal suo ingresso, poi risolve gli ingranaggi
