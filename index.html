@@ -143,9 +143,6 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 .soonTag{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);color:var(--muted);margin-left:8px;font-weight:600;vertical-align:2px}
 #ciack{position:fixed;inset:0;z-index:6;background:var(--bg);touch-action:none;user-select:none;-webkit-user-select:none}
 #cqCanvas{position:absolute;inset:0;width:100%;height:100%;display:block}
-#cqBgL{position:absolute;inset:0;overflow:hidden;pointer-events:none}
-#cqBgMove{position:absolute;left:0;top:0;will-change:transform}
-#cqBgMove img{position:absolute;display:block;max-width:none}
 #ciack .ctop{position:absolute;left:12px;top:12px;right:12px;display:flex;align-items:center;gap:10px;pointer-events:none}
 #ciack .ctop .btn{pointer-events:auto}
 #ciack .ctop b{font-size:17px}
@@ -317,7 +314,6 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <p class="you" id="appVer" style="text-align:center;margin-top:8px;font-size:12px"></p>
 </div></div>
 <div id="ciack" hidden>
-  <div id="cqBgL"><div id="cqBgMove"></div></div>
   <canvas id="cqCanvas"></canvas>
   <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b>Ciack US</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
   <div id="cqPick" hidden><div class="pk">
@@ -1907,9 +1903,9 @@ function cqUseMap(id) {
   // alberi tagliati (ceppi) di nuovo in piedi quando si rimette la mappa
   if (P.trees) for (const t of P.trees) { t.cut = 0; t.a = 1; }
 }
-// modo di disegno della mappa: 0 = tessere pronte (normale), 1 = come 0 ma i riquadri dei personaggi composti dal processore, 2 = niente tessere (tutto ridisegnato
-// a ogni fotogramma), 3 = tessere come immagini della pagina mosse dal browser. Si sceglie con ?grafica=N e resta ricordato.
-const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); try { if (q != null) localStorage.setItem('cqGfx2', q); return +(q != null ? q : localStorage.getItem('cqGfx2') || 0) || 0; } catch { return +q || 0; } })();
+// modo di disegno della mappa: 0 = tessere pronte (normale), 1 = come 0 ma i riquadri dei personaggi composti dal processore (di riserva).
+// Si sceglie con ?grafica=N e resta ricordato (i vecchi modi 2 e 3 sono stati tolti: valgono 0).
+const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('grafica'); let v = 0; try { if (q != null) localStorage.setItem('cqGfx2', q); v = +(q != null ? q : localStorage.getItem('cqGfx2') || 0) || 0; } catch { v = +q || 0; } return v === 1 ? 1 : 0; })();
 // disegno fatto dal processore (willReadFrequently): su alcuni telefoni Android il chip grafico disegna a schegge
 // le forme complicate (visto sul Redmi Note 13 Pro). Al chip grafico arrivano solo immagini gia' pronte da incollare.
 const CQ_CPU = { willReadFrequently: true };
@@ -2121,9 +2117,9 @@ function cqUseItem(i) {
       for (const t of cq.tasks) { if (cq.done.has(t)) continue; const s = cqStep(me, t), d = Math.hypot(cq.x - s.x, cq.y - s.y); if (d < bd) { bd = d; best = t; } }
       if (!best) { cqToast('Non hai più compiti da fare.'); return; }
       used(); me.st[best] = cqTask(best).steps.length - 1; cqToast('🎬 Fatto: ' + esc(cqTask(best).n) + '!'); cqTaskDone(best); return; }
-    case 'clone': G.clone = { x: cq.x, y: cq.y, dx: cq.wdx || 1, dy: cq.wdy || 0, face: cq.face, walk: 0, until: G.time + 8 }; cqToast('👥 Ecco il tuo clone!'); break;
-    case 'fumo': G.smoke = { room: cqRoomName(cq.x, cq.y), until: G.time + 10 }; cqToast('💨 Fumo ' + CQ_IN[G.smoke.room] + '!'); break;
-    case 'trave': { const o = G.chars.filter(c => c.alive && c !== me); if (!o.length) return; const c = cqPickOne(o); G.disg = { id: c.id, until: G.time + 15 }; cqToast('🎭 Ora sembri <b>' + esc(c.name) + '</b> per 15 secondi.'); break; }
+    case 'clone': G.clone = { x: cq.x, y: cq.y, dx: cq.wdx || 1, dy: cq.wdy || 0, face: cq.face, walk: 0, until: G.time + 8 }; if (G.guest) cqNetSend({ k: 'clone', x: cq.x, y: cq.y, dx: G.clone.dx, dy: G.clone.dy, f: cq.face }); cqToast('👥 Ecco il tuo clone!'); break;
+    case 'fumo': G.smoke = { room: cqRoomName(cq.x, cq.y), until: G.time + 10 }; if (G.guest) cqNetSend({ k: 'smoke', r: G.smoke.room }); cqToast('💨 Fumo ' + CQ_IN[G.smoke.room] + '!'); break;
+    case 'trave': { const o = G.chars.filter(c => c.alive && c !== me); if (!o.length) return; const c = cqPickOne(o); G.disg = { id: c.id, until: G.time + 15 }; if (G.guest) cqNetSend({ k: 'disg', id: c.id }); cqToast('🎭 Ora sembri <b>' + esc(c.name) + '</b> per 15 secondi.'); break; }
     case 'visore': me.nv = true; cqToast('🥽 Visore acceso: il buio non ti ferma più.'); break;
     case 'pistola': {
       const v = cqNearest(1.8); if (!v) { cqToast('Nessuno abbastanza vicino per sparare.'); return; }
@@ -2151,9 +2147,16 @@ function cqUseItem(i) {
   used();
 }
 // il clone cammina da solo e cambia strada quando sbatte
+// cloni degli altri: sull'host quelli degli amici (c.clone), sugli amici quelli arrivati dall'host (G.oclones); o = chi l'ha fatto
+const cqOtherClones = () => { const G = cq.g; return G.guest ? (G.oclones || []) : G.chars.filter(c => c.clone).map(c => Object.assign(c.clone, { o: c })); };
 function cqCloneStep(dt) {
-  const G = cq.g, C = G && G.clone; if (!C) return;
-  if (G.time > C.until) { G.clone = null; return; }
+  const G = cq.g; if (!G) return;
+  if (G.clone) cqCloneMove(G.clone, dt, () => { G.clone = null; });
+  if (!G.guest) for (const c of G.chars) if (c.clone) cqCloneMove(c.clone, dt, () => { c.clone = null; });
+}
+function cqCloneMove(C, dt, gone) {
+  const G = cq.g;
+  if (G.time > C.until) { gone(); return; }
   const sp = CQ_SPEED * 0.9 * dt, nx = C.x + C.dx * sp, ny = C.y + C.dy * sp; let moved = false;
   if (cqFree(nx, C.y)) { C.x = nx; moved = true; }
   if (cqFree(C.x, ny)) { C.y = ny; moved = true; }
@@ -2309,7 +2312,9 @@ function cqNetSnap() {
   return { mid: G.mid, map: G.map, e: G.ep, ph: G.phase, t: f2(G.time), bt: G.button, sc: Math.ceil(G.sabCd), opt: G.opt, nt: G.nt,
     sab: G.sab && { type: G.sab.type, t: Math.round(G.sab.t * 10) / 10, natural: G.sab.natural },
     bo: G.bodies.map(b => [b.id, f2(b.x), f2(b.y), b.face, b.room, Math.round(b.t)]),
-    c: G.chars.map(c => { const me = c === G.me; return [c.id, c.name, cqLookOf(c), f2(me ? cq.x : c.x), f2(me ? cq.y : c.y), me ? cq.face : c.face, (me ? cq.walk : c.walk) ? 1 : 0, c.alive ? 1 : 0, c.imp ? 1 : 0, c.done.size, c.sid || '', c.remote ? c.tasks : 0, c.imp ? Math.ceil(Math.max(0, c.kcd)) : 0, c.killer || '']; }),
+    c: G.chars.map(c => { const me = c === G.me; return [c.id, c.name, cqLookOf(c), f2(me ? cq.x : c.x), f2(me ? cq.y : c.y), me ? cq.face : c.face, (me ? cq.walk : c.walk) ? 1 : 0, c.alive ? 1 : 0, c.imp ? 1 : 0, c.done.size, c.sid || '', c.remote ? c.tasks : 0, c.imp ? Math.ceil(Math.max(0, c.kcd)) : 0, c.killer || '', me ? (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : '') : c.disg && c.disg.until > G.time ? G.chars[c.disg.id].name : '', c.saved || 0]; }),
+    sm: G.smoke && G.smoke.until > G.time ? [G.smoke.room, f2(G.smoke.until - G.time)] : null,
+    cl: [G.clone ? [G.me.id, f2(G.clone.x), f2(G.clone.y), G.clone.face] : null].concat(G.chars.filter(c => c.clone).map(c => [c.id, f2(c.clone.x), f2(c.clone.y), c.clone.face])).filter(Boolean),
     mt: M ? { id: M.id, title: M.body ? 'Corpo trovato!' : 'Riunione d\'emergenza!', log: M.log || [], rv: M.revealed ? 1 : 0, res: M.res || '', fv: M.fv || null, tl: M.tl == null ? 60 : M.tl } : null,
     end: G.endInfo || null, sv: G.sv ? cqNetSvSnap() : null };
 }
@@ -2383,6 +2388,9 @@ function cqNetEvent(sid, o) {
     case 'chat': if (G.phase === 'meet' && c.alive) cqMeetSayFrom(c, String(o.t || '').slice(0, 120)); break;
     case 'shield': if (play && c.alive) c.shield = true; break;
     case 'sv': if (play && G.sv) cqSvDo(c, String(o.a), o.o || {}); break;
+    case 'smoke': if (play && c.alive) G.smoke = { room: String(o.r || ''), until: G.time + 10 }; break;
+    case 'disg': { const t = G.chars[o.id]; if (play && c.alive && t && t !== c) c.disg = { id: t.id, until: G.time + 15 }; break; }
+    case 'clone': if (play && c.alive) c.clone = { x: +o.x || c.x, y: +o.y || c.y, dx: +o.dx || 1, dy: +o.dy || 0, face: o.f === -1 ? -1 : 1, walk: 0, until: G.time + 8 }; break;
     case 'shoot': {
       const v = G.chars[o.v]; if (!play || !c.alive || !v || !v.alive || v === c || cqDist(v, c) > 2.4) break;
       if (v.imp) { v.alive = false; v.path = []; } else { c.alive = false; c.killer = 'la tua pistola (era innocente)'; }
@@ -2409,13 +2417,18 @@ function cqNetApply(s) {
   if (s.e !== G.ep) { G.ep = s.e; const a = s.c.find(a => a[10] === N.sid); if (a) { cq.x = a[3]; cq.y = a[4]; } }
   for (const a of s.c) {
     const c = G.chars[a[0]]; if (!c) continue;
-    c.alive = !!a[7]; c.imp = !!a[8]; c.kcd = a[12]; c.killer = a[13];
+    c.alive = !!a[7]; c.imp = !!a[8]; c.kcd = a[12]; c.killer = a[13]; c.dname = a[14] || '';
+    if (c === me && a[15] && a[15][1] !== cq.savedT) { cq.savedT = a[15][1]; me.shield = false; beep(900, 0.08, 0.05); cqToast('🛡️ Il giubbotto ti ha salvato! Ti ha attaccato <b style="color:#ff6a5a">' + esc(a[15][0]) + '</b>.'); }
+    // monete per le mie eliminazioni (le decide l'host)
+    if (c !== me && !c.alive && me.imp && c.killer === me.name && !(G.paid || (G.paid = new Set())).has(c.id)) { G.paid.add(c.id); cqCoins(2); }
     if (c === me) continue;
     c.tx = a[3]; c.ty = a[4]; c.face = a[5]; c.mv = a[6]; c.done = { size: a[9] }; c.look = cqNetLook(a[2]);
     if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
   }
   G.time = s.t; G.button = s.bt; G.sabCd = s.sc; G.sab = s.sab;
   if (s.sv && CQ_MAP.surv) cqNetSvApply(G, s.sv);
+  if (s.sm) G.smoke = { room: s.sm[0], until: G.time + s.sm[1] };
+  G.oclones = (s.cl || []).filter(a => a[0] !== me.id && G.chars[a[0]]).map(a => ({ x: a[1], y: a[2], face: a[3], walk: G.time * 10, o: G.chars[a[0]] }));
   G.bodies = s.bo.map(b => ({ id: b[0], x: b[1], y: b[2], face: b[3], room: b[4], t: b[5], look: G.chars[b[0]].look, name: G.chars[b[0]].name }));
   if (s.ph === 'end') { if (prev !== 'end' && s.end) { $('#cqMeet').hidden = true; cq.gm = null; G.phase = 'play'; cqEnd(s.end.win, s.end.why); } return; }
   G.phase = s.ph;
@@ -2479,7 +2492,7 @@ const cqOpt = () => Object.assign({}, CQ_OPT_DEF, store.settings.cqOpt || {});
 const cqMaxImps = n => n <= 5 ? 1 : n <= 7 ? 2 : 3;
 const cqCellFree = (x, y) => !!(cqFloor[y] && cqFloor[y][x] && !cqSolid[y][x]);
 const cqRoomName = (x, y) => { const r = cqRoomOf[Math.floor(y)] ? cqRoomOf[Math.floor(y)][Math.floor(x)] : -1; return CQ_ROOMS[r >= 0 ? r : CQ_HALL].n; };
-const cqLookOf = c => c.bot || c.remote ? c.look : cq.g && cq.g.disg && cq.g.disg.until > cq.g.time ? cq.g.chars[cq.g.disg.id].look : cqLook();
+const cqLookOf = c => c.bot || c.remote ? (c.disg && cq.g && c.disg.until > cq.g.time ? cq.g.chars[c.disg.id].look : c.look) : cq.g && cq.g.disg && cq.g.disg.until > cq.g.time ? cq.g.chars[cq.g.disg.id].look : cqLook();
 const cqDist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
 const cqPickOne = a => a[Math.floor(Math.random() * a.length)];
 // cella libera accanto a un oggetto, dove ci si mette per usarlo
@@ -2763,10 +2776,10 @@ function cqImpBrain(b, dt) {
     if (!living.some(o => o !== v && !o.imp && cqDist(o, b) < R + (G.chars.filter(c => c.imp).length > 1 ? 2 : 0))) { best = v; bd = d; }   // nessun altro che possa vedere (in gruppo piu' prudenti)
   }
   if (!best) { stop(); return; }
-  // il clone del giocatore li inganna: vanno dietro a lui
-  if (best === G.me && G.clone) {
-    const C = G.clone;
-    if (cqDist(C, b) < 1.1) { G.clone = null; b.kcd = 8; stop(); cqToast('👥 Qualcuno ha attaccato il tuo clone ' + CQ_IN[cqRoomName(C.x, C.y)] + '!'); return; }
+  // il clone inganna: vanno dietro a lui (il mio o quello di un amico)
+  const C = best === G.me ? G.clone : best.clone;
+  if (C) {
+    if (cqDist(C, b) < 1.1) { b.kcd = 8; stop(); if (best === G.me) { G.clone = null; cqToast('👥 Qualcuno ha attaccato il tuo clone ' + CQ_IN[cqRoomName(C.x, C.y)] + '!'); } else best.clone = null; return; }
     b.hunt = { x: C.x, y: C.y }; b.wait = 0; b.doing = null; b.goal = { k: 'hunt' }; b.path = cqPath(b.x, b.y, C.x, C.y); return;
   }
   if (bd < 1.1) { stop(); cqKill(best, b); return; }
@@ -2787,6 +2800,7 @@ function cqKill(v, k) {
   if (!v.shield) v.killer = k.name;
   if (v.shield) {   // il giubbotto salva una volta, e si scopre chi ci ha provato
     v.shield = false; k.kcd = G.opt.kcd * 0.5; beep(900, 0.08, 0.05);
+    if (v.remote) v.saved = [k.name, Math.round(G.time * 10)];
     if (v === G.me) cqToast('🛡️ Il giubbotto ti ha salvato! Ti ha attaccato <b style="color:#ff6a5a">' + esc(k.name) + '</b>.');
     cqHud(); return;
   }
@@ -2796,7 +2810,7 @@ function cqKill(v, k) {
   k.kcd = G.opt.kcd * (1 + 0.6 * (G.chars.filter(c => c.imp).length - 1));   // con piu' sabotatori ognuno aspetta di piu'
   const R = cqSeeR();
   // travestimento: i testimoni accusano chi sembravi; fumo: chi e' nella stanza non vede niente
-  const dg = k === G.me && G.disg && G.disg.until > G.time && G.disg.id !== v.id ? G.disg.id : k.id, fog = G.smoke && G.smoke.until > G.time ? G.smoke.room : null;
+  const kd = k === G.me ? G.disg : k.disg, dg = kd && kd.until > G.time && kd.id !== v.id ? kd.id : k.id, fog = G.smoke && G.smoke.until > G.time ? G.smoke.room : null;
   for (const w of G.chars) {
     if (!w.bot || !w.alive || w.imp) continue;
     if (fog && cqRoomName(w.x, w.y) === fog) continue;
@@ -3795,7 +3809,6 @@ function cqBuildBg() {
   const ox = CQ_H * TW / 2 + TW, oy = 3.6 * U + TW;
   const bw = (CQ_W + CQ_H) * TW / 2 + 2 * TW, bh = (CQ_W + CQ_H) * TH / 2 + oy + TW;
   const sc = cq.dpr, TP = 1024, TS = TP / sc;   // tessere da 1024 pixel veri
-  if (CQ_GFX === 2) { cq.bg = { tiles: [], TW, ox, oy, bw, bh, dpr: sc, none: true }; return; }
   // cosa disegnare, con il rettangolo che occupa (per disegnare in ogni tessera solo quello che la tocca)
   const job = [];
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
@@ -3817,7 +3830,6 @@ function cqBuildBg() {
   }
   cq.baking = false;
   cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc, ver: 0 };
-  if (CQ_GFX === 3) cqDomBg(cq.bg);
 }
 // chiome degli alberi: un'immagine per tipo, colore e altezza (disegnata dal processore), incollata sopra a ogni fotogramma da cqCanopies
 function cqCanopySprites(TW, sc) {
@@ -3845,7 +3857,7 @@ function cqTreePatch(t, B) {
 }
 // ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
 function cqBgCell(x, y) {
-  const B = cq.bg; if (!B || B.none) return;
+  const B = cq.bg; if (!B) return;
   const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
   const r = [B.ox + (x - y - 1) * TW / 2 - 1.3 * TW, B.oy + (x + y) * TH / 2 - 6.6 * U - TW, B.ox + (x - y + 1) * TW / 2 + 1.3 * TW, B.oy + (x + y + 2) * TH / 2 + TW];
   cq.baking = true;
@@ -3856,18 +3868,6 @@ function cqBgCell(x, y) {
     cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 14);
   }
   cq.baking = false; B.ver++;
-  if (CQ_GFX === 3) cqDomBg(B);
-}
-// modo 3: le tessere diventano immagini normali della pagina, sotto il disegno, spostate dal browser
-function cqDomBg(B) {
-  const mv = $('#cqBgMove'); mv.querySelectorAll('img').forEach(i => URL.revokeObjectURL(i.src)); mv.innerHTML = ''; cq.domReady = null;
-  let n = B.tiles.length;
-  B.tiles.forEach(t => t.c.toBlob(b => {
-    if (cq.bg !== B || !b) return;
-    const im = new Image(); im.onload = () => { if (--n === 0 && cq.bg === B) cq.domReady = B; };
-    Object.assign(im.style, { left: t.x + 'px', top: t.y + 'px', width: t.w + 'px', height: t.h + 'px' });
-    im.src = URL.createObjectURL(b); mv.appendChild(im);
-  }));
 }
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
@@ -3878,9 +3878,7 @@ function cqDraw() {
   const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0); g.clearRect(0, 0, W, H);
-  const dom = CQ_GFX === 3 && cq.domReady === B;
-  if (dom) { const tr = 'translate3d(' + ix + 'px,' + iy + 'px,0)'; if (cq.domTr !== tr) { cq.domTr = tr; $('#cqBgMove').style.transform = tr; } }
-  else for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
+  for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < W && dy < H && dx + t.w > 0 && dy + t.h > 0) g.drawImage(t.c, dx, dy, t.w, t.h); }
   // personaggi e corpi a terra (con le luci spente si vede solo vicino a se')
   const G = cq.g, meLook = G ? cqLookOf(G.me) : cqLook(), list = [];
   const dark = !!(G && G.sab && G.sab.type === 'luci' && !G.me.imp && G.me.alive && !G.me.nv && G.phase === 'play');
@@ -3903,9 +3901,10 @@ function cqDraw() {
     for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face });
     for (const ch of G.chars) {
       if (ch === G.me) list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
+    for (const C of cqOtherClones()) if (seen(C.x, C.y)) list.push({ x: C.x, y: C.y, L: C.o.look, w: C.walk, f: C.face, name: C.o.name });
     if (S && G.phase === 'play') {   // bosco: animali, avventuriero, fucile caduto
       for (const m of S.mobs) if (seen(m.x, m.y)) list.push({ mob: m, x: m.x, y: m.y });
       if (S.adv) list.push({ adv: 1, x: S.adv.x, y: S.adv.y, rf: S.adv.rifle });
@@ -3921,8 +3920,7 @@ function cqDraw() {
   }
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
   const T = cqTools(g, TW);
-  if (B.none) cqRedraw(g, T, [0, 0, W, H], tx, ty, TW, list, Math.ceil((W / TW + H / TH) / 2) + 8);   // modo 2: tutto lo schermo da capo
-  else {
+  {
     // riquadri che si toccano diventano uno solo: con tanti personaggi vicini ognuno si disegna una volta sola
     const rs = list.filter(o => o.on).map(o => o.r.slice());
     // chiome davanti a me (ci passo dietro): diventano trasparenti piano piano. Nel loro riquadro, sotto, va un ritaglio della mappa pronta senza la loro chioma
@@ -3934,7 +3932,7 @@ function cqDraw() {
         const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5);
         const cy = my - 0.9 * TW, behind = cq.fading.length < 3 && d < t.x + t.y + 1.2 && Math.abs(mx - sx) < 0.95 * TW && cy > sy - 3.9 * TW && cy < sy - 0.7 * TW;   // copre davvero il mio corpo
         t.a += ((behind ? 0.3 : 1) - t.a) * 0.15; if (t.a > 0.99) t.a = 1;
-        if (t.a < 1 && !B.none && cqTreePatch(t, B)) { cq.fading.push(t); rs.push([sx - 1.3 * TW, sy - 4.2 * TW, sx + 1.3 * TW, sy + 0.6 * TW].map(al)); }
+        if (t.a < 1 && cqTreePatch(t, B)) { cq.fading.push(t); rs.push([sx - 1.3 * TW, sy - 4.2 * TW, sx + 1.3 * TW, sy + 0.6 * TW].map(al)); }
       }
     }
     for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
@@ -3942,7 +3940,7 @@ function cqDraw() {
       if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { a[0] = Math.min(a[0], b[0]); a[1] = Math.min(a[1], b[1]); a[2] = Math.max(a[2], b[2]); a[3] = Math.max(a[3], b[3]); rs.splice(j, 1); j = i; }
     }
     // modo 1: ogni riquadro si compone a parte (disegnato dal processore) e poi si incolla sullo schermo (piu' lento, di riserva)
-    if (CQ_GFX !== 1) for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 6, dom ? null : B);
+    if (CQ_GFX !== 1) for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 6, B);
     else { const rc = cq.rc || (cq.rc = document.createElement('canvas')), rg = cq.rg || (cq.rg = rc.getContext('2d', CQ_CPU));
     for (const q of rs) {
       const x0 = Math.max(0, q[0]), y0 = Math.max(0, q[1]), x1 = Math.min(W, q[2]), y1 = Math.min(H, q[3]);
@@ -3950,7 +3948,7 @@ function cqDraw() {
       const pw = Math.round((x1 - x0) * dp), ph = Math.round((y1 - y0) * dp);
       if (rc.width < pw || rc.height < ph) { rc.width = Math.max(rc.width, pw); rc.height = Math.max(rc.height, ph); }
       rg.setTransform(dp, 0, 0, dp, -x0 * dp, -y0 * dp);
-      cqRedraw(rg, cqTools(rg, TW), [x0, y0, x1, y1], tx, ty, TW, list, Math.ceil(((x1 - x0) / TW + (y1 - y0) / TH) / 2) + 6, dom ? null : B);
+      cqRedraw(rg, cqTools(rg, TW), [x0, y0, x1, y1], tx, ty, TW, list, Math.ceil(((x1 - x0) / TW + (y1 - y0) / TH) / 2) + 6, B);
       g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
     } }
   }
