@@ -14,6 +14,7 @@
     if (k) { $('#enNew').click(); await w(300); }
     store.settings.cqModeOpt = Object.assign(store.settings.cqModeOpt || {}, { nascondino: { time: 240, seek: k % 2 ? 2 : 1, hide: 20, map: 'studio', n: 8, fill: true } });
     const rb = document.querySelector('#lbF input[name=seek][value="' + (k % 2 ? 2 : 1) + '"]'); if (rb) rb.checked = true;
+    const rd = document.querySelector('#lbF input[name=dark][value="' + (k % 4 < 2 ? 'on' : 'dark') + '"]'); if (rd) rd.checked = true;
     $('#lbGo').click(); await w(900);
     const G = cq.g;
     if (k === 0) out.push('partita: ' + G.mode + ', ruoli ' + G.chars.map(c => c.name + ':' + c.r).join(' ') + ' | centro: ' + $('#cqCount').textContent + ' | barra: ' + $('#cqModeBar').textContent);
@@ -31,12 +32,12 @@
     window.cqToast = t0;
     const t = $('#tkBody .lead') ? $('#tkBody .lead').textContent : '?';
     if (t.includes('cercatori!')) res.s++; else res.h++;
-    out.push('partita ' + (k + 1) + ' (' + G.opt.seek + ' cerc.): ' + Math.round(G.time) + ' s, travestiti a fine conta ' + disg + ', errori ' + miss + ', versi ' + snd + ' | ' + t.slice(0, 90));
+    out.push('partita ' + (k + 1) + ' (' + G.opt.seek + ' cerc.' + (G.opt.dk ? ', buio' : '') + '): ' + Math.round(G.time) + ' s, travestiti a fine conta ' + disg + ', errori ' + miss + ', versi ' + snd + ' | ' + t.slice(0, 90));
     cq.on = true; cq.last = performance.now(); cq.raf = requestAnimationFrame(cqFrame);
   }
   out.push('totale: cercatori ' + res.s + ', nascosti ' + res.h);
   // una partita vera per la foto: io nascosto travestito accanto a un oggetto, bot fermi
-  $('#enNew').click(); await w(300); $('#lbGo').click(); await w(3600);
+  $('#enNew').click(); await w(300); if (window.__DARK) document.querySelector('#lbF input[name=dark][value=dark]').checked = true; $('#lbGo').click(); await w(3600);
   {
     const G = cq.g, me = G.me, want = window.__ROLE != null ? +window.__ROLE : 0;
     for (const c of G.chars) c.r = c === me ? want : (c === G.chars[1] ? 1 - want : 0);
@@ -45,10 +46,10 @@
     const s = G.chars[1]; s.x = cq.x + 1.5; s.y = cq.y + 1; s.pr = want === 1 ? ['plant', 0] : null;
     await w(300);
     out.push('pulsante: ' + $('#cqKill').textContent + ' on=' + $('#cqKill').classList.contains('on') + ' | centro: ' + $('#cqCount').textContent);
-    cqMyKill(); await w(400); out.push("menu: " + $("#tkTitle").textContent + " voci " + $("#tkBody").querySelectorAll("[data-v]").length + ": " + [...$("#tkBody").querySelectorAll("[data-v] span")].map(s => s.textContent).join("/")); $("#tkBody").querySelector("[data-v]").click(); await w(300);
+    if (want === 1) G.time = G.opt.hide + 1; else { cqMyKill(); await w(400); out.push("menu: " + $("#tkTitle").textContent + " voci " + $("#tkBody").querySelectorAll("[data-v]").length + ": " + [...$("#tkBody").querySelectorAll("[data-v] span")].map(s => s.textContent).join("/")); $("#tkBody").querySelector("[data-v]").click(); await w(300); }
     out.push('dopo il pulsante: travestito ' + JSON.stringify(me.pr) + ' | barra: ' + $('#cqModeBar').textContent + ' | disegno: ' + JSON.stringify(G.M.prop(me)));
   }
-  cqMyKill(); await w(300);
+  if (!window.__ROLE) { cqMyKill(); await w(300); }
   out.push('errori: ' + (document.getElementById('errBar') ? document.getElementById('errBar').textContent : 'nessuno'));
   return out;
 })()

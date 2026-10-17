@@ -5,7 +5,7 @@
 // Vincono i cercatori se trovano tutti, i nascosti se almeno uno resiste fino alla fine (o se i cercatori sono tutti fuori).
 // Gancio del motore usato: prop(c) -> il personaggio si disegna come un oggetto (T.prop / drawProp).
 (() => {
-  const REACH = 1.3, STUN = 3, MAXERR = 3, CHG = 2, TAUNT = 30, RING = 2.5;
+  const REACH = 1.3, STUN = 3, MAXERR = 3, CHG = 2, TAUNT = 30, RING = 2.5, HEAR = 12, SEE_S = 5.5, SEE_H = 3;   // HEAR = fin dove si sente il verso (caselle)
   // oggetti in cui ci si puo' trasformare (tipo -> nome), scelti dall'utente: mobili veri + vasi, cactus e coni (piu' difficili)
   const KINDS = { locker: 'armadietto', dchair: 'sedia', rack: 'appendiabiti', camera: 'cinepresa', lamp: 'faro', crate: 'cassa', crate2: 'cassa doppia',
     barrel: 'barile', fridge: 'frigo', tv: 'televisore', plant: 'vaso di fiori', cactus: 'cactus', cone: 'cono' };
@@ -74,12 +74,12 @@
       for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square');
     } else if (e.k === 'miss') {
       G.fx.push({ x: e.x, y: e.y, t: performance.now() });
-      if (A === me) { t = '❌ Era un oggetto vero! Stordito per ' + STUN + ' s. ' + (MAXERR - (me.err || 0) === 1 ? 'Ti resta 1 vita!' : 'Ti restano ' + (MAXERR - (me.err || 0)) + ' vite.'); beep(180, 0.25, 0.05, 0, 'sawtooth'); }
+      if (A === me) { beep(180, 0.25, 0.05, 0, 'sawtooth'); }
       else if (Math.hypot(e.x - cq.x, e.y - cq.y) < 10) beep(220, 0.12, 0.03, 0, 'sawtooth');
-    } else if (e.k === 'out') { t = '🚫 ' + (A === me ? 'Hai' : an + ' ha') + ' sbagliato ' + MAXERR + ' volte: fuori!'; beep(200, 0.3, 0.04); }
+    } else if (e.k === 'out') { if (A !== me) t = '🚫 ' + an + ' ha sbagliato ' + MAXERR + ' volte: fuori!'; beep(200, 0.3, 0.04); }
     else if (e.k === 'snd') {   // verso di un nascosto: si sente da vicino, il cerchio si vede sulla mappa
-      G.rings.push({ x: e.x, y: e.y, t: performance.now() });
-      const d = A === me ? 0 : Math.hypot(e.x - cq.x, e.y - cq.y), v = 0.07 * Math.max(0, 1 - d / 18), f = 520 + (e.a % 5) * 85;
+      G.rings.push({ x: e.x, y: e.y, t: performance.now(), a: e.a });
+      const d = A === me ? 0 : Math.hypot(e.x - cq.x, e.y - cq.y), v = 0.07 * Math.max(0, 1 - d / (HEAR + 1)), f = 520 + (e.a % 5) * 85;
       if (v > 0.004) { beep(f, 0.09, v, 0, 'triangle'); beep(f * 1.5, 0.13, v, 0.1, 'triangle'); beep(f * 1.2, 0.09, v, 0.25, 'triangle'); }
       if (A === me) t = '🔔 Hai fatto un verso: i cercatori sanno più o meno dove sei!';
     }
@@ -151,15 +151,15 @@
     // chi sembra sospetto tra quelli che vedo (stessa stanza o vicino)
     const room = cqRoomOf[Math.floor(c.y)] && cqRoomOf[Math.floor(c.y)][Math.floor(c.x)];
     for (const h of hiders(G)) {
-      const q = drawPos(h), d = Math.hypot(q.x - c.x, q.y - c.y); if (d > 7) continue;
+      const q = drawPos(h), d = Math.hypot(q.x - c.x, q.y - c.y); if (d > (G.opt.dk ? SEE_S - 0.5 : 7)) continue;
       const hr = cqRoomOf[Math.floor(q.y)] && cqRoomOf[Math.floor(q.y)][Math.floor(q.x)]; if (hr !== room && d > 3) continue;
-      const pr = !h.pr ? 0.9 : h.walk ? 0.3 : 0.022 + (misfit(h) ? 0.1 : 0);
+      const pr = !h.pr ? 0.9 : h.walk ? 0.35 : 0.034 + (misfit(h) ? 0.12 : 0);
       if (Math.random() < pr) { c.tg = { id: h.id, t: G.time }; go(c, q.x, q.y); return; }
     }
     // a volte si sbaglia: un oggetto vero qui vicino sembra sospetto
     if ((c.err || 0) < 1 && Math.random() < 0.02) { const o = near(c.x, c.y, 4.5)[Math.floor(Math.random() * 3)]; if (o) { c.tg = { cx: o[1], cy: o[2], t: G.time }; return; } }
     // un verso sentito: si va a vedere
-    const r = G.rings.filter(r => performance.now() - r.t < 8000 && Math.hypot(r.x - c.x, r.y - c.y) < 18).pop();
+    const r = G.rings.filter(r => performance.now() - r.t < 8000 && Math.hypot(r.x - c.x, r.y - c.y) < HEAR * 1.25).pop();
     if (r && c.heard !== r) { c.heard = r; if (Math.random() < 0.8) { go(c, r.x, r.y); return; } }
     if (!c.path.length) { const f = cqModeFree(); if (f) go(c, f.x, f.y); }
   }
@@ -168,23 +168,25 @@
     n: 'Nascondino sul set',
     desc: '🪑 I <b>nascosti</b> scelgono da un menu in che oggetto trasformarsi (armadietto, sedia, attaccapanni, cinepresa, vaso, cono…), si muovono a forma di oggetto e si fermano dove si confondono meglio. I <b>cercatori</b> contano a schermo nero, poi colpiscono gli oggetti sospetti: se è un nascosto è eliminato, se è un oggetto vero restano storditi (3 errori = fuori). Ogni 30 secondi circa ogni nascosto fa un verso. 🤫 In vocale ti sentono da vicino: se ti nascondi, stai zitto!',
     maps: [['studio', 'Studio (luci accese)']],
-    def: { time: 240, seek: 1, hide: 20, me: 'rnd', map: 'studio', n: 8, fill: true },
+    def: { time: 240, seek: 1, hide: 20, me: 'rnd', dark: 'on', map: 'studio', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Cercatori</div>${seg('seek', [[1, '1'], [2, '2']], o.seek)}</div>
       <div class="row"><div class="lbl">Tempo per nascondersi</div>${seg('hide', [[15, '15 s'], [20, '20 s']], o.hide)}</div>${cq.net ? '' : '<div class="row"><div class="lbl">Il mio ruolo</div>' + seg('me', [['rnd', 'A caso'], ['h', 'Nascosto'], ['s', 'Cercatore']], o.me || 'rnd') + '</div>'}
-      <div class="row"><div class="lbl">Durata della caccia</div>${seg('time', [[180, '3:00'], [240, '4:00'], [300, '5:00']], o.time)}</div>`,
-    read: d => ({ time: +d.get('time') || 240, seek: +d.get('seek') || 1, hide: +d.get('hide') || 20, me: d.get('me') || 'rnd' }),
+      <div class="row"><div class="lbl">Durata della caccia</div>${seg('time', [[180, '3:00'], [240, '4:00'], [300, '5:00']], o.time)}</div>
+      <div class="row"><div class="lbl">Luci</div>${seg('dark', [['on', 'Accese'], ['dark', 'Al buio'], ['rnd', 'A caso']], o.dark || 'on')}</div>`,
+    read: d => ({ time: +d.get('time') || 240, seek: +d.get('seek') || 1, hide: +d.get('hide') || 20, me: d.get('me') || 'rnd', dark: d.get('dark') || 'on' }),
     start(G) {
       if (![15, 20].includes(G.opt.hide)) G.opt.hide = 20;
+      G.opt = Object.assign({}, G.opt, { dk: G.opt.dark === 'dark' || (G.opt.dark === 'rnd' && Math.random() < 0.5) ? 1 : 0 });   // al buio? (a caso lo decide l'host, gli amici lo ricevono nelle opzioni)
       G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240;
       const sh = G.chars.slice().sort(() => Math.random() - 0.5), mr = cq.net ? 'rnd' : G.opt.me; if (mr !== 'rnd') { sh.splice(sh.indexOf(G.me), 1); if (mr === 's') sh.unshift(G.me); else sh.push(G.me); } const ns = Math.min(G.opt.seek || 1, Math.max(1, Math.floor(G.chars.length / 3)));
       sh.forEach((c, i) => { c.r = i < ns ? 1 : 0; c.pr = null; c.chg = CHG; c.stun = 0; c.err = 0; c.kl = 0; c.spot = null; c.tg = null; c.nt = (G.opt.hide || 20) + 12 + Math.random() * 18; });
     },
     gstart(G) { G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240; for (const c of G.chars) { c.pr = null; c.r = 0; } },
-    intro: G => G.me.r === 1 ? '🔎 Sei il cercatore: conta, poi trovali!' : '🪑 Nasconditi: diventa un oggetto!',
+    intro: G => (G.opt.dk ? '🌑 Al buio! ' : '') + (G.me.r === 1 ? '🔎 Sei il cercatore: conta, poi trovali!' : '🪑 Nasconditi: diventa un oggetto!'),
     speed: c => { const G = cq.g; return c.r === 1 && (hiding(G) || stunned(G, c)) ? 0 : 1; },
     big(G) {
       const me = G.me, h = Math.ceil((G.opt.hide || 20) - G.time);
-      if (me.r === 1) { if (!me.alive) return '🚫 Sei fuori'; if (hiding(G)) return '🙈 Stai contando… ' + h; if (stunned(G, me)) return '😵 Stordito!'; return ''; }
+      if (me.r === 1) { if (!me.alive) return '🚫 Sei fuori'; if (hiding(G)) return '🙈 Stai contando… ' + h; if (stunned(G, me)) return '❤️'.repeat(Math.max(0, MAXERR - (me.err || 0))); return ''; }   // colpo sbagliato: al centro solo i cuori rimasti
       if (!me.alive) return '';
       if (hiding(G)) return (me.pr ? '🤫 Sei ' + art(me.pr[0]) + '. ' : '🪑 Premi Oggetto e scegli! ') + 'I cercatori partono tra ' + h;
       const nt = (me.nt || 0) - G.time; if (nt > 0 && nt < 5) return '🔔 Tra ' + Math.ceil(nt) + ' farai un verso!';
@@ -227,13 +229,13 @@
       if (!hiding(G)) G.left -= dt;
       // versi dei nascosti (cerchio un po' spostato: si sa piu' o meno dove)
       if (!hiding(G)) for (const c of hiders(G)) if (G.time >= c.nt) {
-        const p = P(c); c.nt = G.time + TAUNT * (0.85 + Math.random() * 0.3);
+        const p = P(c); c.nt = G.time + TAUNT * (0.4 + 0.6 * Math.max(0, G.left) / (G.opt.time || 240)) * (0.85 + Math.random() * 0.3);   // verso la fine sempre piu' spesso (da ~30 a ~12 s)
         say(G, 'snd', c.id, -1, p.x + (Math.random() - 0.5) * 1.6, p.y + (Math.random() - 0.5) * 1.6);
       }
       for (const c of G.chars) {
         if (!c.bot || !c.alive) continue;
         if ((c.think -= dt) <= 0) { c.think = 0.45 + Math.random() * 0.15; c.r === 1 ? botSeeker(G, c) : botHider(G, c); }
-        cqModeStep(c, dt, c.r === 1 ? (hiding(G) || stunned(G, c) ? 0 : 0.92) : 0.95);
+        cqModeStep(c, dt, c.r === 1 ? (hiding(G) || stunned(G, c) ? 0 : 1) : 0.95);
       }
       if (!hiders(G).length) this.finish(G, 1);
       else if (!G.chars.some(c => c.r === 1 && c.alive)) this.finish(G, 0, 'i cercatori sono tutti fuori.');
@@ -260,8 +262,21 @@
       G.left = x.left;
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
-    // cercatori mentre contano: schermo nero (e nessuno si vede)
-    night(G) { const me = G.me; return me.r === 1 && me.alive && hiding(G) ? { a: 1, r: 0.01, lights: [], see: () => false } : null; },
+    // cercatori mentre contano: schermo nero (e nessuno si vede).
+    // Al buio (G.opt.dk): i cercatori hanno la torcia (vedono fino a SEE_S, fascio davanti), i nascosti vedono poco (SEE_H) ma vedono sempre i cercatori e le loro torce
+    night(G) {
+      const me = G.me;
+      if (me.r === 1 && me.alive && hiding(G)) return { a: 1, r: 0.01, lights: [], see: () => false };
+      if (!G.opt.dk || !me.alive) return null;
+      const lights = [], S = me.r === 1;
+      for (const c of G.chars) if (c !== me && c.r === 1 && c.alive && Math.hypot(c.x - cq.x, c.y - cq.y) < 20) lights.push([c.x, c.y, 3.2, 0.85]);
+      if (S) { const l = Math.hypot(cq.wdx || 0, cq.wdy || 0) || 1, dx = (cq.wdx || 0.5) / l, dy = (cq.wdy || 0.5) / l; lights.push([cq.x + dx * 2.6, cq.y + dy * 2.6, 3.4, 0.9]); }
+      return { a: 0.94, r: S ? 4.4 : 2.4, lights,
+        see: (x, y) => {
+          if (Math.hypot(x - cq.x, y - cq.y) < (S ? SEE_S : SEE_H)) return true;
+          const c = G.chars.find(o => o.x === x && o.y === y); return !!c && c.r === 1 && !S;
+        } };
+    },
     // sopra alla mappa: versi (cerchi), colpi a vuoto, cosa sto per colpire / in cosa mi trasformo
     over(g, G, sx, sy, TW) {
       const me = G.me, now = performance.now(), W = cq.w, H = cq.h;
@@ -269,10 +284,10 @@
       const ring = (x, y, r) => { g.beginPath(); for (let i = 0; i <= 24; i++) { const t = i / 24 * Math.PI * 2, X = sx(x + Math.cos(t) * r, y + Math.sin(t) * r), Y = sy(x + Math.cos(t) * r, y + Math.sin(t) * r); i ? g.lineTo(X, Y) : g.moveTo(X, Y); } g.closePath(); };
       G.rings = G.rings.filter(r => now - r.t < 9000);
       for (const r of G.rings) {
-        const a = (now - r.t) / 1000; if (a > RING) continue;
+        const a = (now - r.t) / 1000; if (a > RING || (r.a !== me.id && me.alive && Math.hypot(r.x - cq.x, r.y - cq.y) > HEAR + 1)) continue;   // troppo lontano: non si sente e non si vede
         for (const k of [0, 0.4]) { const f = (a + k) % 1.2 / 1.2; ring(r.x, r.y, 0.5 + f * 2); g.strokeStyle = 'rgba(255,214,90,' + (0.9 * (1 - f) * (1 - a / RING)) + ')'; g.lineWidth = 3; g.stroke(); }
         const X = sx(r.x, r.y), Y = sy(r.x, r.y) - TW * 1.2; g.font = '20px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 1 - a / RING; g.fillText('🔔', X, Y); g.globalAlpha = 1;
-        if (me.r === 1 && Math.hypot(r.x - cq.x, r.y - cq.y) < 30) edge(g, X, Y, W, H, '🔔', '#e8b830');
+        if (me.r === 1) edge(g, X, Y, W, H, '🔔', '#e8b830');
       }
       G.fx = G.fx.filter(f => now - f.t < 1000);
       for (const f of G.fx) { const a = (now - f.t) / 1000; g.globalAlpha = 1 - a; g.font = '26px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('❌', sx(f.x, f.y), sy(f.x, f.y) - TW * (1 + a * 0.6)); g.globalAlpha = 1; }
