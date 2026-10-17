@@ -12,6 +12,7 @@ const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl)
 let id = 0; const pend = {}; ws.onmessage = e => { const m = JSON.parse(e.data); if (m.id && pend[m.id]) { pend[m.id](m); delete pend[m.id]; } };
 const send = (method, params = {}) => new Promise(r => { pend[++id] = r; ws.send(JSON.stringify({ id, method, params })); });
 await send('Emulation.setDeviceMetricsOverride', { width: +W, height: +H, deviceScaleFactor: 2, mobile: true });
+if (process.env.CPU) await send('Emulation.setCPUThrottlingRate', { rate: +process.env.CPU });   // CPU=4: processore 4 volte piu' lento (come un telefono)
 await send('Page.enable'); await send('Page.navigate', { url: `http://127.0.0.1:${port}/` }); await sleep(2500);
 const r = await send('Runtime.evaluate', { expression: fs.readFileSync(jsFile, 'utf8'), awaitPromise: true, returnByValue: true });
 console.log(r.result.exceptionDetails ? 'ERRORE: ' + JSON.stringify(r.result.exceptionDetails).slice(0, 800) : JSON.stringify(r.result.result.value));

@@ -3005,21 +3005,25 @@ function cqSpot(x, y) {
   return { x: x + 0.5, y: y + 0.5 };
 }
 // percorso a celle (anche in diagonale, senza tagliare gli spigoli) per i personaggi del computer
+const CQ_DIRS8 = [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]];
 function cqPath(sx, sy, ex, ey) {
   sx = Math.floor(sx); sy = Math.floor(sy); ex = Math.floor(ex); ey = Math.floor(ey);
   if (!cqCellFree(ex, ey)) return [];
-  const W = CQ_W, s = sy * W + sx, e = ey * W + ex, prev = new Int32Array(W * CQ_H).fill(-1), q = [s]; prev[s] = s;
-  for (let i = 0; i < q.length && prev[e] < 0; i++) {
+  // tabelle riusate (niente memoria nuova a ogni percorso: sul telefono la pulizia della memoria fa scattare il gioco); stesso ordine di visita = stessi percorsi
+  const W = CQ_W, N = W * CQ_H, s = sy * W + sx, e = ey * W + ex;
+  let B = cqPath.B; if (!B || B.n !== N) B = cqPath.B = { n: N, prev: new Int32Array(N), mark: new Int32Array(N), q: new Int32Array(N), gen: 0 };
+  const gen = ++B.gen, prev = B.prev, mark = B.mark, q = B.q; let qn = 0; q[qn++] = s; prev[s] = s; mark[s] = gen;
+  for (let i = 0; i < qn && mark[e] !== gen; i++) {
     const c = q[i], x = c % W, y = (c / W) | 0;
-    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+    for (const [dx, dy] of CQ_DIRS8) {
       const nx = x + dx, ny = y + dy, n = ny * W + nx;
-      if (!cqCellFree(nx, ny) || prev[n] >= 0) continue;
+      if (!cqCellFree(nx, ny) || mark[n] === gen) continue;
       if (dx && dy && (!cqCellFree(x + dx, y) || !cqCellFree(x, y + dy))) continue;
       if (CQ_MAP.hz) { const h = cqHc(x, y); if (Math.abs(cqHc(nx, ny) - h) > 1 || (dx && dy && (Math.abs(cqHc(x + dx, y) - h) > 1 || Math.abs(cqHc(x, y + dy) - h) > 1))) continue; }   // un gradino alla volta
-      prev[n] = c; q.push(n);
+      prev[n] = c; mark[n] = gen; q[qn++] = n;
     }
   }
-  if (prev[e] < 0 || e === s) return [];
+  if (mark[e] !== gen || e === s) return [];
   const path = []; for (let c = e; c !== s; c = prev[c]) path.push([c % W + 0.5, ((c / W) | 0) + 0.5]);
   return path.reverse();
 }
@@ -4888,32 +4892,48 @@ function cqCanopySprites(TW, sc) {
   return can;
 }
 // ritaglio della mappa pronta nel riquadro della chioma di un albero, ma senza quella chioma (si fa una volta e si riusa finche' la mappa non cambia)
+// 4 fogli riusati per gli alberi trasparenti (ritaglio, davanti, composto): memoria fissa invece di 3 immagini per ogni albero toccato
+function cqTreeSlot(t) {
+  const P = cq.treePool || (cq.treePool = [{}, {}, {}, {}]), busy = o => cq.fading.includes(o);
+  let S = P.find(S => S.o === t) || P.find(S => !S.o || (!busy(S.o) && S.o.a >= 1)) || P.find(S => !busy(S.o)) || P.reduce((a, b) => (a.o.a > b.o.a ? a : b));
+  if (S.o && S.o !== t) { S.o.patch = null; S.o.fade = null; }
+  if (!S.c) { S.c = document.createElement('canvas'); S.f = document.createElement('canvas'); S.fc = document.createElement('canvas'); }
+  S.o = t; return S;
+}
 function cqTreePatch(t, B) {
   const p = t.patch; if (p && p.B === B && p.ver === B.ver) return p;
-  const TW = B.TW, TH = TW / 2, sc = B.dpr, sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2 - cqHc(t.x, t.y) * (CQ_MAP.hb || 0.7) * TW * 0.575;
+  // risoluzione ridotta (al massimo 1,25 pixel veri per pixel): si vede solo mentre la chioma e' trasparente, e dipinta dal processore costa in base ai pixel
+  const TW = B.TW, TH = TW / 2, sc = Math.min(B.dpr, 1.25), sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2 - cqHc(t.x, t.y) * (CQ_MAP.hb || 0.7) * TW * 0.575;
   const r = [Math.floor(sx - CQ_TREE_SD * TW), Math.floor(sy - 5.6 * TW), Math.ceil(sx + CQ_TREE_SD * TW), Math.ceil(sy + 0.7 * TW)];   // 5,6 TW = CQ_TREE_UP in U
-  const c = (p && p.c) || document.createElement('canvas'); c.width = Math.ceil((r[2] - r[0]) * sc); c.height = Math.ceil((r[3] - r[1]) * sc);
+  const SL = cqTreeSlot(t), c = SL.c; c.width = Math.ceil((r[2] - r[0]) * sc); c.height = Math.ceil((r[3] - r[1]) * sc);
   const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -r[0] * sc, -r[1] * sc);
   t.skipCan = true; cq.baking = true;
   cqRedraw(g, cqTools(g, TW), r, B.ox, B.oy, TW, [], 17);
-  t.skipCan = false; cq.baking = false;
-  return (t.patch = { c, x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], B, ver: B.ver });
+  t.skipCan = false;
+  // quello che sta davanti all'albero (su fondo trasparente): va sopra la chioma trasparente
+  const f = SL.f; f.width = c.width; f.height = c.height;
+  const gf = f.getContext('2d', CQ_CPU); gf.setTransform(sc, 0, 0, sc, -r[0] * sc, -r[1] * sc);
+  cq.frontOf = t; cqRedraw(gf, cqTools(gf, TW), r, B.ox, B.oy, TW, [], 17); cq.frontOf = null; cq.baking = false;
+  t.fade = null; return (t.patch = { c, f, fc: SL.fc, sc, x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], B, ver: B.ver });
 }
 // immagine del riquadro di un albero trasparente (mappa senza la sua chioma + chioma trasparente + cio' che ha davanti), senza personaggi.
-// Si rifa' solo quando cambia la trasparenza (a passi di 0,05), la mappa pronta o l'altra chioma trasparente
+// Si compone incollando tre immagini pronte (ritaglio senza chioma, chioma trasparente, quello che sta davanti): a ogni passo di 0,05 costa pochissimo
 function cqFadeImg(t, B) {
-  const p = t.patch, key = B.ver + ':' + cq.fading.map(o => o.x + ',' + o.y + ',' + Math.round(o.a * 20)).join(';'), f = t.fade;
-  if (f && f.B === B && f.key === key) return f;
-  const c = (f && f.c) || document.createElement('canvas'); c.width = p.c.width; c.height = p.c.height;
-  const g = c.getContext('2d', CQ_CPU), sc = B.dpr; g.setTransform(sc, 0, 0, sc, -p.x * sc, -p.y * sc);
-  cqRedraw(g, cqTools(g, B.TW), [p.x, p.y, p.x + p.w, p.y + p.h], B.ox, B.oy, B.TW, [], 17, B);
-  return (t.fade = { c, x: p.x, y: p.y, w: p.w, h: p.h, B, key });
+  const p = t.patch, a = Math.round(t.a * 20) / 20, f = t.fade;
+  if (f && f.B === B && f.ver === B.ver && f.a === a && f.p === p) return f;
+  const c = p.fc; if (c.width !== p.c.width || c.height !== p.c.height) { c.width = p.c.width; c.height = p.c.height; }
+  const g = c.getContext('2d', CQ_CPU), sc = p.sc, TW = B.TW;
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height); g.drawImage(p.c, 0, 0);
+  const sp = cq.canSp && cq.canSp.TW === TW && cq.canSp[t.k + t.v + (t.h < 1.32 ? 1.25 : 1.4)];
+  if (sp) { const X = B.ox + (t.x - t.y) * TW / 2 - p.x, Y = B.oy + (t.x + t.y + 1) * TW / 4 - cqHc(t.x, t.y) * (CQ_MAP.hb || 0.7) * TW * 0.575 - p.y; g.setTransform(sc, 0, 0, sc, 0, 0); g.globalAlpha = a; g.drawImage(sp.c, X - sp.ax, Y - sp.ay, sp.w, sp.h); g.globalAlpha = 1; g.setTransform(1, 0, 0, 1, 0, 0); }
+  g.drawImage(p.f, 0, 0);
+  return (t.fade = { c, x: p.x, y: p.y, w: p.w, h: p.h, B, ver: B.ver, a, p });
 }
 // ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
-function cqBgCell(x, y) {
+function cqBgCell(x, y, low) {   // low: oggetto basso (porta, leva, forziere...): si ridisegna una zona molto piu' piccola
   const B = cq.bg; if (!B) return;
   const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
-  const r = [B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - CQ_TREE_UP * U - TW - cqHc(x, y) * (CQ_MAP.hb || 0.7) * U, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  const r = [B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - (low ? 3.5 : CQ_TREE_UP) * U - TW - cqHc(x, y) * (CQ_MAP.hb || 0.7) * U, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW];
   cq.baking = true;
   for (const t of B.tiles) {
     const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
@@ -4986,7 +5006,17 @@ function cqDraw() {
     const rs = list.filter(o => o.on).map(o => o.r.slice());
     // chiome davanti a me (ci passo dietro): diventano trasparenti piano piano. Nel loro riquadro, sotto, va un ritaglio della mappa pronta senza la loro chioma
     cq.fading = [];
-    if (CQ_MAP.trees && G) {
+    if (CQ_MAP.trees && G && CQ_MAP.xray) {   // mappe con xray (isola): niente chiome trasparenti; chi sta dietro a una chioma si ridisegna in trasparenza sopra (costa niente)
+      for (const o of list) {
+        if (!o.on || o.body || o.fire || o.mob || o.dr || o.pr || o.tint || o.ang != null || o.adv || o.rf || o.trap) continue;
+        const d = o.x + o.y, cy = o.sy - 0.9 * TW;
+        for (const t of CQ_MAP.trees) {
+          if (Math.abs(t.x - o.x) > 4 || Math.abs(t.y - o.y) > 4 || d >= t.x + t.y + 1.2) continue;
+          const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5) - cqZpx(t.x + 0.5, t.y + 0.5, TW);
+          if (Math.abs(o.sx - sx) < 1.2 * TW && cy > sy - 5.0 * TW && cy < sy - 0.8 * TW) { o.xr = 1; break; }
+        }
+      }
+    } else if (CQ_MAP.trees && G) {
       const d = cq.x + cq.y, mx = tx + X, my = ty + Y;
       for (const t of CQ_MAP.trees) {
         if (t.cut || Math.abs(t.x - cq.x) > 6 || Math.abs(t.y - cq.y) > 6) { t.a = 1; continue; }
@@ -5075,6 +5105,7 @@ function cqDraw() {
     if (G.M.over) G.M.over(g, G, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y) - cqZpx(x, y, TW), TW);
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
   }
+  for (const o of list) if (o.xr) { g.globalAlpha = o.ghost ? 0.25 : 0.5; cqPlayer(g, o.sx, o.sy, TW, o.L, o.w, o.f); g.globalAlpha = 1; }   // dietro a un albero (xray): sagoma in trasparenza
   for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
@@ -5109,7 +5140,8 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
   if (B) {
     const ix = tx - B.ox, iy = ty - B.oy; for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < x1 && dy < y1 && dx + t.w > x0 && dy + t.h > y0) g.drawImage(t.c, dx, dy, t.w, t.h); }
     for (const t of cq.fading || []) { const p = t.patch, dx = ix + p.x, dy = iy + p.y; if (dx < x1 && dy < y1 && dx + p.w > x0 && dy + p.h > y0) g.drawImage(p.c, dx, dy, p.w, p.h); }
-  } else g.clearRect(x0, y0, x1 - x0, y1 - y0);
+  } else if (!cq.frontOf) g.clearRect(x0, y0, x1 - x0, y1 - y0);
+  const FO = cq.frontOf;
   g.translate(tx, ty);
   const a0 = x0 - tx, b0 = y0 - ty, a1 = x1 - tx, b1 = y1 - ty, mx = (a0 + a1) / 2, my = (b0 + b1) / 2;
   const fx = Math.floor(mx / TW + my / TH), fy = Math.floor(my / TH - mx / TW), items = [];
@@ -5117,20 +5149,20 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     if (!cqFloor[y]) continue;
     for (let x = fx - rng; x <= fx + rng; x++) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
-      if (!B && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
+      if (!B && !FO && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x], zc = cqHc(x, y);
       const tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW;
       if ((o || zc) && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? CQ_TREE_UP : 3.5) * U - TW - zc * (CQ_MAP.hb || 0.7) * U < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
-  if (!B) T.decals();
+  if (!B && !FO) T.decals();
   // con le altezze chi sta su una casella si disegna dopo la sua colonna (e prima di quelle davanti)
   for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: CQ_MAP.hz ? Math.max(c.x + c.y, Math.floor(c.x) + Math.floor(c.y) + 1.001) : c.x + c.y, c });
   items.sort((a, b) => a.d - b.d);
   // con la mappa pronta sotto (B) quello che sta dietro a tutti i personaggi del riquadro c'e' gia': si ridisegna solo da quello piu' indietro in poi
-  const dmin = B && !cq.noSkip ? items.reduce((m, it) => it.c ? Math.min(m, it.d) : m, Infinity) : -Infinity;
+  const dmin = B && !cq.noSkip && !items.some(it => !it.c && it.o && it.o.prop === 'tree' && it.o.o && it.o.o.a < 1) ? items.reduce((m, it) => it.c ? Math.min(m, it.d) : m, Infinity) : -Infinity;   // con un albero trasparente nel riquadro si ridisegna tutto
   for (const it of items) {
-    if (!it.c) { if (it.d >= dmin || dmin === Infinity) T.zcell(it.x, it.y, it.o); continue; }
+    if (!it.c) { if (FO ? it.d > FO.x + FO.y + 1 : it.d >= dmin || dmin === Infinity) T.zcell(it.x, it.y, it.o); continue; }
     const c = it.c, X = c.sx - tx, Y = c.sy - ty;
     if (c.body) cqBody(g, X, Y, TW, c.L, c.f, c.a, c.nk);
     else if (c.fire) cqFlames(g, X, Y, TW, c.fu);

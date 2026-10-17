@@ -177,7 +177,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const ring = []; for (let i = 0; i < 10; i++) ring.push([camps[0].cx + (i % 3) - 1, camps[0].cy + Math.floor(i / 3) - 1]);
     const holes = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ter[y][x] === 255) { let w = 1; while (x + w < N && ter[y][x + w] === 255) w++; holes.push([x, y, w, 1]); x += w - 1; }
     return { ok: okAll, w: W, h: H, rooms, doors: [], decals, props, holes, trees, bg: x => x >= RX - 8 ? '#050608' : '#2e79b3', deco: deco2, tasks: [], hall: 0, cams: [], vending: [], ring: ring.filter(([x, y]) => free(x, y)).concat([[camps[0].cx, camps[0].cy + 1]]),
-      button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm', 'oak'], canopy, trunk, hz, hb: 1, hzSide, decoDraw,
+      button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm', 'oak'], xray: 1, canopy, trunk, hz, hb: 1, hzSide, decoDraw,
       ter, camps, mouths, RZ, lms, items, sharks, top, R, seed };
   }
 
@@ -419,13 +419,13 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const RZ = MP().RZ, d = G.R.d || (G.R.d = RZ.gates.map(() => 0));
     RZ.gates.forEach((gt, g) => {
       const o = G.R.o[g] ? 1 : 0; if (d[g] === o) return; d[g] = o;
-      for (const [x, y] of gt.cells) { cqSolid[y][x] = o ? null : { prop: 'gate', o: { g, n: gt.n } }; cqBgCell(x, y); }
+      for (const [x, y] of gt.cells) { cqSolid[y][x] = o ? null : { prop: 'gate', o: { g, n: gt.n } }; cqBgCell(x, y, 1); }
       if (dxy(G.me, gt.cells[0][0], gt.cells[0][1]) < 14) thud(0.5, 140);
     });
     const lv = G.R.lvd || (G.R.lvd = [0, 0]);
-    RZ.half.forEach(H => { if (lv[H.h] !== G.R.lev[H.h]) { lv[H.h] = G.R.lev[H.h]; cqBgCell(Math.floor(H.lev.x), Math.floor(H.lev.y)); } });
-    const ch = chestOk(G) ? 1 : 0; if (G.chD !== ch) { G.chD = ch; cqBgCell(MP().top.chest[0], MP().top.chest[1]); }
-    const rf = [0, 1].map(t => ORDER.map(k => OB.count(G, t, k)).join() + (G.go ? G.go.t : '')); for (const t of [0, 1]) if ((G.rfD || [])[t] !== rf[t]) { (G.rfD || (G.rfD = []))[t] = rf[t]; const c = MP().camps[t]; cqBgCell(c.rx, c.ry); }
+    RZ.half.forEach(H => { if (lv[H.h] !== G.R.lev[H.h]) { lv[H.h] = G.R.lev[H.h]; cqBgCell(Math.floor(H.lev.x), Math.floor(H.lev.y), 1); } });
+    const ch = chestOk(G) ? 1 : 0; if (G.chD !== ch) { G.chD = ch; cqBgCell(MP().top.chest[0], MP().top.chest[1], 1); }
+    const rf = [0, 1].map(t => ORDER.map(k => OB.count(G, t, k)).join() + (G.go ? G.go.t : '')); for (const t of [0, 1]) if ((G.rfD || [])[t] !== rf[t]) { (G.rfD || (G.rfD = []))[t] = rf[t]; const c = MP().camps[t]; cqBgCell(c.rx, c.ry, 1); }
   }
   // passaggi tra isola e rovine (ingressi a meta' collina <-> scale dell'atrio)
   function portal(G, c) {
@@ -612,7 +612,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   function setup(G) {
     G.it = OB.make(MP().items); G.R = { p: MP().RZ.gates.map(() => 0), o: MP().RZ.gates.map(() => 0), lev: [0, 0] };
     G.lg = []; G.lgN = 0; G.fx = []; G.chest = 0; G.mapT = [0, 0]; G.go = null; G.kn = [new Set(), new Set()]; G.night = false;
-    G.left = G.opt.time || 300; cq.mapDirty = true;   // porte e leve cambiano la mappa: la prossima partita la rifa' da capo
+    G.left = G.opt.time || 300; cq.mapDirty = true;
+    G.chD = 1; G.rfD = ['', ''].map((v, t) => ORDER.map(() => 0).join() );   // forziere chiuso e zattere vuote: come nella mappa pronta (niente ridisegno all'inizio)   // porte e leve cambiano la mappa: la prossima partita la rifa' da capo
     const lms = MP().lms; G.cl = G.it.filter(i => i.k === 'sail' || i.k === 'rope').map(i => ({ id: i.id, t: IZ.clue((i.k === 'sail' ? '⛵ La vela' : '🪢 Una corda'), i.x, i.y, lms, C, C) }));
     G.cl.push({ id: G.it.find(i => i.k === 'comp').id, t: '🧭 La bussola è nel cuore delle rovine: gli ingressi sono a metà collina.' });
   }
