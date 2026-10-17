@@ -322,17 +322,56 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     for (const c of G.chars) if (c.bot) c.path = [];
     say(G, 'shift', {});
   }
-  // su ogni telefono: le caselle dei muri come dice lo stato (ridisegno poche caselle a fotogramma)
+  // ridisegno della mappa pronta dopo un cambio dei muri: UNA zona che copre tutte le caselle cambiate (con cqBgCell casella per casella
+  // le zone si sovrapponevano e lo stesso pezzo si ridisegnava molte volte: scatti di 1-2 s sul telefono), fatta a strisce dall'alto
+  // in basso, tante quante stanno in ZONE_MS millisecondi per fotogramma
+  const ZONE_MS = 4, STRIP = 40;
+  function zoneOf(cells) {
+    const B = cq.bg; if (!B || !cells.length) return null;
+    const TW = B.TW, TH = TW / 2, U = TH * 1.15; let x0 = 1e9, y0 = 1e9, x1 = -1e9, y1 = -1e9;
+    for (const [x, y] of cells) {
+      x0 = Math.min(x0, B.ox + (x - y - 1) * TW / 2 - 0.6 * TW); x1 = Math.max(x1, B.ox + (x - y + 1) * TW / 2 + 0.6 * TW);
+      y0 = Math.min(y0, B.oy + (x + y) * TH / 2 - 3.5 * U - TW); y1 = Math.max(y1, B.oy + (x + y + 2) * TH / 2 + TW);
+    }
+    return { B, x0, x1, y: y0, y1 };
+  }
+  function drawZones(G) {
+    const B = cq.bg; if (!G.rz.length) return;
+    if (!B) { G.rz = []; return; }   // mappa pronta da rifare: si rifa' gia' con i muri nuovi
+    const t0 = performance.now(), TW = B.TW, sc = B.dpr; cq.baking = true;
+    while (G.rz.length && performance.now() - t0 < ZONE_MS) {
+      const z = G.rz[0]; if (z.B !== B) { G.rz.shift(); continue; }
+      // pezzo di STRIP x STRIP*6 pixel: da sinistra a destra, poi la striscia sotto
+      const ya = z.y, yb = Math.min(z.y1, z.y + STRIP), xa = z.x != null ? z.x : z.x0, xb = Math.min(z.x1, xa + STRIP * 6);
+      if (xb >= z.x1) { z.x = null; z.y = yb; } else z.x = xb;
+      for (const t of B.tiles) {
+        const x0 = Math.max(xa, t.x), y0 = Math.max(ya, t.y), x1 = Math.min(xb, t.x + t.w), y1 = Math.min(yb, t.y + t.h);
+        if (x1 <= x0 || y1 <= y0) continue;
+        const g = t.c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -t.x * sc, -t.y * sc);
+        cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 17);
+      }
+      if (z.y >= z.y1) G.rz.shift();
+    }
+    cq.baking = false; B.ver++;
+  }
+  // su ogni telefono: le caselle dei muri come dice lo stato
   function syncWalls(G) {
     const S = MP().S; if (!G.Sd) G.Sd = MP().st0.slice();
     if (G.SdV !== G.wv) {
-      G.SdV = G.wv;
-      S.forEach((s, k) => { const v = G.S[k]; if (G.Sd[k] === v) return; G.Sd[k] = v; for (const [x, y] of s.c) { cqSolid[y][x] = v ? { prop: 'mw', o: {} } : null; G.rq.push([x, y]); } });
+      G.SdV = G.wv; const ch = [];
+      S.forEach((s, k) => { const v = G.S[k]; if (G.Sd[k] === v) return; G.Sd[k] = v; for (const [x, y] of s.c) { cqSolid[y][x] = v ? { prop: 'mw', o: {} } : null; ch.push([x, y]); } });
+      const z = zoneOf(ch);
+      if (z) {   // prima la parte che si vede sullo schermo, poi tutto il resto
+        const B = z.B, cx = B.ox + (cq.x - cq.y) * B.TW / 2, cy = B.oy + (cq.x + cq.y) * B.TW / 4, v = { B, x0: Math.max(z.x0, cx - cq.w / 2 - 20), x1: Math.min(z.x1, cx + cq.w / 2 + 20), y: Math.max(z.y, cy - cq.h / 2 - 20), y1: Math.min(z.y1, cy + cq.h / 2 + 20) };
+        if (v.x1 > v.x0 && v.y1 > v.y) G.rz.push(v);
+        G.rz.push(z);
+      }
       thud(0.7, 70); thud(0.5, 110);
       // se un muro mi e' finito addosso (ritardo online): alla casella libera piu' vicina
       if (!cqFree(cq.x, cq.y)) { const q = cqSpot(Math.floor(cq.x), Math.floor(cq.y)); cq.x = q.x; cq.y = q.y; }
     }
-    for (let n = 0; n < 24 && G.rq.length; n++) { const [x, y] = G.rq.shift(); cqBgCell(x, y, 1); }
+    drawZones(G);
+    for (let n = 0; n < 2 && G.rq.length; n++) { const [x, y] = G.rq.shift(); cqBgCell(x, y, 1); }   // segni col gesso (pochi)
     // caselle che cambieranno (avviso): calcolate una volta
     const pk = G.pend ? (G.pendK || '') : '';
     if (G.pcK !== pk) { G.pcK = pk; G.pc = []; if (G.pend) S.forEach((s, k) => { if (G.pend[k] !== G.S[k]) for (const [x, y] of s.c) G.pc.push([x, y, G.pend[k]]); }); }
@@ -449,7 +488,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   // ======================= IL GIOCO NEL MOTORE =======================
   function setup(G) {
     G.nt = G.opt.tm === 3 && G.chars.length >= 9 ? 3 : G.opt.tm === 1 || G.chars.length < 3 ? 1 : 2;
-    G.S = MP().st0.slice(); G.Sd = MP().st0.slice(); G.SdV = 0; G.wv = 0; G.wsT = 0; G.pend = null; G.rq = []; G.pc = [];
+    G.S = MP().st0.slice(); G.Sd = MP().st0.slice(); G.SdV = 0; G.wv = 0; G.wsT = 0; G.pend = null; G.rq = []; G.rz = []; G.pc = [];
     G.next = G.opt.wall || 60; G.fc = [0, 0, 0]; G.rv = [0, 0, 0]; G.kn = [new Set(), new Set(), new Set()];
     G.mk = []; G.mv = 0; G.mkD = 0; G.mkMap = new Map(); G.mkT = 0; G.fp = []; G.lg = []; G.lgN = 0; G.esc = null;
     G.left = G.opt.time || 420; cq.mapDirty = true;   // muri e segni cambiano la mappa: la prossima partita la rifa' da capo
@@ -674,11 +713,14 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       C.key = key; C.c.width = Math.round(mw * dpr); C.c.height = Math.round(mh * dpr);
       const k = C.c.getContext('2d', CQ_CPU); k.setTransform(1, 0, 0, 1, 0, 0); k.clearRect(0, 0, C.c.width, C.c.height);
       k.setTransform(s / 2 * dpr, s / 4 * dpr, -s / 2 * dpr, s / 4 * dpr, mw / 2 * dpr, 0);
-      k.fillStyle = 'rgba(10,10,14,.78)'; k.fillRect(0, 0, W, W);
+      // una casella = un pixel di un'immagine piccola, poi incollata girata (molto piu' leggero di una forma per casella)
+      const sm = C.s || (C.s = document.createElement('canvas')); sm.width = W; sm.height = W;
+      const sg = sm.getContext('2d', CQ_CPU), im = sg.createImageData(W, W), d = im.data;
       for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
-        if (!(mask & (1 << quad(x + 0.5, y + 0.5)))) continue;
-        const o = cqSolid[y][x]; k.fillStyle = o && (o.prop === 'mw' || o.prop === 'mwt') ? '#3a3226' : o && o.prop === 'exitd' ? '#e0b84a' : '#9a8c70'; k.fillRect(x - 0.02, y - 0.02, 1.04, 1.04);
+        const i = (y * W + x) * 4, o = cqSolid[y][x], c = !(mask & (1 << quad(x + 0.5, y + 0.5))) ? [10, 10, 14, 200] : o && (o.prop === 'mw' || o.prop === 'mwt') ? [58, 50, 38, 255] : o && o.prop === 'exitd' ? [224, 184, 74, 255] : [154, 140, 112, 255];
+        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
       }
+      sg.putImageData(im, 0, 0); k.imageSmoothingEnabled = false; k.drawImage(sm, 0, 0);
     }
     g.drawImage(C.c, x0, y0, mw, mh);
     const P2 = (x, y) => [x0 + (x - y) * s / 2 + mw / 2, y0 + (x + y) * s / 4];
