@@ -240,3 +240,5 @@ Ordine: 1 centro giochi + motore; 2 Infezione + Bomba; 3 Mostro della notte; 4 R
   - Buio/torce come nelle rovine di Naufraghi (maschera esatta della stanza o raggio di torcia: da decidere), voce di squadra (compagni sempre, altri da vicino).
   - DA CHIEDERE: Minotauro giocatore a turno o sempre computer? Si vince da soli (prima squadra che esce) o tutti insieme contro il Minotauro? Quanti frammenti? Muri che si spostano ogni quanto? Cosa succede a chi viene preso?
 - Ricordare: pulsante unico con priorita' (come action() di Naufraghi), scritte gia' in riquadri (CSS comune), prove con prove/cdp.mjs (CPU=4 per la fluidita') e cdp2.mjs (online), nomi zz* da cancellare, Edge headless da chiudere.
+
+- APP SUL TELEFONO (17-10-2026): manifest.json (nome "Giochi di Tomelleri Davide", sotto l'icona "Giochi", standalone, verticale) + icona-192/512.png e icona-apple.png (simbolo dei punti e linee, generate con una tela in Edge headless). Niente service worker apposta: cosi' gli aggiornamenti arrivano sempre subito. Si installa da Chrome (menu ⋮ > Aggiungi a schermata Home / Installa app) o da Safari (Condividi > Aggiungi alla schermata Home).
