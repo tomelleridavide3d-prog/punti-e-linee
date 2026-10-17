@@ -2443,7 +2443,10 @@ async function cqNetOpen(code, role) {
 }
 // ---- voce tra i telefoni del set (WebRTC: i telefoni si collegano direttamente; Firebase serve solo a presentarli, in cq/<set>/rtc/<a chi>) ----
 // ogni coppia di giocatori ha un collegamento; lo propone chi ha il sid piu' piccolo. Il microfono si accende e spegne senza rifare il collegamento (replaceTrack)
-const CQ_ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
+// STUN (trova il proprio indirizzo pubblico) + TURN (il "ponte": quando i telefoni non riescono a parlarsi direttamente, la voce passa da li').
+// Ponte: ExpressTURN, account gratuito dell'utente (1000 GB/mese), creato il 17-10-2026. Il TCP sulla 3478 e' provato; l'UDP si prova lo stesso
+const CQ_ICE = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] },
+  { urls: ['turn:free.expressturn.com:3478', 'turn:free.expressturn.com:3478?transport=tcp'], username: '000000002107605248', credential: 'l2BYp3Pl6kTDH1Xg3ffd6UkgP2s=' }];
 const cqV = { peers: {}, mic: null, hear: true, unsub: null, code: null };
 function cqVoiceUI() {
   const N = cq.net, box = $('#cqVoice'); if (!box) return;
@@ -2486,7 +2489,8 @@ function cqVoicePeer(sid, offer) {
   let P = cqV.peers[sid]; if (P) return P;
   // se la rete e' giu' (o sta cambiando) il telefono rifiuta: si riprova al prossimo giro di cqVoiceSync (ogni 4 s)
   let pc, tr = null;
-  try { pc = new RTCPeerConnection({ iceServers: CQ_ICE }); if (offer) tr = pc.addTransceiver('audio', { direction: 'sendrecv' }); }
+  // cqV.relay: solo attraverso il ponte (per le prove)
+  try { pc = new RTCPeerConnection({ iceServers: CQ_ICE, iceTransportPolicy: cqV.relay ? 'relay' : 'all' }); if (offer) tr = pc.addTransceiver('audio', { direction: 'sendrecv' }); }
   catch (e) { console.warn('voce:', e); try { pc && pc.close(); } catch {} return null; }
   // chi propone crea il canale audio; chi risponde usa quello arrivato con la proposta (cqVoiceTr dopo setRemoteDescription)
   P = cqV.peers[sid] = { pc, sid, q: [], tr, t0: Date.now() };
@@ -2653,16 +2657,17 @@ async function cqVoiceDiag() {
   for (const P of Object.values(cqV.peers)) {
     const o = { to: (N.pl[P.sid] && N.pl[P.sid].name) || P.sid, c: P.pc.connectionState, i: P.pc.iceConnectionState, s: P.pc.signalingState, g: P.pc.iceGatheringState, age: Math.round((Date.now() - P.t0) / 1000), tr: !!P.tr, snd: !!(P.tr && P.tr.sender && P.tr.sender.track) };
     try {
-      const L = new Set(), R = new Set(), ps = {}; let pair = '', rx = 0, tx = 0, ip = '', rip = '';
+      const L = new Set(), R = new Set(), ps = {}, lt = {}; let pair = '', rx = 0, tx = 0, ip = '', rip = '', via = '', lid = '';
       (await P.pc.getStats()).forEach(r => {
-        if (r.type === 'local-candidate') { L.add(r.candidateType + '/' + (r.protocol || '')); if (r.candidateType === 'srflx') ip = r.address || r.ip || ''; }
+        if (r.type === 'local-candidate') { lt[r.id] = r.candidateType; L.add(r.candidateType + '/' + (r.protocol || '')); if (r.candidateType === 'srflx') ip = r.address || r.ip || ''; }
         if (r.type === 'remote-candidate') { R.add(r.candidateType + '/' + (r.protocol || '')); if (r.candidateType === 'srflx') rip = r.address || r.ip || ''; }
-if (r.type === 'candidate-pair') ps[r.state] = (ps[r.state] || 0) + 1;
+if (r.type === 'candidate-pair') { ps[r.state] = (ps[r.state] || 0) + 1; if (r.nominated && r.state === 'succeeded') lid = r.localCandidateId; }
         if (r.type === 'candidate-pair' && (r.nominated || r.state === 'succeeded')) pair = r.state;
         if (r.type === 'inbound-rtp' && r.kind === 'audio') rx = r.bytesReceived;
         if (r.type === 'outbound-rtp' && r.kind === 'audio') tx = r.bytesSent;
       });
-      Object.assign(o, { L: [...L].join(','), R: [...R].join(','), pair, rx, tx, ip, rip, ps });
+      via = lid ? (lt[lid] === 'relay' ? 'ponte' : 'diretta') : '';
+      Object.assign(o, { L: [...L].join(','), R: [...R].join(','), pair, rx, tx, ip, rip, ps, via });
     } catch {}
     peers.push(o);
   }
@@ -2676,7 +2681,7 @@ if (r.type === 'candidate-pair') ps[r.state] = (ps[r.state] || 0) + 1;
 function cqVoiceDiagTxt(d) {
   if (!d) return '';
   const st = { connected: '✅ collegata', connecting: '⏳ si sta collegando', new: '⏳ in partenza', disconnected: '⚠️ interrotta', failed: '❌ non riesce', closed: '❌ chiusa' };
-  const rows = d.peers.map(p => '<b>' + esc(String(p.to)) + '</b>: ' + (st[p.c] || p.c) + (p.c === 'connected' ? (p.rx > 0 ? ', la sua voce arriva' : ', la sua voce non arriva (microfono spento?)') + (d.mic ? (p.tx > 0 ? ', la tua parte' : ', la tua non parte') : '') : ''));
+  const rows = d.peers.map(p => '<b>' + esc(String(p.to)) + '</b>: ' + (st[p.c] || p.c) + (p.via ? ' (' + p.via + ')' : '') + (p.c === 'connected' ? (p.rx > 0 ? ', la sua voce arriva' : ', la sua voce non arriva (microfono spento?)') + (d.mic ? (p.tx > 0 ? ', la tua parte' : ', la tua non parte') : '') : ''));
   if (d.others > d.peers.length) rows.push('⏳ con ' + (d.others - d.peers.length) + ' persona/e non è ancora partito il collegamento');
   return '🔧 <b>Stato della voce</b> · microfono ' + (d.mic ? 'acceso' : 'spento') + '<br>' + (rows.join('<br>') || 'nessun amico nel set') + '<br><span style="opacity:.6">messaggi: mandati ' + JSON.stringify(d.sent) + ' · arrivati ' + JSON.stringify(d.got) + '</span>';
 }
