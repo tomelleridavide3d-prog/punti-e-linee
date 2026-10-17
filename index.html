@@ -3025,7 +3025,8 @@ const CQ_GAMES = [
   ['mostro', 'Il Mostro della notte', '👹', '#4a2a5a', 'Di notte nel bosco: ripara i generatori e scappa col furgone prima che il mostro ti prenda.'],
   ['bandiera', 'Ruba la bandiera', '🚩', '#2f5a8a', 'Due squadre sul set al buio: ruba la bandiera nemica e portala a casa. La torcia ti fa vedere… e ti fa vedere.'],
   ['nascondino', 'Nascondino sul set', '🪑', '#8a6a2f', 'Trasformati in un oggetto del set e resta immobile… oppure cerca chi si nasconde.'],
-  ['cosa', 'La Cosa', '❄️', '#3a6f8f', 'Base polare nella bufera: uno di voi non è umano. Esami del sangue, lanciafiamme e un elicottero per scappare.']];
+  ['cosa', 'La Cosa', '❄️', '#3a6f8f', 'Base polare nella bufera: uno di voi non è umano. Esami del sangue, lanciafiamme e un elicottero per scappare.'],
+  ['naufraghi', 'Naufraghi', '🏝️', '#2f8a7a', 'Due squadre su un\'isola misteriosa: costruite la zattera, rubate i pezzi agli altri e salpate per primi.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
