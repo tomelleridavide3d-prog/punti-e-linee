@@ -212,6 +212,8 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #cqKill{position:absolute;right:18px;bottom:142px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:15px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqKill.on{background:#e2553a;color:#fff;cursor:pointer}
 #cqSabBtn{position:absolute;left:18px;bottom:96px}
+#cqShoot{position:absolute;right:18px;bottom:240px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:15px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#cqShoot.on{background:#d8a830;color:#1d2127;cursor:pointer}
 .cqCoin{margin-left:auto;background:rgba(20,22,26,.72);color:#f2c230;font-weight:800;font-size:14px;padding:6px 10px;border-radius:10px}
 .cqCoin:empty{display:none}
 #cqItems{position:absolute;left:50%;transform:translateX(-50%);bottom:40px;display:flex;flex-wrap:wrap-reverse;justify-content:center;gap:8px;max-width:160px}
@@ -335,6 +337,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
   <div id="cqToast" hidden></div>
   <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button>
+  <button id="cqShoot" type="button" hidden>Spara</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
   <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
     <div class="mtAct"><button class="btn" id="mtSkip" type="button">Salta</button><button class="btn primary" id="mtVote" type="button" disabled>Vota</button></div><p class="hint" id="mtRes" style="text-align:center;margin:10px 0 0"></p></div></div>
@@ -2539,7 +2542,7 @@ function cqHud() {
   role.className = 'cqRole' + (me.imp ? ' imp' : '');
   $('#cqList').innerHTML = (me.imp ? '<div style="opacity:.7">Compiti finti (non contano):</div>' : '') + cq.tasks.map(id => { const s = cqStep(me, id); return `<div class="${!me.imp && cq.done.has(id) ? 'ok' : cq.near && cq.near.task === id ? 'near' : ''}">${esc(s.r)}: ${esc(s.n)}${s.of > 1 ? ' (' + (s.i + 1) + '/' + s.of + ')' : ''}</div>`; }).join('');
   const a = cq.act, ub = $('#cqUse');
-  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio', chop: 'Taglia', build: 'Costruisci', pitch: 'Tenda', feed: 'Metti legna', light: 'Accendi', fishing: 'Pesca', cook: 'Cuoci', eat: 'Mangia' }[a.k] : 'Usa';
+  ub.textContent = a ? { rep: 'Segnala', fix: 'Ripara', btn: 'Riunione', task: 'Usa', cam: 'Telecamere', search: 'Fruga', shop: 'Negozio', gun: 'Fucile', chop: 'Taglia', build: 'Costruisci', pitch: 'Tenda', feed: 'Metti legna', light: 'Accendi', fishing: 'Pesca', cook: 'Cuoci', eat: 'Mangia' }[a.k] : 'Usa';
   ub.classList.toggle('on', !!a); ub.classList.toggle('rep', !!a && (a.k === 'rep' || a.k === 'btn'));
   ub.style.fontSize = ub.textContent.length > 8 ? '13px' : '';
   cqItemsUI();
@@ -2559,12 +2562,14 @@ function cqHudFast() {
     if (sb.textContent !== st) sb.textContent = st;
     sb.disabled = !!G.sab || sc > 0;
   }
-  // bosco: fame, freddo, fuoco, giorno/notte, cosa ho in mano
-  const sv = $('#cqSurv'), S = G.sv;
+  // bosco: fame, freddo, fuoco, giorno/notte, cosa ho in mano; pulsante Spara se ho il fucile
+  const sv = $('#cqSurv'), S = G.sv, shb = $('#cqShoot'), showS = !!S && me.alive && me.gun >= 0 && play;
+  if (shb.hidden === showS) shb.hidden = !showS;
+  if (showS) { const t = 'Spara ' + me.gun, on = me.gun > 0 && !!cqMobNear({ x: cq.x, y: cq.y }, 5.5); if (shb.textContent !== t) shb.textContent = t; if (shb.classList.contains('on') !== on) shb.classList.toggle('on', on); }
   if (sv.hidden === !!S) sv.hidden = !S;
   if (S) {
     const bar = (v, c) => `<div class="sb"><i style="width:${Math.round(v)}%;background:${v < 25 ? '#e2553a' : c}"></i></div>`, me = G.me;
-    const h = me.alive ? `🍗${bar(me.hun, '#e8a030')}❄️${bar(me.cold, '#59b6e8')}` : '<span style="opacity:.7">Fantasma</span>';
+    const h = me.alive ? `<span>${'❤️'.repeat(Math.max(0, me.hp))}</span>🍗${bar(me.hun, '#e8a030')}❄️${bar(me.cold, '#59b6e8')}` + (me.gun >= 0 ? `<span>🔫${me.gun}</span>` : '') : '<span style="opacity:.7">Fantasma</span>';
     const txt = h + `<span>${S.lit ? '🔥' + Math.ceil(S.fuel) : S.fw < CQ_FIREW ? '🔥' + S.fw + '/' + CQ_FIREW : '⚫ spento'}</span>${S.tw < CQ_TENTW ? '<span>⛺' + S.tw + '/' + CQ_TENTW + '</span>' : ''}<span>${S.dark > 0.5 ? '🌙 Notte ' + S.n : '☀️ Giorno ' + (Math.floor(S.t / CQ_DAY) + 1)}</span>` + (me.carry ? `<span>${me.carry === 'wood' ? '🪵' : '🐟'}</span>` : '');
     if (cq.svTxt !== txt) { cq.svTxt = txt; sv.innerHTML = txt; }
   }
@@ -2605,7 +2610,7 @@ function cqUse() {
   if (a.k === 'rep') { if (G.guest) cqNetSend({ k: 'rep', b: a.body.id }); else cqMeeting(G.me, a.body); }
   else if (a.k === 'btn') { if (G.guest) cqNetSend({ k: 'btn' }); else { G.button--; cqMeeting(G.me, null); } }
   else if (a.k === 'fix') { const s = CQ_SABS[G.sab.type]; cqOpenTask(s.steps ? Object.assign({}, s.games[G.sab.step], { fix: cqFixStep }) : G.sab.type === 'luci' ? Object.assign({}, cqTask('luci'), { n: 'Riaccendi le luci', fix: cqFixSab }) : { id: 'allarme', n: 'Ferma l\'allarme', fix: cqFixSab }); }
-  else if (G.sv && ['chop', 'build', 'pitch', 'feed', 'light', 'fishing', 'cook', 'eat'].includes(a.k)) cqSvUse(a.k, a);
+  else if (G.sv && ['gun', 'chop', 'build', 'pitch', 'feed', 'light', 'fishing', 'cook', 'eat'].includes(a.k)) cqSvUse(a.k, a);
   else if (a.k === 'cam') cqOpenCams();
   else if (a.k === 'search') cqSearch(a.L);
   else if (a.k === 'shop') cqShop(null);
@@ -2801,8 +2806,11 @@ const cqSeeR = () => { const G = cq.g; return G.sab && G.sab.type === 'luci' ? 2
 const cqFireD = (x, y) => Math.hypot(x - CQ_MAP.fire.x - 0.5, y - CQ_MAP.fire.y - 0.5);
 const cqTentD = (x, y) => Math.hypot(x - CQ_MAP.tent.x - 0.5, y - CQ_MAP.tent.y - 0.5);
 function cqSvStart(G) {
-  G.sv = { t: 0, dark: 0, n: 0, fw: 0, tw: 0, fuel: 0, lit: false };
-  for (const c of G.chars) { c.hun = 70 + Math.random() * 15; c.cold = 100; c.carry = null; }
+  G.sv = { t: 0, dark: 0, n: 0, fw: 0, tw: 0, fuel: 0, lit: false, mobs: [], drop: null };
+  for (const c of G.chars) { c.hun = 70 + Math.random() * 15; c.cold = 100; c.carry = null; c.hp = 3; c.gun = -1; }
+  // l'avventuriero sfortunato: lontano dall'accampamento, in un posto diverso a ogni partita; ha il fucile e qualche moneta
+  const p = cqSvFarCell(18, null) || { x: 10.5, y: 10.5 };
+  G.sv.adv = { x: p.x, y: p.y, rifle: true, coins: 3 + Math.floor(Math.random() * 6) };
   for (const t of CQ_MAP.trees) if (t.cut) { t.cut = 0; cqSolid[t.y][t.x] = { prop: 'tree', o: t }; }   // il bosco ricresciuto
   cq.bg = null;
 }
@@ -2813,18 +2821,22 @@ function cqCutTree(t) {
 const cqTreeNear = (x, y, r) => { let best = null, bd = r; for (const t of CQ_MAP.trees) if (!t.cut) { const d = Math.hypot(x - t.x - 0.5, y - t.y - 0.5); if (d < bd) { bd = d; best = t; } } return best; };
 function cqSvTick(dt) {
   const G = cq.g, S = G.sv; S.t += dt;
+  // chi e' morto (in qualunque modo) lascia cadere il fucile dove si trova
+  for (const c of G.chars) if (!c.alive && c.gun >= 0) { const me = c === G.me; S.drop = { x: me ? cq.x : c.x, y: me ? cq.y : c.y, ammo: c.gun }; c.gun = -1; }
   const ph = S.t % CQ_DAY, lvl = ph < CQ_DUSK ? 0 : ph < CQ_DUSK + 10 ? (ph - CQ_DUSK) / 10 : ph < CQ_DAY - 10 ? 1 : (CQ_DAY - ph) / 10;
-  if (lvl > 0 && S.dark === 0) { S.n = Math.floor(S.t / CQ_DAY) + 1; cqToast('🌙 Cala la notte ' + S.n + (S.n > 1 ? ': fa ancora più freddo!' : ': stai vicino al fuoco!')); beep(220, 0.4, 0.03); }
-  if (lvl === 0 && S.dark > 0) cqToast('☀️ È mattina: notte ' + S.n + ' superata!');
+  if (lvl > 0 && S.dark === 0) { S.n = Math.floor(S.t / CQ_DAY) + 1; cqToast('🌙 Cala la notte ' + S.n + (S.n > 1 ? ': fa ancora più freddo!' : ': stai vicino al fuoco!')); beep(220, 0.4, 0.03); S.spawn = S.t + 12; }
+  if (lvl === 0 && S.dark > 0) { cqToast('☀️ È mattina: notte ' + S.n + ' superata!' + (S.mobs.length ? ' Gli animali tornano nel bosco.' : '')); S.mobs = []; }
   S.dark = lvl;
+  if (S.spawn && S.t >= S.spawn) { S.spawn = 0; cqSvSpawn(S.n); }
+  cqSvMobs(dt);
   if (S.lit) { S.fuel -= dt * (0.7 + 0.4 * lvl); if (S.fuel <= 0) { S.fuel = 0; S.lit = false; cqToast('🔥 Il fuoco si è spento: serve legna!'); } }
-  for (const t of CQ_MAP.trees) if (t.cut && S.t >= t.cut) { t.cut = 0; t.a = 0; cqSolid[t.y][t.x] = { prop: 'tree', o: t }; cqBgCell(t.x, t.y); }
+  for (const t of CQ_MAP.trees) if (t.cut && S.t >= t.cut) { t.cut = 0; t.a = 1; cqSolid[t.y][t.x] = { prop: 'tree', o: t }; cqBgCell(t.x, t.y); }
   const hard = 1 + 0.4 * Math.max(0, S.n - 1);   // ogni notte piu' dura
   for (const c of G.chars) {
     if (!c.alive) continue;
     const me = c === G.me, x = me ? cq.x : c.x, y = me ? cq.y : c.y, room = cqRoomName(x, y);
     c.hun = Math.max(0, c.hun - dt * 0.4);
-    if (S.lit && cqFireD(x, y) < 4.5) c.cold = Math.min(100, c.cold + dt * 6);
+    if (S.lit && cqFireD(x, y) < 4.5) { c.cold = Math.min(100, c.cold + dt * 6); if (c.hp < 3 && (c.heal = (c.heal || 0) + dt) > 15) { c.heal = 0; c.hp++; } }   // al fuoco le ferite guariscono
     else c.cold = Math.max(0, c.cold - dt * (0.12 + lvl * 1.0 * hard) * (S.tw >= CQ_TENTW && room === 'Accampamento' ? 0.5 : room === 'Grotta' ? 0.7 : 1));
     if (!c.imp && (c.hun <= 0 || c.cold <= 0)) cqSvDie(c, c.cold <= 0 ? 'freddo' : 'fame');
     if (G.phase !== 'play') return;
@@ -2832,10 +2844,12 @@ function cqSvTick(dt) {
 }
 function cqSvDie(c, why) {
   const G = cq.g;
-  c.alive = false; c.killer = why === 'freddo' ? 'il freddo' : 'la fame'; c.path = []; c.wait = 0; c.doing = null; c.goal = null; c.carry = null;
+  const W = { freddo: ['il freddo', '🥶', 'è morto di freddo', 'Sei morto di freddo!', 'Sei rimasto troppo lontano dal fuoco.'], fame: ['la fame', '🍂', 'è morto di fame', 'Sei morto di fame!', 'Non hai mangiato abbastanza.'],
+    wolf: ['un lupo', '🐺', 'è stato sbranato da un lupo', 'Ti ha preso un lupo!', 'Di notte, lontano dal fuoco e senza fucile, i lupi non perdonano.'], bear: ['un orso', '🐻', 'è stato sbranato da un orso', 'Ti ha preso un orso!', 'Contro l\'orso servono il fuoco o il fucile.'] }[why];
+  c.alive = false; c.killer = W[0]; c.path = []; c.wait = 0; c.doing = null; c.goal = null; c.carry = null;
   beep(200, 0.3, 0.05);
-  if (c === G.me) { $('#cqMap').hidden = true; cqPanel(why === 'freddo' ? 'Sei morto di freddo!' : 'Sei morto di fame!', '<p class="lead">' + (why === 'freddo' ? 'Sei rimasto troppo lontano dal fuoco.' : 'Non hai mangiato abbastanza.') + ' Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua'); }
-  else cqToast((why === 'freddo' ? '🥶 ' : '🍂 ') + '<b>' + esc(c.name) + '</b> è morto di ' + why + '.');
+  if (c === G.me) { $('#cqMap').hidden = true; cqPanel(W[3], '<p class="lead">' + W[4] + ' Ora sei un fantasma: puoi ancora girare e finire i compiti per aiutare la troupe.</p>', 'Continua'); }
+  else cqToast(W[1] + ' <b>' + esc(c.name) + '</b> ' + W[2] + '.');
   if (G.sab && G.sab.fixer === c.id) cqPickFixer();
   cqHud(); cqCheckWin();
 }
@@ -2858,6 +2872,7 @@ function cqSvAct(me) {
     if (me.carry === 'fish' && S.lit) return { k: 'cook' };
     if (S.fw >= CQ_FIREW && !S.lit && S.fuel > 0) return { k: 'light' };
   }
+  const gs = cqGunSpot(); if (gs && Math.hypot(cq.x - gs.x, cq.y - gs.y) < 1.5) return { k: 'gun' };
   if (me.carry) return null;
   const t = cqTreeNear(cq.x, cq.y, 1.5); if (t) return { k: 'chop', t };
   const cx = Math.floor(cq.x), cy = Math.floor(cq.y);
@@ -2867,6 +2882,7 @@ function cqSvAct(me) {
 function cqSvUse(k, a) {
   const G = cq.g, S = G.sv, me = G.me, done = () => { cq.actKey = ''; cqNearCheck(); cqHud(); };
   if (k === 'chop') cqOpenTask({ id: 'ciak', n: 'Taglia l\'albero', lab: 'TAGLIA!', hits: 3, hitTxt: 'Colpi d\'ascia: ', lead: 'Premi <b>TAGLIA!</b> quando la barretta è sulla zona verde.', fix: () => { if (!a.t.cut) cqCutTree(a.t); me.carry = 'wood'; cqToast('🪵 Hai la legna: portala all\'accampamento.'); done(); } });
+  else if (k === 'gun') { const m = cqSvTakeGun(me); if (m) { beep(700, 0.1, 0.05); beep(500, 0.12, 0.05, 0.1); cqToast(m); } done(); }
   else if (k === 'build' || k === 'feed' || k === 'pitch') { beep(600, 0.08, 0.04); cqToast(cqSvWood(me, k === 'pitch')); done(); }
   else if (k === 'eat') { me.carry = null; me.hun = Math.min(100, me.hun + 15); beep(400, 0.06, 0.04); cqToast('🐟 Pesce crudo… meglio di niente (+15).'); done(); }
   else if (k === 'light') cqOpenTask({ id: 'bobina', n: 'Accendi il fuoco', lead: 'Sfrega i legnetti: gira col dito in senso orario finché esce la fiamma.', fix: () => { if (S.fuel > 0 && S.fw >= CQ_FIREW) S.lit = true; done(); } });
@@ -2880,6 +2896,8 @@ function cqSvBotGoal(b) {
   const G = cq.g, S = G.sv, built = S.fw >= CQ_FIREW, tent = S.tw >= CQ_TENTW;
   if (b.carry === 'fish') { if (S.lit) return Object.assign(cqFireSpot(), { k: 'cook' }); b.carry = null; b.hun = Math.min(100, b.hun + 15); return null; }
   if (b.carry === 'wood') return !built || tent || S.fuel < 50 ? Object.assign(cqFireSpot(), { k: 'feed' }) : Object.assign(cqSpot(CQ_MAP.tent.x, CQ_MAP.tent.y), { k: 'pitch' });
+  const gs = cqGunSpot();   // fucile visto da vicino (corpo dell'avventuriero o fucile caduto): lo va a prendere
+  if (gs && !b.imp && cqDist(b, gs) < 7 && !G.chars.some(o => o !== b && o.goal && o.goal.k === 'gun')) return { x: gs.x, y: gs.y, k: 'gun' };
   if (b.hun < 40) { const [x, y] = cqPickOne(CQ_MAP.fish); return { x: x + 0.5, y: y + 0.5, k: 'fishing' }; }
   if (S.lit && b.cold < (S.dark > 0 ? 60 : 45)) return Object.assign(cqFireSpot(), { k: 'warm' });
   const busy = k => G.chars.filter(o => o !== b && o.alive && o.bot && o.goal && o.goal.k === k).length;
@@ -2893,14 +2911,102 @@ function cqSvBotGoal(b) {
   return null;
 }
 // arrivato: quanto aspetta (prima) e cosa succede (dopo l'attesa)
-function cqSvBotWait(b, k) { return { wood: 3, feed: 1, pitch: 1.5, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
+function cqSvBotWait(b, k) { return { gun: 1, wood: 3, feed: 1, pitch: 1.5, light: 3, fishing: 4 + Math.random() * 3, cook: 3, warm: 4 + Math.random() * 4 }[k]; }
 function cqSvBotDone(b, k) {
   const S = cq.g.sv, goal = b.goal;
-  if (k === 'wood') { if (goal.t && !goal.t.cut) { cqCutTree(goal.t); b.carry = 'wood'; } }
+  if (k === 'gun') { const m = cqSvTakeGun(b); if (m && cqDist(b, { x: cq.x, y: cq.y }) < 8) cqToast('🔫 <b>' + esc(b.name) + '</b> ha preso il fucile.'); }
+  else if (k === 'wood') { if (goal.t && !goal.t.cut) { cqCutTree(goal.t); b.carry = 'wood'; } }
   else if ((k === 'feed' || k === 'pitch') && b.carry === 'wood') { const m = cqSvWood(b, k === 'pitch'); if (cqDist(b, { x: cq.x, y: cq.y }) < 7 && S.fuel <= 40) cqToast(m); }
   else if (k === 'fishing') b.carry = 'fish';
   else if (k === 'cook' && b.carry === 'fish' && S.lit) { b.carry = null; b.hun = Math.min(100, b.hun + 55); }
   else if (k === 'light' && S.fuel > 0 && S.fw >= CQ_FIREW && !S.lit) { S.lit = true; if (cqDist(b, { x: cq.x, y: cq.y }) < 8) cqToast('🔥 <b>' + esc(b.name) + '</b> ha acceso il fuoco.'); }
+}
+// ---- animali della notte (lupi, orso), fucile e avventuriero ----
+// weak = il lupo della prima notte (piu' lento e debole). hp = colpi per abbatterlo, sp = velocita' (io 3,4), dmg = ferite per morso, cd = secondi tra un morso e l'altro
+const CQ_MOBS = { weak: { n: 'lupo', hp: 1, sp: 1.8, dmg: 1, cd: 2.4, coins: 2 }, wolf: { n: 'lupo', hp: 1, sp: 2.4, dmg: 1, cd: 1.6, coins: 2 }, bear: { n: 'orso', hp: 2, sp: 2.0, dmg: 2, cd: 2.2, coins: 5 } };
+// cella libera nel bosco lontana dal fuoco (e da un punto, se c'e')
+function cqSvFarCell(dF, from) {
+  for (let i = 0; i < 400; i++) {
+    const x = 1 + Math.floor(Math.random() * (CQ_W - 2)), y = 1 + Math.floor(Math.random() * (CQ_H - 2));
+    if (!cqCellFree(x, y) || cqRoomName(x, y) !== 'Bosco fitto' || cqFireD(x + 0.5, y + 0.5) < dF) continue;
+    if (from && Math.hypot(x + 0.5 - from.x, y + 0.5 - from.y) < 12) continue;
+    return { x: x + 0.5, y: y + 0.5 };
+  }
+  return null;
+}
+// all'inizio della notte: la prima un lupo debole, poi un lupo in piu' a notte (al massimo 4), dalla seconda a volte un orso
+function cqSvSpawn(n) {
+  const S = cq.g.sv, list = n <= 1 ? ['weak'] : Array(Math.min(4, n)).fill('wolf');
+  if (n >= 2 && Math.random() < 0.35) list.push('bear');
+  for (const k of list) { const p = cqSvFarCell(16, { x: cq.x, y: cq.y }); if (p) S.mobs.push({ k, x: p.x, y: p.y, hp: CQ_MOBS[k].hp, path: [], re: Math.random(), cd: 0, walk: 0, dx: 1, dy: 0, tgt: null }); }
+  cqToast(list.includes('bear') ? '🐻 Si sente un orso nel bosco… e dei lupi!' : n <= 1 ? '🐺 Un lupo ulula nel bosco: stai vicino al fuoco!' : '🐺 Ululati nel bosco: arrivano i lupi!');
+  beep(180, 0.6, 0.03); beep(240, 0.5, 0.03, 0.3);
+}
+const cqMobNear = (p, r) => { let best = null, bd = r; for (const m of cq.g.sv.mobs) { const d = Math.hypot(m.x - p.x, m.y - p.y); if (d < bd) { bd = d; best = m; } } return best; };
+// gli animali inseguono il piu' vicino che non sia al sicuro vicino al fuoco acceso; il fuoco li tiene lontani
+function cqSvMobs(dt) {
+  const G = cq.g, S = G.sv, pos = c => c === G.me ? { x: cq.x, y: cq.y } : c, safe = p => S.lit && cqFireD(p.x, p.y) < 4.5;
+  for (const m of S.mobs.slice()) {
+    const D = CQ_MOBS[m.k]; m.cd -= dt; m.re -= dt;
+    if (m.re <= 0) {
+      m.re = 0.8; let best = null, bd = 16;
+      for (const c of G.chars) if (c.alive) { const p = pos(c), d = Math.hypot(p.x - m.x, p.y - m.y); if (d < bd && !safe(p)) { bd = d; best = c; } }
+      m.tgt = best;
+      const p = best ? pos(best) : m.path.length ? null : cqSvFarCell(8, null);
+      if (p) m.path = cqPath(m.x, m.y, p.x, p.y);
+    }
+    const c = m.tgt;
+    if (c && c.alive) { const p = pos(c); if (Math.hypot(p.x - m.x, p.y - m.y) < 0.9) { m.path = []; m.walk = 0; if (m.cd <= 0) { m.cd = D.cd; cqSvBite(c, m); } continue; } }
+    const st = m.path[0]; if (!st) { m.walk = 0; continue; }
+    if (S.lit && cqFireD(st[0], st[1]) < 4) { m.path = []; m.walk = 0; continue; }
+    const dx = st[0] - m.x, dy = st[1] - m.y, d = Math.hypot(dx, dy), sp = D.sp * dt;
+    if (d <= sp) { m.x = st[0]; m.y = st[1]; m.path.shift(); } else { m.x += dx / d * sp; m.y += dy / d * sp; }
+    if (d > 0.01) { m.dx = dx / d; m.dy = dy / d; }
+    m.walk += dt * 12;
+  }
+  if (!S.mobs.length) return;
+  for (const b of G.chars) {
+    if (!b.bot || !b.alive) continue;
+    // personaggi del computer: col fucile sparano, senza scappano verso il fuoco
+    if (b.gun > 0 && (b.scd = (b.scd || 0) - dt) <= 0) { const m = cqMobNear(b, 5); if (m) { b.scd = 1.4; b.gun--; cqSvShotFx(b, m); if (Math.random() < 0.75) cqSvHit(m, b); } }
+    else if (b.gun <= 0 && S.lit && !safe(b) && !(b.goal && b.goal.k === 'warm') && cqMobNear(b, 6)) { b.wait = 0; b.doing = null; b.hunt = null; b.goal = Object.assign(cqFireSpot(), { k: 'warm' }); b.path = cqPath(b.x, b.y, b.goal.x, b.goal.y); }
+  }
+}
+function cqSvBite(c, m) {
+  const G = cq.g;
+  c.hp -= CQ_MOBS[m.k].dmg; if (c.imp) c.hp = Math.max(1, c.hp);   // i sabotatori non muoiono (fanno finta)
+  beep(150, 0.15, 0.06);
+  if (c === G.me) { cq.hurt = performance.now(); if (c.hp > 0) cqToast((m.k === 'bear' ? '🐻' : '🐺') + ' Ti ha morso! Scappa verso il fuoco' + (c.gun > 0 ? ' o spara!' : '!')); }
+  if (c.hp <= 0) cqSvDie(c, m.k === 'bear' ? 'bear' : 'wolf');
+}
+// colpo a segno: l'orso ne vuole due; monete solo a me
+function cqSvHit(m, by) {
+  const G = cq.g, S = G.sv, D = CQ_MOBS[m.k];
+  if (--m.hp > 0) { m.cd = Math.max(m.cd, 1.2); return; }
+  S.mobs.splice(S.mobs.indexOf(m), 1);
+  if (by === G.me) { cqCoins(D.coins); cqToast((m.k === 'bear' ? '🐻 Orso abbattuto! +' : '🐺 Lupo abbattuto! +') + D.coins + ' 🪙'); }
+  else if (cqDist(by, { x: cq.x, y: cq.y }) < 9) cqToast('🔫 <b>' + esc(by.name) + '</b> ha abbattuto un ' + D.n + '.');
+}
+function cqSvShotFx(from, m) { const G = cq.g, me = from === G.me; G.sv.fx = { a: [me ? cq.x : from.x, me ? cq.y : from.y], b: [m.x, m.y], t: performance.now() }; beep(110, 0.1, 0.09, 0, 'square'); beep(60, 0.18, 0.06, 0.02, 'sawtooth'); }
+function cqShoot() {
+  const G = cq.g; if (!G || !G.sv || G.phase !== 'play' || cqBusy()) return;
+  const me = G.me; if (!me.alive || me.gun <= 0) return;
+  const m = cqMobNear({ x: cq.x, y: cq.y }, 5.5); if (!m) return;
+  me.gun--; cqSvShotFx(me, m); cqSvHit(m, me); cqHud();
+  if (!me.gun) cqToast('🔫 Munizioni finite!');
+}
+// dove si trova il fucile da raccogliere: sul corpo dell'avventuriero oppure dove e' caduto
+const cqGunSpot = () => { const S = cq.g.sv; return S.adv && S.adv.rifle ? S.adv : S.drop; };
+function cqSvTakeGun(c) {
+  const G = cq.g, S = G.sv, A = S.adv;
+  if (c.gun >= 0) return null;
+  if (A && A.rifle) {
+    A.rifle = false; c.gun = 3;
+    if (c === G.me) { cqCoins(A.coins); return '🔫 Il fucile dell\'avventuriero, con 3 colpi! Nello zaino c\'erano anche ' + A.coins + ' 🪙. Spara solo agli animali.'; }
+    return 'ok';
+  }
+  if (S.drop) { c.gun = S.drop.ammo; S.drop = null; return '🔫 Hai raccolto il fucile (' + c.gun + ' colpi).'; }
+  return null;
 }
 // ---- vittoria ----
 function cqCheckWin() {
@@ -3236,6 +3342,8 @@ function cqInit() {
   $('#mapClose').onclick = () => { $('#cqMap').hidden = true; };
   $('#tkClose').onclick = cqCloseTask;
   $('#cqKill').onclick = cqMyKill;
+  $('#cqShoot').onclick = cqShoot;
+  window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'f' || e.key === 'F')) cqShoot(); });
   $('#cqSabBtn').onclick = cqSabMenu;
   $('#camClose').onclick = () => { $('#cqCams').hidden = true; };
   $('#cqItems').onclick = e => { const b = e.target.closest('button'); if (b) cqUseItem(+b.dataset.i); };
@@ -3488,10 +3596,12 @@ function cqTools(g, TW) {
       case 'lantern': bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 1.5, '#3a3f49'); bx(x + 0.33, y + 0.33, x + 0.67, y + 0.67, 1.5, 1.95, '#22262e'); qL(x + 0.37, x + 0.63, y + 0.67, 1.55, 1.9, '#ffd25a'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.95, 2.05, '#22262e'); break;
       case 'chest': bx(x + 0.12, y + 0.22, x + 0.88, y + 0.78, 0, 0.55, '#8a5a32'); bx(x + 0.1, y + 0.2, x + 0.9, y + 0.8, 0.55, 0.75, '#9a6a3a'); qL(x + 0.12, x + 0.88, y + 0.78, 0.48, 0.56, '#d8a830'); qL(x + 0.45, x + 0.55, y + 0.78, 0.3, 0.56, '#d8a830'); break;
       case 'sack': cyl(x + 0.5, y + 0.5, 0.3, 0, 0.6, '#c8b088'); cyl(x + 0.5, y + 0.5, 0.18, 0.6, 0.8, '#b8a078'); cyl(x + 0.5, y + 0.5, 0.1, 0.8, 0.86, '#8a6a48'); break;
-      case 'tree':   // solo il tronco: la chioma si disegna sopra a parte (cqCanopy)
+      case 'tree': {   // tronco, poi la chioma (immagine pronta, cq.canSp): nella mappa pronta sempre piena, vicino a me puo' essere trasparente (o.a)
         if (o.k === 'oak') { bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 0, 2.3 * o.h, '#6b4a2e'); bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0, 0.25, '#5a3e26'); }
         else { bx(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 0, 1.6 * o.h, '#7a5232'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 0.18, '#5a3e26'); }
-        break;
+        const sp = !o.skipCan && cq.canSp && cq.canSp.TW === TW && cq.canSp[o.k + o.v + (o.h < 1.02 ? 0.95 : 1.1)];
+        if (sp) { const [X, Y] = S(x + 0.5, y + 0.5, 0), a = cq.baking ? 1 : o.a, g0 = g.globalAlpha; g.globalAlpha = g0 * a; g.drawImage(sp.c, X - sp.ax, Y - sp.ay, sp.w, sp.h); g.globalAlpha = g0; }
+        break; }
       case 'stump': if (o && o.k) { cyl(x + 0.5, y + 0.5, o.k === 'oak' ? 0.3 : 0.24, 0, 0.35, '#6b4a2e'); cyl(x + 0.5, y + 0.5, o.k === 'oak' ? 0.22 : 0.17, 0.35, 0.36, '#d8b07a'); break; }
         cyl(x + 0.5, y + 0.5, 0.3, 0, 0.42, '#6b4a2e'); cyl(x + 0.5, y + 0.5, 0.22, 0.42, 0.43, '#c8a070'); cyl(x + 0.5, y + 0.5, 0.1, 0.43, 0.44, '#a88050'); break;
       case 'firepit': {   // cerchio di sassi; con la legna portata (fw 0-3) si alza la catasta del falo'
@@ -3532,6 +3642,21 @@ function cqTools(g, TW) {
     else if (t === 'tuft') { const L = []; for (let i = 0; i < 5; i++) { const u = a + (i - 2) * 0.05; L.push([S(x + u, y + b, 0), S(x + u + (i - 2) * 0.04, y + b, 0.22 + 0.06 * (i % 2))]); } strokes(L, '#6a9a48', Math.max(1.5, TW / 26)); }
     else if (t === 'mush') { cyl(x + a, y + b, 0.04, 0, 0.12, '#efe6d2'); cyl(x + a, y + b, 0.1, 0.12, 0.17, '#c8402a'); dot(x + a, y + b, 0.18, 0.012, '#fff'); }
   };
+  // animali a blocchetti (lupo grigio, orso marrone), girati verso dove vanno; x, y anche non interi
+  const mob = m => {
+    const x = m.x, y = m.y, bear = m.k === 'bear', ax = Math.abs(m.dx) >= Math.abs(m.dy), dir = ax ? (m.dx < 0 ? -1 : 1) : (m.dy < 0 ? -1 : 1);
+    const L = bear ? 0.62 : 0.5, Wd = bear ? 0.32 : 0.19, h = bear ? 1.25 : 0.85, col = bear ? '#6a4a2e' : m.k === 'weak' ? '#8a8e98' : '#646872', dk = cqShade(col, 0.72), lift = Math.sin(m.walk || 0) * 0.07;
+    const ob = (a0, a1, w0, w1, z0, z1, c) => { let p = a0 * dir, q = a1 * dir; if (p > q) [p, q] = [q, p]; if (ax) bx(x + p, y + w0, x + q, y + w1, z0, z1, c); else bx(x + w0, y + p, x + w1, y + q, z0, z1, c); };
+    let i = 0; for (const a of [-L * 0.7, L * 0.55]) for (const w of [-Wd * 0.9, Wd * 0.35]) { const up = (i++ % 2 ? lift : -lift); ob(a - 0.05, a + 0.05, w, w + 0.1, Math.max(0, up), h * 0.48 + Math.max(0, up), dk); }
+    if (!bear) ob(-L * 1.5, -L * 0.95, -0.04, 0.04, h * 0.62, h * 0.76, dk);   // coda
+    ob(-L, L * 0.8, -Wd, Wd, h * 0.42, h * 0.86, col);
+    ob(L * 0.65, L * 1.2, -Wd * 0.8, Wd * 0.8, h * 0.62, h * 1.05, col); ob(L * 1.15, L * 1.45, -Wd * 0.4, Wd * 0.4, h * 0.62, h * 0.82, dk);
+    ob(L * 0.72, L * 0.9, -Wd * 0.75, -Wd * 0.35, h * 1.05, h * (bear ? 1.15 : 1.28), dk); ob(L * 0.72, L * 0.9, Wd * 0.35, Wd * 0.75, h * 1.05, h * (bear ? 1.15 : 1.28), dk);
+    const ex = ax ? x + dir * L * 1.2 : x, ey = ax ? y : y + dir * L * 1.2;
+    dot(ex + (ax ? 0 : -Wd * 0.4), ey + (ax ? -Wd * 0.4 : 0), h * 0.92, 0.025, '#f2d24a'); dot(ex + (ax ? 0 : Wd * 0.4), ey + (ax ? Wd * 0.4 : 0), h * 0.92, 0.025, '#f2d24a');
+  };
+  // fucile a terra
+  const rifle = (x, y) => { bx(x - 0.38, y - 0.04, x + 0.22, y + 0.04, 0, 0.06, '#3a3f49'); bx(x + 0.12, y - 0.08, x + 0.42, y + 0.08, 0, 0.09, '#7a5232'); };
   // chioma di un albero, disegnata come se l'albero fosse nella cella 0,0 (poi si incolla come immagine)
   const canopy = (k, v, h) => {
     if (k === 'oak') {
@@ -3554,7 +3679,7 @@ function cqTools(g, TW) {
       if (cqSolid[y][x] && cqSolid[y][x].prop) poly(q, 'rgba(0,0,0,.22)');   // ombra sotto gli oggetti
       if (cqDeco && cqDeco[y][x]) drawDeco(cqDeco[y][x], x, y);
     },
-    canopy,
+    canopy, mob, rifle,
     decals() {
       for (const [x, y, w, h, col] of CQ_DECALS) poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col);
       g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
@@ -3579,7 +3704,8 @@ function cqBuildBg() {
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x]) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) cells.push({ k: 2, d: x + y, x, y, o: cqSolid[y][x], b: [(x - y - 1) * TW / 2 - TW, (x + y) * TH / 2 - 3.5 * U - TW, (x - y + 1) * TW / 2 + TW, (x + y + 2) * TH / 2 + TW] });
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x]) { const o = cqSolid[y][x], tall = o.prop === 'tree', sd = tall ? 1.3 * TW : TW; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? 6.6 : 3.5) * U - TW, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
+  cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true;
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
   for (let ty = 0; ty * TS < bh; ty++) for (let tx = 0; tx * TS < bw; tx++) {
@@ -3592,7 +3718,8 @@ function cqBuildBg() {
     }
     tiles.push({ c, x: tx * TS, y: ty * TS, w: c.width / sc, h: c.height / sc });
   }
-  cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc, can: cqCanopySprites(TW, sc) };
+  cq.baking = false;
+  cq.bg = { tiles, TW, ox, oy, bw, bh, dpr: sc, ver: 0 };
   if (CQ_GFX === 3) cqDomBg(cq.bg);
 }
 // chiome degli alberi: un'immagine per tipo, colore e altezza (disegnata dal processore), incollata sopra a ogni fotogramma da cqCanopies
@@ -3607,31 +3734,31 @@ function cqCanopySprites(TW, sc) {
   }
   return can;
 }
-// chiome sopra a tutto: se sono davanti a me (ci passo dietro o sotto) diventano trasparenti, piano piano
-function cqCanopies(g, B, tx, ty, W, H) {
-  const TW = B.TW, TH = TW / 2, d = cq.x + cq.y, mx = tx + (cq.x - cq.y) * TW / 2, my = ty + d * TH / 2;
-  for (const t of CQ_MAP.trees) {
-    if (t.cut) continue;
-    const sx = tx + (t.x - t.y) * TW / 2, sy = ty + (t.x + t.y + 1) * TH / 2;
-    if (sx < -2 * TW || sx > W + 2 * TW || sy < -TW || sy > H + 5 * TW) continue;
-    const sp = B.can[t.k + t.v + (t.h < 1.02 ? 0.95 : 1.1)]; if (!sp) continue;
-    const behind = d < t.x + t.y + 1.6 && Math.abs(mx - sx) < 1.3 * TW && my > sy - 4.2 * TW && my - 1.9 * TW < sy - 0.8 * TW;
-    t.a += ((behind ? 0.3 : 1) - t.a) * 0.15;
-    g.globalAlpha = t.a; g.drawImage(sp.c, sx - sp.ax, sy - sp.ay, sp.w, sp.h);
-  }
-  g.globalAlpha = 1;
+// ritaglio della mappa pronta nel riquadro della chioma di un albero, ma senza quella chioma (si fa una volta e si riusa finche' la mappa non cambia)
+function cqTreePatch(t, B) {
+  const p = t.patch; if (p && p.B === B && p.ver === B.ver) return p;
+  const TW = B.TW, TH = TW / 2, sc = B.dpr, sx = B.ox + (t.x - t.y) * TW / 2, sy = B.oy + (t.x + t.y + 1) * TH / 2;
+  const r = [Math.floor(sx - 1.3 * TW), Math.floor(sy - 4.2 * TW), Math.ceil(sx + 1.3 * TW), Math.ceil(sy + 0.6 * TW)];
+  const c = (p && p.c) || document.createElement('canvas'); c.width = Math.ceil((r[2] - r[0]) * sc); c.height = Math.ceil((r[3] - r[1]) * sc);
+  const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -r[0] * sc, -r[1] * sc);
+  t.skipCan = true; cq.baking = true;
+  cqRedraw(g, cqTools(g, TW), r, B.ox, B.oy, TW, [], 14);
+  t.skipCan = false; cq.baking = false;
+  return (t.patch = { c, x: r[0], y: r[1], w: r[2] - r[0], h: r[3] - r[1], B, ver: B.ver });
 }
 // ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
 function cqBgCell(x, y) {
   const B = cq.bg; if (!B || B.none) return;
   const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
-  const r = [B.ox + (x - y - 1) * TW / 2 - TW, B.oy + (x + y) * TH / 2 - 3.5 * U - TW, B.ox + (x - y + 1) * TW / 2 + TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  const r = [B.ox + (x - y - 1) * TW / 2 - 1.3 * TW, B.oy + (x + y) * TH / 2 - 6.6 * U - TW, B.ox + (x - y + 1) * TW / 2 + 1.3 * TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  cq.baking = true;
   for (const t of B.tiles) {
     const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
     if (x1 <= x0 || y1 <= y0) continue;
     const g = t.c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -t.x * sc, -t.y * sc);   // coordinate dell'intera mappa pronta
-    cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 12);
+    cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 14);
   }
+  cq.baking = false; B.ver++;
   if (CQ_GFX === 3) cqDomBg(B);
 }
 // modo 3: le tessere diventano immagini normali della pagina, sotto il disegno, spostate dal browser
@@ -3682,11 +3809,16 @@ function cqDraw() {
       else if (ch.alive && seen(ch.x, ch.y)) list.push({ x: ch.x, y: ch.y, L: ch.look, w: ch.walk, f: ch.face, name: ch.name, prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
+    if (S && G.phase === 'play') {   // bosco: animali, avventuriero, fucile caduto
+      for (const m of S.mobs) if (seen(m.x, m.y)) list.push({ mob: m, x: m.x, y: m.y });
+      if (S.adv) list.push({ adv: 1, x: S.adv.x, y: S.adv.y, rf: S.adv.rifle });
+      if (S.drop) list.push({ rf: 1, x: S.drop.x, y: S.drop.y });
+    }
     if (fR) list.push({ fire: 1, x: F.x + 0.5, y: F.y + 0.5, fu: S.fuel });   // fiamme del falo' (si muovono: si ridisegnano come un personaggio)
   } else list.push({ x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, name: store.settings.myName || '' });
   for (const o of list) {
     o.sx = tx + px(o.x, o.y); o.sy = ty + py(o.x, o.y);
-    o.r = (o.body ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : o.fire ? [o.sx - 0.8 * TW, o.sy - 1.5 * TW, o.sx + 0.8 * TW, o.sy + 0.4 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]).map(al);
+    o.r = (o.body || o.adv ? [o.sx - 1.7 * TW, o.sy - 1.3 * TW, o.sx + 1.7 * TW, o.sy + 0.6 * TW] : o.fire || o.rf ? [o.sx - 0.8 * TW, o.sy - 1.5 * TW, o.sx + 0.8 * TW, o.sy + 0.4 * TW] : [o.sx - 1.2 * TW, o.sy - 2.35 * TW, o.sx + 1.2 * TW, o.sy + 0.4 * TW]).map(al);
     o.on = o.r[2] > 0 && o.r[0] < W && o.r[3] > 0 && o.r[1] < H;
   }
   // intorno a ogni personaggio si ridisegna tutto da capo, solo nel suo riquadro
@@ -3695,6 +3827,18 @@ function cqDraw() {
   else {
     // riquadri che si toccano diventano uno solo: con tanti personaggi vicini ognuno si disegna una volta sola
     const rs = list.filter(o => o.on).map(o => o.r.slice());
+    // chiome davanti a me (ci passo dietro): diventano trasparenti piano piano. Nel loro riquadro, sotto, va un ritaglio della mappa pronta senza la loro chioma
+    cq.fading = [];
+    if (CQ_MAP.trees && G) {
+      const d = cq.x + cq.y, mx = tx + X, my = ty + Y;
+      for (const t of CQ_MAP.trees) {
+        if (t.cut || Math.abs(t.x - cq.x) > 6 || Math.abs(t.y - cq.y) > 6) { t.a = 1; continue; }
+        const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5);
+        const cy = my - 0.9 * TW, behind = cq.fading.length < 3 && d < t.x + t.y + 1.2 && Math.abs(mx - sx) < 0.95 * TW && cy > sy - 3.9 * TW && cy < sy - 0.7 * TW;   // copre davvero il mio corpo
+        t.a += ((behind ? 0.3 : 1) - t.a) * 0.15; if (t.a > 0.99) t.a = 1;
+        if (t.a < 1 && !B.none && cqTreePatch(t, B)) { cq.fading.push(t); rs.push([sx - 1.3 * TW, sy - 4.2 * TW, sx + 1.3 * TW, sy + 0.6 * TW].map(al)); }
+      }
+    }
     for (let i = 0; i < rs.length; i++) for (let j = i + 1; j < rs.length; j++) {
       const a = rs[i], b = rs[j];
       if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { a[0] = Math.min(a[0], b[0]); a[1] = Math.min(a[1], b[1]); a[2] = Math.max(a[2], b[2]); a[3] = Math.max(a[3], b[3]); rs.splice(j, 1); j = i; }
@@ -3712,7 +3856,6 @@ function cqDraw() {
       g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
     } }
   }
-  if (CQ_MAP.trees && B.can) cqCanopies(g, B, tx, ty, W, H);
   if (nl > 0) {
     const lights = [[tx + X, ty + Y - TH, 3.4 * TW, 0.8]];
     if (fR) {
@@ -3722,6 +3865,27 @@ function cqDraw() {
       g.fillStyle = gr; g.fillRect(fx - fR * TW, fy - fR * TW, fR * TW * 2, fR * TW * 2);
     }
     cqNightLayer(g, W, H, 0.84 * nl, lights);
+  }
+  if (S) {
+    const nw = performance.now();
+    // nel buio degli animali si vedono solo gli occhi
+    for (const m of S.mobs) if (!seen(m.x, m.y) && Math.hypot(m.x - cq.x, m.y - cq.y) < 12) {
+      const ex = tx + px(m.x, m.y), ey = ty + py(m.x, m.y) - (m.k === 'bear' ? 0.75 : 0.55) * TW;
+      if (ex < -20 || ex > W + 20 || ey < -20 || ey > H + 20) continue;
+      g.fillStyle = '#f2d24a'; g.globalAlpha = 0.6 + 0.4 * Math.sin(nw / 300 + m.x); g.fillRect(ex - 6, ey, 3.5, 2.5); g.fillRect(ex + 3, ey, 3.5, 2.5); g.globalAlpha = 1;
+    }
+    // corvi che girano sopra l'avventuriero: si vedono da lontano
+    if (S.adv && G.phase === 'play') {
+      const ax = tx + px(S.adv.x, S.adv.y), ay = ty + py(S.adv.x, S.adv.y) - 3.2 * TW;
+      if (ax > -2 * TW && ax < W + 2 * TW && ay > -2 * TW && ay < H + TW) {
+        g.strokeStyle = '#15171b'; g.lineWidth = 2.5;
+        for (let i = 0; i < 3; i++) { const a = nw / 900 + i * 2.1, cx = ax + Math.cos(a) * 0.9 * TW, cy = ay + Math.sin(a) * 0.35 * TW, f = 4 + 2 * Math.sin(nw / 120 + i); g.beginPath(); g.moveTo(cx - 7, cy - f); g.lineTo(cx, cy); g.lineTo(cx + 7, cy - f); g.stroke(); }
+      }
+    }
+    // lampo dello sparo
+    if (S.fx && nw - S.fx.t < 140) { g.strokeStyle = '#ffe58a'; g.lineWidth = 3; g.beginPath(); g.moveTo(tx + px(S.fx.a[0], S.fx.a[1]), ty + py(S.fx.a[0], S.fx.a[1]) - 0.7 * TW); g.lineTo(tx + px(S.fx.b[0], S.fx.b[1]), ty + py(S.fx.b[0], S.fx.b[1]) - 0.3 * TW); g.stroke(); }
+    // morso: lo schermo diventa rosso per un attimo
+    if (cq.hurt && nw - cq.hurt < 350) { g.fillStyle = 'rgba(200,30,30,' + (0.35 * (1 - (nw - cq.hurt) / 350)) + ')'; g.fillRect(0, 0, W, H); }
   }
   if (dark && torch) {
     // buio con il fascio della torcia: due strati, il secondo un po' piu' largo fa la penombra
@@ -3745,7 +3909,7 @@ function cqDraw() {
     g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, bx - 2, by - 2, bw + 4, 9, 4.5); g.fill();
     g.fillStyle = '#7be0a0'; cqRR(g, bx, by, Math.max(4, bw * o.prog), 5, 2.5); g.fill();
   }
-  for (const o of list) if (o.on && !o.body && !o.fire) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff');
+  for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * cqTop(o.L), o.name, o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff');
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
   const mark = (x, y, col) => {
@@ -3776,7 +3940,10 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
   const TH = TW / 2, U = TH * 1.15, [x0, y0, x1, y1] = r;
   g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
   // con lo sfondo pronto: lo rimetto nel riquadro (mai pixel vuoti ai bordi); altrimenti cancello e rifaccio il pavimento
-  if (B) { const ix = tx - B.ox, iy = ty - B.oy; for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < x1 && dy < y1 && dx + t.w > x0 && dy + t.h > y0) g.drawImage(t.c, dx, dy, t.w, t.h); } } else g.clearRect(x0, y0, x1 - x0, y1 - y0);
+  if (B) {
+    const ix = tx - B.ox, iy = ty - B.oy; for (const t of B.tiles) { const dx = ix + t.x, dy = iy + t.y; if (dx < x1 && dy < y1 && dx + t.w > x0 && dy + t.h > y0) g.drawImage(t.c, dx, dy, t.w, t.h); }
+    for (const t of cq.fading || []) { const p = t.patch, dx = ix + p.x, dy = iy + p.y; if (dx < x1 && dy < y1 && dx + p.w > x0 && dy + p.h > y0) g.drawImage(p.c, dx, dy, p.w, p.h); }
+  } else g.clearRect(x0, y0, x1 - x0, y1 - y0);
   g.translate(tx, ty);
   const a0 = x0 - tx, b0 = y0 - ty, a1 = x1 - tx, b1 = y1 - ty, mx = (a0 + a1) / 2, my = (b0 + b1) / 2;
   const fx = Math.floor(mx / TW + my / TH), fy = Math.floor(my / TH - mx / TW), items = [];
@@ -3786,7 +3953,8 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
       const l = (x - y - 1) * TW / 2, rr = (x - y + 1) * TW / 2, t = (x + y) * TH / 2, bt = (x + y + 2) * TH / 2;
       if (!B && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x];
-      if (o && rr + TW > a0 && l - TW < a1 && bt + TW > b0 && t - 3.5 * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
+      const tall = o && o.prop === 'tree', sd = tall ? 1.3 * TW : TW;
+      if (o && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? 6.6 : 3.5) * U - TW < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
   if (!B) T.decals();
@@ -3797,6 +3965,8 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     const c = it.c, X = c.sx - tx, Y = c.sy - ty;
     if (c.body) cqBody(g, X, Y, TW, c.L, c.f);
     else if (c.fire) cqFlames(g, X, Y, TW, c.fu);
+    else if (c.mob) T.mob(c.mob);
+    else if (c.adv || c.rf) { if (c.adv) cqBody(g, X, Y, TW, CQ_ADV_LOOK, 1); if (c.rf) T.rifle(c.x + (c.adv ? 0.4 : 0), c.y + (c.adv ? 0.3 : 0)); }
     else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y, TW, c.L, c.w, c.f); g.globalAlpha = 1; }
   }
   g.restore();
@@ -3826,6 +3996,8 @@ function cqNightLayer(g, W, H, a, lights) {
   n.globalCompositeOperation = 'source-over';
   g.drawImage(c, 0, 0, w, h, 0, 0, w * k, h * k);
 }
+// l'avventuriero sfortunato
+const CQ_ADV_LOOK = { skin: 'omino', col: '#7a6a4a', hat: 'borsalino' };
 // personaggio a terra, sdraiato su un fianco
 function cqBody(g, X, Y, TW, L, f) {
   const u = TW / 34;
