@@ -2851,13 +2851,16 @@ function cqPath(sx, sy, ex, ey) {
 // 3 s di "pronti" all'inizio, barra in alto, fine partita con classifica e monete, ritorno nella hall o alle impostazioni.
 // Un gioco M: { n, maps: [[id, nome]], def: opzioni, opts(o) -> righe html, read(FormData) -> opzioni, start(G), tick(G, dt) (host),
 //   speed(c), intro(G), hud(G), csnap(c)/capply(G, c, a) (dati di ogni personaggio), snap(G)/apply(G, x) (dati del gioco),
-//   nameCol(c), deco(g, c, X, Y, TW, G) (sopra al personaggio), over(g, G, sx, sy, TW) (sopra alla mappa), ev(G, c, o) (azioni degli amici) }
+//   nameCol(c), deco(g, c, X, Y, TW, G) (sopra al personaggio), over(g, G, sx, sy, TW) (sopra alla mappa), ev(G, c, o) (azioni degli amici),
+//   tint(c) (personaggio ricolorato), btn(G) -> { t: testo, on } (pulsante grande; premuto chiama act(G)), night(G) -> { a: buio 0-1, r: raggio della mia luce,
+//   lights: [[x, y, raggio, forza]] (in caselle), see(x, y): si vede un personaggio li'? } (buio come la notte del bosco; con il bosco suonano anche grilli e vento) }
 const CQ_MODES = {};
 // giochi dell'hotel: [id, nome, icona, colore della porta nella hall, descrizione] ('ciack' e' in questo file, gli altri in giochi/<id>.js).
 // Un gioco nuovo qui = una porta nuova nella hall (la hall si allunga da sola) e una riga nella reception
 const CQ_GAMES = [
   ['ciack', 'Ciack US', '🎬', '#a83434', 'Sul set del film: fai i compiti e scova il sabotatore.'],
-  ['infezione', 'Infezione', '🧟', '#3f7a3a', 'Acchiapparello con gli zombie, oppure passa la bomba prima che esploda.']];
+  ['infezione', 'Infezione', '🧟', '#3f7a3a', 'Acchiapparello con gli zombie, oppure passa la bomba prima che esploda.'],
+  ['mostro', 'Il Mostro della notte', '👹', '#4a2a5a', 'Di notte nel bosco: ripara i generatori e scappa col furgone prima che il mostro ti prenda.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
@@ -2931,6 +2934,9 @@ function cqModeTick(dt) {
 function cqModeHud() {
   const G = cq.g, M = G.M, bar = $('#cqModeBar'), t = M.hud ? M.hud(G) : M.n;
   if (bar.innerHTML !== t) bar.innerHTML = t;
+  const kb = $('#cqKill'), b = M.btn && G.phase === 'play' && G.pre <= 0 ? M.btn(G) : null;
+  if (kb.hidden === !!b) kb.hidden = !b;
+  if (b) { if (kb.textContent !== b.t) kb.textContent = b.t; if (kb.classList.contains('on') !== !!b.on) kb.classList.toggle('on', !!b.on); }
   const ce = $('#cqCount'), txt = G.phase !== 'play' ? '' : G.pre > 0 ? (M.intro ? M.intro(G) : M.n) + ' ' + Math.ceil(G.pre) + '…' : M.big ? M.big(G) : '';   // big: scritta grande del gioco (es. conto alla rovescia suo)
   if (ce.textContent !== txt) { ce.textContent = txt; ce.hidden = !txt; }
 }
@@ -4199,13 +4205,13 @@ function cqAmbPop(v) {
   src.connect(fl).connect(g).connect(actx.destination); src.start(t, Math.random() * 1.8, d + 0.01);
 }
 function cqAmb(dt, G, playing) {
-  const on = !!(store.settings.sound && G && playing && G.sv && CQ_MAP.surv && document.visibilityState === 'visible');
+  const on = !!(store.settings.sound && G && playing && (G.sv || G.mode) && CQ_MAP.surv && document.visibilityState === 'visible');
   if (!on) { if (cqAmbN && cqAmbN.live) { cqAmbN.live = false; cqAmbOff(); } return; }
   let N; try { N = cqAmbNodes(); } catch { return; }
   if (actx.state === 'suspended') actx.resume();
   N.live = true;
   if (N.map !== CQ_MAP) { N.map = CQ_MAP; N.water = []; for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const o = cqSolid[y][x]; if (o && o.prop === 'water') N.water.push(x + 0.5, y + 0.5); } }
-  const S = G.sv, night = S.dark, now = actx.currentTime;
+  const S = G.sv || { dark: G.M && G.M.night ? 1 : 0, lit: false, fuel: 0 }, night = S.dark, now = actx.currentTime;
   if ((N.t -= dt) <= 0) {   // volumi, 4 volte al secondo
     N.t = 0.25;
     let dW = 99; for (let i = 0; i < N.water.length; i += 2) { const d = Math.hypot(N.water[i] - cq.x, N.water[i + 1] - cq.y); if (d < dW) dW = d; }
@@ -4384,6 +4390,29 @@ function cqTools(g, TW) {
       case 'reel': for (let i = 0; i < 4; i++) cyl(x + 0.5, y + 0.5, 0.38, i * 0.24, i * 0.24 + 0.2, '#2f343d'); cyl(x + 0.5, y + 0.5, 0.12, 0.96, 1.0, '#c9ccd4'); break;
       case 'shelf': { bx(x + 0.05, y + 0.15, x + 0.95, y + 0.85, 0, 2.3, '#6b4a2e'); const ic = ['#d9534f', '#4f8fd9', '#e8c24a', '#5cb87a', '#c9ccd4'];
         for (let l = 0; l < 3; l++) { const z = 0.2 + l * 0.7; qL(x + 0.1, x + 0.9, y + 0.85, z, z + 0.58, '#2c2018'); for (let j = 0; j < 4; j++) qL(x + 0.14 + 0.2 * j, x + 0.26 + 0.2 * j, y + 0.85, z + 0.03, z + 0.2 + ((j + l) % 3) * 0.14, ic[(j + l * 2 + x + y) % 5]); } break; }
+      case 'mgen': {   // generatore del Mostro della notte: spia rossa da spento; acceso spia verde e lampadina gialla
+        const on = o && o.on;
+        bx(x + 0.14, y + 0.22, x + 0.86, y + 0.78, 0, 0.12, '#2a2e35');
+        bx(x + 0.18, y + 0.26, x + 0.82, y + 0.74, 0.12, 0.85, '#6a7a4a');
+        qL(x + 0.24, x + 0.62, y + 0.74, 0.3, 0.7, '#3a4430');
+        for (const z of [0.38, 0.5, 0.62]) qL(x + 0.27, x + 0.59, y + 0.74, z, z + 0.04, '#252a20');
+        dot(x + 0.72, y + 0.74, 0.62, 0.035, on ? '#7be07a' : '#e2553a');
+        cyl(x + 0.3, y + 0.4, 0.05, 0.85, 1.3, '#4a4f58');
+        cyl(x + 0.62, y + 0.5, 0.09, 0.85, 1.0, '#555b66'); dot(x + 0.62, y + 0.5, 1.07, 0.085, on ? '#ffe066' : '#3a3f49');
+        break;
+      }
+      case 'van': {   // furgone della fuga: due celle lungo x, si disegna dalla cella davanti (quella dietro ha o.part); fari accesi quando e' pronto
+        if (o && o.part) break;
+        const on = o && o.on, x0 = x - 1;
+        for (const [a, b] of [[0.35, 0.18], [1.6, 0.18], [0.35, 0.82], [1.6, 0.82]]) cyl(x0 + a, y + b, 0.16, 0, 0.32, '#1d2026');
+        bx(x0 + 0.05, y + 0.12, x0 + 1.4, y + 0.88, 0.22, 1.6, '#d8dde2');
+        bx(x0 + 1.4, y + 0.12, x0 + 1.95, y + 0.88, 0.22, 1.12, '#d8dde2');
+        qL(x0 + 1.46, x0 + 1.9, y + 0.88, 0.7, 1.04, '#2a3a4a');
+        qL(x0 + 0.05, x0 + 1.4, y + 0.88, 0.78, 0.92, '#c0392b');
+        qL(x0 + 0.5, x0 + 0.9, y + 0.88, 0.95, 1.4, '#b8bec6');
+        dot(x0 + 1.96, y + 0.28, 0.55, 0.06, on ? '#fff6b0' : '#8a8f99'); dot(x0 + 1.96, y + 0.72, 0.55, 0.06, on ? '#fff6b0' : '#8a8f99');
+        break;
+      }
       case 'gdoor': {   // porta di un gioco nella hall: cornice scura, porta del colore del gioco, architrave dorato (senza gioco: assi inchiodate)
         const c = o.c, F = y + 0.85;
         bx(x + 0.04, y + 0.15, x + 0.96, F, 0, 2.7, '#4a3020');
@@ -4675,9 +4704,11 @@ function cqDraw() {
   const smoky = !!(G && G.phase === 'play' && G.smoke && G.smoke.until > G.time && cqRoomName(cq.x, cq.y) === G.smoke.room), fog = smoky && !G.me.imp;
   const torch = dark && G.opt.torch, la = Math.atan2(cq.ly || 0.5, cq.lx || 1);
   // notte nel bosco: buio (nl) tranne intorno a me e al fuoco acceso (raggio fR, piu' grande con piu' legna)
-  const S = G && G.sv, nl = S && G.phase !== 'end' ? S.dark * (G.me.nv ? 0.3 : 1) : 0, F = S && CQ_MAP.fire, fR = S && S.lit ? 3 + 2.5 * Math.min(1, S.fuel / 60) : 0;
+  const MN = G && G.mode && G.M.night && G.phase !== 'end' ? G.M.night(G) : null;   // giochi del motore al buio (vedi night nel MOTORE DEI GIOCHI)
+  const S = G && G.sv, nl = MN ? MN.a : S && G.phase !== 'end' ? S.dark * (G.me.nv ? 0.3 : 1) : 0, F = S && CQ_MAP.fire, fR = S && S.lit ? 3 + 2.5 * Math.min(1, S.fuel / 60) : 0;
   // al buio si vede solo vicino a se', oppure nel fascio della torcia
   const seen = (x, y) => {
+    if (MN) return MN.see(x, y);
     if (fog && Math.hypot(x - cq.x, y - cq.y) > 1.5) return false;
     if (nl > 0.5 && Math.hypot(x - cq.x, y - cq.y) > (G.me.torch ? 7 : 4.5) && !(fR && Math.hypot(x - F.x - 0.5, y - F.y - 0.5) < fR)) return false;
     if (!dark) return true;
@@ -4747,14 +4778,15 @@ function cqDraw() {
     } }
   }
   if (nl > 0) {
-    const lights = [[tx + X, ty + Y - TH, (G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
+    const lights = [[tx + X, ty + Y - TH, (MN ? MN.r : G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
+    if (MN) for (const [lx, ly, lr, ls] of MN.lights) lights.push([tx + px(lx, ly), ty + py(lx, ly) - TH * 0.5, lr * TW, ls]);
     if (fR) {
       const fx = tx + px(F.x + 0.5, F.y + 0.5), fy = ty + py(F.x + 0.5, F.y + 0.5) - TH * 0.5;
       lights.push([fx, fy, fR * TW, 1]);
       const gr = g.createRadialGradient(fx, fy, 0, fx, fy, fR * TW); gr.addColorStop(0, 'rgba(255,150,60,' + (0.22 * nl) + ')'); gr.addColorStop(1, 'rgba(255,150,60,0)');
       g.fillStyle = gr; g.fillRect(fx - fR * TW, fy - fR * TW, fR * TW * 2, fR * TW * 2);
     }
-    cqNightLayer(g, W, H, 0.84 * nl, lights);
+    cqNightLayer(g, W, H, MN ? nl : 0.84 * nl, lights);
   }
   if (S) {
     const nw = performance.now();
