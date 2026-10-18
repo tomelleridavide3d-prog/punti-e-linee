@@ -5,7 +5,7 @@
 // Vincono i cercatori se trovano tutti, i nascosti se almeno uno resiste fino alla fine (o se i cercatori sono tutti fuori).
 // Gancio del motore usato: prop(c) -> il personaggio si disegna come un oggetto (T.prop / drawProp).
 (() => {
-  const REACH = 1.3, STUN = 3, MAXERR = 3, CHG = 2, TAUNT = 30, RING = 2.5, HEAR = 12, SEE_S = 5.5, SEE_H = 3;   // HEAR = fin dove si sente il verso (caselle)
+  const REACH = 1.3, STUN = 3, MAXERR = 3, CHG = 2, TAUNT = 30, RING = 2.5, HEAR = 12, SEE_S = 5.5, SEE_H = 3, STILL = 25, ZONE = 7;   // ZONE: dalla meta' della caccia per azzerare il conto bisogna uscire da un cerchio di 7 caselle   // STILL: dalla meta' della caccia, fermi piu' di tanti secondi = suono continuo   // HEAR = fin dove si sente il verso (caselle)
   // oggetti in cui ci si puo' trasformare (tipo -> nome), scelti dall'utente: mobili veri + vasi, cactus e coni (piu' difficili)
   const KINDS = { locker: 'armadietto', dchair: 'sedia', rack: 'appendiabiti', camera: 'cinepresa', lamp: 'faro', crate: 'cassa', crate2: 'cassa doppia',
     barrel: 'barile', fridge: 'frigo', tv: 'televisore', plant: 'vaso di fiori', cactus: 'cactus', cone: 'cono' };
@@ -46,6 +46,7 @@
   const byId = (G, id) => G.chars.find(c => c.id === id);
   const hiding = G => G.time < (G.opt.hide || 20);
   const hiders = G => G.chars.filter(c => c.r === 0 && c.alive);
+  const halfT = G => (G.opt.hide || 20) + (G.opt.time || 240) / 2;   // quando e' passata meta' della caccia
   const stunned = (G, c) => (c.stun || 0) > G.time;
   // oggetti veri della mappa in cui ci si puo' trasformare: [tipo, x, y, opzione]
   // oggetti veri ancora sulla mappa (quelli tolti a inizio partita non contano)
@@ -87,7 +88,7 @@
       G.rings.push({ x: e.x, y: e.y, t: performance.now(), a: e.a });
       const d = A === me ? 0 : Math.hypot(e.x - cq.x, e.y - cq.y), v = 0.07 * Math.max(0, 1 - d / (HEAR + 1)), f = 520 + (e.a % 5) * 85;
       if (v > 0.004) { beep(f, 0.09, v, 0, 'triangle'); beep(f * 1.5, 0.13, v, 0.1, 'triangle'); beep(f * 1.2, 0.09, v, 0.25, 'triangle'); }
-      if (A === me) t = '🔔 Hai fatto un verso: i cercatori sanno più o meno dove sei!';
+      if (A === me) t = e.b === 1 ? '🔔 Campanella suonata: i cercatori la sentono come un verso!' : '🔔 Hai fatto un verso: i cercatori sanno più o meno dove sei!';
     }
     if (t) cqToast(t);
   }
@@ -117,12 +118,12 @@
   // ---- personaggi del computer ----
   function go(c, x, y) { c.path = cqPath(c.x, c.y, x, y); if (!c.path.length) c.path = [[x, y]]; }
   // nascondiglio: una cella libera accanto a un oggetto (meglio se ce ne sono altri uguali vicino), lontano da chi e' da evitare
-  function spot(G, c, avoid) {
+  function spot(G, c, avoid, minD) {
     const L = props(), taken = new Set(G.chars.filter(o => o !== c && o.spot).map(o => o.spot.x + ',' + o.spot.y));
     let best = null, bs = -1e9;
     for (let i = 0; i < 40; i++) {
       const o = L[Math.floor(Math.random() * L.length)], [dx, dy] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(Math.random() * 4)], x = o[1] + dx, y = o[2] + dy;
-      if (!cqCellFree(x, y) || taken.has(x + ',' + y)) continue;
+      if (!cqCellFree(x, y) || taken.has(x + ',' + y) || (minD && Math.hypot(x + 0.5 - avoid.x, y + 0.5 - avoid.y) < minD)) continue;
       const same = L.filter(p => p[0] === o[0] && Math.hypot(p[1] - o[1], p[2] - o[2]) < 3).length, d = Math.hypot(x - c.x, y - c.y);
       const sc = same * 2 + Math.random() * 3 - (d > 22 ? 4 : 0) + (avoid ? Math.min(10, Math.hypot(x - avoid.x, y - avoid.y)) : 0);
       if (sc > bs && cqPath(c.x, c.y, x + 0.5, y + 0.5).length) { bs = sc; best = { x, y, o }; }
@@ -136,6 +137,7 @@
       if (!c.pr || (c.pr[0] !== sp.o[0] && (hiding(G) || c.chg > 0))) morph(G, c, sp.o[0], sp.o[3]);
     } else if (sp && !c.path.length) go(c, sp.x + 0.5, sp.y + 0.5);
     if (hiding(G)) { const o = near(c.x, c.y, 3)[0]; if (G.time > (G.opt.hide || 20) - 1.5 && !c.pr && o) morph(G, c, o[0], o[3]); return; }
+    if (G.time > halfT(G) - 1 && (c.still || 0) > STILL - 5 && !c.path.length) { const n = spot(G, c, { x: c.ax, y: c.ay }, ZONE + 1); if (n) { c.spot = n; go(c, n.x + 0.5, n.y + 0.5); return; } }   // tra poco suonerei: mi sposto
     // un cercatore troppo vicino: ogni tanto si scappa (un oggetto che cammina si nota...)
     const s = G.chars.find(o => o.r === 1 && o.alive && dist(o, c) < 2.2);
     if (s && !c.path.length && Math.random() < 0.07) { const q = P(s), n = spot(G, c, q); if (n) { c.spot = n; go(c, n.x + 0.5, n.y + 0.5); } }
@@ -154,12 +156,14 @@
         return;
       }
     }
+    const L = hiders(G).find(h => h.loud && Math.hypot(drawPos(h).x - c.x, drawPos(h).y - c.y) < HEAR * 1.25);
+    if (L && Math.random() < 0.5) { const q = drawPos(L); c.tg = { id: L.id, t: G.time }; go(c, q.x, q.y); return; }
     // chi sembra sospetto tra quelli che vedo (stessa stanza o vicino)
     const room = cqRoomOf[Math.floor(c.y)] && cqRoomOf[Math.floor(c.y)][Math.floor(c.x)];
     for (const h of hiders(G)) {
       const q = drawPos(h), d = Math.hypot(q.x - c.x, q.y - c.y); if (d > (G.opt.dk ? SEE_S - 0.5 : 7)) continue;
       const hr = cqRoomOf[Math.floor(q.y)] && cqRoomOf[Math.floor(q.y)][Math.floor(q.x)]; if (hr !== room && d > 3) continue;
-      const pr = !h.pr ? 0.9 : h.walk ? 0.35 : 0.034 + (misfit(h) ? 0.12 : 0);
+      const pr = !h.pr ? 0.9 : h.walk ? 0.2 : 0.034 + (misfit(h) ? 0.12 : 0);
       if (Math.random() < pr) { c.tg = { id: h.id, t: G.time }; go(c, q.x, q.y); return; }
     }
     // a volte si sbaglia: un oggetto vero qui vicino sembra sospetto
@@ -170,31 +174,61 @@
     if (!c.path.length) { const f = cqModeFree(); if (f) go(c, f.x, f.y); }
   }
 
-  // pulsante "Scegli l'oggetto" in alto al centro (come "Seleziona minigioco" della hall), solo per i nascosti vivi;
-  // a inizio partita il menu si apre da solo una volta. Un controllo ogni 0,25 s lo mostra/nasconde (anche quando si esce dal gioco)
-  function topBtn() {
-    let b = document.getElementById("nsPick");
-    if (!b) {
-      b = document.createElement("button"); b.id = "nsPick"; b.type = "button"; b.className = "btn"; b.hidden = true;
-      b.style.cssText = "position:absolute;top:112px;left:50%;transform:translateX(-50%);z-index:5;font-size:16px;font-weight:700;padding:10px 18px;background:#e0b84a;color:#2a1e08;border:0;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.35);white-space:nowrap";
-      b.onclick = () => { const G = cq.g; if (G && G.mode === "nascondino") menu(G); };
-      ($("#ciack") || document.body).appendChild(b);
-    }
-    const G = cq.g, me = G && G.me, on = !!(G && G.mode === "nascondino" && G.phase === "play" && me && me.r === 0 && me.alive && (hiding(G) || (me.chg || 0) > 0));
-    if (on) {
-      const t = hiding(G) ? "🪑 Scegli l'oggetto" : "🪑 Cambia oggetto (" + (me.chg || 0) + ")"; if (b.textContent !== t) b.textContent = t;
-      if (!G.menuShown) { G.menuShown = true; if ($("#cqTask").hidden) menu(G); }   // la prima volta si apre da solo
-    }
-    if (on) { const mb = $("#cqModeBar").getBoundingClientRect(), pr = b.offsetParent ? b.offsetParent.getBoundingClientRect().top : 0, t = Math.round(mb.bottom - pr + 8) + "px"; if (mb.height && b.style.top !== t) b.style.top = t; }   // subito sotto la barra in alto
-    if (b.hidden === on) b.hidden = !on;
-    const ce = $("#cqCount"), ct = on ? Math.round(b.offsetTop + b.offsetHeight + 8) + "px" : "";   // la scritta grande del gioco va sotto il pulsante
-    if (ce && ce.style.top !== ct) ce.style.top = ct;
+  // pulsanti in alto al centro (stile "Seleziona minigioco" della hall), solo per i nascosti vivi:
+  //  - "Scegli l'oggetto" / "Cambia oggetto (n)": il menu (a inizio partita si apre da solo una volta)
+  //  - "👻 Guarda in giro": telecamera libera del motore (cq.cam), il mio oggetto resta fermo; da fantasmino "↩️ Torna" e "🔔 Campanella" (una per partita)
+  // Un controllo ogni 0,25 s li mostra/nasconde (anche quando si esce dal gioco)
+  const TOPCSS = 'font-size:16px;font-weight:700;padding:10px 16px;background:#e0b84a;color:#2a1e08;border:0;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.35);white-space:nowrap';
+  function topBar() {
+    let bar = document.getElementById('nsTop');
+    if (bar) return bar;
+    bar = document.createElement('div'); bar.id = 'nsTop'; bar.hidden = true;
+    bar.style.cssText = 'position:absolute;top:112px;left:8px;right:8px;z-index:5;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;pointer-events:none';
+    const mk = (id, f, bg) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'btn'; b.style.cssText = TOPCSS + ';pointer-events:auto' + (bg ? ';background:' + bg + ';color:#fff' : ''); b.onclick = () => { const G = cq.g; if (G && G.mode === 'nascondino' && G.phase === 'play') f(G); }; bar.appendChild(b); };
+    mk('nsPick', G => menu(G));
+    mk('nsGhost', G => { const me = G.me; if (cq.cam) { cq.cam = null; beep(520, 0.08, 0.03); } else if (me.pr) { cq.cam = { x: cq.x, y: cq.y }; cqCloseTask(); beep(780, 0.08, 0.03); beep(1040, 0.1, 0.03, 0.08); } }, '#6a5acd');
+    mk('nsBell', G => ring(G), '#c0662a');
+    ($('#ciack') || document.body).appendChild(bar);
+    return bar;
   }
-  if (!window.nsTopI) window.nsTopI = setInterval(topBtn, 250);
+  function topBtn() {
+    const bar = topBar(), G = cq.g, me = G && G.me, live = !!(G && G.mode === 'nascondino' && G.phase === 'play' && me && me.r === 0 && me.alive);
+    if (!live && cq.cam && (!G || G.mode === 'nascondino')) cq.cam = null;   // trovato o partita finita: si torna nel proprio oggetto
+    const spec = live && !!cq.cam;
+    const show = (id, on, t) => { const b = document.getElementById(id); if (on && b.textContent !== t) b.textContent = t; if (b.hidden === on) b.hidden = !on; return on; };
+    let any = false;
+    any = show('nsPick', live && !spec && (hiding(G) || (me.chg || 0) > 0), live && hiding(G) ? '🪑 Scegli l’oggetto' : '🪑 Cambia oggetto (' + ((me && me.chg) || 0) + ')') || any;
+    any = show('nsGhost', live && (spec || !!me.pr), spec ? '↩️ Torna' : '👻 Guarda in giro') || any;
+    any = show('nsBell', spec && !me.bell, '🔔 Campanella') || any;
+    if (live && !G.menuShown) { G.menuShown = true; if ($('#cqTask').hidden) menu(G); }   // la prima volta il menu si apre da solo
+    if (any) { const mb = $('#cqModeBar').getBoundingClientRect(), pr = bar.offsetParent ? bar.offsetParent.getBoundingClientRect().top : 0, t = Math.round(mb.bottom - pr + 8) + 'px'; if (mb.height && bar.style.top !== t) bar.style.top = t; }   // subito sotto la barra in alto
+    if (bar.hidden === any) bar.hidden = !any;
+    const ce = $('#cqCount'), ct = any ? Math.round(bar.offsetTop + bar.offsetHeight + 8) + 'px' : '';   // la scritta grande del gioco va sotto i pulsanti
+    if (ce && ce.style.top !== ct) ce.style.top = ct;
+    // suono continuo di chi sta fermo troppo (dalla meta' della caccia): si sente fino a HEAR caselle da me
+    if (G && G.mode === 'nascondino' && G.phase === 'play') {
+      const now = performance.now();
+      for (const c of G.chars) if (c.loud && c.alive && c.r === 0 && now - (c.ldT || 0) > 900) {
+        c.ldT = now; const q = drawPos(c), d = c === me ? 0 : Math.hypot(q.x - cq.x, q.y - cq.y), v = 0.06 * Math.max(0, 1 - d / (HEAR + 1));
+        if (v > 0.004) { beep(880, 0.12, v, 0, 'square'); beep(660, 0.12, v, 0.18, 'square'); }
+      }
+    }
+  }
+  if (!window.nsTopI) window.nsTopI = setInterval(() => { try { topBtn(); } catch (e) { } }, 250);
+  // campanella del fantasmino: un falso verso dove si trova la telecamera (una volta per partita)
+  function ring(G) {
+    const me = G.me, cam = cq.cam; if (!cam || me.bell || !me.alive) return;
+    me.bell = 1; beep(1500, 0.3, 0.05, 0, 'sine'); beep(1900, 0.4, 0.04, 0.12, 'sine');
+    if (G.guest) cqNetSend({ k: 'bell', x: cam.x, y: cam.y }); else bell(G, me, cam.x, cam.y);
+  }
+  function bell(G, c, x, y) {
+    if (c.bellH || c.r !== 0 || !c.alive) return; c.bell = c.bellH = 1;
+    say(G, 'snd', c.id, 1, x + (Math.random() - 0.5) * 1.6, y + (Math.random() - 0.5) * 1.6);   // b = 1: e' la campanella (per gli altri sembra un verso)
+  }
 
   CQ_MODES.nascondino = {
     n: 'Nascondino sul set',
-    desc: '🪑 I <b>nascosti</b> scelgono da un menu in che oggetto trasformarsi (armadietto, sedia, attaccapanni, cinepresa, vaso, cono…), si muovono a forma di oggetto e si fermano dove si confondono meglio. I <b>cercatori</b> contano a schermo nero, poi colpiscono gli oggetti sospetti: se è un nascosto è eliminato, se è un oggetto vero restano storditi (3 errori = fuori). Ogni 30 secondi circa ogni nascosto fa un verso. 🤫 In vocale ti sentono da vicino: se ti nascondi, stai zitto!',
+    desc: '🪑 I <b>nascosti</b> scelgono da un menu in che oggetto trasformarsi (armadietto, sedia, attaccapanni, cinepresa, vaso, cono…), si muovono a forma di oggetto e si fermano dove si confondono meglio. I <b>cercatori</b> contano a schermo nero, poi colpiscono gli oggetti sospetti: se è un nascosto è eliminato, se è un oggetto vero restano storditi (3 errori = fuori). Ogni 30 secondi circa ogni nascosto fa un verso, e da metà partita chi resta fermo troppo a lungo comincia a suonare finché non si sposta. Da oggetto puoi fare un giro da 👻 fantasmino per spiare i cercatori (con una 🔔 campanella per partita per distrarli). 🤫 In vocale ti sentono da vicino: se ti nascondi, stai zitto!',
     maps: [['studio', 'Studio (luci accese)']],
     def: { time: 240, seek: 1, hide: 20, me: 'rnd', dark: 'on', map: 'studio', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Cercatori</div>${seg('seek', [[1, '1'], [2, '2']], o.seek)}</div>
@@ -208,9 +242,9 @@
       G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240;
       vanish(G, props().sort(() => Math.random() - 0.5).slice(0, 5 + Math.floor(Math.random() * 4)).map(p => [p[1], p[2]]));
       const sh = G.chars.slice().sort(() => Math.random() - 0.5), mr = cq.net ? 'rnd' : G.opt.me; if (mr !== 'rnd') { sh.splice(sh.indexOf(G.me), 1); if (mr === 's') sh.unshift(G.me); else sh.push(G.me); } const ns = Math.min(G.opt.seek || 1, Math.max(1, Math.floor(G.chars.length / 3)));
-      sh.forEach((c, i) => { c.r = i < ns ? 1 : 0; c.pr = null; c.chg = CHG; c.stun = 0; c.err = 0; c.kl = 0; c.spot = null; c.tg = null; c.nt = (G.opt.hide || 20) + 12 + Math.random() * 18; });
+      sh.forEach((c, i) => { c.r = i < ns ? 1 : 0; c.pr = null; c.chg = CHG; c.stun = 0; c.err = 0; c.kl = 0; c.spot = null; c.tg = null; c.ax = null; c.still = 0; c.loud = false; c.bell = c.bellH = 0; c.nt = (G.opt.hide || 20) + 12 + Math.random() * 18; });
     },
-    gstart(G) { G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240; for (const c of G.chars) { c.pr = null; c.r = 0; } },
+    gstart(G) { cq.cam = null; G.lg = []; G.lgN = 0; G.rings = []; G.fx = []; G.left = G.opt.time || 240; for (const c of G.chars) { c.pr = null; c.r = 0; } },
     intro: G => (G.opt.dk ? '🌑 Al buio! ' : '') + (G.me.r === 1 ? '🔎 Sei il cercatore: conta, poi trovali!' : '🪑 Nasconditi: diventa un oggetto!'),
     speed: c => { const G = cq.g; return c.r === 1 && (hiding(G) || stunned(G, c)) ? 0 : 1; },
     big(G) {
@@ -218,6 +252,8 @@
       if (me.r === 1) { if (!me.alive) return '🚫 Sei fuori'; if (hiding(G)) return '🙈 Stai contando… ' + h; if (stunned(G, me)) return '❤️'.repeat(Math.max(0, MAXERR - (me.err || 0))); return ''; }   // colpo sbagliato: al centro solo i cuori rimasti
       if (!me.alive) return '';
       if (hiding(G)) return (me.pr ? '🤫 Sei ' + art(me.pr[0]) + '. ' : '🪑 Scegli l’oggetto da diventare! ') + 'I cercatori partono tra ' + h;
+      if (me.loud) return '🔊 Stai suonando! Esci dal cerchio rosso!';
+      if (G.time > halfT(G) - 1 && me.still > STILL - 10) return '🚶 Esci dal cerchio rosso tra ' + Math.max(1, Math.ceil(STILL - me.still)) + '!';
       const nt = (me.nt || 0) - G.time; if (nt > 0 && nt < 5) return '🔔 Tra ' + Math.ceil(nt) + ' farai un verso!';
       return '';
     },
@@ -253,6 +289,7 @@
       if (!o) return;
       if (o.k === 'hit') hit(G, c, o.id != null ? { id: o.id } : { cx: o.cx, cy: o.cy });
       else if (o.k === 'pr') morph(G, c, o.t, o.o);
+      else if (o.k === 'bell') bell(G, c, +o.x, +o.y);
     },
     tick(G, dt) {
       if (!hiding(G)) G.left -= dt;
@@ -260,6 +297,12 @@
       if (!hiding(G)) for (const c of hiders(G)) if (G.time >= c.nt) {
         const p = P(c); c.nt = G.time + TAUNT * (0.4 + 0.6 * Math.max(0, G.left) / (G.opt.time || 240)) * (0.85 + Math.random() * 0.3);   // verso la fine sempre piu' spesso (da ~30 a ~12 s)
         say(G, 'snd', c.id, -1, p.x + (Math.random() - 0.5) * 1.6, p.y + (Math.random() - 0.5) * 1.6);
+      }
+      // dalla meta' della caccia: chi resta fermo (entro 1,6 caselle) piu' di STILL secondi suona finche' non si sposta
+      if (!hiding(G)) for (const c of hiders(G)) {
+        const p = P(c);
+        if (c.ax == null || Math.hypot(p.x - c.ax, p.y - c.ay) > (G.time > halfT(G) ? ZONE : 1.6)) { c.ax = p.x; c.ay = p.y; c.at = G.time; }
+        c.still = G.time - Math.max(c.at, halfT(G)); c.loud = G.time > halfT(G) && c.still > STILL;
       }
       for (const c of G.chars) {
         if (!c.bot || !c.alive) continue;
@@ -279,10 +322,10 @@
       else cqModeEnd({ t: '🪑 Vincono i nascosti!', why: (n === 1 ? '1 nascosto' : n + ' nascosti') + ' su ' + tot + ' mai trovati · ' + why, win: G.chars.filter(c => c.r === 0).map(c => c.id), rank });
     },
     // online: ruolo, oggetto, cambi rimasti, stordimento, errori, trovati, secondi al prossimo verso
-    csnap: c => { const G = cq.g; return [c.r, c.pr || 0, c.chg || 0, Math.max(0, Math.round(((c.stun || 0) - G.time) * 10) / 10), c.err || 0, c.kl || 0, Math.round(((c.nt || 0) - G.time) * 10) / 10]; },
+    csnap: c => { const G = cq.g; return [c.r, c.pr || 0, c.chg || 0, Math.max(0, Math.round(((c.stun || 0) - G.time) * 10) / 10), c.err || 0, c.kl || 0, Math.round(((c.nt || 0) - G.time) * 10) / 10, c.loud ? 1 : 0, Math.round((c.still || 0) * 10) / 10, c.bell ? 1 : 0, Math.round((c.ax || 0) * 10) / 10, Math.round((c.ay || 0) * 10) / 10]; },
     capply(G, c, a) {
       c.r = a[0]; if (!(c === G.me && G.time < (c.prH || 0))) { c.pr = a[1] || null; c.chg = a[2]; }
-      c.stun = a[3] > 0 ? G.time + a[3] : 0; c.err = a[4]; c.kl = a[5]; c.nt = G.time + a[6];
+      c.stun = a[3] > 0 ? G.time + a[3] : 0; c.err = a[4]; c.kl = a[5]; c.nt = G.time + a[6]; c.loud = !!a[7]; c.still = a[8] || 0; if (a[9]) c.bell = 1; c.ax = a[10]; c.ay = a[11];
       if (!c.alive) c.pr = null;
     },
     snap: G => ({ go: G.gone, bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]), left: Math.round(G.left * 10) / 10, lg: G.lg }),
@@ -296,7 +339,7 @@
     night(G) {
       const me = G.me;
       if (me.r === 1 && me.alive && hiding(G)) return { a: 1, r: 0.01, lights: [], see: () => false };
-      if (!G.opt.dk || !me.alive) return null;
+      if (!G.opt.dk || !me.alive || cq.cam) return null;   // il fantasmino vede tutto
       const lights = [], S = me.r === 1;
       for (const c of G.chars) if (c !== me && c.r === 1 && c.alive && Math.hypot(c.x - cq.x, c.y - cq.y) < 20) lights.push([c.x, c.y, 3.2, 0.85]);
       if (S) { const l = Math.hypot(cq.wdx || 0, cq.wdy || 0) || 1, dx = (cq.wdx || 0.5) / l, dy = (cq.wdy || 0.5) / l; lights.push([cq.x + dx * 2.6, cq.y + dy * 2.6, 3.4, 0.9]); }
@@ -318,6 +361,22 @@
         const X = sx(r.x, r.y), Y = sy(r.x, r.y) - TW * 1.2; g.font = '20px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = 1 - a / RING; g.fillText('🔔', X, Y); g.globalAlpha = 1;
         if (me.r === 1) edge(g, X, Y, W, H, '🔔', '#e8b830');
       }
+      // chi suona perche' sta fermo troppo: cerchio arancione che pulsa sopra di lui (lo vede chi lo sente)
+      for (const c of G.chars) if (c.loud && c.alive && c.r === 0) {
+        const q = drawPos(c); if (c !== me && me.alive && Math.hypot(q.x - cq.x, q.y - cq.y) > HEAR + 1) continue;
+        const f = (now / 900) % 1; ring(q.x, q.y, 0.6 + f * 1.6); g.strokeStyle = 'rgba(255,140,60,' + (0.95 * (1 - f)) + ')'; g.lineWidth = 3.5; g.stroke();
+        const X = sx(q.x, q.y), Y = sy(q.x, q.y) - TW * 1.5; g.font = '20px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🔊', X, Y);
+        if (me.r === 1) edge(g, X, Y, W, H, '🔊', '#e8803a');
+      }
+      if (me.r === 0 && me.alive && G.time > halfT(G) - 1) {
+        const k = me.ax + ',' + me.ay;
+        if (G.zk && G.zk !== k && G.zw) G.zg = { x: G.zw.x, y: G.zw.y, t: now };   // uscito dal cerchio: verde per un attimo
+        G.zk = k; G.zw = me.loud || me.still > STILL - 10 ? { x: me.ax, y: me.ay } : null;
+        if (G.zw) { ring(G.zw.x, G.zw.y, ZONE); g.setLineDash([12, 8]); g.strokeStyle = 'rgba(235,60,50,' + (0.65 + 0.3 * Math.sin(now / 200)) + ')'; g.lineWidth = 4; g.stroke(); g.setLineDash([]); }
+      }
+      if (G.zg && now - G.zg.t < 1500) { ring(G.zg.x, G.zg.y, ZONE); g.strokeStyle = 'rgba(90,220,110,' + (1 - (now - G.zg.t) / 1500) + ')'; g.lineWidth = 5; g.stroke(); }
+      // fantasmino: dove sta guardando la telecamera libera
+      if (cq.cam) { const bob = Math.sin(now / 300) * 4; g.globalAlpha = 0.85; g.font = '30px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('👻', W / 2, H / 2 - TW * 0.6 + bob); g.globalAlpha = 1; }
       G.fx = G.fx.filter(f => now - f.t < 1000);
       for (const f of G.fx) { const a = (now - f.t) / 1000; g.globalAlpha = 1 - a; g.font = '26px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('❌', sx(f.x, f.y), sy(f.x, f.y) - TW * (1 + a * 0.6)); g.globalAlpha = 1; }
       if (!me.alive || G.phase !== 'play' || G.pre > 0) return;

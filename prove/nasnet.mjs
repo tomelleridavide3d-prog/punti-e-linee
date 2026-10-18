@@ -17,6 +17,8 @@ export default [
   [1, `(() => 'amico: menu aperto da solo ' + !$('#cqTask').hidden + ' (' + $('#tkTitle').textContent + ') | pulsante in alto ' + (document.getElementById('nsPick') && !document.getElementById('nsPick').hidden))()`, 0],
   [1, `(() => { const G = cq.g, P = CQ_PROPS.find(p => p[0] === 'crate' && cqCellFree(p[1] + 1, p[2]) && !CQ_PROPS.some(q => q !== p && Math.hypot(q[1] - p[1] - 1, q[2] - p[2]) < 1.7)); cq.x = P[1] + 1.5; cq.y = P[2] + 0.5; return 'amico vicino a una cassa: pulsante ' + $('#cqKill').textContent + ' | ' + $('#cqCount').textContent; })()`, 800],
   [1, `(() => { cqMyKill(); document.querySelector('#tkBody [data-v]').click(); return 'amico: trasformato ' + JSON.stringify(cq.g.me.pr) + ' | ' + __T.slice(-1)[0]; })()`, 1500],
+  [1, `(async () => { document.getElementById('nsGhost').click(); await new Promise(r => setTimeout(r, 300)); cq.cam.x += 3; document.getElementById('nsBell').click(); await new Promise(r => setTimeout(r, 300)); document.getElementById('nsGhost').click(); return 'amico: campanella suonata, ' + __T.slice(-1)[0]; })()`, 1500],
+  [0, `(() => { const e = cq.g.lg[cq.g.lg.length - 1], a = cq.g.chars.find(c => c.name === 'zzAmico'); return 'host: ultimo evento ' + (e ? e.k + ' b=' + e.b + ' di ' + cq.g.chars.find(c => c.id === e.a).name : '-') + ' | amico campanella usata ' + a.bell; })()`, 0],
   [0, st('host'), 0],
   [0, `(() => { const G = cq.g; return 'host durante la conta: schermo nero ' + !!(G.M.night(G)) + ' | ' + $('#cqCount').textContent + ' | pulsante nascosto ' + $('#cqKill').hidden; })()`, 0],
   // fine della conta: l'host va accanto all'amico e colpisce prima un oggetto vero lontano dall'amico, poi l'amico

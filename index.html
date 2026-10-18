@@ -4528,13 +4528,18 @@ function cqAmb(dt, G, playing) {
   }
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState !== 'visible' && cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } });
+// telecamera libera dei giochi del motore (es. il fantasmino di Nascondino): cq.cam = { x, y } la stacca dal mio personaggio, che resta fermo.
+// Vale solo in partita: fuori dal gioco (o a partita finita) si torna da soli a me
+const cqCam = () => cq.cam && cq.g && cq.g.mode && cq.g.phase === 'play' ? cq.cam : null;
 function cqFrame(t) {
   if (!cq.on) return;
   cq.raf = requestAnimationFrame(cqFrame);   // subito: se qualcosa va storto in questo fotogramma, il gioco non si blocca
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
   const d = (!G || playing || (G.hall && G.me.alive && $('#cqPick').hidden)) && !(G && G.mode && G.pre > 0) ? cqDir() : null;
-  if (d) {
+  const cam = cqCam();
+  if (d && cam) { const k = CQ_SPEED * 1.6 * dt; cam.x = Math.max(0, Math.min(CQ_W, cam.x + d.wx * k)); cam.y = Math.max(0, Math.min(CQ_H, cam.y + d.wy * k)); cq.walk = 0; }   // telecamera libera (fantasmino): il mio personaggio resta fermo
+  else if (d) {
     const up = CQ_MAP.hz && cqHz(cq.x + d.wx * 1.5, cq.y + d.wy * 1.5) > cqHz(cq.x, cq.y) + 0.3 ? 0.72 : 1;   // in salita piu' piano
     const sp = up * CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1) * (G && G.mode && G.M.speed ? G.M.speed(G.me) : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
     if (cqFreeZ(cq.x, cq.y, nx, cq.y)) cq.x = nx;
@@ -5062,7 +5067,8 @@ function cqDraw() {
   const B = cq.bg, TW = B.TW, TH = TW / 2, U = TH * 1.15;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   // posizioni allineate ai pixel dello schermo: l'immagine pronta e i riquadri ridisegnati combaciano senza righe
-  const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(cq.x, cq.y), Y = py(cq.x, cq.y) - cqZpx(cq.x, cq.y, TW);   // con le altezze la telecamera sale con me
+  const cam = cqCam(), CX = cam ? cam.x : cq.x, CY = cam ? cam.y : cq.y;   // centro dello schermo: io, oppure la telecamera libera
+  const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(CX, CY), Y = py(CX, CY) - cqZpx(CX, CY, TW);   // con le altezze la telecamera sale con me
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0);
   { const bc = CQ_MAP.bg && CQ_MAP.bg(cq.x, cq.y); if (bc) { g.fillStyle = bc; g.fillRect(0, 0, W, H); } else g.clearRect(0, 0, W, H); }   // bg: colore dietro la mappa (il mare aperto dell'isola)
