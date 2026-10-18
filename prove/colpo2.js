@@ -9,7 +9,7 @@
   document.querySelector('#tkBody [data-g=colpo]').click(); await w(2500);
   store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.colpo = Object.assign({}, store.settings.cqModeOpt.colpo || {}, { n: 4, dif: 'n', time: 600 }); saveStore();
   const t0 = performance.now(); $('#lbGo').click(); await w(4200); out.push('avvio ' + Math.round(performance.now() - t0 - 4200) + ' ms in piu\'');
-  const G = cq.g; const p = window.__P || [33.5, 28.5]; cq.x = p[0]; cq.y = p[1];
+  const G = cq.g; const p = window.__P || [33.5, 28.5]; cq.x = p[0]; cq.y = p[1]; cqCloseTask(); G.brief = 1; if (window.__FREEZE) for (const g of G.gd) { g.st = 'pat'; g.wait = 1e9; g.path = []; }
   for (const c of G.chars) if (c.bot) c.think = 999;   // computer fermi (solo guardie in giro)
   const gd = G.gd.find(g => g.route.some(r => Math.hypot(r[0] - p[0], r[1] - p[1]) < 10)); if (gd) { gd.x = p[0] - 3; gd.y = p[1] - 1.5; gd.path = []; }
   // cammino avanti e indietro con i tasti

@@ -4,7 +4,7 @@
 // Una guardia: { id, x, y, a: dove guarda (angolo nel mondo), st: stato, sus: sospetto 0-1, route: [[x, y, attesa, angolo]], ri: tappa, path }.
 // STATI: 'pat' ronda (alle tappe si ferma e si guarda intorno) · 'sus' ha intravisto qualcuno: si gira, il "?" si riempie · 'inv' va a vedere un punto
 // (rumore, telecamera, compagno che chiama) e si guarda intorno · 'chase' "!" insegue · 'ko' stordita · 'ret' torna alla ronda.
-// CONO DI VISTA: lungo env.range(x, y) (in luce piu' lungo, al buio solo la torcia), mezza apertura HALF, fermato da opaque(x, y) (muri, oggetti alti,
+// CONO DI VISTA: lungo env.range(x, y) = portata verso il punto x, y (in luce piu' lunga, al buio solo la torcia), mezza apertura HALF, fermato da opaque(x, y) (muri, oggetti alti,
 // porte chiuse: il gioco puo' cambiare GD.tall); da vicinissimo (NEAR) ti sente anche alle spalle.
 // tick(G, dt, env) con env = { thieves: [c], pos(c), vis(c) (quanto si nota: 1 normale), range(x, y), alert (bool), k (difficolta' 0.8-1.25), speed (velocita' dei ladri),
 //   onCatch(gd, c), onKo(gd, ko) (una guardia trova un compagno stordito), onChase(gd, c) }
@@ -70,11 +70,12 @@
       for (const gd of G.gd) {
         if (gd.st === 'ko') { if (G.time >= gd.ko) { gd.st = 'inv'; gd.ix = gd.x; gd.iy = gd.y; gd.look = 0; gd.path = []; gd.woke = 1; } continue; }
         // chi vedo? il piu' visibile dei ladri
-        const R = env.range(gd.x, gd.y) * (al ? 1.22 : 1) * (0.85 + 0.15 * k);
+        // la portata dipende dalla luce DOVE STA il ladro (in luce lo vedo da lontano, al buio solo vicino con la torcia)
+        const Rk = (al ? 1.22 : 1) * (0.85 + 0.15 * k);
         let best = null, bv = 0;
-        for (const c of T) { const p = env.pos(c), v = GD.sees(gd, p.x, p.y, R) * (env.vis ? env.vis(c) : 1); if (v > bv) { bv = v; best = c; } }
+        for (const c of T) { const p = env.pos(c), v = GD.sees(gd, p.x, p.y, env.range(p.x, p.y) * Rk) * (env.vis ? env.vis(c) : 1); if (v > bv) { bv = v; best = c; } }
         // un compagno a terra nel mio cono: corro a svegliarlo e scatta l'allerta
-        if (gd.st !== 'chase') for (const o of G.gd) if (o !== gd && o.st === 'ko' && !o.found && GD.sees(gd, o.x, o.y, R) > 0) { o.found = 1; o.ko = Math.min(o.ko, G.time + 2.5); GD.investigate(gd, o.x, o.y); if (env.onKo) env.onKo(gd, o); }
+        if (gd.st !== 'chase') for (const o of G.gd) if (o !== gd && o.st === 'ko' && !o.found && GD.sees(gd, o.x, o.y, env.range(o.x, o.y) * Rk) > 0) { o.found = 1; o.ko = Math.min(o.ko, G.time + 2.5); GD.investigate(gd, o.x, o.y); if (env.onKo) env.onKo(gd, o); }
         if (best) {
           const p = env.pos(best); gd.lx = p.x; gd.ly = p.y;
           if (gd.st === 'chase') { gd.tgt = best.id; gd.lose = 0; }
@@ -163,9 +164,9 @@
       if (ko) { const t = performance.now() / 300; g.font = Math.round(TW * 0.34) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('💫', X - f * TW * 0.5 + Math.cos(t) * TW * 0.25, Y - TW * 0.9 + Math.sin(t) * 3); }
     },
     // sopra la testa: "?" che si riempie (sospetto) o "!" rosso (inseguimento); "…" quando va a controllare un rumore
-    mark(g, gd, X, Y, TW) {
+    mark(g, gd, X, Y, TW, top = 2.15) {
       if (gd.st === 'ko') return;
-      const y = Y - TW * 2.15, t = performance.now() / 1000;
+      const y = Y - TW * top, t = performance.now() / 1000;
       if (gd.st === 'chase') {
         g.fillStyle = '#e8302a'; g.beginPath(); g.arc(X, y, 12, 0, 7); g.fill(); g.strokeStyle = '#fff'; g.lineWidth = 2; g.stroke();
         g.fillStyle = '#fff'; g.font = '900 17px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('!', X, y + 1); return;

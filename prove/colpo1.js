@@ -45,6 +45,7 @@
       if (G.o1 && !steps[0]) steps[0] = Math.round(G.time); if (G.o2 && !steps[1]) steps[1] = Math.round(G.time); if (G.o3 && !steps[2]) steps[2] = Math.round(G.time);
       if (i % 100 === 0) { for (const c of G.chars) if (!cqFree(c.x, c.y)) wallHit++; for (const g of G.gd) if (!cqFree(g.x, g.y)) wallHit++; }
       if (i % 400 === 0) { cqHudFast(); cqDraw(); }
+      if (window.__TR && i % 600 === 0 && k === 0) window.__TR.push(Math.round(G.time) + 's ' + G.chars.map(c => c.name + ':' + (c.goal ? c.goal.k + (c.goal.s || '') : '-') + (c.hold > G.time ? '·FERMO' : '') + (c.scare > G.time ? '·PAURA' : '') + (c.jail ? '·CELLA' : '') + '@' + c.x.toFixed(0) + ',' + c.y.toFixed(0) + ' p' + c.path.length).join(' '));
     }
     const msTick = (performance.now() - t1) / Math.max(1, G.time * 20);
     window.cqToast = t0;
@@ -54,6 +55,7 @@
     cq.on = true; cq.last = performance.now(); cq.raf = requestAnimationFrame(cqFrame);
   }
   out.push('registro: ' + (window.__LOG || []).slice(0, 40).join(' | '));
+  if (window.__TR) out.push('traccia: ' + window.__TR.join(' | '));
   out.push('risultati: ' + JSON.stringify(res));
   out.push('errori: ' + (document.getElementById('errBar') ? document.getElementById('errBar').textContent : 'nessuno') + ' ' + (localStorage.getItem('errLog') || '').slice(0, 600));
   return out;
