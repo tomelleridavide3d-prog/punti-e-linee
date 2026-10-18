@@ -9,7 +9,7 @@
   document.querySelector('#tkBody [data-g=colpo]').click(); await w(2500);
   store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.colpo = Object.assign({}, store.settings.cqModeOpt.colpo || {}, { n: 4, dif: 'n', time: 600 }); saveStore();
   $('#lbGo').click(); await w(4500);
-  const G = cq.g, M = CQ_MAP; cqCloseTask(); G.brief = 1; G.pre = 0;
+  const G = cq.g, M = CQ_MAP, GD0 = CQ_LIB.guardie; cqCloseTask(); G.brief = 1; G.pre = 0;
   for (const c of G.chars) if (c.bot) { c.think = 1e9; c.path = []; c.x = 64.5; c.y = 30.5; }
   cq.on = false; cancelAnimationFrame(cq.raf);
   // 1) nascondigli: per tipo, e ognuno con una casella libera accanto
@@ -34,6 +34,11 @@
   out.push('guardia che mi guarda: ' + JSON.stringify(b));
   // battito senza nascondermi, guardia di spalle a 3 caselle
   gd.x = cq.x + 3; gd.a = 0; gd.sus = 0; tick(0.3); out.push('guardia di spalle a 3 caselle: battito ' + G.hb.toFixed(2) + ', sospetto ' + gd.sus.toFixed(2));
+  // 6) RICERCA: mi nascondo nell'armadio e la guardia cerca proprio li' intorno (come dopo avermi perso di vista): mi trova?
+  { const q2 = cqSpot(h.x, h.y); cq.x = q2.x; cq.y = q2.y; tick(0.2); G.M.act(G); tick(0.2); const hid = !!G.me.hd;
+    gd.x = h.x + 0.5 + 6; gd.y = h.y + 1.5; gd.st = 'pat'; gd.wait = 0; GD0.search(G, gd, h.x + 0.5, h.y + 1.5, 0, 0, Object.assign({}, { hides: M.HS, same: (a, b, c, d) => __floorOf(a) === __floorOf(c), alert: false }), 6);
+    const pts = gd.sp.map(p => p.h >= 0 ? M.HS[p.h].t : 'punto').join(','); let t = 0, found = false, ph = new Set(); for (; t < 30 && !found; t += 0.05) { cqModeTick(0.05); G.M.local(G, 0.05); if (gd.bub) ph.add(gd.bub.t); if (!G.me.hd && hid) found = true; }
+    out.push('ricerca: nascosto ' + hid + ', punti ' + pts + ' -> scovato ' + found + ' dopo ' + t.toFixed(1) + ' s, stato guardia ' + gd.st + ' | frasi: ' + [...ph].join(' / ')); }
   out.push('errori: ' + (document.getElementById('errBar') ? document.getElementById('errBar').textContent : 'nessuno'));
   return out;
 })()

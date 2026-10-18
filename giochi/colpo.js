@@ -140,10 +140,10 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     fa = 'X'; for (const [x, y] of [[30.5, 53.5], [49.5, 53.5], [12.5, 56.5], [60.5, 53.5], [77, 53.5], [5.5, 14.5], [2.5, 38.5], [40.5, 2.5], [20.5, 2.5], [72.5, 14.5], [72.5, 46.5]]) L(x, y);
     // i 4 ingressi: furgone (due caselle, disegnato dalla casella davanti), dove ci si mette per salire e da dove si parte
     const ents = [
-      { v: [68, 57], van: { x: 67.6, y: 56.4 }, ring: [[63, 55], [64, 55], [65, 55], [63, 56], [64, 56], [65, 56], [63, 57], [64, 57], [65, 57], [62, 56]] },
-      { v: [68, 3], van: { x: 67.6, y: 2.4 }, ring: [[61, 4], [62, 4], [63, 4], [64, 4], [61, 5], [62, 5], [63, 5], [64, 5], [62, 6], [63, 6]] },
-      { v: [7, 46], van: { x: 6.6, y: 45.4 }, ring: [[2, 42], [3, 42], [4, 42], [2, 43], [3, 43], [4, 43], [5, 43], [2, 44], [3, 44], [4, 44]] },
-      { v: [77, 40], van: { x: 76.6, y: 39.4 }, ring: [[71, 37], [72, 37], [73, 37], [71, 38], [72, 38], [73, 38], [71, 39], [72, 39], [73, 39], [72, 40]] }];
+      { v: [68, 57], door: [39.5, 50.4], van: { x: 67.6, y: 56.4 }, ring: [[63, 55], [64, 55], [65, 55], [63, 56], [64, 56], [65, 56], [63, 57], [64, 57], [65, 57], [62, 56]] },
+      { v: [68, 3], door: [60.5, 9.6], van: { x: 67.6, y: 2.4 }, ring: [[61, 4], [62, 4], [63, 4], [64, 4], [61, 5], [62, 5], [63, 5], [64, 5], [62, 6], [63, 6]] },
+      { v: [7, 46], door: [11.6, 29.5], van: { x: 6.6, y: 45.4 }, ring: [[2, 42], [3, 42], [4, 42], [2, 43], [3, 43], [4, 43], [5, 43], [2, 44], [3, 44], [4, 44]] },
+      { v: [77, 40], door: [68.4, 30.5], van: { x: 76.6, y: 39.4 }, ring: [[71, 37], [72, 37], [73, 37], [71, 38], [72, 38], [73, 38], [71, 39], [72, 39], [73, 39], [72, 40]] }];
 
     // ---------------- PRIMO PIANO ----------------
     ox = O1; fa = 'S';
@@ -703,16 +703,16 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   function opDone(G, c) {
     const o = c.op; c.op = null; const pl = G.plan, M = MP();
     if (o.k === 'src') {
-      if (G.sr[o.s]) return; G.sr[o.s] = 1; c.sc = (c.sc || 0) + 1;
+      if (G.sr[o.s]) return; G.sr[o.s] = 1; c.sc = (c.sc || 0) + 1; if (o.s !== 'guard') { const sp = spot(G, o.s); if (sp) GD.anomaly(G, sp.x + 0.5, sp.y + 0.5, 'src'); }
       if (o.s === 'postit' || o.s === 'monit') { G.ck = [1, 1]; say(G, 'code', { a: c.id, s: o.s }); return; }
       if (o.s === 'agenda') { G.ck[0] = 1; say(G, 'code', { a: c.id, s: o.s }); return; }
       if (o.s === 'safe' && pl.b === 'tas' && pl.bc === 'split') { G.ck[1] = 1; say(G, 'code', { a: c.id, s: o.s }); return; }
       const it = G.it.find(i => i.s === o.s && i.st === 0);
       if (it) { it.st = 1; it.c = c.id; say(G, 'found', { a: c.id, it: it.k, s: o.s }); } else say(G, 'empty', { a: c.id, s: o.s });
     }
-    else if (o.k === 'acc') { G.o1 = 1; useItem(G, ACC[pl.a].it); say(G, 'open1', { a: c.id }); }
+    else if (o.k === 'acc') { const gt = M.gates[pl.a]; GD.anomaly(G, gt.s[0], gt.s[1] - 0.6, 'door'); G.o1 = 1; useItem(G, ACC[pl.a].it); say(G, 'open1', { a: c.id }); }
     else if (o.k === 'prt') { G.o2 = 1; useItem(G, 'imp'); say(G, 'open2', { a: c.id }); }
-    else if (o.k === 'kp') { if (codeAll(G)) { G.o2 = 1; say(G, 'open2', { a: c.id }); } else { GD.noise(G, M.vdoor.s[0], M.vdoor.s[1], 8); say(G, 'kpno', { a: c.id }); } }
+    else if (o.k === 'kp') { if (codeAll(G)) { G.o2 = 1; say(G, 'open2', { a: c.id }); } else { GD.noise(G, M.vdoor.s[0], M.vdoor.s[1], 8, 'an'); say(G, 'kpno', { a: c.id }); } }
     else if (o.k === 'turn') { G.tk[o.sd] = G.time; G.tkc[o.sd] = c.id; if (Math.abs(G.tk[0] - G.tk[1]) < TURN_WIN && G.tkc[0] !== G.tkc[1]) { G.o2 = 1; useItem(G, 'kA'); useItem(G, 'kB'); say(G, 'open2', { a: c.id }); } else say(G, 'turn1', { a: c.id }); }
     else if (o.k === 'swp') { G.sw = 1; useItem(G, 'fake'); grabDiam(G, c); }
     else if (o.k === 'cmb') { G.cb = 1; say(G, 'cmb', { a: c.id }); }
@@ -721,11 +721,14 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     else if (o.k === 'conf') { for (const i of conf(G)) { i.st = 1; i.c = c.id; } say(G, 'conf', { a: c.id }); }
   }
   function useItem(G, k) { const i = G.it.find(o => o.k === k && o.st === 1); if (i) i.st = 3; }
-  function grabDiam(G, c) { G.o3 = 1; const d = G.it.find(i => i.k === 'diam'); d.st = 1; d.c = c.id; G.alP = 1; c.dm = 1; say(G, 'diam', { a: c.id }); }
+  function grabDiam(G, c) {
+    // il diamante preso: la squadra si organizza, una guardia sorveglia l'uscita piu' vicina al furgone
+    { const dr = MP().ents[G.plan.e].door; let b = null, bd = 1e9; for (const g of G.gd) { if (g.st === 'ko' || g.st === 'chase' || g.post || floorOf(g.x) !== 0) continue; const d = Math.hypot(g.x - dr[0], g.y - dr[1]); if (d < bd) { bd = d; b = g; } } if (b) { GD.postAt(G, b, dr[0], dr[1], dr[0], dr[1] - 3, 45); GD.say(G, b, 'post'); } }
+    G.o3 = 1; const d = G.it.find(i => i.k === 'diam'); d.st = 1; d.c = c.id; G.alP = 1; c.dm = 1; say(G, 'diam', { a: c.id }); }
   function keypad(G, c, v) {
     const M = MP(); if (G.o2 || G.plan.b !== 'tas' || c.jail || dxy(c, M.vdoor.s[0] - 0.5, M.vdoor.s[1]) > 2) return;
     if (String(v) === G.plan.code) { G.o2 = 1; say(G, 'open2', { a: c.id }); }
-    else { GD.noise(G, M.vdoor.s[0], M.vdoor.s[1], 8); say(G, 'kpno', { a: c.id }); }
+    else { GD.noise(G, M.vdoor.s[0], M.vdoor.s[1], 8, 'an'); say(G, 'kpno', { a: c.id }); }
   }
   function quadro(G, c, o) {
     if (c.jail || !nearSpot(G, c, 'quadro')) return; const M = MP(), q = M.SP.quadro;
@@ -736,7 +739,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   function throwCoin(G, c, x, y) {
     if ((c.coins || 0) <= 0 || c.jail) return; const p = P(c); if (Math.hypot(x - p.x, y - p.y) > 7) return;
     c.coins--; G.cn.push({ x0: p.x, y0: p.y, x, y, t: G.time, id: ++G.cnN }); if (G.cn.length > 6) G.cn.shift();
-    setTimeout(() => { const G2 = cq.g; if (G2 === G && G.phase === 'play') GD.noise(G, x, y, COIN_R); }, 500);
+    setTimeout(() => { const G2 = cq.g; if (G2 === G && G.phase === 'play') GD.noise(G, x, y, COIN_R, 'coin'); }, 500);
   }
   // presa: in cella, la refurtiva va nell'armadio delle confische
   function catchT(G, gd, c) {
@@ -774,6 +777,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     else if (e.k === 'diam') { t = mine ? '💎 HAI IL DIAMANTE! Allarme silenzioso: le guardie sono in ALLERTA. Corri al furgone!' : '💎 ' + an + ' ha il diamante! Le guardie sono in allerta: tutti al furgone!'; beep(784, 0.12, 0.05); beep(988, 0.12, 0.05, 0.12); beep(1318, 0.3, 0.05, 0.24); G.lvT = performance.now(); }
     else if (e.k === 'stun') { if (mine) t = '👊 Guardia stordita per ' + GD.KO_T + ' s. Se un\'altra la trova, scatta l\'allerta!'; thud(0.7, 140); }
     else if (e.k === 'kofound') { t = '🚨 Una guardia ha trovato il collega stordito: ALLERTA per ' + ALERT_T + ' s!'; for (let i = 0; i < 3; i++) beep(i % 2 ? 900 : 700, 0.15, 0.03, i * 0.18); }
+    else if (e.k === 'flush') { t = mine ? '🚪 Una guardia ha aperto il tuo nascondiglio: SCAPPA!' : '🚪 ' + an + ' è stato scovato nel suo nascondiglio!'; if (mine) cq.hurt = performance.now(); beep(500, 0.12, 0.05, 0, 'square'); beep(380, 0.18, 0.05, 0.12, 'square'); }
+    else if (e.k === 'notice') { if (e.x == null || floorOf(e.x) === floorOf(cq.x)) t = '👮 Una guardia ha notato ' + ({ src: 'un posto frugato', door: 'una porta aperta', vault: 'il caveau aperto', dark: 'il quadro manomesso', cam: 'qualcosa' }[e.k2 || e.kk] || 'qualcosa di strano') + ': ora cerca nei dintorni…'; }
     else if (e.k === 'cam') { if (mine) t = '📹 Una telecamera ti ha visto! Arriva una guardia…'; else if (G.me.alive && !G.me.jail) t = '📹 Una telecamera ha visto ' + an + '!'; beep(1200, 0.06, 0.03); beep(1200, 0.06, 0.03, 0.12); }
     else if (e.k === 'chase') { if (mine) { t = '❗ Ti hanno visto! Scappa e fatti perdere di vista!'; cq.hurt = performance.now(); } beep(520, 0.1, 0.05, 0, 'square'); beep(780, 0.15, 0.05, 0.1, 'square'); }
     else if (e.k === 'caught') { t = mine ? '⛓️ Preso! Sei in cella' + (e.l ? ': la refurtiva è nell\'armadio delle confische' : '') + '. Guarda dalla finestrella e avvisa i compagni.' : '⛓️ ' + an + ' è stato preso' + (e.l ? ' (la refurtiva è nell\'armadio delle confische, nella sala della sicurezza)' : '') + '!'; for (let i = 0; i < 4; i++) beep(i % 2 ? 600 : 800, 0.16, 0.03, i * 0.2); }
@@ -857,7 +862,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     if (c.hd) { c.walk = 0; c.path = []; if (G.time > (c.hdU || 0) && !G.gd.some(g => g.st !== 'ko' && Math.hypot(g.x - c.x, g.y - c.y) < 6)) doAct(G, c, { k: 'unhide' }); return; }
     if ((c.think -= dt) <= 0) {
       c.think = 0.35 + Math.random() * 0.2;
-      const chaser = G.gd.find(g => g.st === 'chase' && g.tgt === c.id), sus = G.gd.find(g => (g.st === 'sus' || g.st === 'inv') && g.st !== 'ko' && Math.hypot((g.st === 'sus' ? g.lx : g.ix) - c.x, (g.st === 'sus' ? g.ly : g.iy) - c.y) < 3 && Math.hypot(g.x - c.x, g.y - c.y) < 9);
+      const chaser = G.gd.find(g => g.st === 'chase' && g.tgt === c.id), sus = G.gd.find(g => g.st === 'srch' && g.sp && g.sp[0] && Math.hypot(g.sp[0].x - c.x, g.sp[0].y - c.y) < 3.5 && Math.hypot(g.x - c.x, g.y - c.y) < 9) || G.gd.find(g => (g.st === 'sus' || g.st === 'inv') && g.st !== 'ko' && Math.hypot((g.st === 'sus' ? g.lx : g.ix) - c.x, (g.st === 'sus' ? g.ly : g.iy) - c.y) < 3 && Math.hypot(g.x - c.x, g.y - c.y) < 9);
       if (chaser || sus) { if (!((c.scare || 0) > G.time) && c.goal) c.g0 = c.goal.k + (c.goal.s || '') + '@' + (MP().rooms[roomAt(c.x, c.y)] || {}).n; c.scare = G.time + 4 + Math.random() * 3; }
       if ((sus || chaser) && !c.op && hideAt(G, c) >= 0 && !seenBy(G, c)) { const a = action(G, c); if (a && a.k === 'hide') { doAct(G, c, { k: 'hide' }); c.hdU = G.time + 4 + Math.random() * 6; return; } }
       if (sus && !chaser && !c.op) { c.goal = { k: 'flee' }; if (!c.path.length || Math.random() < 0.3) flee(G, c, sus); }
@@ -910,13 +915,23 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       cqSolid[y][x] = { prop: 'van', o: { on } }; cqSolid[y][x - 1] = { prop: 'van', o: { part: 1 } }; cqBgCell(x, y); cqBgCell(x - 1, y);
     }
   }
+  // PASSAGGI DA PRESIDIARE (allarme di squadra): sul piano del ladro, il piu' vicino a lui ma non addosso
+  function chokes(G, x, y) {
+    const M = MP(), f = floorOf(x), g0 = G.plan ? M.gates[G.plan.a] : null;
+    const L = f === 0 ? [[39.5, 34.6], [58.5, 42.5], [39.5, 50.4]].concat(g0 && G.o1 ? [g0.s] : []) : f === 1 ? [[O1 + 39.5, 22.6], [O1 + 55.5, 48.5]] : g0 && G.o1 ? [[g0.si[0] - 0.5, g0.si[1]]] : [];
+    return L.map(p => [p, Math.hypot(p[0] - x, p[1] - y)]).filter(q => q[1] > 3).sort((a, b) => a[1] - b[1]).map(q => q[0]);
+  }
   // dove ci si mette per salire sul furgone
   const vanP = G => MP().ents[G.plan ? G.plan.e : 0].van;
   const scrA = a => { const c = Math.cos(a), s = Math.sin(a); return Math.atan2((c + s) / 2, c - s); };
-  const env = G => ({ thieves: free(G).filter(c => !c.hd), pos: P, vis: c => c.bot ? 0.65 : 1,   // i compagni del computer si notano un po' meno (come negli altri giochi furtivi cooperativi)
+  const env = G => { const M = MP(), E = { thieves: free(G).filter(c => !c.hd), pos: P, vis: c => c.bot ? 0.65 : 1,   // i compagni del computer si notano un po' meno (come negli altri giochi furtivi cooperativi)
   range: (x, y) => rangeAt(G, x, y), alert: alertOn(G), k: G.opt.dif === 'f' ? 0.8 : G.opt.dif === 'd' ? 1.25 : 1, speed: 1,
+    // CERVELLO DELLE GUARDIE (giochi/lib/guardie.js): nascondigli da perquisire, stesso piano, passaggi da presidiare, cose fuori posto
+    hides: M.HS, hiddenAt: i => free(G).find(c => c.hd && c.hd.i === i) || null, same: (x1, y1, x2, y2) => floorOf(x1) === floorOf(x2),
+    onFlush: (gd, c) => { c.hd = null; say(G, 'flush', { a: c.id }); }, chokes: (x, y) => chokes(G, x, y), onNotice: (gd, an) => say(G, 'notice', { kk: an.k, x: an.x }),
     onCatch: (gd, c) => catchT(G, gd, c), onKo: () => { G.alE = Math.max(G.alE || 0, G.time + ALERT_T); say(G, 'kofound', {}); },
-    onChase: (gd, c) => { gd.cs0 = G.time; if (window.__LOG) window.__LOG.push(Math.round(G.time) + 's VISTO ' + c.name + ' da ' + gd.id + ' d=' + Math.hypot(gd.x - P(c).x, gd.y - P(c).y).toFixed(1) + ' in ' + (MP().rooms[roomAt(P(c).x, P(c).y)] || {}).n + ' meta ' + (c.goal ? c.goal.k : '-') + ' (prima: ' + c.g0 + ')' + ' guardia era ' + gd.st0 + ' sosp ' + (G.time - (gd.sT || 0)).toFixed(1) + 's' + (c.op ? ' OP ' + c.op.k : '') + ((c.hold || 0) > G.time ? ' FERMO' : '') + ((c.scare || 0) > G.time ? ' PAURA' : '') + (darkAt(G, P(c).x, P(c).y) ? ' buio' : '') + (alertOn(G) ? ' ALLERTA' : '')); GD.radio(G, gd); say(G, 'chase', { a: c.id }); } });
+    onChase: (gd, c) => { gd.cs0 = G.time; if (window.__LOG) window.__LOG.push(Math.round(G.time) + 's VISTO ' + c.name + ' da ' + gd.id + ' d=' + Math.hypot(gd.x - P(c).x, gd.y - P(c).y).toFixed(1) + ' in ' + (MP().rooms[roomAt(P(c).x, P(c).y)] || {}).n + ' meta ' + (c.goal ? c.goal.k : '-') + ' (prima: ' + c.g0 + ')' + ' guardia era ' + gd.st0 + ' sosp ' + (G.time - (gd.sT || 0)).toFixed(1) + 's' + (c.op ? ' OP ' + c.op.k : '') + ((c.hold || 0) > G.time ? ' FERMO' : '') + ((c.scare || 0) > G.time ? ' PAURA' : '') + (darkAt(G, P(c).x, P(c).y) ? ' buio' : '') + (alertOn(G) ? ' ALLERTA' : '')); GD.alarm(G, gd, E); say(G, 'chase', { a: c.id }); } };
+  return E; };
   const MODE = CQ_MODES.colpo = {
     n: 'Colpo all\'hotel',
     desc: '💎 Tutti ladri insieme: rubate il diamante nel caveau del Grand Hotel senza farvi prendere dalle guardie. Il colpo cambia ogni volta.',
@@ -1019,6 +1034,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     tick(G, dt) {
       G.left -= dt;
       const M = MP(), E = env(G);
+      if (G.o2 && !G.anV) { G.anV = 1; GD.anomaly(G, M.vdoor.s[0], M.vdoor.s[1], 'vault'); }   // la porta del caveau aperta: chi la vede da' l'allarme
       GD.tick(G, dt, E);
       for (const g of G.gd) npcTp(g);   // guardie che salgono o scendono
       // telecamere: chi resta nel cono per 0,7 s fa venire la guardia piu' vicina
@@ -1029,10 +1045,10 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
         G.cs[i] += dt; if (G.cs[i] < 0.7) return;
         G.cs[i] = 0; G.ccd[i] = G.time + 6; const p = P(seen);
         let b = null, bd = 1e9; for (const g of G.gd) { if (g.st === 'ko' || g.st === 'chase' || g.post) continue; const d = Math.hypot(g.x - p.x, g.y - p.y); if (d < bd) { bd = d; b = g; } }
-        if (b) GD.investigate(b, p.x, p.y); say(G, 'cam', { a: seen.id });
+        if (b) { GD.investigate(b, p.x, p.y, 'cam'); GD.say(G, b, 'an', 'cam'); } say(G, 'cam', { a: seen.id });
       });
       // quadro elettrico toccato: una guardia va a controllare
-      if (G.qi && G.time >= G.qi) { G.qi = 0; const q = M.SP.quadro; let b = null, bd = 1e9; for (const g of G.gd) { if (g.st === 'ko' || g.st === 'chase') continue; const d = Math.hypot(g.x - q.x, g.y - q.y); if (d < bd) { bd = d; b = g; } } if (b) GD.investigate(b, q.x + 0.5, q.y + 1.5); }
+      if (G.qi && G.time >= G.qi) { G.qi = 0; const q = M.SP.quadro; GD.anomaly(G, q.x + 0.5, q.y + 1.5, 'dark'); let b = null, bd = 1e9; for (const g of G.gd) { if (g.st === 'ko' || g.st === 'chase') continue; const d = Math.hypot(g.x - q.x, g.y - q.y); if (d < bd) { bd = d; b = g; } } if (b) GD.investigate(b, q.x + 0.5, q.y + 1.5); }
       // operazioni in corso: ci si deve stare fermi
       for (const c of G.chars) {
         if (!c.op) continue; const p = P(c);
@@ -1119,6 +1135,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       });
       // segni sopra le guardie (? ! …)
       for (const gd of G.gd) if (guardSeen(G, gd)) GD.mark(g, gd, sx(gd.x, gd.y), sy(gd.x, gd.y), TW, 1.75);
+      for (const gd of G.gd) if (gd.bub && guardSeen(G, gd) && near(gd.x, gd.y, 12)) GD.bubble(g, gd, sx(gd.x, gd.y), sy(gd.x, gd.y), TW, 2.15);   // fumetti con le frasi delle guardie
       // la guardia col badge: si vede la tessera alla cintura (da vicino)
       if (G.plan.gb >= 0 && G.it.some(i => i.s === 'guard' && i.st === 0)) { const gd = G.gd[G.plan.gb]; if (gd && guardSeen(G, gd) && Math.hypot(gd.x - cq.x, gd.y - cq.y) < 6) { g.font = Math.round(TW * 0.32) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('💳', sx(gd.x, gd.y) + TW * 0.3, sy(gd.x, gd.y) - TW * 0.9); } }
       // stelline sui posti da frugare
