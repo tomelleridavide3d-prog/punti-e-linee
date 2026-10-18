@@ -17,7 +17,7 @@
       const ok = (x, y) => cqPath(s0.x, s0.y, x, y).length > 0;
       M.startP.forEach((p, i) => { const q = cqSpot(Math.floor(p.x), Math.floor(p.y)); if (i && !ok(q.x, q.y)) miss.push(tag + 'partenza' + i); });
       if (!ok(M.exit.x, M.exit.y)) miss.push(tag + 'uscita');
-      M.frag.forEach((f, i) => { if (!ok(f.x - 0.5, f.y - 0.5) && !ok(f.x + 0.5, f.y + 0.5)) miss.push(tag + 'frammento' + i); });
+      M.frag.forEach((f, i) => { const q = cqSpot(f.cx, f.cy); if (!ok(q.x, q.y)) miss.push(tag + 'cristallo' + i); });
       { const a = cqSpot(Math.floor(M.arena.x), Math.floor(M.arena.y)); if (!ok(a.x, a.y)) miss.push(tag + 'arena'); }
       // tutte le caselle libere raggiungibili
       let free = 0, reach = 0; const seen = new Uint8Array(M.w * M.h), q = [[Math.floor(s0.x), Math.floor(s0.y)]]; seen[q[0][1] * M.w + q[0][0]] = 1;
@@ -26,7 +26,7 @@
       if (free !== reach) miss.push(tag + 'chiuse ' + (free - reach));
     };
     check('');
-    if (sd <= 3) out.push('labirinto ' + sd + ': ' + Math.round(ms) + ' ms, sale ' + M.R.length + ', frammenti ' + M.frag.length + ', torce ' + M.torches.length + ', nascondigli ' + M.hides.length + ', uscita ' + M.exit.x + ',' + M.exit.y + ', partenze ' + JSON.stringify(M.starts) + ', muri chiusi ' + M.st0.reduce((a, v) => a + v, 0) + '/' + M.S.length);
+    if (sd <= 3) out.push('labirinto ' + sd + ': ' + Math.round(ms) + ' ms, sale ' + M.R.length + ', colonnine ' + M.frag.length + ', torce ' + M.torches.length + ', nascondigli ' + M.hides.length + ', uscita ' + M.exit.x + ',' + M.exit.y + ', partenze ' + JSON.stringify(M.starts) + ', muri chiusi ' + M.st0.reduce((a, v) => a + v, 0) + '/' + M.S.length);
     if (miss.length) bad.push(sd + ': ' + miss.join(' '));
   }
   out.push('labirinti con problemi: ' + (bad.length ? bad.join(' | ') : 'nessuno'));
@@ -43,7 +43,7 @@
     G.me.bot = true; G.me.think = 0; G.me.path = [];
     G.me.look = cqLook();
     cq.on = false; cancelAnimationFrame(cq.raf);
-    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['presi', /ha preso|ti ha preso|Hai preso/], ['copie', /frammento|frammenti/], ['complete', /completa/], ['muggiti', /MUUUH|muggito/], ['spostati', /si sono spostati/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
+    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['presi', /ha preso|ti ha preso|Hai preso/], ['cristalli', /cristall/], ['complete', /completa/], ['muggiti', /MUUUH|muggito/], ['spostati', /si sono spostati/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
     let t1 = performance.now(), stuck = 0, wallHit = 0;
     for (let i = 0; i < 20 * 460 && G.phase === 'play'; i++) {
       cqModeTick(0.05); cq.x = G.me.x; cq.y = G.me.y; G.M.local(G, 0.05);
@@ -61,7 +61,7 @@
     window.cqToast = t0;
     const t = $('#tkBody .lead') ? $('#tkBody .lead').textContent : '?';
     if (/Minotauro/.test(t)) res.mino++; else res.team++;
-    out.push('partita ' + (k + 1) + ': ' + Math.round(G.time) + ' s, ' + t.slice(0, 90) + ' | ' + JSON.stringify(ev) + ' | frammenti ' + G.fc.slice(0, G.nt).join(',') + ', fantasmi ' + G.chars.filter(c => !c.alive).length + ', dentro ai muri ' + wallHit + ', spostamenti ' + G.wv + ' (chiusi ' + stuck + '), segni ' + G.mk.length + ', ms/giro ' + msTick.toFixed(2));
+    out.push('partita ' + (k + 1) + ': ' + Math.round(G.time) + ' s, ' + t.slice(0, 90) + ' | ' + JSON.stringify(ev) + ' | cristalli ' + Array.from({ length: G.nt }, (_, t) => G.cs.filter(v => v === t).length).join('-') + ', fantasmi ' + G.chars.filter(c => !c.alive).length + ', dentro ai muri ' + wallHit + ', spostamenti ' + G.wv + ' (chiusi ' + stuck + '), segni ' + G.mk.length + ', ms/giro ' + msTick.toFixed(2));
     cq.on = true; cq.last = performance.now(); cq.raf = requestAnimationFrame(cqFrame);
   }
   out.push('risultati: ' + JSON.stringify(res));

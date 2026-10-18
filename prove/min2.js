@@ -20,13 +20,13 @@
   fr.sort((a, b) => a - b);
   out.push('fotogrammi ' + fr.length + ', mediana ' + fr[fr.length >> 1].toFixed(1) + ' ms, 99% ' + fr[Math.floor(fr.length * 0.99)].toFixed(1) + ', lenti (>34 ms) ' + fr.filter(v => v > 34).length + ', spostamenti ' + G.wv);
   // posa: io vicino a una torcia, il Minotauro poco lontano, due segni col gesso, la mappina con un quarto svelato
-  const M = CQ_MAP, tr = M.torches.find(([x, y]) => cqCellFree(x, y + 1) && cqCellFree(x, y + 2)) || M.torches[0];
-  cq.x = tr[0] + 0.5; cq.y = tr[1] + 2.5; G.me.x = cq.x; G.me.y = cq.y;
+  const M = CQ_MAP, f0 = M.frag[0], sp = cqSpot(f0.cx, f0.cy);
+  cq.x = sp.x; cq.y = sp.y; G.me.x = cq.x; G.me.y = cq.y;
   const mn = G.chars.find(c => c.mino); mn.think = 1e9; mn.path = [];
   for (const [dx, dy] of [[2, 0], [0, 2], [-2, 0], [2, 1], [1, 2]]) if (cqCellFree(Math.floor(cq.x + dx), Math.floor(cq.y + dy))) { mn.x = Math.floor(cq.x + dx) + 0.5; mn.y = Math.floor(cq.y + dy) + 0.5; break; }
   for (const c of G.chars) if (c.bot && !c.mino) { c.think = 1e9; c.path = []; }
   const mate = G.chars.find(c => c.bot && !c.mino && c.t === G.me.t); if (mate) { mate.x = cq.x - 1; mate.y = cq.y + 0.2; }
-  G.fc[G.me.t] = 1; G.rv[G.me.t] = 1 | 4;
+  G.fc[G.me.t] = 2; G.cs[1] = G.me.t; for (let i = 0; i < 30; i++) { G.M.local(G, 0.25); }
   cq.wdx = 0; cq.wdy = 1; $('#mnChalk').click(); cq.y -= 1; cq.wdx = 1; cq.wdy = 0; $('#mnChalk').click(); cq.y += 1;
   G.next = 1e9; G.left = 1e9;
   await w(600);

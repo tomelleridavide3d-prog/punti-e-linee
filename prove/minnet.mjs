@@ -8,7 +8,7 @@ const name = n => `(async () => {
 })()`;
 // impronta dei muri (segmenti chiusi) per confrontare host e amico
 const walls = `CQ_MAP.S.map(s => cqSolid[s.c[0][1]][s.c[0][0]] ? 1 : 0).join('')`;
-const st = who => `(() => { const G = cq.g; if (!G || !G.mode) return '${who}: niente partita'; const a = G.chars.find(c => c.name === 'zzAmico'), h = G.chars.find(c => c.name === 'zzHost'); return '${who}: amico minotauro ' + !!a.mino + ' t ' + a.t + ' | host vivo ' + h.alive + ' stordito ' + Math.max(0, (h.slow || 0) - G.time).toFixed(1) + ' | frammenti ' + G.fc.join(',') + ' svelati ' + G.rv.join(',') + ' | segni ' + G.mk.length + ' | muri v' + G.wv + ' ' + (${walls}).slice(0, 40) + ' | corpi ' + G.bodies.length + ' | ' + $('#cqModeBar').textContent; })()`;
+const st = who => `(() => { const G = cq.g; if (!G || !G.mode) return '${who}: niente partita'; const a = G.chars.find(c => c.name === 'zzAmico'), h = G.chars.find(c => c.name === 'zzHost'); return '${who}: amico minotauro ' + !!a.mino + ' t ' + a.t + ' | host vivo ' + h.alive + ' stordito ' + Math.max(0, (h.slow || 0) - G.time).toFixed(1) + ' | cristalli ' + G.cs.join('') + ' esplorate ' + G.ex.reduce((s, v) => s + v, 0) + ' | segni ' + G.mk.length + ' | muri v' + G.wv + ' ' + (${walls}).slice(0, 40) + ' | corpi ' + G.bodies.length + ' | ' + $('#cqModeBar').textContent; })()`;
 export default [
   [0, name('zzHost'), 0], [1, name('zzAmico'), 800],
   [0, `(async () => { $('#netNew').click(); await new Promise(r => setTimeout(r, 2500)); store.settings.cqOpt = Object.assign(cqOpt(), { game: 'minotauro' }); store.settings.cqModeOpt = Object.assign(store.settings.cqModeOpt || {}, { minotauro: { time: 420, wall: 60, tm: 2, mino: 'p', map: 'labirinto', n: 4, fill: true } }); cqNetList(); return 'host: set aperto, gioco minotauro'; })()`, 1000],
@@ -21,7 +21,7 @@ export default [
   [0, `(() => 'host: gesso visibile ' + !$('#mnChalk').hidden + ' | ' + $('#cqModeBar').textContent)()`, 0],
   [0, st('host'), 0],
   // l'host va su un frammento e lo copia
-  [0, `(() => { const f = CQ_MAP.frag[0]; cq.x = f.x - 0.5; cq.y = f.y - 0.5; return 'host sul frammento'; })()`, 500],
+  [0, `(() => { const f = CQ_MAP.frag[0], q = cqSpot(f.cx, f.cy); cq.x = q.x; cq.y = q.y; return 'host accanto al cristallo'; })()`, 500],
   [0, `(() => { const b = cq.g.M.btn(cq.g); cqMyKill(); return 'host: ' + JSON.stringify(b) + ' -> ' + $('#cqCount').textContent; })()`, 3800],
   [0, `(() => 'host: ' + __T.slice(-1)[0])()`, 0], [1, st('amico'), 0],
   // l'host lascia un segno col gesso
