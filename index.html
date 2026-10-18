@@ -1025,6 +1025,7 @@ function showHome() {
   for (const d of ['#dSetup', '#dStats', '#dEnd', '#dLobby']) if ($(d).open) $(d).close('cancel');
   if (net) leaveOnline();
   curGame = 'home'; $('#home').hidden = false; hubPresence(); homeRender();
+  setTimeout(updTry, 400);   // versione nuova trovata durante la partita: si carica ora
 }
 function homeRender() {
   const you = document.getElementById('homeYou'); if (!you) return;
@@ -4319,7 +4320,7 @@ function cqResize() {
   cq.dpr = ok ? cq.devW / w : dr;
   // la mappa pronta si rifa' solo se cambia davvero lo zoom: sul telefono la barra dell'indirizzo che compare e sparisce
   // cambia di poco l'altezza a ogni trascinamento, e rifarla ogni volta dava scatti e schermo nero
-  if (cq.bg && (cq.bg.TW !== Math.max(48, Math.min(w, h) / 8) || cq.bg.dpr !== cq.dpr)) cq.bg = null;
+  if (cq.bg && (cq.bg.TW !== Math.max(48, Math.min(w, h) / 8) || cq.bg.dpr !== cqBgSc())) cq.bg = null;
   cq.w = w; cq.h = h;
   const pw = ok ? cq.devW : Math.round(w * cq.dpr), ph = ok && cq.devH ? cq.devH : Math.round(h * cq.dpr);
   if (c.width !== pw || c.height !== ph) { c.width = pw; c.height = ph; }
@@ -4867,11 +4868,14 @@ function cqTools(g, TW) {
   };
 }
 // la mappa ferma si disegna una volta sola in un'immagine (si rifa' solo se cambia la misura dello schermo)
+// mappa pronta: sulle mappe grandi (isola dei Naufraghi) al massimo 2 pixel veri per punto. Con schermi fitti (2,75-3) erano ~300 MB
+// di immagini e il telefono poteva chiudere la pagina (si ritrovava la schermata iniziale)
+const cqBgSc = () => CQ_W * CQ_H > 12000 ? Math.min(cq.dpr, 2) : cq.dpr;
 function cqBuildBg() {
   const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), TH = TW / 2, U = TH * 1.15;
   const ox = CQ_H * TW / 2 + TW, oy = 3.6 * U + TW;
   const bw = (CQ_W + CQ_H) * TW / 2 + 2 * TW, bh = (CQ_W + CQ_H) * TH / 2 + oy + TW;
-  const sc = cq.dpr, TP = 1024, TS = TP / sc;   // tessere da 1024 pixel veri
+  const sc = cqBgSc(), TP = 1024, TS = TP / sc;   // tessere da 1024 pixel veri
   // cosa disegnare, con il rettangolo che occupa (per disegnare in ogni tessera solo quello che la tocca)
   const job = [];
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x] && !cqHc(x, y)) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
@@ -5583,16 +5587,22 @@ function cqHat(g, h, f, black) {
 
 // ---- versione nuova del sito ----
 // GitHub Pages fa tenere la pagina in memoria al telefono per 10 minuti: se sul sito c'e' una versione piu' recente
-// di quella aperta, si ricarica da sola (mai durante una partita a distanza).
+// di quella aperta, si ricarica da sola, ma SOLO quando si e' nella schermata iniziale senza finestre aperte:
+// prima si ricaricava anche a meta' partita contro il computer e si finiva di colpo alla schermata iniziale.
+let updSrv = 0;
+function updTry() {
+  if (!updSrv || net || curGame !== 'home' || document.querySelector('dialog[open]')) return;
+  if (sessionStorage.getItem('plUpd') === String(updSrv)) return;   // gia' ricaricato per questa versione
+  sessionStorage.setItem('plUpd', String(updSrv));
+  const q = new URLSearchParams(location.search); q.set('v', updSrv); location.replace(location.pathname + '?' + q + location.hash);
+}
 async function checkUpdate() {
   if (!WEB || net) return;
   try {
     const r = await fetch(location.pathname + '?chk=' + Date.now(), { method: 'HEAD', cache: 'no-store' });
     const srv = Date.parse(r.headers.get('last-modified') || ''), mine = Date.parse(document.lastModified);
     if (!srv || !mine || srv <= mine + 1000) return;
-    if (sessionStorage.getItem('plUpd') === String(srv)) return;   // gia' ricaricato per questa versione
-    sessionStorage.setItem('plUpd', String(srv));
-    if (!net) { const q = new URLSearchParams(location.search); q.set('v', srv); location.replace(location.pathname + '?' + q + location.hash); }
+    updSrv = srv; updTry();   // in partita: aspetta il ritorno alla schermata iniziale (showHome)
   } catch {}
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
