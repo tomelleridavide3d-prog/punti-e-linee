@@ -11,7 +11,7 @@
 CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   const SQ = L.squadre, MG = L.mappe;
   const NN = 18, W = NN * 3 + 1, HALF = W / 2, CA = NN / 2 - 2;   // incroci 18x18: incrocio i occupa le caselle 1+3i e 2+3i, i muri stanno su 3i
-  const NEED = 4, COPY_T = 2, COPY_R = 1.35, EXPLORE = 3.8, CATCH = 0.75, ROAR_CD = 18, ROAR_R = 7, ROAR_T = 3, WARN = 5, MSPD = 1.05, EAT_T = 3, HEAR = 6;
+  const NEED = 4, COPY_T = 2, COPY_R = 1.35, EXPLORE = 3.8, CATCH = 0.75, ROAR_CD = 18, ROAR_R = 7, ROAR_T = 3, WARN = 5, MSPD = 1.05, EAT_T = 3, HEAR = 6, LEVER_T = 10, LEVER_R = 1.6, FURY = 0.15;
   const VIS_E = 3.6, VIS_M = 5.6, TORCH_SEE = 10, LIT_R = 2.4, PRINT_T = 9, CHALK_MAX = 8, HIDE_R = 1.45, EXIT_R = 1.05, ESC_T = 2.5, LOOP = 0.1;
   // LE 4 ZONE DEL TEMPIO (una per quarto): pavimento, pietra dei muri, decorazioni. zq(x, y) = zona della casella
   const ZN = [
@@ -36,6 +36,9 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   const full = (G, t) => t >= 0 && nfr(G, t) >= NEED;
   const here = (G, i) => i < G.ncr && G.cs[i] < 0;   // il cristallo i e' ancora sulla sua colonnina
   const slowOn = (G, c) => (c.slow || 0) > G.time;
+  const fury = G => G && G.opt ? Math.max(0, Math.min(1, ((G.opt.time || 420) - (G.left == null ? 420 : G.left)) / (G.opt.time || 420))) : 0;
+  const nearLever = c => { const e = MP().exit; return dxy(c, e.x, e.y) < LEVER_R; };
+  const gpMax = G => Math.max(0, ...(G.gp || [0]).slice(0, G.nt));
   const isWall = (x, y) => { const s = cqSolid[y] && cqSolid[y][x]; return !!s && (s.prop === 'mw' || s.prop === 'mwt' || s.prop === 'exitd'); };
   const litAt = (x, y) => { const M = MP(), xi = Math.floor(x), yi = Math.floor(y); return !!(M.lit && xi >= 0 && yi >= 0 && xi < W && yi < W && M.lit[yi * W + xi]); };
   function los(ax, ay, bx, by) { const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 3); for (let i = 1; i < n; i++) { const t = i / n; if (isWall(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t))) return false; } return true; }
@@ -243,12 +246,14 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         }
         break; }
       case 'exitd': {   // portone dell'uscita: arco di pietra, due battenti di legno con le borchie, teschio di toro sopra
-        const n = o.e === 'n', F = n ? (u, z) => S(x + u, y + 1.02, z) : (u, z) => S(x + 1.02, y + u, z);
+        const n = o.e === 'n', F = n ? (u, z) => S(x + u, y + 1.02, z) : (u, z) => S(x + 1.02, y + u, z), G0 = cq.g, up = G0 && G0.mode === 'minotauro' && G0.gp ? Math.round(gpMax(G0) * 10) / 10 * 1.15 : 0;
         bx(x, y, x + 1, y + 1, 0, 1.75, '#6f6450'); bx(x - 0.03, y - 0.03, x + 1.03, y + 1.03, 1.75, 1.88, '#8a7e66');
         poly([F(0.06, 0), F(0.94, 0), F(0.94, 1.3), F(0.06, 1.3)], '#3a2416');
-        poly([F(0.1, 0), F(0.9, 0), F(0.9, 1.22), F(0.1, 1.22)], o.k ? '#6a4226' : '#5e3a22');
-        for (const z of [0.3, 0.85]) poly([F(0.1, z), F(0.9, z), F(0.9, z + 0.08), F(0.1, z + 0.08)], '#3a3a3a');
-        for (const z of [0.15, 0.55, 1.05]) { const [X, Y] = F(o.k ? 0.2 : 0.8, z); K.g.fillStyle = '#b8a070'; K.g.beginPath(); K.g.arc(X, Y, K.TW / 26, 0, 7); K.g.fill(); }
+        if (up > 0) { poly([F(0.1, 0), F(0.9, 0), F(0.9, Math.min(1.22, up)), F(0.1, Math.min(1.22, up))], '#e8d8a0'); poly([F(0.1, 0), F(0.9, 0), F(0.9, Math.min(1.22, up) * 0.35), F(0.1, Math.min(1.22, up) * 0.35)], '#fff4cc'); glow(x + 0.5, y + 0.5, 0.5, 1.6, 'rgba(255,240,180,.55)'); }   // luce del giorno da sotto la porta
+        if (up < 1.22) { const b = up; poly([F(0.1, b), F(0.9, b), F(0.9, 1.22), F(0.1, 1.22)], o.k ? '#6a4226' : '#5e3a22');
+          for (const z of [0.3, 0.85]) if (z + 0.08 > b) poly([F(0.1, Math.max(b, z)), F(0.9, Math.max(b, z)), F(0.9, z + 0.08), F(0.1, z + 0.08)], '#3a3a3a');
+          for (const z of [0.15, 0.55, 1.05]) { if (z < b) continue; const [X, Y] = F(o.k ? 0.2 : 0.8, z); K.g.fillStyle = '#b8a070'; K.g.beginPath(); K.g.arc(X, Y, K.TW / 26, 0, 7); K.g.fill(); } }
+        { const [X, Y] = F(o.k ? -0.25 : 1.25, 0.6); if (o.k) { K.g.fillStyle = '#4a3a2a'; K.g.fillRect(X - K.TW / 24, Y - K.TW / 10, K.TW / 12, K.TW / 5); K.g.strokeStyle = '#8a7a5a'; K.g.lineWidth = Math.max(2, K.TW / 16); K.g.beginPath(); K.g.moveTo(X, Y); K.g.lineTo(X + K.TW / 8, Y - K.TW / (up > 0 ? 3 : 6)); K.g.stroke(); } }   // la leva
         if (o.k === 0) { const [X, Y] = F(1.0, 1.55); K.g.fillStyle = '#e8e0cc'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW / 7, K.TW / 9, 0, 0, 7); K.g.fill(); K.g.strokeStyle = '#efe6d0'; K.g.lineWidth = Math.max(2, K.TW / 14); K.g.beginPath(); K.g.moveTo(X - K.TW / 8, Y - K.TW / 20); K.g.quadraticCurveTo(X - K.TW / 3.5, Y - K.TW / 6, X - K.TW / 4.5, Y - K.TW / 3); K.g.moveTo(X + K.TW / 8, Y - K.TW / 20); K.g.quadraticCurveTo(X + K.TW / 3.5, Y - K.TW / 6, X + K.TW / 4.5, Y - K.TW / 3); K.g.stroke(); K.g.fillStyle = '#2a2018'; K.g.fillRect(X - K.TW / 16, Y - K.TW / 40, K.TW / 30, K.TW / 30); K.g.fillRect(X + K.TW / 30, Y - K.TW / 40, K.TW / 30, K.TW / 30); }
         break; }
       case 'urn': {   // grande anfora di terracotta (ci si nasconde dietro)
@@ -311,7 +316,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     // corna
     for (const s of [-1, 1]) { g.strokeStyle = '#efe4c8'; g.lineWidth = 5; g.lineCap = 'round'; g.beginPath(); g.moveTo(hx + s * 9, hy - 6); g.quadraticCurveTo(hx + s * 22, hy - 8, hx + s * 20, hy - 22); g.stroke(); g.strokeStyle = '#3a3026'; g.lineWidth = 3.2; g.beginPath(); g.moveTo(hx + s * 20.6, hy - 18); g.lineTo(hx + s * 20, hy - 22); g.stroke(); ell(hx + s * 12, hy - 3, 4, 2, FUR2, s * 0.5); }
     // occhi rossi che brillano
-    for (const ex of [-4, 5]) { ell(hx + f * ex, hy - 3, 2.3, 1.6, '#ff3a2a'); ell(hx + f * ex, hy - 3, 1, 0.8, '#ffd0a0'); }
+    const fu = fury(cq.g);
+    for (const ex of [-4, 5]) { if (fu > 0.3) ell(hx + f * ex, hy - 3, 2.3 + 3 * fu, 1.6 + 2 * fu, 'rgba(255,40,20,' + (0.25 * fu) + ')'); ell(hx + f * ex, hy - 3, 2.3, 1.6, fu > 0.6 ? '#ff5a2a' : '#ff3a2a'); ell(hx + f * ex, hy - 3, 1, 0.8, '#ffd0a0'); }
     g.strokeStyle = '#2a160c'; g.lineWidth = 1.4; g.beginPath(); g.moveTo(hx + f * -7, hy - 6.5); g.lineTo(hx + f * -1, hy - 5); g.moveTo(hx + f * 8, hy - 6.5); g.lineTo(hx + f * 2, hy - 5); g.stroke();
     // fiato caldo dalle narici
     const k = (t * 0.7) % 1; if (k < 0.5) { g.fillStyle = 'rgba(230,230,230,' + (0.35 * (1 - k * 2)) + ')'; ell(hx + f * (12 + k * 14), hy + 6 - k * 4, 2 + k * 6, 1.5 + k * 4); }
@@ -335,7 +341,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   function action(G, c) {
     if (!c.alive || c.out || G.esc) return null;
     if (c.mino) return { k: 'roar', t: G.time < (c.rcd || 0) ? '🐂 ' + Math.ceil(c.rcd - G.time) + ' s' : '🐂 Muggito', on: G.time >= (c.rcd || 0) };
-    if (c.op) return { k: 'wait', t: '💎 Prendo… ' + Math.round(Math.min(1, (G.time - c.op.t0) / COPY_T) * 100) + '%', on: false };
+    if (c.op) return c.op.k === 'lever' ? { k: 'wait', t: '🚪 Leva… ' + Math.round((G.gp[c.t] || 0) * 100) + '%', on: false } : { k: 'wait', t: '💎 Prendo… ' + Math.round(Math.min(1, (G.time - c.op.t0) / COPY_T) * 100) + '%', on: false };
+    if (full(G, c.t) && !G.open[c.t] && nearLever(c)) return { k: 'lever', t: '🚪 Tieni la leva', on: true };
     if (fragAt(G, c) >= 0) return { k: 'copy', t: '💎 Prendi il cristallo', on: true };
     if (c.hd) return { k: 'unhide', t: '🏺 Esci', on: true };
     if (hideNear(c)) return { k: 'hide', t: '🏺 Nasconditi', on: true };
@@ -349,6 +356,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       for (const e of expl(G)) if (dist(c, e) < ROAR_R) { e.slow = G.time + ROAR_T; e.op = null; }
       say(G, 'roar', { a: c.id, x: Math.round(p.x), y: Math.round(p.y) });
     }
+    else if (a.k === 'lever' && !c.mino) { if (full(G, c.t) && !G.open[c.t] && nearLever(c) && !c.op) { c.op = { k: 'lever', i: -2, t0: G.time, x: p.x, y: p.y }; if (!G.gp[c.t]) say(G, 'lever', { a: c.id, b: c.t }); } }
     else if (a.k === 'copy' && !c.mino) { const i = fragAt(G, c); if (i >= 0 && !c.op) c.op = { k: 'copy', i, t0: G.time, x: p.x, y: p.y }; }
     else if (a.k === 'hide' && !c.mino) { if (hideNear(c)) { c.hd = 1; c.path = []; } }
     else if (a.k === 'unhide') c.hd = 0;
@@ -476,6 +484,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     else if (e.k === 'copy') { const mine = e.b === me.t; t = mine ? '💎 ' + (A === me ? 'Hai' : an + ' ha') + ' preso un cristallo (' + e.n + '/' + NEED + ')!' : me.mino ? '💎 ' + an + ' ha preso un cristallo.' : '💎 I ' + T[e.b].n + ' hanno ' + e.n + '/' + NEED + ' cristalli.'; if (mine) { beep(660, 0.1, 0.04); beep(880, 0.14, 0.04, 0.1); } }
     else if (e.k === 'all') { const mine = e.b === me.t; t = mine ? '💎 ' + NEED + ' cristalli! L\'uscita si è illuminata: guarda la mappina e correte!' : me.mino ? '⚠️ ' + (G.nt === 1 ? 'Gli esploratori hanno' : 'I ' + T[e.b].n + ' hanno') + ' tutti i cristalli: stanno andando all\'uscita!' : '⚠️ I ' + T[e.b].n + ' hanno tutti i cristalli!'; beep(523, 0.12, 0.05); beep(659, 0.12, 0.05, 0.12); beep(1047, 0.3, 0.05, 0.24); }
     else if (e.k === 'roar') { const d = Math.hypot(e.x - cq.x, e.y - cq.y), v = Math.max(0.03, 0.16 * (1 - d / 30)); beep(72, 1.0, v, 0, 'sawtooth'); beep(58, 1.2, v * 0.8, 0.12, 'sawtooth'); beep(96, 0.5, v * 0.5, 0, 'square'); if (A === me) t = '🐂 MUUUH! Chi era vicino trema e rallenta.'; else if (!me.mino && me.alive && d < ROAR_R) t = '😱 Il muggito ti ha stordito: vai più piano per qualche secondo!'; else if (!me.mino) t = '🐂 Un muggito ' + (d < 15 ? 'vicino!' : 'in lontananza…'); }
+    else if (e.k === 'lever') { const mine = e.b === me.t; t = mine ? '🚪 ' + (A === me ? 'Hai' : an + ' ha') + ' preso la leva: la porta si alza, tenetela 10 secondi!' : me.mino ? '🐂 Qualcuno sta aprendo la porta dell\'uscita! Il rumore viene da lì: corri!' : '⚠️ I ' + T[e.b].n + ' stanno aprendo l\'uscita!'; for (let i = 0; i < 3; i++) thud(0.7, 50 + i * 8); }
+    else if (e.k === 'open') { const mine = e.b === me.t; t = mine ? '🚪 La porta è aperta! Uscite!' : me.mino ? '🐂 La porta è aperta: fermali!' : '⚠️ La porta è aperta per i ' + T[e.b].n + '!'; beep(392, 0.2, 0.05); beep(523, 0.3, 0.05, 0.2); }
     else if (e.k === 'warn') { t = '🧱 Il labirinto trema: tra ' + WARN + ' secondi i muri si spostano!'; for (let i = 0; i < 4; i++) thud(0.5, 60 + i * 15); }
     else if (e.k === 'shift') t = '🧱 I muri si sono spostati!';
     else if (e.k === 'esc') { const mine = e.b === me.t; t = '🚪 ' + (A === me ? 'Sei uscito' : an + ' è uscito') + ' dal labirinto!'; beep(mine ? 523 : 330, 0.15, 0.06); beep(mine ? 659 : 294, 0.15, 0.06, 0.15); beep(mine ? 784 : 262, 0.4, 0.06, 0.3); }
@@ -516,7 +526,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     if (c.goHide && hideNear(c) && G.time - (c.sawM || -99) < 3) { c.goHide = 0; doAct(G, c, { k: 'hide' }); return; }
     c.goHide = 0;
     // squadra con la mappa completa: all'uscita
-    if (full(G, t)) { const e = MP().exit; go(G, c, e.x - e.dx * 0.6, e.y - e.dy * 0.6); return; }
+    if (full(G, t)) { const e = MP().exit; if (!G.open[t] && nearLever(c)) { doAct(G, c, { k: 'lever' }); c.path = []; return; } go(G, c, e.x - e.dx * 0.4, e.y - e.dy * 0.4); return; }
     // cristallo da prendere
     if (fragAt(G, c) >= 0) { doAct(G, c, { k: 'copy' }); c.path = []; return; }
     let best = null, bd = 1e9;
@@ -525,6 +535,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     c.gl = -1; wander(G, c);
   }
   function botMino(G, c) {
+    if (gpMax(G) > 0 && !G.open.some(v => v) && Math.random() < 0.85) { const e = MP().exit, d = dxy(c, e.x, e.y); if (d > 4) { if (!c.path.length || Math.random() < 0.1) go(G, c, e.x - e.dx * 2, e.y - e.dy * 2); c.hunt = { x: e.x, y: e.y, t: G.time }; return; } }
     // un esploratore in vista: lo inseguo (e muggisco se e' a tiro)
     let tg = null, bd = 1e9;
     for (const e of expl(G)) { if (!canSee(G, c, e)) continue; const d = dist(c, e); if (d < bd) { bd = d; tg = e; } }
@@ -546,7 +557,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   function setup(G) {
     G.nt = G.opt.tm === 3 && G.chars.length >= 9 ? 3 : G.opt.tm === 1 || G.chars.length < 3 ? 1 : 2;
     G.S = MP().st0.slice(); G.Sd = MP().st0.slice(); G.SdV = 0; G.wv = 0; G.wsT = 0; G.pend = null; G.rq = []; G.rz = []; G.pc = [];
-    G.next = G.opt.wall || 60; G.fc = [0, 0, 0]; G.ncr = Math.min(MP().frag.length, NEED * G.nt + 2); G.cs = MP().frag.map(() => -1); G.ex = new Uint8Array(W * W); G.exV = 0; G.exK = 0; G.kn = [new Set(), new Set(), new Set()];
+    G.next = G.opt.wall || 60; G.fc = [0, 0, 0]; G.gp = [0, 0, 0]; G.open = [0, 0, 0]; G.gpD = 0; G.ncr = Math.min(MP().frag.length, NEED * G.nt + 2); G.cs = MP().frag.map(() => -1); G.ex = new Uint8Array(W * W); G.exV = 0; G.exK = 0; G.kn = [new Set(), new Set(), new Set()];
     G.mk = []; G.mv = 0; G.mkD = 0; G.mkMap = new Map(); G.mkT = 0; G.fp = []; G.lg = []; G.lgN = 0; G.esc = null;
     G.left = G.opt.time || 420; cq.mapDirty = true;   // muri e segni cambiano la mappa: la prossima partita la rifa' da capo
   }
@@ -577,11 +588,14 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     },
     gstart(G) { setup(G); },
     intro: G => G.me.mino ? '🐂 Sei il Minotauro: prendili prima che escano!' : (() => { const T = TT(G)[G.me.t || 0]; return G.nt === 1 ? '🔦 Trovate 4 cristalli e scappate dal labirinto!' : T.e + ' Sei nei ' + T.n + ': 4 cristalli e fuori per primi!'; })(),
-    speed(c) { const G = cq.g; if (!G || !G.fc) return 1; if (!c.alive) return 1.1; if (c.out || c.op) return 0; if (c.mino && (c.eat || 0) > G.time) return 0; return (c.mino ? MSPD : 1) * (slowOn(G, c) ? 0.6 : 1); },
+    speed(c) { const G = cq.g; if (!G || !G.fc) return 1; if (!c.alive) return 1.1; if (c.out || c.op) return 0; if (c.mino && (c.eat || 0) > G.time) return 0; return (c.mino ? MSPD * (1 + FURY * fury(G)) : 1) * (slowOn(G, c) ? 0.6 : 1); },
     big(G) {
       const me = G.me; if (me.t == null) return '';
       if (G.esc) { const A = byId(G, G.esc.id); return '🚪 ' + (A ? A.name : '') + ' esce dal labirinto!'; }
       if (!me.alive) return '👻 Sei un fantasma: guardi la partita (gli altri non ti sentono).';
+      if (me.op && me.op.k === 'lever') return '🚪 Tieni la leva: la porta si alza… ' + Math.round((G.gp[me.t] || 0) * 100) + '% (resta fermo!)';
+      if (!me.mino && G.open[me.t]) return '🚪 La porta è aperta: SCAPPA!';
+      if (me.mino && gpMax(G) > 0 && !G.open.some(v => v)) return '🐂 Senti la porta di pietra che si alza: corri all\'uscita! ' + Math.round(gpMax(G) * 100) + '%';
       if (G.pend) return '🧱 I muri si spostano tra ' + Math.max(0, Math.ceil(G.next - G.time)) + '…';
       if (me.op) return '💎 Prendo il cristallo… resta fermo!';
       if (slowOn(G, me) && !me.mino) return '😵 Il muggito ti ha stordito!';
@@ -624,7 +638,21 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       { const z = zq(Math.floor(cq.x), Math.floor(cq.y)); if (G.zn !== z) { if (G.zn != null && G.time > 1) { G.znT = performance.now(); G.znN = ZN[z].n; } G.zn = z; } }
       if (G.zn === 2 && (G.dripT = (G.dripT || 2) - dt) <= 0) { G.dripT = 1.5 + Math.random() * 3; const f = 1400 + Math.random() * 600; beep(f, 0.06, 0.012); beep(f * 0.7, 0.08, 0.008, 0.05); }
       const M = mino(G);
-      if (M && M !== me && M.alive && (M.walk || M.mv) && (G.stT = (G.stT || 0) - dt) <= 0) { G.stT = 0.42; const d = Math.hypot(M.x - cq.x, M.y - cq.y); if (d < 10) thud(0.7 * (1 - d / 10), 52 + Math.random() * 10); }
+      if (M && M !== me && M.alive && (M.walk || M.mv) && (G.stT = (G.stT || 0) - dt) <= 0) { G.stT = 0.42 - 0.1 * fury(G); const d = Math.hypot(M.x - cq.x, M.y - cq.y); if (d < 10 + 4 * fury(G)) thud(Math.min(1, (0.7 + 0.3 * fury(G)) * (1 - d / (10 + 4 * fury(G)))), 52 + Math.random() * 10); }
+      { const gq = Math.round(gpMax(G) * 10); if (gq !== G.gpD) { const up = gq > G.gpD; G.gpD = gq; for (const [x, y] of MP().exitCells) cqBgCell(x, y, 1); if (up) { const e = MP().exit, d = Math.hypot(e.x - cq.x, e.y - cq.y); thud(me.mino ? 0.9 : Math.max(0.15, 0.8 * (1 - d / 40)), 40 + Math.random() * 15); } } }
+      // battito del cuore: il Minotauro e' vicino e non lo vedo
+      G.hb = 0;
+      if (M && M !== me && M.alive && me.alive && !me.mino) {
+        const d = Math.hypot(M.x - cq.x, M.y - cq.y), MN = this.night(G), seen = MN && MN.see(M.x, M.y);
+        if (d < 9 && !seen) { G.hb = 1 - d / 9; if ((G.hbT = (G.hbT || 0) - dt) <= 0) { G.hbT = 0.42 + 0.5 * (d / 9); G.hbP = performance.now(); const v = 0.05 + 0.1 * G.hb; beep(58, 0.11, v, 0, 'sine'); beep(50, 0.12, v * 0.8, 0.15, 'sine'); } }
+        // muggiti lontani, da una direzione
+        if ((G.frT = G.frT == null ? 18 + Math.random() * 10 : G.frT - dt) <= 0) {
+          G.frT = 22 + Math.random() * 16;
+          if (d > 12) { const dx = M.x - cq.x, dy = M.y - cq.y, X = dx - dy, Y = dx + dy, v = Math.max(0.03, 0.08 * (1 - d / 60));
+            const dir = Math.abs(X) > Math.abs(Y) * 1.6 ? (X > 0 ? 'da destra' : 'da sinistra') : Math.abs(Y) > Math.abs(X) * 1.6 ? (Y > 0 ? 'dal basso' : "dall'alto") : (Y > 0 ? 'dal basso ' : "dall'alto ") + (X > 0 ? 'a destra' : 'a sinistra');
+            beep(70, 1.1, v, 0, 'sawtooth'); beep(56, 1.3, v * 0.8, 0.15, 'sawtooth'); cqToast('🐂 Un muggito lontano… ' + dir + '.'); }
+        }
+      }
       const cv = $('#cqCanvas'), sh = !me.mino && me.alive && slowOn(G, me) && G.time - (me.slow - ROAR_T) < 0.9;
       if (sh) { const k = 7 * (1 - (G.time - (me.slow - ROAR_T)) / 0.9); cv.style.transform = 'translate(' + ((Math.random() - 0.5) * k).toFixed(1) + 'px,' + ((Math.random() - 0.5) * k).toFixed(1) + 'px)'; } else if (cv.style.transform) cv.style.transform = '';
     },
@@ -634,11 +662,16 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       if (!G.pend && G.time >= G.next - WARN) { G.pend = planShift(G); G.pendK = 'p' + G.wv; say(G, 'warn', {}); }
       if (G.pend && G.time >= G.next) { applyShift(G); G.next += G.opt.wall || 60; }
       const M = mino(G);
-      // cristalli (fermi COPY_T secondi), uscita, il Minotauro prende chi tocca
+      // cristalli (fermi COPY_T secondi), leva dell'uscita (una persona per squadra fa salire la porta), uscita, il Minotauro prende chi tocca
+      const lev = [];
       for (const c of expl(G)) {
         const p = P(c);
-        if (c.op) { if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.5) c.op = null; else if (G.time - c.op.t0 >= COPY_T) copyDone(G, c); }
-        if (!G.esc && full(G, c.t) && dxy(c, MP().exit.x, MP().exit.y) < EXIT_R) { G.esc = { id: c.id, t: c.t, at: G.time + ESC_T }; c.out = 1; c.path = []; say(G, 'esc', { a: c.id, b: c.t }); }
+        if (c.op) {
+          if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.5) c.op = null;
+          else if (c.op.k === 'lever') { if (!lev[c.t]) { lev[c.t] = 1; G.gp[c.t] = Math.min(1, (G.gp[c.t] || 0) + dt / LEVER_T); if (G.gp[c.t] >= 1) { G.open[c.t] = 1; c.op = null; say(G, 'open', { a: c.id, b: c.t }); } } }
+          else if (G.time - c.op.t0 >= COPY_T) copyDone(G, c);
+        }
+        if (!G.esc && full(G, c.t) && G.open[c.t] && dxy(c, MP().exit.x, MP().exit.y) < EXIT_R) { G.esc = { id: c.id, t: c.t, at: G.time + ESC_T }; c.out = 1; c.path = []; say(G, 'esc', { a: c.id, b: c.t }); }
       }
       if (M && M.alive && !G.esc && !((M.eat || 0) > G.time)) for (const e of expl(G)) if (dist(M, e) < CATCH) caught(G, e, M);
       if (G.esc && G.time >= G.esc.at) { this.finish(G); return; }
@@ -671,7 +704,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       c.t = a[0]; c.mino = a[0] === -1; c.dname = c.mino ? '🐂 ' + c.name : null;
       if (!(c === G.me && G.time < (c.hdH || 0))) c.hd = a[1];
       c.slow = a[2] > 0 ? G.time + a[2] : 0;
-      c.op = a[3] >= 0 ? { k: 'copy', i: a[8], t0: G.time - a[3], x: c.x, y: c.y } : null;
+      c.op = a[3] >= 0 ? { k: a[8] === -2 ? 'lever' : 'copy', i: a[8], t0: G.time - a[3], x: c.x, y: c.y } : null;
       if (!(c === G.me && G.time < (c.rcH || 0))) c.rcd = a[4] > 0 ? G.time + a[4] : 0;
       c.out = a[5]; c.fr = a[6]; c.ct = a[7]; c.eat = a[9] > 0 ? G.time + a[9] : 0;
     },
@@ -679,7 +712,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       const per = G.time - G.wsT < 2.5 || Math.floor(G.time * 2) % 6 === 0, perM = G.time - G.mkT < 2.5 || Math.floor(G.time * 2) % 6 === 3;
       return { left: Math.round(G.left * 10) / 10, nx: Math.round((G.next - G.time) * 10) / 10, wv: G.wv, ws: per ? hex(G.S) : null, pd: G.pend ? hex(G.pend) : null, pk: G.pendK || '',
         fc: G.fc.slice(0, G.nt), cs: G.cs.map(v => v < 0 ? '-' : v).join(''), mv: G.mv, mk: perM ? G.mk.map(m => [m.x, m.y, m.t, m.d, m.o]) : null,
-        esc: G.esc ? [G.esc.id, G.esc.t, Math.round((G.esc.at - G.time) * 10) / 10] : null, lg: G.lg,
+        esc: G.esc ? [G.esc.id, G.esc.t, Math.round((G.esc.at - G.time) * 10) / 10] : null, lg: G.lg, gp: G.gp.slice(0, G.nt).map(v => Math.round(v * 100) / 100), op: G.open.slice(0, G.nt),
         bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]) };
     },
     apply(G, x) {
@@ -691,6 +724,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       x.fc.forEach((v, t) => { G.fc[t] = v; }); if (x.cs) G.cs = [...x.cs].map(v => v === '-' ? -1 : +v);
       if (x.mk && x.mv !== G.mv && !(G.time < (G.mkH || 0))) { G.mk = x.mk.map(a => ({ x: a[0], y: a[1], t: a[2], d: a[3], o: a[4] })); G.mv = x.mv; }
       G.esc = x.esc ? { id: x.esc[0], t: x.esc[1], at: G.time + x.esc[2] } : null;
+      if (x.gp) x.gp.forEach((v, t) => { G.gp[t] = v; }); if (x.op) x.op.forEach((v, t) => { G.open[t] = v; });
       G.bodies = (x.bd || []).map(a => { const c = byId(G, a[0]); return c ? { id: a[0], x: a[1], y: a[2], face: a[3], t: a[4], look: cqLookOf(c), name: c.name, nk: 1 } : null; }).filter(Boolean);
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
@@ -783,6 +817,11 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         const k = (performance.now() - G.znT) / 2600, a = Math.min(1, k * 6, (1 - k) * 4);
         g.font = '700 18px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = a;
         g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.7)'; g.strokeText(G.znN, W2 / 2, H2 * 0.36); g.fillStyle = '#f2e2b8'; g.fillText(G.znN, W2 / 2, H2 * 0.36); g.globalAlpha = 1;
+      }
+      if (G.hb > 0) {
+        const k = Math.max(0, 1 - (performance.now() - (G.hbP || 0)) / 380), a = 0.18 + 0.4 * G.hb * (0.5 + 0.5 * k);
+        const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.72);
+        gr.addColorStop(0, 'rgba(160,0,0,0)'); gr.addColorStop(1, 'rgba(160,0,0,' + a + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2);
       }
       // mappina in alto a destra
       minimap(g, G, W2);
