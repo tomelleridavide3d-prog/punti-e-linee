@@ -6,7 +6,7 @@
   const inp = [...document.querySelectorAll('input')].find(i => i.placeholder === 'Il tuo nome' && i.offsetParent);
   if (inp) { inp.value = 'zzProva'; inp.dispatchEvent(new Event('input', { bubbles: true })); const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Continua' && b.offsetParent); b && b.click(); }
   await w(300); openCiack(); $('#pkGo').click(); await w(500);
-  store.settings.cqModeOpt = Object.assign(store.settings.cqModeOpt || {}, { misterx: { mx: 'c', n: 8, flash: 20, time: 420, map: 'citta', fill: true } }); saveStore();
+  store.settings.cqModeOpt = Object.assign(store.settings.cqModeOpt || {}, { misterx: { mx: 'c', n: 8, flash: 45, time: 420, map: 'citta', fill: true } }); saveStore();
   document.querySelector('#tkBody [data-g=misterx]').click(); await w(2500);
   let t0 = performance.now(); $('#lbGo').click(); await w(200); out.push('avvio ' + Math.round(performance.now() - t0) + ' ms');
   await w(4500);

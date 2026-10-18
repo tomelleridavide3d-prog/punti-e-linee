@@ -27,14 +27,8 @@ export default [
   // TRAVESTIMENTO
   [1, `(() => { const b = cq.g.M.btn(cq.g); cq.g.me.dgc = 0; return 'amico: ' + JSON.stringify(b); })()`, 1200],
   [1, `(() => { const G = cq.g; G.me.dgc = 0; const b = G.M.btn(G); cqMyKill(); return 'amico: ' + JSON.stringify(b); })()`, 2600],
-  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'), d = G.M.draw(a); return 'host: amico travestito ' + a.dg + ' senza nome ' + !!(d && d.anon) + ' nascosto ' + G.M.hide(a); })()`, 0],
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'), d = G.M.draw(a); return 'host: amico travestito ' + a.dg + ' cariche ' + a.dgN + ' | nascosto come personaggio ' + G.M.hide(a) + ' | tra i passanti ' + G.M.extras(G).some(e => Math.abs(e.x - a.x) < 0.01) + ' | taccuino ' + G.tb.map(q => q.e).join(''); })()`, 0],
   [1, `(() => 'amico: ' + __T.slice(-1)[0] + ' | ' + $('#cqCount').textContent)()`, 0],
-  // TOMBINO
-  [1, `(() => { const t = CQ_MAP.tombs[0]; cq.x = t.x + 0.5; cq.y = t.y + 0.5; return 'amico sul tombino ' + t.x + ',' + t.y; })()`, 700],
-  [1, `(() => { const b = cq.g.M.btn(cq.g); cqMyKill(); return 'amico: ' + JSON.stringify(b); })()`, 1200],
-  [1, `(() => 'amico: ' + $('#cqCount').textContent + ' | ' + __T.slice(-2).join(' / '))()`, 3000],
-  [1, `(() => { const T0 = CQ_MAP.tombs, i = T0.findIndex(t => Math.hypot(t.x + 0.5 - cq.x, t.y + 0.5 - cq.y) < 0.6); return 'amico uscito dal tombino ' + i + ' a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1); })()`, 0],
-  [0, `(() => 'host: ' + __T.slice(-2).join(' / '))()`, 0],
   // METRO
   [1, `(() => { const m = CQ_MAP.metro[0]; cq.x = m.sx; cq.y = m.sy; return 'amico alla metro ' + m.n; })()`, 700],
   [1, `(() => { const b = cq.g.M.btn(cq.g); cqMyKill(); const bs = [...document.querySelectorAll('#tkBody [data-st]')]; const t = $('#tkTitle').textContent; bs[1].click(); return 'amico: ' + JSON.stringify(b) + ' / ' + t + ' fermate ' + bs.length; })()`, 4200],

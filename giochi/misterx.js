@@ -2,20 +2,21 @@
 // Usa i MODULI COMUNI (giochi/lib): squadre (spawn, freccia sul bordo), mappe (numeri col seme).
 // CITTA' DI NOTTE col seme, circa 100x100: strade larghe (marciapiede, 2 corsie, marciapiede), isolati di palazzi visti dall'alto con i tetti e le finestre
 // accese, vicoli, un fiume con 3 ponti, un parco, piazze, il porto in fondo. Lampioni = luci (REGOLA DELLE LUCI: aloni solo con K.glow).
-// Mister X (1, o 2 con 8+ personaggi; a caso, una persona o il computer) e' invisibile da lontano: si vede solo da vicino o sotto un lampione.
-// Ogni 20/30/45 s la sua posizione LAMPEGGIA a tutti. Deve fare 3 COLPI (banca, gioielleria...: allarme che i detective vedono), poi si apre la FUGA
-// (porto o eliporto): se ci arriva vince. A tempo scaduto vince comunque. Trucchi: TRAVESTIMENTO da passante (la FOLLA di passanti del computer gira
-// sempre uguale su tutti i telefoni: e' calcolata dal tempo, niente rete), TOMBINI (fogne: esce da un altro tombino vicino), METRO (per tutti; per lui
-// resta il biglietto timbrato), SCATTO. Detective: TELECAMERE agli incroci da accendere (vedono Mister X anche travestito) e il pulsante 🔗 CATTURA
-// (si preme mentre si cammina): se tocca Mister X parte il DUELLO DELLE MANETTE a tiro alla fune (2,5 s, vince chi tocca piu' veloce; pari = Mister X);
-// se tocca un passante innocente resta fermo un po'.
+// CACCIA LENTA (secondo giro, voluto dall'utente: suspense e ricerca alla Scotland Yard, poche cose ma chiare): tutti all'80% della velocita', notte vera,
+// alcune VIE BUIE senza lampioni. Mister X (1, o 2 con 8+ personaggi; a caso, una persona o il computer) e' invisibile: si vede solo vicinissimo, sotto un
+// lampione o nel cono della TORCIA dei detective (sempre accesa, si vede da lontano). Ogni 30/45/60 s LAMPEGGIA a tutti (ticchettio negli ultimi 10 s).
+// Tra un lampeggio e l'altro i detective hanno la ZONA (cerchio intorno all'ultimo punto noto, si allarga col tempo) e il TACCUINO (📸 🚇 🎭 💰, senza dire dove).
+// Deve fare 3 COLPI (5 con due Mister X; l'allarme suona dopo 2 s di furto e rivela il negozio), poi la FUGA (porto o eliporto). Tempo finito = vince lui.
+// Trucchi: TRAVESTIMENTO da passante (2 cariche da 25 s; la FOLLA di passanti gira uguale su tutti i telefoni: e' calcolata dal tempo, niente rete) e METRO
+// (per tutti; per lui resta il biglietto nel taccuino). Detective: 🔗 CATTURA (si preme mentre si cammina): se tocca Mister X parte il DUELLO DELLE MANETTE
+// a tiro alla fune (2,5 s, vince chi tocca piu' veloce, gli aiuti si sommano; pari = Mister X); se tocca un passante innocente resta fermo un po'.
 CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   const SQ = L.squadre, MG = L.mappe;
   const W = 100, H = 100;
   // tipi di casella della citta'
   const BL = 0, RO = 1, SW = 2, PZ = 3, GR = 4, PA = 5, WA = 6, BR = 7, DK = 8, AL = 9, QY = 10;
-  const ROB_T = 6, ALARM_T = 2, ROB_R = 1.35, DG_T = 1.5, DG_CD = 20, DG_SPD = 0.72, SPR_T = 2, SPR_CD = 20, SPR_K = 1.4, CATCH_R = 1.15, DUEL_T = 2.5, DUEL_JOIN = 1.9, STUN_T = 1.5, INV_T = 3, FAKE_T = 2.5, CAT_CD = 1.2;
-  const METRO_T = 3, METRO_R = 1.6, TOMB_T = 3, TOMB_R = 0.95, CAM_R = 1.6, CAM_SEE = 5.5, CAM_ON = 75, CAM_CD = 8, VIS = 4.6, VIS_XR = 5.2, VIS_X = 3.4, LIT_SEE = 10, LIT_X = 7, LAMP_R = 2.5, LIT_R = 1.7, ESC_R = 1.4, ESC_T = 2.2, PING_T = 7, FL_SHOW = 1.6, IDLE = 120, NP = 46;
+  const SLOW = 0.8, ROB_T = 6, ALARM_T = 2, ROB_R = 1.35, DG_T = 1.5, DG_N = 2, DG_D = 25, DG_SPD = 0.68, CATCH_R = 1.15, DUEL_T = 2.5, DUEL_JOIN = 1.9, STUN_T = 1.5, INV_T = 3, FAKE_T = 2.5, CAT_CD = 1.2;
+  const METRO_T = 4, METRO_R = 1.6, VIS = 3.4, VIS_XR = 4.4, VIS_X = 1.8, LIT_SEE = 10, LIT_X = 6, LAMP_R = 2.5, LIT_R = 1.7, TORCH_L = 7, TORCH_A = 0.42, ESC_R = 1.4, ESC_T = 2.2, PING_T = 7, FL_SHOW = 1.6, TICK = 10, ZONE_V = 0.9, ZONE_MAX = 32, NP = 35;
   const SHOPS = [['🏦', 'la Banca', '#2f5a8a'], ['💎', 'la Gioielleria', '#7a3a8a'], ['🖼️', 'il Museo', '#8a6a2f'], ['🎰', 'il Casinò', '#8a2f3a'], ['⌚', "l'Orologeria", '#2f7a6a'], ['🏺', "l'Antiquario", '#7a4a2e'], ['🎨', 'la Galleria', '#3a6a8a'], ['🪙', 'la Zecca', '#8a7a2a']];
   const STN = ['Centrale', 'Teatro', 'Mercato', 'Fiume', 'Castello', 'Duomo'];
   const XC = '#ff6a5a', DC = '#8ab8ff';
@@ -33,6 +34,12 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   const isTall = (x, y) => { const s = cqSolid[y] && cqSolid[y][x]; return !!s && (s.prop === 'bld' || s.prop === 'metro' || s.prop === 'crate'); };
   const litAt = (x, y) => { const M = MP(), xi = Math.floor(x), yi = Math.floor(y); return !!(M.lit && xi >= 0 && yi >= 0 && xi < W && yi < H && M.lit[yi * W + xi]); };
   function los(ax, ay, bx, by) { const n = Math.ceil(Math.hypot(bx - ax, by - ay) * 3); for (let i = 1; i < n; i++) { const t = i / n; if (isTall(Math.floor(ax + (bx - ax) * t), Math.floor(ay + (by - ay) * t))) return false; } return true; }
+  // TORCIA dei detective: cono lungo TORCH_L nella direzione c.ta (angolo nel mondo, dove sta guardando); i palazzi la fermano
+  const taOf = c => c === cq.g.me ? Math.atan2(cq.wdy || 0, cq.wdx || 1) : (c.ta || 0);
+  function inTorch(c, x, y) {
+    if (c.mx || !c.alive || c.out) return false; const p = P(c), dx = x - p.x, dy = y - p.y, d = Math.hypot(dx, dy); if (d > TORCH_L) return false; if (d < 0.8) return true;
+    let a = Math.atan2(dy, dx) - taOf(c); a = Math.atan2(Math.sin(a), Math.cos(a)); return Math.abs(a) < TORCH_A && los(p.x, p.y, x, y);
+  }
 
   // ======================= CITTA' (col seme) =======================
   function mapCity(seed) {
@@ -50,6 +57,10 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       else if (a >= 0) { T[i] = a === 0 || a === 3 ? SW : RO; if (T[i] === RO) RD[i] = a; }
       else { T[i] = b === 0 || b === 3 ? SW : RO; if (T[i] === RO) RD[i] = b + 2; }
     }
+    // VIE BUIE: 2 strade verticali e 1-2 orizzontali (non quelle sul bordo) senza lampioni: di notte li' non si vede niente
+    const darkV = VX.slice(1, -1).sort(() => rnd() - 0.5).slice(0, 2), darkH = HY.slice(1, -1).sort(() => rnd() - 0.5).slice(0, rnd() < 0.5 ? 2 : 1), dark = new Uint8Array(N);
+    for (const x0 of darkV) for (let y = HY[0]; y < DY; y++) for (let k = 0; k < 4; k++) dark[I(x0 + k, y)] = 1;
+    for (const y0 of darkH) for (let x = VX[0]; x < VX1; x++) for (let k = 0; k < 4; k++) dark[I(x, y0 + k)] = 1;
     // molo (3 righe di assi) e mare con 3 pontili
     for (let y = DY; y < H; y++) for (let x = 0; x < W; x++) T[I(x, y)] = y < DY + 3 ? DK : WA;
     const piers = []; { const cand = VX.slice(1, -1).sort(() => rnd() - 0.5).slice(0, 3); for (const x0 of cand) { piers.push(x0 + 1); for (let y = DY + 3; y < H - 1; y++) for (let k = 1; k <= 2; k++) T[I(x0 + k, y)] = DK; } }
@@ -151,7 +162,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       else if (t === QY) want = (y === ra || y === rb - 1) && x % 7 === 3;
       else if (t === DK) want = y === DY && x % 7 === 2;
       else if (t === PA) want = (x + y) % 6 === 0 && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => T[I(x + dx, y + dy)] === GR) && rnd() < 0.5;
-      if (want && lampOk(x, y)) { lamps.push([x, y]); pp('lamp', x, y, {}); }
+      if (want && !dark[i] && lampOk(x, y)) { lamps.push([x, y]); pp('lamp', x, y, {}); }
     }
     for (const [a, b] of plazas) { const [x0, x1] = cx[a], [y0, y1] = ry[b]; for (const [lx, ly] of [[x0, y0], [x1 - 1, y0], [x0, y1 - 1], [x1 - 1, y1 - 1], [Math.floor((x0 + x1) / 2), y0]]) if (lampOk(lx, ly)) { lamps.push([lx, ly]); pp('lamp', lx, ly, {}); } }
     // caselle di palazzo con un lato visibile (sud = y+1, est = x+1) su un marciapiede: vetrine e ingressi
@@ -174,22 +185,18 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       metro.push({ x, y, n: STN[metro.length], sx: x + 0.5, sy: y + 1.5 });
     }
     if (police) occ.add(I(Math.floor(police.sx), Math.floor(police.sy))); for (const m of metro) occ.add(I(Math.floor(m.sx), Math.floor(m.sy)));
-    // TELECAMERE: 8 angoli di incrocio, lontane tra loro
-    const cams = [];
-    { const cand = []; for (let i = 0; i < N; i++) if (T[i] === SW && vk[i] >= 0 && hk[i] >= 0 && !occ.has(i)) cand.push({ x: i % W, y: (i / W) | 0 }); cand.sort(() => rnd() - 0.5);
-      for (const c of cand) { if (cams.length >= 8) break; if (!far(cams, c.x, c.y, 17)) continue; cams.push(c); pp('cam', c.x, c.y, { n: cams.length - 1 }); } }
-    // TOMBINI: 12 sulle strade (non agli incroci), lontani tra loro
+    // (telecamere e tombini tolti nel secondo giro "caccia lenta")
     const tombs = [], deco = [], decoAt = new Map();
     const dput = (x, y, t) => { const k = x + ',' + y; if (decoAt.has(k)) { const j = deco.findIndex(d => d[0] === x && d[1] === y); if (j >= 0) deco.splice(j, 1); } deco.push([x, y, t]); decoAt.set(k, t); };
-    { const cand = []; for (let i = 0; i < N; i++) if (T[i] === RO && RD[i] && RD[i] < 5 && !occ.has(i)) cand.push({ x: i % W, y: (i / W) | 0 }); cand.sort(() => rnd() - 0.5);
-      for (const c of cand) { if (tombs.length >= 12) break; if (!far(tombs, c.x, c.y, 13)) continue; tombs.push(c); dput(c.x, c.y, 'mh'); } }
+    // vie buie: lampioni rotti per terra e cartacce (si riconoscono anche di giorno)
+    for (let i = 0; i < N; i++) if (dark[i] && T[i] === SW && !occ.has(i) && rnd() < 0.05) dput(i % W, (i / W) | 0, rnd() < 0.3 ? 'bin' : 'lt');
     // strisce pedonali davanti agli incroci
     for (const x0 of VX) for (const y0 of HY) {
       for (const k of [1, 2]) { for (const yy of [y0 - 1, y0 + 4]) if (T[I(x0 + k, yy)] === RO) dput(x0 + k, yy, 'zv'); for (const xx of [x0 - 1, x0 + 4]) if (T[I(xx, y0 + k)] === RO) dput(xx, y0 + k, 'zh'); }
     }
     // AUTO PARCHEGGIATE (2 caselle lungo la corsia vicino al marciapiede)
     const CARS = ['#a83a32', '#2f5a8a', '#d8d4c8', '#3a3a3e', '#6a7a3a', '#c8a030', '#5a3a6a'];
-    const nearSpecial = (x, y) => tombs.some(t => Math.abs(t.x - x) + Math.abs(t.y - y) < 2) || [...loot, ...metro].some(l => Math.hypot(l.sx - x - 0.5, l.sy - y - 0.5) < 3) || (police && Math.hypot(police.sx - x, police.sy - y) < 3);
+    const nearSpecial = (x, y) => [...loot, ...metro].some(l => Math.hypot(l.sx - x - 0.5, l.sy - y - 0.5) < 3) || (police && Math.hypot(police.sx - x, police.sy - y) < 3);
     for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
       const i = I(x, y); if (T[i] !== RO || occ.has(i) || decoAt.has(x + ',' + y) || nearSpecial(x, y)) continue;
       const v = RD[i] === 1 || RD[i] === 2, hz = RD[i] === 3 || RD[i] === 4; if (!v && !hz) continue;
@@ -216,11 +223,11 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     for (const [lx, ly] of lamps) for (let y = Math.max(0, ly - 3); y <= Math.min(H - 1, ly + 3); y++) for (let x = Math.max(0, lx - 3); x <= Math.min(W - 1, lx + 3); x++) if (Math.hypot(x - lx, y - ly) < LIT_R) lit[I(x, y)] = 1;
     // PASSANTI: giri chiusi sui marciapiedi (strade solo sulle strisce, se possibile), calcolati qui col seme: uguali su tutti i telefono
     const solid = new Uint8Array(N); for (const p of props) solid[I(p[1], p[2])] = 1; for (let i = 0; i < N; i++) if (T[i] === BL || T[i] === WA) solid[i] = 1;
-    const cost = i => solid[i] ? 0 : T[i] === RO ? (decoAt.has((i % W) + ',' + ((i / W) | 0)) ? 1 : 4) : T[i] === GR ? 2 : 1;
-    function dfield(tx, ty) {   // costi dalla casella di arrivo (code a secchi: costi 1-4)
-      const D = new Int32Array(N).fill(1e9), Q = [[], [], [], [], []]; let cur = 0, left = 1; D[I(tx, ty)] = 0; Q[0].push(I(tx, ty));
-      while (left) { const q = Q[cur % 5]; if (!q.length) { cur++; continue; } const i = q.pop(); left--; const d = D[i]; if (d !== cur) continue; const x = i % W, y = (i / W) | 0;
-        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = I(nx, ny), c = cost(j); if (!c) continue; const nd = d + c; if (nd < D[j]) { D[j] = nd; Q[nd % 5].push(j); left++; } } }
+    const cost = i => solid[i] ? 0 : dark[i] ? 7 : T[i] === RO ? (decoAt.has((i % W) + ',' + ((i / W) | 0)) ? 1 : 4) : T[i] === GR ? 2 : 1;   // nelle vie buie quasi nessuno
+    function dfield(tx, ty) {   // costi dalla casella di arrivo (code a secchi: costi 1-7)
+      const D = new Int32Array(N).fill(1e9), Q = [[], [], [], [], [], [], [], []]; let cur = 0, left = 1; D[I(tx, ty)] = 0; Q[0].push(I(tx, ty));
+      while (left) { const q = Q[cur % 8]; if (!q.length) { cur++; continue; } const i = q.pop(); left--; const d = D[i]; if (d !== cur) continue; const x = i % W, y = (i / W) | 0;
+        for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue; const j = I(nx, ny), c = cost(j); if (!c) continue; const nd = d + c; if (nd < D[j]) { D[j] = nd; Q[nd % 8].push(j); left++; } } }
       return D;
     }
     function legPath(ax, ay, bx, by) {
@@ -234,7 +241,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       }
       return out;
     }
-    const walkC = []; for (let i = 0; i < N; i++) if (!solid[i] && (T[i] === SW || T[i] === PZ || T[i] === PA || T[i] === QY || T[i] === DK || T[i] === AL)) walkC.push(i);
+    const walkC = []; for (let i = 0; i < N; i++) if (!solid[i] && !dark[i] && (T[i] === SW || T[i] === PZ || T[i] === PA || T[i] === QY || T[i] === DK || T[i] === AL)) { walkC.push(i); if (T[i] === PZ) walkC.push(i, i); }   // piazze piu' affollate
     const PR = [];
     for (let k = 0; k < NP && walkC.length; k++) {
       const pts = [walkC[Math.floor(rnd() * walkC.length)]]; for (let t = 0; t < 40 && pts.length < 4; t++) { const j = walkC[Math.floor(rnd() * walkC.length)], a = pts[pts.length - 1], d = Math.abs(j % W - a % W) + Math.abs(((j / W) | 0) - ((a / W) | 0)); if (d > 12 && d < 45) pts.push(j); }
@@ -246,13 +253,13 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       for (let s = 1; s < cells.length - 1; s++) { const [a0, b0] = cells[s - 1], [a1, b1] = cells[s], [a2, b2] = cells[s + 1]; if (a1 - a0 !== a2 - a1 || b1 - b0 !== b2 - b1) p.push([a1 + 0.5, b1 + 0.5]); }
       p.push([cells[cells.length - 1][0] + 0.5, cells[cells.length - 1][1] + 0.5]);
       const cum = [0]; for (let s = 1; s < p.length; s++) cum.push(cum[s - 1] + Math.hypot(p[s][0] - p[s - 1][0], p[s][1] - p[s - 1][1]));
-      PR.push({ p, cum, L: cum[cum.length - 1], o: rnd() * cum[cum.length - 1], v: 0.17 + rnd() * 0.05, jx: (rnd() - 0.5) * 0.3, jy: (rnd() - 0.5) * 0.3, l: Math.floor(rnd() * 10) });
+      PR.push({ p, cum, L: cum[cum.length - 1], o: rnd() * cum[cum.length - 1], v: 0.15 + rnd() * 0.04, jx: (rnd() - 0.5) * 0.3, jy: (rnd() - 0.5) * 0.3, l: Math.floor(rnd() * 10) });
     }
     const rooms = [{ n: 'Città', x: 0, y: 0, w: W, h: H, c: ['#2a2d32', '#2a2d32'], wc: '#3a3a3a', k: 'city', nl: 1 }];
     const ring = []; for (let i = 0; i < 10; i++) ring.push([Math.floor(pstart.x) + (i % 3) - 1, Math.floor(pstart.y)]);
     return { w: W, h: H, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
       deco, decoAt, draw, floor: FLOOR, decoDraw, bg: () => '#07090d',
-      T, RD, BI, B, VX, HY, DY, river: [wy0, wh], bridges, parkR, plazas, loot, police, pstart, metro, cams, tombs, lamps, lit, EP, heli, boat, PR, seed };
+      T, RD, BI, B, VX, HY, DY, river: [wy0, wh], bridges, parkR, plazas, loot, police, pstart, metro, cams: [], tombs, dark, lamps, lit, EP, heli, boat, PR, seed };
   }
 
   // ---- disegno della mappa (K = attrezzi di cqTools) ----
@@ -477,55 +484,47 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   const passers = G => G.pp || (G.pp = MP().PR.map((_, i) => ppos(i, G.time)));
 
   // ======================= REGOLE =======================
-  // a vede b? Mister X e' scuro: da lontano non si vede (solo vicino o sotto un lampione); i palazzi coprono
+  // a vede b? Mister X e' scuro: si vede solo vicinissimo, sotto un lampione o nella torcia di chi guarda; i palazzi coprono.
+  // I detective si vedono da lontano (hanno la torcia accesa).
   function canSee(G, a, b) {
     if (!b.alive || b.out || ugOn(G, b)) return false;
     const p = P(a), q = P(b), d = Math.hypot(p.x - q.x, p.y - q.y);
-    if (b.mx && !a.mx) { if (b.dg) return false; if (inDuel(G, b)) return d < 12; if (d > VIS_X && !(litAt(q.x, q.y) && d < LIT_X)) return false; }
-    else { const r = a.mx ? VIS_XR : VIS; if (d > r && !(litAt(q.x, q.y) && d < LIT_SEE)) return false; }
+    if (b.mx && !a.mx) { if (b.dg) return false; if (inDuel(G, b)) return d < 12; if (d < VIS_X) return true; if (inTorch(a, q.x, q.y)) return true; if (!(litAt(q.x, q.y) && d < LIT_X)) return false; }
+    else if (a.mx && !b.mx) { if (d > 11) return false; }
+    else { if (d > VIS && !(litAt(q.x, q.y) && d < LIT_SEE)) return false; }
     return d < 1.6 || los(p.x, p.y, q.x, q.y);
   }
   const lootAt = (G, c) => { const p = P(c); let b = -1, bd = ROB_R; MP().loot.forEach((l, i) => { if (G.rob[i] >= 0) return; const d = Math.hypot(l.sx - p.x, l.sy - p.y); if (d < bd) { bd = d; b = i; } }); return b; };
-  const tombAt = c => { const p = P(c); return MP().tombs.findIndex(t => Math.hypot(t.x + 0.5 - p.x, t.y + 0.5 - p.y) < TOMB_R); };
   const metroAt = c => { const p = P(c); return MP().metro.findIndex(m => Math.hypot(m.x + 0.5 - p.x, m.y + 0.5 - p.y) < METRO_R || Math.hypot(m.sx - p.x, m.sy - p.y) < 0.9); };
-  const camAt = (G, c) => { const p = P(c); return MP().cams.findIndex((k, i) => G.cam[i] <= G.time && Math.hypot(k.x + 0.5 - p.x, k.y + 0.5 - p.y) < CAM_R); };
+  // il pulsante grande: una cosa sola alla volta, la piu' importante
   function action(G, c) {
     if (!c.alive || c.out || G.esc || ugOn(G, c) || inDuel(G, c)) return null;
     if ((c.stun || 0) > G.time) return { k: 'wait', t: '😵 Stordito…', on: false };
     if (c.op) return { k: 'wait', t: c.op.k === 'rob' ? '💰 Rubo… ' + Math.round(Math.min(1, (G.time - c.op.t0) / ROB_T) * 100) + '%' : '🎭 Mi travesto…', on: false };
     if (c.mx) {
       { const i = lootAt(G, c); if (i >= 0 && !G.open) return { k: 'rob', i, t: '💰 Ruba (' + SHOPS[MP().loot[i].k][1].replace(/^(la |il |l')/, '') + ')', on: true }; }
-      if (tombAt(c) >= 0) return { k: 'tomb', t: '🕳️ Entra nel tombino', on: true };
       if (metroAt(c) >= 0) return { k: 'metro', t: '🚇 Prendi la metro', on: true };
-      if (c.dg) return { k: 'undg', t: '🎭 Via il travestimento', on: true };
-      return (c.dgc || 0) > G.time ? { k: 'dg', t: '🎭 ' + Math.ceil(c.dgc - G.time) + ' s', on: false } : { k: 'dg', t: '🎭 Travestiti da passante', on: true };
+      if (c.dg) return { k: 'undg', t: '🎭 Togli il travestimento (' + Math.ceil(c.dgE - G.time) + ' s)', on: true };
+      return (c.dgN || 0) > 0 ? { k: 'dg', t: '🎭 Travestiti (' + c.dgN + ')', on: true } : null;
     }
-    { const i = camAt(G, c); if (i >= 0) return { k: 'cam', i, t: '📹 Accendi la telecamera', on: true }; }
     if (metroAt(c) >= 0) return { k: 'metro', t: '🚇 Prendi la metro', on: true };
     return null;
   }
-  function breakDg(G, c, why) { if (!c.dg) return; c.dg = 0; c.dgc = G.time + DG_CD; say(G, 'undg', { a: c.id, w: why }); }
+  // il travestimento finisce (tempo, furto, duello, o tolto apposta): la carica e' consumata
+  function breakDg(G, c, why) { if (!c.dg) return; c.dg = 0; c.dgE = 0; say(G, 'undg', { a: c.id, w: why }); }
   function doAct(G, c, a) {
     if (!c || !c.alive || c.out || !a || G.esc || ugOn(G, c) || inDuel(G, c)) return;
     if (a.k !== 'cat' && (c.stun || 0) > G.time) return;
     const p = P(c);
     if (a.k === 'rob' && c.mx && !c.op && !G.open) { const i = lootAt(G, c); if (i >= 0) { breakDg(G, c, 'rob'); c.op = { k: 'rob', i, t0: G.time, x: p.x, y: p.y }; } }   // l'allarme suona dopo ALARM_T secondi (vedi tick)
-    else if (a.k === 'dg' && c.mx && !c.op && !c.dg && (c.dgc || 0) <= G.time) c.op = { k: 'dg', t0: G.time, x: p.x, y: p.y };
-    else if (a.k === 'undg' && c.mx && c.dg) { c.dg = 0; c.dgc = G.time + 3; }
-    else if (a.k === 'sprint' && c.mx && (c.spc || 0) <= G.time) { c.sp = G.time + SPR_T; c.spc = G.time + SPR_CD; c.op = null; breakDg(G, c, 'sprint'); c.spN = (c.spN || 0) + 1; }
-    else if (a.k === 'tomb' && c.mx) {
-      const m = tombAt(c); if (m < 0) return; const T0 = MP().tombs, from = T0[m];
-      const near = T0.map((t, i) => [i, Math.hypot(t.x - from.x, t.y - from.y)]).filter(([i]) => i !== m).sort((u, v) => u[1] - v[1]).slice(0, 3), d = near[Math.floor(Math.random() * near.length)][0], to = T0[d];
-      breakDg(G, c, 'tomb'); c.op = null; c.ug = { e: G.time + TOMB_T, x: to.x + 0.5, y: to.y + 0.5, k: 't', n: ++G.ugN, a: m, d }; c.path = []; c.tb = (c.tb || 0) + 1;
-      say(G, 'clang', { a: c.id, x: from.x + 0.5, y: from.y + 0.5 });
-    }
+    else if (a.k === 'dg' && c.mx && !c.op && !c.dg && (c.dgN || 0) > 0) c.op = { k: 'dg', t0: G.time, x: p.x, y: p.y };
+    else if (a.k === 'undg' && c.mx && c.dg) breakDg(G, c, 'me');
     else if (a.k === 'metro') {
       const s = metroAt(c), M0 = MP().metro; if (s < 0 || a.i == null || a.i === s || !M0[a.i]) return; const to = M0[a.i];
-      if (c.bot && (c.mcd || 0) > G.time) return; c.mcd = G.time + 20;
+      if (c.bot && (c.mcd || 0) > G.time) return; c.mcd = G.time + 25;
       c.op = null; c.ug = { e: G.time + METRO_T, x: to.sx, y: to.sy, k: 'm', n: ++G.ugN, a: s, d: a.i }; c.path = []; c.mr = (c.mr || 0) + 1;
       if (c.mx) say(G, 'ticket', { a: c.id, s }); else say(G, 'ride', { a: c.id, s, d: a.i });
     }
-    else if (a.k === 'cam' && !c.mx) { const i = camAt(G, c); if (i >= 0) { G.cam[i] = G.time + CAM_ON; c.ca = (c.ca || 0) + 1; say(G, 'camon', { a: c.id, i }); } }
     else if (a.k === 'cat' && !c.mx) doCatch(G, c);
   }
   // 🔗 CATTURA: Mister X vicino -> duello (o mi unisco a quello in corso); un passante innocente -> figuraccia e fermo un po'
@@ -565,54 +564,48 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     if (G.nrob >= G.need) { G.open = 1; say(G, 'open', { e: G.ei }); }
   }
 
-  // cronaca: l'host scrive (G.lg), ognuno racconta dal suo punto di vista (e i detective segnano i punti sulla mappa)
+  // cronaca: l'host scrive (G.lg), ognuno racconta dal suo punto di vista. Pochi avvisi, solo quelli che contano.
+  // Ogni telefono tiene la ZONA (G.lf: ultimo punto noto di ogni Mister X, con l'ora; m = ora della metro) e il TACCUINO (G.tb: 📸 🚇 🎭 💰)
   function say(G, k, o) { const e = Object.assign({ n: ++G.lgN, k }, o); G.lg.push(e); if (G.lg.length > 12) G.lg.shift(); show(G, e); }
   const bn0 = B => B ? '<b>' + esc(B.name) + '</b>' : 'Qualcuno';
   function ping(G, x, y, k, ttl) { G.pg.push({ x, y, k, t: G.time, e: G.time + (ttl || PING_T) }); if (G.pg.length > 12) G.pg.shift(); }
-  function dirTo(x, y) { const dx = x - cq.x, dy = y - cq.y, X = dx - dy, Y = dx + dy; return Math.abs(X) > Math.abs(Y) * 1.6 ? (X > 0 ? 'a destra' : 'a sinistra') : Math.abs(Y) > Math.abs(X) * 1.6 ? (Y > 0 ? 'in basso' : 'in alto') : (Y > 0 ? 'in basso ' : 'in alto ') + (X > 0 ? 'a destra' : 'a sinistra'); }
+  const xn = (G, id) => { const X = G.chars.filter(c => c.mx); return X.length > 1 ? X.findIndex(c => c.id === id) + 1 : 0; };   // 1 o 2 se i Mister X sono due
+  function note(G, e, id) { G.tb.push({ e, t: G.time, n: xn(G, id) }); if (G.tb.length > 10) G.tb.shift(); G.tbT = performance.now(); }
+  function seenAt(G, id, x, y) { G.lf[id] = { x, y, t: G.time }; }
   function show(G, e) {
-    const me = G.me, A = byId(G, e.a), B = byId(G, e.b), an = A ? '<b>' + esc(A.name) + '</b>' : '', isX = me.mx, M = MP();
+    const me = G.me, A = byId(G, e.a), an = A ? '<b>' + esc(A.name) + '</b>' : '', isX = me.mx, M = MP();
     let t = '';
     if (e.k === 'flash') {
-      G.fx = performance.now(); for (const f of e.f) { G.lf[f[0]] = { x: f[1], y: f[2], t: G.time }; }
-      if (isX) { t = '📸 Ti hanno visto! Tutti sanno dov\'eri: cambia strada!'; beep(1800, 0.05, 0.05); beep(900, 0.2, 0.05, 0.05); }
-      else { t = '📸 Mister X avvistato! Guarda la mappa.'; beep(1400, 0.06, 0.05); beep(1900, 0.12, 0.05, 0.07); }
-      if (!isX) for (const f of e.f) ping(G, f[1], f[2], 'f', 4);
+      G.fx = performance.now(); for (const f of e.f) { seenAt(G, f[0], f[1], f[2]); note(G, '📸', f[0]); }
+      if (isX) { t = '📸 Ti hanno visto! Ora sanno dov\'eri: allontanati.'; beep(1800, 0.05, 0.05); beep(900, 0.2, 0.05, 0.05); }
+      else { t = '📸 Mister X avvistato! Il cerchio sulla mappa è dove può essere adesso.'; beep(1400, 0.06, 0.05); beep(1900, 0.12, 0.05, 0.07); }
     }
     else if (e.k === 'alarm') {
-      const l = M.loot[e.i], nm = SHOPS[l.k][1]; G.al[e.i] = G.time;
+      const l = M.loot[e.i], nm = SHOPS[l.k][1]; G.al[e.i] = G.time; seenAt(G, e.a, l.sx, l.sy); note(G, '🚨', e.a);
       const d = Math.hypot(l.sx - cq.x, l.sy - cq.y), v = isX ? 0.035 : Math.max(0.012, 0.04 * (1 - d / 60));
       for (let i = 0; i < 8; i++) beep(i % 2 ? 1250 : 950, 0.12, v, i * 0.14, 'square');
       if (A === me) t = '🚨 L\'allarme è scattato! Resta fermo ancora ' + (ROB_T - ALARM_T) + ' secondi per finire il colpo… se ce la fai.';
-      else if (isX) t = '🚨 ' + an + ' sta svaligiando ' + nm + '!';
-      else { t = '🚨 Allarme: stanno svaligiando ' + nm + '! Correte, avete ' + (ROB_T - ALARM_T) + ' secondi!'; ping(G, l.sx, l.sy, 'r', ROB_T + 3); }
+      else if (!isX) { t = '🚨 Allarme: stanno svaligiando ' + nm + '! Correte, avete ' + (ROB_T - ALARM_T) + ' secondi!'; ping(G, l.sx, l.sy, 'r', ROB_T + 3); }
     }
     else if (e.k === 'rob') {
-      const l = M.loot[e.i], nm = SHOPS[l.k][1];
+      const l = M.loot[e.i], nm = SHOPS[l.k][1]; note(G, '💰', e.a);
       beep(660, 0.1, 0.04); beep(880, 0.14, 0.04, 0.1);
-      if (A === me) t = '💰 Colpo riuscito a ' + nm + '! (' + e.n + '/' + G.need + ') Sparisci!';
-      else if (isX) t = '💰 Colpo riuscito a ' + nm + '! (' + e.n + '/' + G.need + ')';
-      else { t = '💰 Troppo tardi: Mister X ha svaligiato ' + nm + ' (' + e.n + '/' + G.need + ')'; ping(G, l.sx, l.sy, 'r', 6); }
+      t = isX ? '💰 Colpo riuscito a ' + nm + '! (' + e.n + '/' + G.need + ')' + (A === me ? ' Sparisci!' : '') : '💰 Troppo tardi: Mister X ha svaligiato ' + nm + ' (' + e.n + '/' + G.need + ')';
     }
     else if (e.k === 'open') { const E = M.EP[e.e]; t = isX ? '🎉 ' + G.need + ' colpi! Scappa verso ' + E.n + ' prima che ti prendano!' : '🚨 ' + G.need + ' colpi fatti: Mister X scappa verso ' + E.n + '! Fermatelo!'; beep(523, 0.15, 0.05); beep(659, 0.15, 0.05, 0.15); beep(784, 0.3, 0.05, 0.3); }
-    else if (e.k === 'clang') { const d = Math.hypot(e.x - cq.x, e.y - cq.y); if (A === me) t = '🕳️ Giù nelle fogne! Esci da un altro tombino tra ' + TOMB_T + ' secondi.'; else if (!isX && d < 16) { t = '🕳️ Un tombino ha sbattuto ' + dirTo(e.x, e.y) + '!'; ping(G, e.x, e.y, 't', 6); } const v = Math.max(0.01, 0.07 * (1 - d / 24)); beep(320, 0.08, v, 0, 'square'); beep(260, 0.12, v * 0.8, 0.07, 'square'); }
-    else if (e.k === 'clang2') { const d = Math.hypot(e.x - cq.x, e.y - cq.y); if (!isX && d < 16) { t = '🕳️ Un tombino si è aperto ' + dirTo(e.x, e.y) + '!'; ping(G, e.x, e.y, 't', 6); } const v = Math.max(0.01, 0.07 * (1 - d / 24)); beep(300, 0.08, v, 0, 'square'); beep(240, 0.12, v * 0.8, 0.07, 'square'); }
-    else if (e.k === 'ticket') { const s = M.metro[e.s]; if (A === me) t = '🚇 In metro… (i detective vedranno il biglietto timbrato a ' + s.n + ')'; else if (!isX) { t = '🎫 Biglietto timbrato alla fermata ' + s.n + ': Mister X ha preso la metro!'; ping(G, s.sx, s.sy, 'm', 8); } beep(700, 0.08, 0.03); beep(500, 0.1, 0.03, 0.09); }
+    else if (e.k === 'ticket') { note(G, '🚇', e.a); if (G.lf[e.a]) G.lf[e.a].m = G.time; if (A === me) t = '🚇 In metro… Nel taccuino dei detective resta solo il biglietto, non dove sei sceso.'; else if (!isX) t = '🎫 Mister X ha preso la metro! Può essere vicino a una qualsiasi fermata.'; beep(700, 0.08, 0.03); beep(500, 0.1, 0.03, 0.09); }
     else if (e.k === 'ride') { if (A === me) t = '🚇 In metro verso ' + M.metro[e.d].n + '…'; }
-    else if (e.k === 'camon') { const k = M.cams[e.i]; if (A === me) t = '📹 Telecamera accesa per ' + CAM_ON + ' secondi: se Mister X ci passa davanti lo vedrete tutti.'; else if (isX && Math.hypot(k.x - cq.x, k.y - cq.y) < 25) t = '📹 Una telecamera si è accesa qui vicino (lucina rossa): occhio!'; beep(1200, 0.05, 0.03); }
-    else if (e.k === 'cam') { if (A === me) { t = '📹 Una telecamera ti ha visto!'; beep(1500, 0.06, 0.05); } else if (!isX) { t = '📹 Telecamera: Mister X ' + (e.dg ? '(travestito!) ' : '') + 'è passato ' + dirTo(e.x, e.y) + '!'; ping(G, e.x, e.y, 'c', 7); beep(1600, 0.06, 0.05); beep(1600, 0.06, 0.05, 0.1); } }
-    else if (e.k === 'undg') { if (A === me) t = e.w === 'rob' ? '🎭 Travestimento caduto: mentre rubi ti riconoscono!' : e.w === 'sprint' ? '🎭 Travestimento caduto: i passanti non corrono!' : e.w === 'tomb' ? '🎭 Travestimento caduto: uscire da un tombino dà nell\'occhio!' : e.w === 'duel' ? '🎭 Smascherato!' : '🎭 Travestimento caduto.'; }
-    else if (e.k === 'dg') { if (A === me) { t = '🎭 Sei travestito da passante: cammina tranquillo tra la folla.'; beep(500, 0.06, 0.03); beep(650, 0.08, 0.03, 0.06); } }
+    else if (e.k === 'dg') { note(G, '🎭', e.a); if (A === me) { t = '🎭 Sei travestito da passante per ' + DG_D + ' secondi: cammina piano tra la folla.'; beep(500, 0.06, 0.03); beep(650, 0.08, 0.03, 0.06); } else if (!isX) t = '🎭 Mister X si è travestito: occhio ai passanti!'; }
+    else if (e.k === 'undg') { if (A === me) t = e.w === 'rob' ? '🎭 Travestimento caduto: mentre rubi ti riconoscono!' : e.w === 'duel' ? '🎭 Smascherato!' : e.w === 'time' ? '🎭 Il travestimento è finito.' : '🎭 Travestimento tolto.'; }
     else if (e.k === 'duel') {
-      const mine = e.a === me.id || e.b === me.id; G.dfx = performance.now();
-      t = e.b === me.id ? '🔗 Ti hanno preso! DIVINCOLATI: tocca il pulsante più veloce che puoi!' : e.a === me.id ? '🔗 Preso! STRINGI le manette: tocca più veloce che puoi!' : isX ? '🔗 ' + bn0(B) + ' sta lottando con le manette!' : '🔗 ' + an + ' ha preso Mister X! Correte ad aiutarlo (premi 🔗 vicino a loro)!';
+      const mine = e.a === me.id || e.b === me.id; G.dfx = performance.now(); seenAt(G, e.b, e.x, e.y);
+      t = e.b === me.id ? '🔗 Ti hanno preso! DIVINCOLATI: tocca il pulsante più veloce che puoi!' : e.a === me.id ? '🔗 Preso! STRINGI le manette: tocca più veloce che puoi!' : isX ? '' : '🔗 ' + an + ' ha preso Mister X! Correte ad aiutarlo!';
       if (!isX && !mine) ping(G, e.x, e.y, 'd', 4); beep(220, 0.1, 0.06, 0, 'square'); beep(330, 0.15, 0.06, 0.1, 'square');
     }
     else if (e.k === 'join') { if (A === me) t = '🔗 Ti sei unito al duello: tocca, tocca, tocca!'; }
     else if (e.k === 'arrest') { t = (e.a === me.id ? '🚔 Ti hanno ammanettato! ' : '🚔 Manette ai polsi per ' + an + '! ') + '(' + e.d + ' a ' + e.x + ')'; beep(523, 0.12, 0.05); beep(392, 0.12, 0.05, 0.12); for (let i = 0; i < 4; i++) beep(i % 2 ? 700 : 900, 0.18, 0.03, 0.3 + i * 0.2); }
-    else if (e.k === 'free') { const mine = e.ds.includes(me.id); t = e.a === me.id ? '💪 Ti sei liberato! (' + e.x + ' a ' + e.d + ') Scappa, sei intoccabile per ' + INV_T + ' secondi!' : mine ? '😵 Mister X si è divincolato (' + e.x + ' a ' + e.d + ')!' : isX ? '💪 ' + an + ' si è liberato dalle manette!' : '😤 Mister X si è divincolato dalle manette!'; beep(330, 0.1, 0.05); beep(660, 0.15, 0.05, 0.1); }
-    else if (e.k === 'fake') { G.fk.push({ p: e.p, t: G.time }); if (A === me) { t = '🤦 Era un passante innocente! Che figura: fermo per ' + FAKE_T + ' secondi.'; cq.hurt = performance.now(); } else if (isX) t = '😂 ' + an + ' ha ammanettato un passante innocente!'; else t = '🤦 ' + an + ' ha ammanettato un passante innocente…'; beep(200, 0.2, 0.04, 0, 'sawtooth'); }
-    else if (e.k === 'tight') { t = isX ? '📡 Non rubi da troppo: ora lampeggi il doppio delle volte! Fai un colpo per tornare normale.' : '📡 Mister X non ruba da tanto: ora lampeggia il doppio delle volte!'; }
+    else if (e.k === 'free') { const mine = e.ds.includes(me.id); t = e.a === me.id ? '💪 Ti sei liberato! (' + e.x + ' a ' + e.d + ') Scappa, sei intoccabile per ' + INV_T + ' secondi!' : mine ? '😵 Mister X si è divincolato (' + e.x + ' a ' + e.d + ')!' : isX ? '' : '😤 Mister X si è divincolato dalle manette!'; beep(330, 0.1, 0.05); beep(660, 0.15, 0.05, 0.1); }
+    else if (e.k === 'fake') { G.fk.push({ p: e.p, t: G.time }); if (A === me) { t = '🤦 Era un passante innocente! Che figura: fermo per ' + FAKE_T + ' secondi.'; cq.hurt = performance.now(); } else if (isX) t = '😂 ' + an + ' ha ammanettato un passante innocente!'; beep(200, 0.2, 0.04, 0, 'sawtooth'); }
     else if (e.k === 'esc') { const E = M.EP[e.e]; t = '🏁 Fuga riuscita ' + (A === me ? '' : 'per ' + an + ' ') + E.da + '!'; beep(523, 0.15, 0.06); beep(659, 0.15, 0.06, 0.15); beep(784, 0.4, 0.06, 0.3); }
     if (t) cqToast(t);
   }
@@ -633,38 +626,44 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     }
     if (best) c.path = best.slice(0, 12);
   }
+  // un punto lontano dal pericolo, meglio se in una via buia (li' non lo vedono)
+  function hideAway(G, c, th, r) {
+    const M = MP(); let best = null, bs = -1e9;
+    for (let k = 0; k < 16; k++) {
+      const a = Math.random() * 7, d = r * (0.6 + Math.random() * 0.6), x = Math.floor(c.x + Math.cos(a) * d), y = Math.floor(c.y + Math.sin(a) * d); if (!cqCellFree(x, y)) continue;
+      const s = Math.hypot(x - th.x, y - th.y) + (M.dark[y * W + x] ? 8 : 0) - (M.lit[y * W + x] ? 4 : 0);
+      if (s > bs) { bs = s; best = [x + 0.5, y + 0.5]; }
+    }
+    if (best) go(G, c, best[0], best[1]);
+  }
   function botX(G, c) {
     if (ugOn(G, c)) return;
     const M = MP(), seen = dets(G).filter(d => canSee(G, c, d)).sort((a, b) => dist(c, a) - dist(c, b)), dn = seen[0], dd = dn ? dist(c, dn) : 99;
     if (c.op && c.op.k === 'rob' && dn && dd < 4.5) c.op = null;   // arrivano i detective: lascio perdere il colpo
     if (c.op) return;
     if (dn) { c.sawD = G.time; const q = P(dn); c.thr = { x: q.x, y: q.y }; }
-    // scappare: scatto, tombino, metro, via
-    if (dn && dd < 6.5) {
-      if ((dd < 3 || (c.inv || 0) > G.time) && (c.spc || 0) <= G.time) doAct(G, c, { k: 'sprint' });
-      if (tombAt(c) >= 0 && dd < 5.5) { doAct(G, c, { k: 'tomb' }); return; }
-      const s = metroAt(c); if (s >= 0 && dd < 6) { const q = P(dn); let bi = -1, bd = -1; M.metro.forEach((m, i) => { if (i === s) return; const e = Math.hypot(m.sx - q.x, m.sy - q.y); if (e > bd) { bd = e; bi = i; } }); doAct(G, c, { k: 'metro', i: bi }); return; }
-      const tm = M.tombs.map((t, i) => [i, Math.hypot(t.x + 0.5 - c.x, t.y + 0.5 - c.y)]).filter(v => v[1] < 3.5).sort((a, b) => a[1] - b[1])[0];
-      if (tm && Math.random() < 0.6) { const t = M.tombs[tm[0]]; go(G, c, t.x + 0.5, t.y + 0.5); return; }
-      if (c.dg && dd > 3) { if (!c.path.length) wanderNear(G, c); return; }   // travestito: fa il passante
+    // detective vicini: travestito faccio il passante; se no metro, travestimento o via (verso il buio)
+    if (dn && dd < 7) {
+      if (c.dg) { if (dd < 2.5) flee(G, c, dn, seen); else if (!c.path.length) wanderNear(G, c); return; }
+      const s = metroAt(c); if (s >= 0 && dd < 6) { const q = P(dn); let bi = -1, bd = -1; M.metro.forEach((m, i) => { if (i === s) return; const e = Math.hypot(m.sx - q.x, m.sy - q.y); if (e > bd) { bd = e; bi = i; } }); doAct(G, c, { k: 'metro', i: bi }); if (c.ug) return; }
+      if ((c.dgN || 0) > 0 && dd > 4.5 && passers(G).some(q => Math.hypot(q.x - c.x, q.y - c.y) < 4)) { doAct(G, c, { k: 'dg' }); c.path = []; return; }
       flee(G, c, dn, seen); return;
     }
     // pericolo visto da poco: resto lontano (non torno subito verso il negozio)
-    if (c.thr && G.time - c.sawD < 7 && Math.hypot(c.thr.x - c.x, c.thr.y - c.y) < 11) { if (!c.path.length) flee(G, c, { x: c.thr.x, y: c.thr.y }); return; }
-    // appena fatto un colpo: via lontano dal negozio (tombino o metro se sono li')
-    if (c.hot != null && G.time - c.hot < 12 && !G.open) {
-      if (tombAt(c) >= 0) { c.hot = null; doAct(G, c, { k: 'tomb' }); return; }
+    if (c.thr && G.time - c.sawD < 8 && Math.hypot(c.thr.x - c.x, c.thr.y - c.y) < 12) { if (!c.path.length) hideAway(G, c, c.thr, 12); return; }
+    // appena fatto un colpo: via lontano dal negozio (metro se e' li')
+    if (c.hot != null && G.time - c.hot < 14 && !G.open) {
       const s = metroAt(c); if (s >= 0) { c.hot = null; let bi = -1, bd = -1; M.metro.forEach((m, i) => { if (i === s) return; const e = Math.hypot(m.sx - c.x, m.sy - c.y); if (e > bd) { bd = e; bi = i; } }); doAct(G, c, { k: 'metro', i: bi }); return; }
-      if (!c.path.length || c.hotGo !== c.hot) { c.hotGo = c.hot; const tm = M.tombs.map(t => [t, Math.hypot(t.x - c.x, t.y - c.y)]).filter(v => v[1] < 9).sort((a, b) => a[1] - b[1])[0]; if (tm) { go(G, c, tm[0].x + 0.5, tm[0].y + 0.5); return; } for (let k = 0; k < 10; k++) { const a = Math.random() * 7, x = c.x + Math.cos(a) * 18, y = c.y + Math.sin(a) * 18; if (cqCellFree(Math.floor(x), Math.floor(y)) && go(G, c, x, y)) break; } }
+      if (!c.path.length || c.hotGo !== c.hot) { c.hotGo = c.hot; hideAway(G, c, { x: c.x, y: c.y }, 18); }
       return;
     }
-    // travestirsi quando nessuno lo vede
-    if (!c.dg && (c.dgc || 0) <= G.time && !dn && (G.time - (c.sawD || -99) < 12 || G.nf - G.time < 6 || Math.random() < 0.05)) { doAct(G, c, { k: 'dg' }); c.path = []; return; }
+    // poco prima del lampeggio: meglio essere in un posto da cui si scappa (niente colpi adesso)
+    const preFlash = G.nf - G.time < 4;
     // obiettivo: il colpo piu' comodo (lontano dai detective conosciuti), o la fuga
     let gx, gy;
     if (G.open) { const E = M.EP[G.ei]; gx = E.x; gy = E.y; }
     else {
-      const i = lootAt(G, c); if (i >= 0 && !dets(G).some(d => canSee(G, c, d) && dist(c, d) < 8)) { doAct(G, c, { k: 'rob' }); c.path = []; return; }
+      const i = lootAt(G, c); if (i >= 0 && !preFlash && !dets(G).some(d => canSee(G, c, d) && dist(c, d) < 9)) { doAct(G, c, { k: 'rob' }); c.path = []; return; }
       if (c.tg == null || G.rob[c.tg] >= 0 || Math.random() < 0.01) {
         let best = -1, bs = 1e9; M.loot.forEach((l, k) => { if (G.rob[k] >= 0) return; const thr = Math.min(c.thr && G.time - c.sawD < 30 ? Math.hypot(c.thr.x - l.sx, c.thr.y - l.sy) : 99, G.kn && G.time - G.kn.t < 20 ? Math.hypot(G.kn.x - l.sx, G.kn.y - l.sy) + 6 : 99); const s = Math.hypot(l.sx - c.x, l.sy - c.y) - Math.min(thr, 20) * 1.2 + Math.random() * 6; if (s < bs) { bs = s; best = k; } });
         c.tg = best;
@@ -681,27 +680,28 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     const M = MP(), ds = dets(G), idx = ds.indexOf(c), n = Math.max(1, ds.length);
     if (G.du) { const X = byId(G, G.du.x); if (X && dist(c, X) < 2.5) { if (dist(c, X) < DUEL_JOIN) doCatch(G, c); else go(G, c, X.x, X.y); return; } }   // il computer aiuta solo se e' gia' li' vicino
     // Mister X in vista (non travestito): inseguo e prendo
-    let tg = null, bd = 1e9; for (const X of xs(G)) { if (!canSee(G, c, X) || (!inDuel(G, X) && dist(c, X) > (litAt(X.x, X.y) ? 5.5 : 3))) continue;   /* il computer vede un po' meno di una persona */ const d = dist(c, X); if (d < bd) { bd = d; tg = X; } }
+    let tg = null, bd = 1e9; for (const X of xs(G)) { if (!canSee(G, c, X)) continue; const d = dist(c, X); if (d < bd) { bd = d; tg = X; } }
     if (tg) { const q = P(tg); know(G, q.x, q.y); if (bd < CATCH_R * 0.95 && (tg.inv || 0) <= G.time) { doCatch(G, c); return; } go(G, c, q.x, q.y); return; }
     // fuga aperta: meta' a fare la guardia all'uscita
     if (G.open && idx % 2 === 0) { const E = M.EP[G.ei], d = Math.hypot(c.x - E.x, c.y - E.y); if (d > 3) { if (!c.path.length || Math.random() < 0.1) go(G, c, E.x + (Math.random() - 0.5) * 3, E.y - 1.5 + (Math.random() - 0.5) * 2); } else c.path = []; return; }
-    const K = G.kn, age = K ? G.time - K.t : 99;
-    // sospetti: passanti (o Mister X travestito) vicini all'ultimo avvistamento fresco
-    if (K && age < 9 && Math.hypot(c.x - K.x, c.y - K.y) < 5 && Math.random() < 0.2) {
-      const cand = [...passers(G).map(q => ({ x: q.x, y: q.y })), ...xs(G).filter(X => X.dg && !ugOn(G, X)).map(X => ({ x: X.x, y: X.y }))].filter(q => Math.hypot(q.x - c.x, q.y - c.y) < CATCH_R * 0.95 && Math.hypot(q.x - K.x, q.y - K.y) < 3.5);
-      if (cand.length) { doCatch(G, c); return; }
-      const nearOne = [...passers(G), ...xs(G).filter(X => X.dg)].filter(q => Math.hypot(q.x - K.x, q.y - K.y) < 3.5).sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
+    const K = G.kn, age = K ? G.time - K.t : 99, dgOn = G.tb.some(q => q.e === '🎭' && G.time - q.t < DG_D);
+    // sospetti: passanti (o Mister X travestito) vicini all'ultimo avvistamento fresco, di piu' se il taccuino dice che e' travestito
+    if (K && age < 12 && Math.hypot(c.x - K.x, c.y - K.y) < 6 && Math.random() < (dgOn ? 0.3 : 0.12)) {
+      const fig = [...passers(G).map(q => ({ x: q.x, y: q.y })), ...xs(G).filter(X => X.dg && !ugOn(G, X)).map(X => ({ x: X.x, y: X.y }))].filter(q => Math.hypot(q.x - K.x, q.y - K.y) < 3 + age * ZONE_V);
+      if (fig.some(q => Math.hypot(q.x - c.x, q.y - c.y) < CATCH_R * 0.95)) { doCatch(G, c); return; }
+      const nearOne = fig.sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
       if (nearOne && Math.random() < 0.5) { go(G, c, nearOne.x, nearOne.y); return; }
     }
-    // all'ultimo avvistamento ci vanno i 2 detective del computer piu' vicini (gli altri fanno la ronda e accendono le telecamere)
+    // la ZONA: i 2 detective del computer piu' vicini la perlustrano (punti a caso dentro il cerchio, prima le vie buie); gli altri ronda
     const rk = K ? ds.filter(o => o.bot).sort((a, b) => dxy(a, K.x, K.y) - dxy(b, K.x, K.y)).indexOf(c) : 0;
-    if (K && age < 28 && rk < 2) {
-      const a = idx / n * Math.PI * 2 + age * 0.08, r = Math.min(12, 1 + age * 0.55), tx = K.x + Math.cos(a) * r, ty = K.y + Math.sin(a) * r;
-      if (!c.path.length || Math.hypot((c.gx || 0) - tx, (c.gy || 0) - ty) > 3) go(G, c, tx, ty); return;
+    if (K && age < 40 && rk < 2) {
+      if (!c.path.length || (c.zk !== K.t && Math.random() < 0.5)) {
+        c.zk = K.t; const r = Math.min(ZONE_MAX, 2 + age * ZONE_V); let best = null, bs = -1e9;
+        for (let k = 0; k < 10; k++) { const a = Math.random() * 7, d = Math.sqrt(Math.random()) * r, x = Math.floor(K.x + Math.cos(a) * d), y = Math.floor(K.y + Math.sin(a) * d); if (!cqCellFree(x, y)) continue; const s = (M.dark[y * W + x] ? 6 : 0) - Math.hypot(x - c.x, y - c.y) * 0.15 + Math.random() * 3; if (s > bs) { bs = s; best = [x + 0.5, y + 0.5]; } }
+        if (best) go(G, c, best[0], best[1]);
+      }
+      return;
     }
-    // telecamera spenta vicina: la accendo
-    { const i = camAt(G, c); if (i >= 0) { doAct(G, c, { k: 'cam' }); return; } }
-    { let bi = -1, bd2 = 9; M.cams.forEach((k, i) => { if (G.cam[i] > G.time + 10) return; const d = Math.hypot(k.x + 0.5 - c.x, k.y + 0.5 - c.y); if (d < bd2) { bd2 = d; bi = i; } }); if (bi >= 0 && Math.random() < 0.5) { const k = M.cams[bi]; go(G, c, k.x + 0.5, k.y + 1.5); return; } }
     // ronda: in giro per la citta', meta' delle volte vicino a un colpo ancora da fare
     if (!c.path.length || Math.random() < 0.02) {
       const live = M.loot.filter((l, i) => G.rob[i] < 0); const l = live.length ? live[Math.floor(Math.random() * live.length)] : M.loot[0];
@@ -709,22 +709,26 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     }
   }
 
+
   // ======================= IL GIOCO NEL MOTORE =======================
   function setup(G) {
-    G.need = G.chars.length >= 8 ? 5 : 3; G.rob = MP().loot.map(() => -1); G.robD = null; G.nrob = 0; G.open = 0; G.ei = G.ei || 0; G.cam = MP().cams.map(() => 0); G.camCd = MP().cams.map(() => 0); G.camD = null;
-    G.du = null; G.duN = 0; G.duLast = null; G.myTap = 0; G.myTapId = 0; G.ugN = 0; G.lg = []; G.lgN = 0; G.esc = null; G.kn = null; G.lf = {}; G.pg = []; G.al = {}; G.fk = [];
-    G.nf = G.opt.flash || 30; G.lastRob = 0; G.tight = false; G.left = G.opt.time || 420; G.fl = 0;
+    G.need = G.chars.length >= 8 ? 5 : 3; G.rob = MP().loot.map(() => -1); G.robD = null; G.nrob = 0; G.open = 0; G.ei = G.ei || 0;
+    G.du = null; G.duN = 0; G.duLast = null; G.myTap = 0; G.myTapId = 0; G.ugN = 0; G.lg = []; G.lgN = 0; G.esc = null; G.kn = null; G.lf = {}; G.tb = []; G.pg = []; G.al = {}; G.fk = [];
+    G.nf = G.opt.flash || 45; G.left = G.opt.time || 420; G.fl = 0;
   }
+  // angolo della torcia sullo schermo (il mondo e' girato di 45 gradi e schiacciato)
+  const scrA = a => { const c = Math.cos(a), s = Math.sin(a); return Math.atan2((c + s) / 2, c - s); };
+  const zoneR = (G, t) => Math.min(ZONE_MAX, 2 + (G.time - t) * ZONE_V);
   const MODE = CQ_MODES.misterx = {
     n: 'Mister X',
-    desc: '🎩 Una città di notte, diversa ogni volta. <b>Mister X</b> si vede solo da vicino o sotto un lampione: ogni tanto la sua posizione <b>lampeggia</b> 📸 a tutti. Deve fare <b>3 colpi</b> 💰 (con due Mister X 5 in tutto) (banca, gioielleria, museo…: suona l\'allarme) e poi <b>scappare</b> al porto o all\'eliporto. Si <b>traveste</b> 🎭 da passante in mezzo alla folla, scende nei <b>tombini</b> 🕳️, prende la <b>metro</b> 🚇 (ma il biglietto resta timbrato) e ha lo <b>scatto</b> 💨. I <b>detective</b> 🕵️ accendono le <b>telecamere</b> 📹 agli incroci e lo prendono col pulsante <b>🔗 Cattura</b>: parte il <b>duello delle manette</b>, vince chi tocca più veloce! Attenti ai passanti innocenti. A tempo scaduto vince Mister X.',
+    desc: '🎩 Una città di notte, diversa ogni volta. <b>Mister X</b> è invisibile: si vede solo vicinissimo, sotto un lampione o nella <b>torcia</b> 🔦 dei detective. Ogni 45 secondi <b>lampeggia</b> 📸 a tutti; poi resta un <b>cerchio</b> sulla mappa (dove può essere) che si allarga, e il <b>taccuino</b> dice cosa ha fatto (🚇 metro, 🎭 travestimento, 💰 colpo) ma non dove. Deve fare <b>3 colpi</b> 💰 (con due Mister X 5 in tutto: l\'allarme suona e rivela il negozio) e poi <b>scappare</b> al porto o all\'eliporto. Ha 2 <b>travestimenti</b> 🎭 da passante (25 s) e la <b>metro</b> 🚇. Nelle <b>vie buie</b> non si vede niente. I <b>detective</b> 🕵️ lo prendono col pulsante <b>🔗 Cattura</b>: <b>duello delle manette</b>, vince chi tocca più veloce! Attenti ai passanti innocenti. A tempo scaduto vince Mister X.',
     maps: [['citta', 'Città di notte']],
-    def: { time: 420, flash: 30, mx: 'r', map: 'citta', n: 8, fill: true },
+    def: { time: 420, flash: 45, mx: 'r', map: 'citta', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Chi è Mister X</div>${seg('mx', [['r', 'A caso'], ['p', cq.net ? 'Una persona' : 'Io'], ['c', 'Il computer']], o.mx || 'r')}</div>
-      <div class="row"><div class="lbl">Mister X lampeggia ogni</div>${seg('flash', [[20, '20 s'], [30, '30 s'], [45, '45 s']], o.flash || 30)}</div>
+      <div class="row"><div class="lbl">Mister X lampeggia ogni</div>${seg('flash', [[30, '30 s'], [45, '45 s'], [60, '60 s']], o.flash || 45)}</div>
       <div class="row"><div class="lbl">Durata</div>${seg('time', [[300, '5:00'], [420, '7:00'], [600, '10:00']], o.time || 420)}</div>
       <div class="hint">Con 8 o più personaggi i Mister X sono due.</div>`,
-    read: d => ({ mx: d.get('mx') || 'r', flash: +d.get('flash') || 30, time: +d.get('time') || 420 }),
+    read: d => ({ mx: d.get('mx') || 'r', flash: +d.get('flash') || 45, time: +d.get('time') || 420 }),
     start(G) {
       G.ei = Math.random() < 0.5 ? 0 : 1; setup(G);
       const nx = G.chars.length >= 8 ? 2 : 1, hum = G.chars.filter(c => !c.bot), bots = G.chars.filter(c => c.bot);
@@ -733,7 +737,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       const M = MP(), ps = M.pstart; const spots = [];
       for (const c of G.chars) {
         const isX = X.includes(c);
-        Object.assign(c, { mx: isX, t: isX ? -1 : 0, dg: 0, dgL: Math.floor(Math.random() * 10), dgc: 0, sp: 0, spc: 0, op: null, ug: null, inv: 0, stun: 0, out: 0, ar: 0, rb: 0, fk: 0, ca: 0, mr: 0, tb: 0, dw: 0, dl: 0, dn: 0, ch: 0, cc: 0, spN: 0, path: [], dname: isX ? '🎩 ' + c.name : null, tr: isX ? 6.6 + Math.random() * 1.0 : 4.0 + Math.random() * 0.8 });
+        Object.assign(c, { mx: isX, t: isX ? -1 : 0, dg: 0, dgN: DG_N, dgE: 0, dgL: Math.floor(Math.random() * 10), op: null, ug: null, inv: 0, stun: 0, out: 0, ar: 0, rb: 0, fk: 0, mr: 0, dw: 0, dl: 0, dn: 0, cc: 0, path: [], dname: isX ? '🎩 ' + c.name : null, tr: isX ? 6.6 + Math.random() * 1.0 : 4.0 + Math.random() * 0.8 });
         let s;
         if (isX) { for (let k = 0; k < 60; k++) { const f = cqModeFree(80); if (f && Math.hypot(f.x - ps.x, f.y - ps.y) > 34 && spots.every(q => Math.hypot(q.x - f.x, q.y - f.y) > 25) && cqPath(f.x, f.y, ps.x, ps.y).length) { s = f; break; } } if (!s) s = SQ.spawn(M.metro[0] ? { x: M.metro[0].sx, y: M.metro[0].sy } : ps, 6); spots.push(s); }
         else s = SQ.spawn(ps, 5);
@@ -742,25 +746,26 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     },
     gstart(G) { setup(G); },
     intro: G => G.me.mx ? '🎩 Sei Mister X: ' + G.need + ' colpi' + (G.need > 3 ? ' (in due)' : '') + ' e poi la fuga… o resisti fino alla fine!' : '🕵️ Sei un detective: trovate Mister X e ammanettatelo!',
+    // caccia lenta: tutti all'80%; Mister X travestito cammina come un passante
     speed(c) {
       const G = cq.g; if (!G || !G.rob) return 1; if (!c.alive) return 1.1;
       if (c.out || c.op || ugOn(G, c) || inDuel(G, c) || (c.stun || 0) > G.time) return 0;
-      if (!c.mx) return 1;
-      const s = (c.sp || 0) > G.time ? SPR_K : 1; return c.dg ? Math.min(s, DG_SPD) : s;
+      return SLOW * (c.mx && c.dg ? DG_SPD : 1);
     },
     big(G) {
       const me = G.me; if (!G.rob) return '';
       if (G.esc) { const A = byId(G, G.esc.id); return '🏁 ' + (A ? A.name : '') + ' scappa con il bottino!'; }
       if (me.out) return me.mx ? '🚔 Sei stato ammanettato: guardi la partita.' : '';
       if (G.du && (G.du.x === me.id || G.du.ds.includes(me.id))) return me.mx ? '💪 DIVINCOLATI! Tocca più veloce che puoi!' : '🔗 STRINGI LE MANETTE! Tocca più veloce che puoi!';
-      if (ugOn(G, me)) return me.ug.k === 't' ? '🕳️ Nelle fogne… esci tra ' + Math.ceil(me.ug.e - G.time) : '🚇 In metro verso ' + MP().metro[me.ug.d].n + '… ' + Math.ceil(me.ug.e - G.time);
+      if (ugOn(G, me)) return '🚇 In metro verso ' + MP().metro[me.ug.d].n + '… ' + Math.ceil(me.ug.e - G.time);
       if ((me.stun || 0) > G.time) return me.mx ? '' : (me.fk && G.fk.length && G.time - G.fk[G.fk.length - 1].t < FAKE_T + 0.2 ? '🤦 Era un passante! Fermo per un po\'…' : '😵 Stordito: Mister X ti è sfuggito!');
       if (me.op) return me.op.k === 'rob' ? '💰 Stai rubando… ' + Math.round(Math.min(1, (G.time - me.op.t0) / ROB_T) * 100) + '% (resta fermo!)' : '🎭 Ti stai travestendo…';
+      const fl = G.nf - G.time;
+      if (fl <= 5 && fl > 0 && !G.open) return me.mx ? '📸 Tra ' + Math.ceil(fl) + '… tutti vedranno dove sei!' : '📸 Mister X si mostra tra ' + Math.ceil(fl) + '…';
       if (me.mx) {
-        const fl = G.nf - G.time; if (fl <= 5 && fl > 0) return '📸 Tra ' + Math.ceil(fl) + ' secondi tutti vedranno dove sei!';
         if ((me.inv || 0) > G.time) return '🛡️ Intoccabile per ' + Math.ceil(me.inv - G.time) + ' s: scappa!';
         if (G.open) return '🏁 Scappa verso ' + MP().EP[G.ei].n + '!';
-        if (me.dg) return '🎭 Travestito: cammini come un passante. Scatto, furti e tombini ti scoprono.';
+        if (me.dg) return '🎭 Travestito ancora ' + Math.ceil(me.dgE - G.time) + ' s: cammini come un passante.';
         return '';
       }
       if (G.open) return '🚨 Mister X scappa verso ' + MP().EP[G.ei].n + ': fermatelo!';
@@ -768,29 +773,34 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     },
     hud(G) {
       const me = G.me; if (!G.rob) return '🎩 Mister X';
-      const who = me.mx ? '<b style="color:' + XC + '">🎩 Mister X</b>' : '<b style="color:' + DC + '">🕵️ Detective</b>';
+      const who = me.mx ? '<b style="color:' + XC + '">🎩 Mister X</b> · 🎭 ' + (me.dgN || 0) : '<b style="color:' + DC + '">🕵️ Detective</b>';
       return `${who} · 💰 ${G.nrob}/${G.need} · 📸 ${mmss(Math.max(0, G.nf - G.time))} · ⏳ ${mmss(Math.max(0, G.left))}`;
     },
-    // Mister X: i detective lo vedono solo da vicino o sotto un lampione (travestito si vede, ma come un passante qualsiasi)
+    // Mister X per i detective: si vede solo vicinissimo, nella torcia (mia o di un compagno) o sotto un lampione.
+    // Travestito non si disegna come personaggio ma tra i passanti (M.extras): cosi' si comporta proprio come loro anche al buio.
     hide: c => {
       const G = cq.g; if (!G.rob) return false; if (c.out || ugOn(G, c)) return true;
-      const me = G.me; if (c === me || me.mx || me.out || !me.alive) return false;
-      if (!c.mx || c.dg || inDuel(G, c)) return false;
-      if (G.fx && performance.now() - G.fx < FL_SHOW * 1000) return false;
-      const d = Math.hypot(c.x - cq.x, c.y - cq.y); return !(d < VIS_X || (litAt(c.x, c.y) && d < LIT_X));
+      const me = G.me; if (c === me || me.mx || me.out || !me.alive || !c.mx) return false;
+      if (c.dg) return true;
+      if (inDuel(G, c) || (G.fx && performance.now() - G.fx < FL_SHOW * 1000)) return false;
+      const d = Math.hypot(c.x - cq.x, c.y - cq.y); if (d < VIS_X) return false;
+      if (dets(G).some(o => inTorch(o, c.x, c.y))) return false;
+      return !(litAt(c.x, c.y) && d < LIT_X && los(cq.x, cq.y, c.x, c.y));
     },
     nameCol: c => c.mx ? XC : DC,
-    // Mister X disegnato apposta; travestito = uno dei passanti, senza nome (per lui stesso col nome, per riconoscersi)
+    // Mister X disegnato apposta; travestito (lo vede cosi' solo lui e l'altro Mister X) = uno dei passanti, col nome per riconoscersi
     draw: c => {
       const G = cq.g; if (!c.mx || !c.alive || !G || !G.rob) return null;
-      if (c.dg) { const k = c === G.me || G.me.mx ? 'dgM' : 'dgA'; if (!c[k] || c[k].l !== c.dgL) { const L2 = looks()[c.dgL % 10], f = (g, X, Y, TW, L, w, fc) => cqPlayer(g, X, Y, TW, L2, w, fc); f.l = c.dgL; if (k === 'dgA') f.anon = true; c[k] = f; } return c[k]; }
+      if (c.dg) { if (!c.dgM || c.dgM.l !== c.dgL) { const L2 = looks()[c.dgL % 10], f = (g, X, Y, TW, L, w, fc) => cqPlayer(g, X, Y, TW, L2, w, fc); f.l = c.dgL; c.dgM = f; } return c.dgM; }
       if (!c.__dr) { c.__dr = (g, X, Y, TW, L, w, f) => mrx(g, X, Y, TW, w, f, (c.rb || 0) > 0); c.__dr.top = mrxTop; }
       return c.__dr;
     },
-    // la folla di passanti (motore: M.extras)
+    // la folla di passanti (motore: M.extras): sempre disegnati (il buio li scurisce, non spariscono); per i detective anche Mister X travestito
     extras(G) {
       if (!G.rob) return [];
-      const out = [], Ls = looks(); for (const q of passers(G)) { if (Math.abs(q.x - cq.x) > 16 || Math.abs(q.y - cq.y) > 16) continue; out.push({ x: q.x, y: q.y, L: Ls[q.l], w: q.w, f: q.f, name: null }); }
+      const out = [], Ls = looks(), near = (x, y) => Math.abs(x - cq.x) < 16 && Math.abs(y - cq.y) < 16;
+      for (const q of passers(G)) if (near(q.x, q.y)) out.push({ x: q.x, y: q.y, L: Ls[q.l], w: q.w, f: q.f, name: null, all: true });
+      if (!G.me.mx) for (const X of xs(G)) if (X.dg && !ugOn(G, X) && near(X.x, X.y)) out.push({ x: X.x, y: X.y, L: Ls[X.dgL % 10], w: X.walk || 0, f: X.face || 1, name: null, all: true });
       return out;
     },
     btn(G) { const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
@@ -805,25 +815,28 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       else if (o.k === 'a') doAct(G, c, { k: o.a, i: o.i });
     },
     voice: (G, c) => !c.alive || c.out ? 0 : !!c.mx === !!G.me.mx ? 1 : null,
-    // su ogni telefono: passanti, uscita dalle fogne/metro, vetrine, suoni, pulsanti del duello
+    // su ogni telefono: passanti, direzione delle torce (dal movimento), uscita dalla metro, vetrine, suoni, tocchi del duello
     local(G, dt) {
       const me = G.me; if (!G.rob) return;
       G.pp = null; passers(G);
-      if (me.ug && G.time >= me.ug.e - 0.03 && me.ugN !== me.ug.n) { me.ugN = me.ug.n; cq.x = me.ug.x; cq.y = me.ug.y; if (!cqFree(cq.x, cq.y)) { const q = cqSpot(Math.floor(cq.x), Math.floor(cq.y)); cq.x = q.x; cq.y = q.y; } beep(me.ug.k === 't' ? 300 : 600, 0.1, 0.04); }
+      for (const c of G.chars) { if (c === me) continue; if (c.px != null) { const dx = c.x - c.px, dy = c.y - c.py; if (Math.hypot(dx, dy) > 0.02) c.ta = Math.atan2(dy, dx); } c.px = c.x; c.py = c.y; }
+      if (me.ug && G.time >= me.ug.e - 0.03 && me.ugN !== me.ug.n) { me.ugN = me.ug.n; cq.x = me.ug.x; cq.y = me.ug.y; if (!cqFree(cq.x, cq.y)) { const q = cqSpot(Math.floor(cq.x), Math.floor(cq.y)); cq.x = q.x; cq.y = q.y; } beep(600, 0.1, 0.04); }
       if (!G.robD) G.robD = G.rob.map(() => -1);
       G.rob.forEach((v, i) => { if (G.robD[i] !== v) { G.robD[i] = v; const l = MP().loot[i]; cqBgCell(l.x, l.y, 1); } });
       // duello: i miei tocchi (l'host li conta subito, gli ospiti li mandano ogni 0,15 s)
       if (G.du && G.myTapId !== G.du.id) { G.myTapId = G.du.id; G.myTap = 0; G.tpS = 0; }
       if (G.du && (G.du.x === me.id || G.du.ds.includes(me.id))) {
         if (!G.guest && !me.bot) G.du.n[me.id] = G.myTap;
-        else if ((G.tpT = (G.tpT || 0) - dt) <= 0 && G.tpS !== G.myTap) { G.tpT = 0.15; G.tpS = G.myTap; cqNetSend({ k: 'tp', d: G.du.id, n: G.myTap }); }
+        else if (G.guest && (G.tpT = (G.tpT || 0) - dt) <= 0 && G.tpS !== G.myTap) { G.tpT = 0.15; G.tpS = G.myTap; cqNetSend({ k: 'tp', d: G.du.id, n: G.myTap }); }
       }
-      // Mister X: conto alla rovescia del lampeggio, battito del cuore se un detective e' vicino
+      // TICCHETTIO negli ultimi 10 s prima del lampeggio (per tutti: sale l'ansia), piu' forte alla fine
+      const fl = G.nf - G.time;
+      if (!G.open && fl <= TICK + 0.02 && fl > 0 && Math.ceil(fl) !== G.flB) { G.flB = Math.ceil(fl); const k = 1 - fl / TICK; beep(fl <= 3 ? 1100 : 760, 0.05, 0.012 + 0.03 * k); if (fl <= 3) beep(1100, 0.04, 0.02, 0.5); }
+      // Mister X: battito del cuore se un detective e' vicino
       G.hb = 0;
       if (me.mx && me.alive && !me.out) {
-        const fl = G.nf - G.time; if (fl <= 3.05 && fl > 0 && Math.ceil(fl) !== G.flB) { G.flB = Math.ceil(fl); beep(880, 0.06, 0.03); }
         const dn = dets(G).reduce((m, d) => Math.min(m, Math.hypot(d.x - cq.x, d.y - cq.y)), 99);
-        if (dn < 6) { G.hb = 1 - dn / 6; if ((G.hbT = (G.hbT || 0) - dt) <= 0) { G.hbT = 0.4 + 0.45 * (dn / 6); G.hbP = performance.now(); const v = 0.05 + 0.1 * G.hb; beep(58, 0.11, v, 0, 'sine'); beep(50, 0.12, v * 0.8, 0.15, 'sine'); } }
+        if (dn < 7) { G.hb = 1 - dn / 7; if ((G.hbT = (G.hbT || 0) - dt) <= 0) { G.hbT = 0.4 + 0.5 * (dn / 7); G.hbP = performance.now(); const v = 0.05 + 0.1 * G.hb; beep(58, 0.11, v, 0, 'sine'); beep(50, 0.12, v * 0.8, 0.15, 'sine'); } }
       }
       // sirene lontane ogni tanto (atmosfera)
       if ((G.snT = G.snT == null ? 25 : G.snT - dt) <= 0) { G.snT = 30 + Math.random() * 30; for (let i = 0; i < 4; i++) beep(i % 2 ? 620 : 780, 0.35, 0.008, i * 0.35, 'triangle'); }
@@ -832,30 +845,28 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     tick(G, dt) {
       G.left -= dt;
       G.pp = null; passers(G);
-      // LAMPEGGIO (il doppio delle volte se non ruba da troppo)
-      if (!G.open && !G.tight && G.time - G.lastRob > IDLE) { G.tight = true; say(G, 'tight', {}); }
+      // LAMPEGGIO
       if (G.time >= G.nf) {
         const f = xs(G).map(X => { const p = P(X); know(G, p.x, p.y); return [X.id, Math.round(p.x * 10) / 10, Math.round(p.y * 10) / 10]; });
         if (f.length) say(G, 'flash', { f }); G.fl++;
-        G.nf += (G.opt.flash || 30) * (G.tight && !G.open ? 0.5 : 1);
+        G.nf += G.opt.flash || 45;
       }
-      // telecamere accese: vedono Mister X (anche travestito) se passa davanti
-      MP().cams.forEach((k, i) => { if (G.cam[i] <= G.time || G.camCd[i] > G.time) return; for (const X of xs(G)) { if (ugOn(G, X)) continue; const p = P(X); if (Math.hypot(p.x - k.x - 0.5, p.y - k.y - 0.5) < CAM_SEE && los(k.x + 0.5, k.y + 0.5, p.x, p.y)) { G.camCd[i] = G.time + CAM_CD; X.ch = (X.ch || 0) + 1; know(G, p.x, p.y); say(G, 'cam', { a: X.id, i, x: Math.round(p.x * 10) / 10, y: Math.round(p.y * 10) / 10, dg: X.dg ? 1 : 0 }); break; } } });
-      // operazioni in corso (furto 3 s, travestimento 1,5 s): ci si deve stare fermi
+      // operazioni in corso (furto 6 s, travestimento 1,5 s): ci si deve stare fermi; il travestimento finisce dopo DG_D s
       for (const c of G.chars) {
+        if (c.dg && G.time >= c.dgE) breakDg(G, c, 'time');
         if (!c.op) continue; const p = P(c);
         if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.5) { c.op = null; continue; }
         if (c.op.k === 'rob' && !c.op.al && G.time - c.op.t0 >= ALARM_T) { c.op.al = 1; const l = MP().loot[c.op.i]; know(G, l.sx, l.sy); say(G, 'alarm', { a: c.id, i: c.op.i }); }
         if (c.op.k === 'rob' && G.time - c.op.t0 >= ROB_T) robDone(G, c);
-        else if (c.op.k === 'dg' && G.time - c.op.t0 >= DG_T) { c.op = null; c.dg = 1; c.dgL = Math.floor(Math.random() * 10); say(G, 'dg', { a: c.id }); }
+        else if (c.op.k === 'dg' && G.time - c.op.t0 >= DG_T) { c.op = null; if ((c.dgN || 0) > 0) { c.dg = 1; c.dgN--; c.dgE = G.time + DG_D; c.dgL = Math.floor(Math.random() * 10); say(G, 'dg', { a: c.id }); } }
       }
-      // uscita dalle fogne / dalla metro (i computer li sposto io; le persone si spostano da sole sul loro telefono)
+      // uscita dalla metro (i computer li sposto io; le persone si spostano da sole sul loro telefono)
       for (const c of G.chars) {
         if (!c.ug) continue;
-        if (G.time >= c.ug.e && !c.ugX) { c.ugX = 1; if (c.bot || c === G.me) { const q = cqFree(c.ug.x, c.ug.y) ? { x: c.ug.x, y: c.ug.y } : cqSpot(Math.floor(c.ug.x), Math.floor(c.ug.y)); c.x = q.x; c.y = q.y; if (c === G.me) { cq.x = q.x; cq.y = q.y; G.me.ugN = c.ug.n; } } if (c.ug.k === 't') { say(G, 'clang2', { a: c.id, x: c.ug.x, y: c.ug.y }); if (c.mx) know(G, c.ug.x, c.ug.y); } }
+        if (G.time >= c.ug.e && !c.ugX) { c.ugX = 1; if (c.bot || c === G.me) { const q = cqFree(c.ug.x, c.ug.y) ? { x: c.ug.x, y: c.ug.y } : cqSpot(Math.floor(c.ug.x), Math.floor(c.ug.y)); c.x = q.x; c.y = q.y; if (c === G.me) { cq.x = q.x; cq.y = q.y; G.me.ugN = c.ug.n; } } }
         if (G.time >= c.ug.e + 0.8) { c.ug = null; c.ugX = 0; }
       }
-      // duello: i computer toccano a ritmo medio, i detective del computer vicini si uniscono; finito -> risultato
+      // duello: i computer toccano a ritmo medio; finito -> risultato
       if (G.du) {
         const D = G.du;
         for (const c of G.chars) { if (!c.bot) continue; if (D.x === c.id || D.ds.includes(c.id)) D.n[c.id] = (D.n[c.id] || 0) + dt * c.tr * (0.85 + Math.random() * 0.3); }
@@ -869,14 +880,14 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
         if (!c.bot || !c.alive || c.out) continue;
         if (c.op || ugOn(G, c) || inDuel(G, c) || (c.stun || 0) > G.time) { c.path = []; c.walk = 0; continue; }
         if ((c.think -= dt) <= 0) { c.think = 0.3 + Math.random() * 0.2; if (c.mx) botX(G, c); else botD(G, c); }
-        cqModeStep(c, dt, (c.mx ? 0.93 : 0.86) * MODE.speed(c));
+        cqModeStep(c, dt, (c.mx ? 0.95 : 0.88) * MODE.speed(c));
       }
       if (!xs(G).length && !G.esc) { MODE.finish(G); return; }
       if (G.left <= 0) MODE.finish(G);
     },
     finish(G) {
       const name = c => c.name + (c === G.me ? ' (tu)' : '');
-      const line = c => [name(c), c.mx ? '— 🎩 Mister X · 💰 ' + (c.rb || 0) + ' colpi' + (c.dw ? ' · 💪 ' + c.dw + ' duelli vinti' : '') + (c.esc ? ' · 🏁 scappato' : c.ar ? ' · 🚔 preso' : '') : '— 🕵️ ' + (c.ar ? '🔗 ' + c.ar + ' arresti' : 'detective') + (c.ca ? ' · 📹 ' + c.ca : '') + (c.fk ? ' · 🤦 ' + c.fk + ' passanti' : '')];
+      const line = c => [name(c), c.mx ? '— 🎩 Mister X · 💰 ' + (c.rb || 0) + ' colpi' + (c.dw ? ' · 💪 ' + c.dw + ' duelli vinti' : '') + (c.esc ? ' · 🏁 scappato' : c.ar ? ' · 🚔 preso' : '') : '— 🕵️ ' + (c.ar ? '🔗 ' + c.ar + ' arresti' : 'detective') + (c.fk ? ' · 🤦 ' + c.fk + ' passanti' : '')];
       const X = G.chars.filter(c => c.mx), D = G.chars.filter(c => !c.mx);
       if (G.esc || xs(G).length) {
         const rank = [...X, ...D].map(line), A = G.esc ? byId(G, G.esc.id) : null;
@@ -886,74 +897,84 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
         cqModeEnd({ t: '🕵️ Vincono i detective!', why: (X.length > 1 ? 'I Mister X sono stati ammanettati.' : 'Mister X è stato ammanettato.') + funny(G, 'd'), win: D.map(c => c.id), rank });
       }
     },
-    // online: per ognuno (Mister X, travestito, operazione, scatto, fogne/metro, intoccabile, stordito, fuori, statistiche)
+    // online: per ognuno (Mister X, travestito, operazione, cariche e fine del travestimento, metro, intoccabile, stordito, fuori, statistiche)
     csnap: c => {
       const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10), u = c.ug;
-      return [c.mx ? 1 : 0, c.dg ? 1 : 0, c.dgL || 0, c.op ? (c.op.k === 'rob' ? 1 : 2) : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.op && c.op.i != null ? c.op.i : -1, r(c.sp || 0), r(c.spc || 0), r(c.dgc || 0),
+      return [c.mx ? 1 : 0, c.dg ? 1 : 0, c.dgL || 0, c.op ? (c.op.k === 'rob' ? 1 : 2) : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.op && c.op.i != null ? c.op.i : -1, c.dgN || 0, r(c.dgE || 0),
         u ? [Math.round((u.e - G.time) * 100) / 100, Math.round(u.x * 100) / 100, Math.round(u.y * 100) / 100, u.k, u.n, u.d] : 0, r(c.inv || 0), r(c.stun || 0), c.out ? 1 : 0, c.esc ? 1 : 0,
-        [c.rb || 0, c.fk || 0, c.ca || 0, c.mr || 0, c.tb || 0, c.dw || 0, c.dl || 0, c.ar || 0, c.ch || 0, c.dn || 0, c.spN || 0]];
+        [c.rb || 0, c.fk || 0, c.mr || 0, c.dw || 0, c.dl || 0, c.ar || 0, c.dn || 0]];
     },
     capply(G, c, a) {
       c.mx = !!a[0]; c.t = c.mx ? -1 : 0; c.dname = c.mx ? '🎩 ' + c.name : null;
       if (!(c === G.me && G.time < (c.dgH || 0))) c.dg = a[1]; c.dgL = a[2];
       c.op = a[3] ? { k: a[3] === 1 ? 'rob' : 'dg', t0: G.time - a[4], i: a[5] >= 0 ? a[5] : null, x: c === G.me ? cq.x : c.x, y: c === G.me ? cq.y : c.y } : null;
-      if (!(c === G.me && G.time < (c.spH || 0))) { c.sp = a[6] > 0 ? G.time + a[6] : 0; c.spc = a[7] > 0 ? G.time + a[7] : 0; }
-      c.dgc = a[8] > 0 ? G.time + a[8] : 0;
-      const u = a[9]; c.ug = u ? { e: G.time + u[0], x: u[1], y: u[2], k: u[3], n: u[4], d: u[5] } : null;
-      c.inv = a[10] > 0 ? G.time + a[10] : 0; c.stun = a[11] > 0 ? G.time + a[11] : 0; c.out = a[12]; c.esc = a[13];
-      [c.rb, c.fk, c.ca, c.mr, c.tb, c.dw, c.dl, c.ar, c.ch, c.dn, c.spN] = a[14];
+      c.dgN = a[6]; c.dgE = a[7] > 0 ? G.time + a[7] : 0;
+      const u = a[8]; c.ug = u ? { e: G.time + u[0], x: u[1], y: u[2], k: u[3], n: u[4], d: u[5] } : null;
+      c.inv = a[9] > 0 ? G.time + a[9] : 0; c.stun = a[10] > 0 ? G.time + a[10] : 0; c.out = a[11]; c.esc = a[12];
+      [c.rb, c.fk, c.mr, c.dw, c.dl, c.ar, c.dn] = a[13];
     },
     snap(G) {
       const D = G.du;
-      return { left: Math.round(G.left * 10) / 10, nf: Math.round((G.nf - G.time) * 10) / 10, rob: G.rob.map(v => v < 0 ? -1 : v), nr: G.nrob, op: G.open, ei: G.ei, tt: G.tight ? 1 : 0,
-        cam: G.cam.map(v => Math.max(0, Math.round(v - G.time))), du: D ? [D.id, D.x, D.ds, Math.round((D.e - G.time) * 100) / 100, D.ds.concat([D.x]).map(id => [id, Math.floor(D.n[id] || 0)])] : null,
+      return { left: Math.round(G.left * 10) / 10, nf: Math.round((G.nf - G.time) * 10) / 10, rob: G.rob.map(v => v < 0 ? -1 : v), nr: G.nrob, op: G.open, ei: G.ei,
+        du: D ? [D.id, D.x, D.ds, Math.round((D.e - G.time) * 100) / 100, D.ds.concat([D.x]).map(id => [id, Math.floor(D.n[id] || 0)])] : null,
         dl: G.duLast ? [G.duLast.x, G.duLast.sx, G.duLast.sd, Math.round((G.time - G.duLast.t) * 10) / 10] : null,
         esc: G.esc ? [G.esc.id, Math.round((G.esc.at - G.time) * 10) / 10, G.esc.md] : null, lg: G.lg };
     },
     apply(G, x) {
       if (!G.rob) return;
-      G.left = x.left; G.nf = G.time + x.nf; G.rob = x.rob; G.nrob = x.nr; G.open = x.op; G.ei = x.ei; G.tight = !!x.tt;
-      G.cam = x.cam.map(v => v > 0 ? G.time + v : 0);
+      G.left = x.left; G.nf = G.time + x.nf; G.rob = x.rob; G.nrob = x.nr; G.open = x.op; G.ei = x.ei;
       if (x.du) { const [id, X, ds, e, n] = x.du; if (!G.du || G.du.id !== id) G.du = { id, x: X, ds, e: G.time + e, n: {} }; G.du.ds = ds; G.du.e = G.time + e; for (const [k, v] of n) G.du.n[k] = v; } else G.du = null;
       G.duLast = x.dl ? { x: x.dl[0], sx: x.dl[1], sd: x.dl[2], t: G.time - x.dl[3] } : null;
       G.esc = x.esc ? { id: x.esc[0], at: G.time + x.esc[1], md: x.esc[2] } : null;
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
-    // buio: vedo intorno a me, i lampioni fanno pozze di luce (da lontano si vede chi c'e' sotto), le vetrine illuminate
+    // NOTTE VERA: vedo poco intorno a me, i lampioni fanno pozze di luce, le vie buie sono nere. Le TORCE dei detective (coni) si vedono da tutti:
+    // Mister X capisce da dove arrivano. Mister X vede i detective da lontano (le loro torce).
     night(G) {
       const me = G.me; if (!G.rob) return null;
-      if (!me.alive || me.out) return { a: 0.4, r: 8, lights: [], see: () => true };
-      const r = me.mx ? VIS_XR : VIS, lights = [[cq.x, cq.y, r, 0.9]], M = MP();
-      for (const [x, y] of M.lamps) if (Math.abs(x - cq.x) < 15 && Math.abs(y - cq.y) < 15) lights.push([x + 0.5, y + 0.3, LAMP_R, 0.85]);
-      M.loot.forEach((l, i) => { if (G.rob[i] < 0 && Math.abs(l.sx - cq.x) < 15 && Math.abs(l.sy - cq.y) < 15) lights.push([l.sx, l.sy - 0.4, 1.6, 0.6]); });
-      for (const m of M.metro) if (Math.abs(m.x - cq.x) < 15 && Math.abs(m.y - cq.y) < 15) lights.push([m.x + 0.95, m.y + 0.95, 1.4, 0.6]);
-      const mates = []; for (const c of G.chars) if (c !== me && c.alive && !c.out && !!c.mx === !!me.mx && !ugOn(G, c)) { mates.push(c); if (Math.abs(c.x - cq.x) < 16 && Math.abs(c.y - cq.y) < 16) lights.push([c.x, c.y, 2.6, 0.8]); }
-      return { a: 0.86, r, lights, see: (x, y) => { const d = Math.hypot(x - cq.x, y - cq.y); return d < r + 0.3 || (d < LIT_SEE && litAt(x, y)) || mates.some(c => Math.abs(c.x - x) < 0.01 && Math.abs(c.y - y) < 0.01); } };
+      if (!me.alive || me.out) return { a: 0.45, r: 8, lights: [], see: () => true };
+      const r = me.mx ? VIS_XR : VIS, lights = [[cq.x, cq.y, r, 0.9]], M = MP(), near = (x, y, k) => Math.abs(x - cq.x) < k && Math.abs(y - cq.y) < k;
+      for (const [x, y] of M.lamps) if (near(x, y, 15)) lights.push([x + 0.5, y + 0.3, LAMP_R, 0.85]);
+      M.loot.forEach((l, i) => { if (G.rob[i] < 0 && near(l.sx, l.sy, 15)) lights.push([l.sx, l.sy - 0.4, 1.6, 0.6]); });
+      for (const m of M.metro) if (near(m.x, m.y, 15)) lights.push([m.x + 0.95, m.y + 0.95, 1.4, 0.6]);
+      const D = dets(G).filter(c => !ugOn(G, c) && near(P(c).x, P(c).y, 20));
+      for (const c of D) { const p = P(c); lights.push([p.x, p.y, TORCH_L * 0.95, c === me ? 0.97 : 0.85, scrA(taOf(c)), TORCH_A * 1.25]); if (c !== me) lights.push([p.x, p.y, 1.4, 0.7]); }
+      const mates = G.chars.filter(c => c !== me && c.alive && !c.out && !!c.mx === !!me.mx && !ugOn(G, c));
+      for (const c of mates) if (me.mx && near(c.x, c.y, 16)) lights.push([c.x, c.y, 2.4, 0.75]);
+      return { a: 0.92, r, lights, see: (x, y) => {
+        const d = Math.hypot(x - cq.x, y - cq.y); if (d < r + 0.3 || (d < LIT_SEE && litAt(x, y))) return true;
+        if (mates.some(c => Math.abs(c.x - x) < 0.01 && Math.abs(c.y - y) < 0.01)) return true;
+        if (me.mx) return d < 11 && D.some(c => Math.abs(c.x - x) < 0.01 && Math.abs(c.y - y) < 0.01);   // i detective con la torcia si vedono da lontano
+        return D.some(c => inTorch(c, x, y));
+      } };
     },
     deco(g, c, X, Y, TW, G) {
-      const me = G.me, mine = !!c.mx === !!me.mx, showX = !c.mx || !c.dg || me.mx;
-      if (!showX) return;
+      const me = G.me;
+      if (c.mx && c.dg && !me.mx) return;
       if ((c.stun || 0) > G.time && c.alive) { const t = performance.now() / 300; g.font = Math.round(TW * 0.36) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('💫', X + Math.cos(t) * TW * 0.3, Y - TW * 1.85 + Math.sin(t) * 3); }
       if (c.op) { const k = Math.min(1, (G.time - c.op.t0) / (c.op.k === 'rob' ? ROB_T : DG_T)); g.strokeStyle = c.op.k === 'rob' ? '#f2c84a' : '#c8a0ff'; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 2.1, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke();
         if (c.op.k === 'dg') { const t = performance.now() / 1000; for (let i = 0; i < 6; i++) { const a = t * 3 + i, r = TW * (0.3 + 0.2 * Math.sin(t * 5 + i)); g.fillStyle = 'rgba(200,200,210,.55)'; g.beginPath(); g.arc(X + Math.cos(a) * r, Y - TW * 0.8 + Math.sin(a) * r * 0.6, TW * 0.16, 0, 7); g.fill(); } } }
       if ((c.inv || 0) > G.time && c.alive) { g.strokeStyle = 'rgba(255,220,120,.85)'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, Y - TW * 0.7, TW * 0.5, TW * 0.95, 0, 0, 7); g.stroke(); }
-      if (c.mx && (c.sp || 0) > G.time) { g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 2; const fc = c === me ? cq.face : c.face; for (let i = 0; i < 3; i++) { const yy = Y - TW * (0.4 + i * 0.4); g.beginPath(); g.moveTo(X - fc * TW * 0.5, yy); g.lineTo(X - fc * TW * 1.1, yy); g.stroke(); } }
-      void mine;
     },
     over(g, G, sx, sy, TW) {
       if (!G.rob) return;
       const me = G.me, W2 = cq.w, H2 = cq.h, now = performance.now() / 1000, M = MP(), ZU = TW * 0.575, isX = me.mx;
       const near = (x, y, r) => Math.abs(x - cq.x) < r && Math.abs(y - cq.y) < r;
-      // chi e' dietro a un palazzo: sagoma in trasparenza (io, i miei compagni, chi vedo)
       silhouettes(g, G, sx, sy, TW);
-      // telecamere accese: lucina rossa che lampeggia
-      M.cams.forEach((k, i) => { if (G.cam[i] <= G.time || !near(k.x, k.y, 16)) return; const X = sx(k.x + 0.2, k.y + 0.32), Y = sy(k.x + 0.2, k.y + 0.32) - 1.86 * ZU, on = (now * 2 | 0) % 2 === 0; g.fillStyle = on ? '#ff2a2a' : '#7a1a1a'; g.beginPath(); g.arc(X, Y, 3.5, 0, 7); g.fill(); if (on) { g.fillStyle = 'rgba(255,40,40,.25)'; g.beginPath(); g.arc(X, Y, 9, 0, 7); g.fill(); }
-        if (!isX && near(k.x, k.y, 9)) { g.strokeStyle = 'rgba(255,60,60,.18)'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(sx(k.x + 0.5, k.y + 0.5), sy(k.x + 0.5, k.y + 0.5), CAM_SEE * TW * 0.707, CAM_SEE * TW * 0.354, 0, 0, 7); g.stroke(); } });
+      // la ZONA dove puo' essere Mister X (per tutti: anche lui sa cosa sanno i detective) e, dopo la metro, intorno alle fermate
+      for (const id in G.lf) {
+        const f = G.lf[id], X = byId(G, +id); if (!X || X.out) continue;
+        const ring = (x, y, r, col) => { const cx = sx(x, y), cy = sy(x, y); g.setLineDash([6, 6]); g.strokeStyle = col; g.lineWidth = 2; g.beginPath(); g.ellipse(cx, cy, r * TW * 0.707, r * TW * 0.354, 0, 0, 7); g.stroke(); g.setLineDash([]); };
+        const r = zoneR(G, f.t), al = isX ? 0.25 : 0.55;
+        if (Math.abs(f.x - cq.x) < r + 16 && Math.abs(f.y - cq.y) < r + 16) ring(f.x, f.y, r, 'rgba(255,216,74,' + al + ')');
+        if (near(f.x, f.y, 16)) { g.globalAlpha = al + 0.2; g.font = Math.round(TW * 0.5) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('❓', sx(f.x, f.y), sy(f.x, f.y) - TW * 0.6); g.globalAlpha = 1; }
+        if (f.m) { const rm = Math.min(ZONE_MAX, 1.5 + (G.time - f.m) * ZONE_V); for (const m of M.metro) if (near(m.sx, m.sy, rm + 16)) ring(m.sx, m.sy, rm, 'rgba(120,200,255,' + al + ')'); }
+      }
       // allarme dei negozi svaligiati: luce rossa e blu che gira per 25 s
       for (const i in G.al) { const l = M.loot[i], a = G.time - G.al[i]; if (a > 25 || !near(l.x, l.y, 16)) continue; const X = sx(l.sx, l.sy), Y = sy(l.sx, l.sy) - 1.2 * ZU, c = (now * 4 | 0) % 2 ? '#ff2a2a' : '#2a6aff'; g.fillStyle = c; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); g.globalAlpha = 0.25; g.beginPath(); g.arc(X, Y, 16 + 4 * Math.sin(now * 8), 0, 7); g.fill(); g.globalAlpha = 1; }
       // passante ammanettato per sbaglio: faccina arrabbiata sopra la testa
       for (const f of G.fk) { const q = passers(G)[f.p]; if (!q || !near(q.x, q.y, 14)) continue; g.font = Math.round(TW * 0.45) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('😠', sx(q.x, q.y), sy(q.x, q.y) - TW * 2.2 - 6 * Math.sin((G.time - f.t) * 6)); }
-      // LAMPEGGIO: colonna di luce sul punto di Mister X e cerchio che si allarga (per tutti), freccia sul bordo
+      // LAMPEGGIO: colonna di luce sul punto di Mister X e cerchio che si allarga, freccia sul bordo
       if (G.fx && performance.now() - G.fx < FL_SHOW * 1000 + 600) {
         const k = (performance.now() - G.fx) / (FL_SHOW * 1000 + 600);
         for (const id in G.lf) { const f = G.lf[id]; if (G.time - f.t > 3) continue; const X = sx(f.x, f.y), Y = sy(f.x, f.y), a = Math.max(0, 1 - k);
@@ -962,23 +983,34 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
           if (!isX) SQ.edge(g, X, Y - TW, W2, H2, '📸', '#ffd84a'); }
         if (k < 0.15) { g.fillStyle = 'rgba(255,255,255,' + (0.35 * (1 - k / 0.15)) + ')'; g.fillRect(0, 0, W2, H2); }
       }
-      // per i detective: ultimo lampeggio (punto interrogativo che sbiadisce) e segnalazioni fresche (allarme, telecamera, tombino, biglietto)
-      if (!isX) {
-        for (const id in G.lf) { const f = G.lf[id], a = G.time - f.t, per = (G.opt.flash || 30); if (a > per || !near(f.x, f.y, 18)) continue; const X = sx(f.x, f.y), Y = sy(f.x, f.y), al = 0.7 * (1 - a / per); g.setLineDash([5, 5]); g.strokeStyle = 'rgba(255,216,74,' + al + ')'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, Y, TW * (0.6 + a * 0.12), TW * (0.3 + a * 0.06), 0, 0, 7); g.stroke(); g.setLineDash([]); g.globalAlpha = al; g.font = Math.round(TW * 0.5) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('❓', X, Y - TW * 0.6); g.globalAlpha = 1; }
-        for (const q of G.pg) { const X = sx(q.x, q.y), Y = sy(q.x, q.y), k = ((G.time - q.t) % 1), col = q.k === 'r' ? '255,60,50' : q.k === 'c' ? '255,90,90' : q.k === 't' ? '200,200,120' : q.k === 'm' ? '120,200,255' : q.k === 'd' ? '120,180,255' : '255,216,74'; g.strokeStyle = 'rgba(' + col + ',' + (1 - k) + ')'; g.lineWidth = 3; g.beginPath(); g.ellipse(X, Y, TW * (0.4 + k * 1.6), TW * (0.2 + k * 0.8), 0, 0, 7); g.stroke(); SQ.edge(g, X, Y - TW, W2, H2, { r: '🚨', c: '📹', t: '🕳️', m: '🎫', d: '🔗', f: '📸' }[q.k], 'rgb(' + col + ')'); }
-      }
+      // per i detective: allarme in corso e duello di un compagno (freccia sul bordo)
+      if (!isX) for (const q of G.pg) { const X = sx(q.x, q.y), Y = sy(q.x, q.y), k = ((G.time - q.t) % 1), col = q.k === 'r' ? '255,60,50' : '120,180,255'; g.strokeStyle = 'rgba(' + col + ',' + (1 - k) + ')'; g.lineWidth = 3; g.beginPath(); g.ellipse(X, Y, TW * (0.4 + k * 1.6), TW * (0.2 + k * 0.8), 0, 0, 7); g.stroke(); SQ.edge(g, X, Y - TW, W2, H2, q.k === 'r' ? '🚨' : '🔗', 'rgb(' + col + ')'); }
       // fuga aperta: fascio di luce sull'uscita e freccia sul bordo
       if (G.open) { const E = M.EP[G.ei], X = sx(E.x, E.y), Y = sy(E.x, E.y); const gr = g.createLinearGradient(X, Y - TW * 6, X, Y); gr.addColorStop(0, 'rgba(120,255,160,0)'); gr.addColorStop(1, 'rgba(120,255,160,' + (0.4 + 0.15 * Math.sin(now * 3)) + ')'); g.fillStyle = gr; g.fillRect(X - TW * 0.6, Y - TW * 6, TW * 1.2, TW * 6); SQ.edge(g, X, Y - TW, W2, H2, E.e, isX ? '#3fae5a' : '#ff5a4a'); }
-      // Mister X: dove sono i colpi da fare (frecce sul bordo verso il piu' vicino)
+      // Mister X: freccia sul bordo verso il colpo piu' vicino
       if (isX && me.alive && !me.out && !G.open) { let b = null, bd = 1e9; M.loot.forEach((l, i) => { if (G.rob[i] >= 0) return; const d = Math.hypot(l.sx - cq.x, l.sy - cq.y); if (d < bd) { bd = d; b = l; } }); if (b) SQ.edge(g, sx(b.sx, b.sy), sy(b.sx, b.sy) - TW, W2, H2, SHOPS[b.k][0], '#f2c84a'); }
-      // DUELLO: barra del tiro alla fune sopra i due (per tutti) e grande in alto per chi lotta
+      // DUELLO
       if (G.du) duelBar(g, G, sx, sy, TW, W2, H2);
       else if (G.duLast && G.time - G.duLast.t < 2) { const D = G.duLast, ok = D.sd > D.sx; g.font = '800 22px system-ui,sans-serif'; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = 'rgba(0,0,0,.7)'; const t = ok ? '🚔 PRESO! ' + D.sd + ' a ' + D.sx : '💪 LIBERO! ' + D.sx + ' a ' + D.sd; g.strokeText(t, W2 / 2, H2 * 0.3); g.fillStyle = ok ? '#8ab8ff' : '#ff8a70'; g.fillText(t, W2 / 2, H2 * 0.3); }
       // bordi rossi per Mister X quando un detective e' vicino
       if (G.hb > 0) { const k = Math.max(0, 1 - (performance.now() - (G.hbP || 0)) / 380), a = 0.15 + 0.35 * G.hb * (0.5 + 0.5 * k); const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.72); gr.addColorStop(0, 'rgba(160,0,0,0)'); gr.addColorStop(1, 'rgba(160,0,0,' + a + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2); }
+      // ultimi secondi prima del lampeggio: bordo bianco che pulsa a tempo col ticchettio
+      { const fl = G.nf - G.time; if (!G.open && fl <= TICK && fl > 0) { const k = 1 - (fl % 1), a = (1 - fl / TICK) * 0.35 * k; g.strokeStyle = 'rgba(255,240,200,' + a + ')'; g.lineWidth = 10; g.strokeRect(5, 5, W2 - 10, H2 - 10); } }
+      notebook(g, G);
       minimap(g, G, W2);
     }
   };
+  // TACCUINO: le ultime cose che ha fatto Mister X (📸 lampeggio, 🚨 allarme, 💰 colpo, 🚇 metro, 🎭 travestimento) con quanto tempo fa, senza dire dove
+  function notebook(g, G) {
+    if (G.big) return;
+    const L = G.tb.slice(-6), x0 = 10, y0 = 122, cw = 40, h = 46; if (!L.length) return;
+    const w = 8 + L.length * cw, fresh = G.tbT && performance.now() - G.tbT < 1200 ? 1 - (performance.now() - G.tbT) / 1200 : 0;
+    g.save(); g.fillStyle = 'rgba(16,18,26,.78)'; cqRR(g, x0, y0, w, h, 10); g.fill(); g.strokeStyle = fresh ? 'rgba(255,216,74,' + (0.4 + 0.6 * fresh) + ')' : 'rgba(255,255,255,.18)'; g.lineWidth = 1.5 + 2 * fresh; g.stroke();
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    L.forEach((q, i) => { const cx = x0 + 4 + cw * i + cw / 2; g.font = '20px system-ui,sans-serif'; g.fillText(q.e, cx, y0 + 17); g.font = '600 10px system-ui,sans-serif'; g.fillStyle = 'rgba(230,236,255,.85)'; g.fillText(mmss(Math.max(0, G.time - q.t)) + (q.n ? ' ' + q.n : ''), cx, y0 + 37); });
+    g.font = '600 9px system-ui,sans-serif'; g.fillStyle = 'rgba(230,236,255,.6)'; g.textAlign = 'left'; g.fillText('📓 taccuino di Mister X', x0 + 2, y0 + h + 9);
+    g.restore();
+  }
   // sagome dietro ai palazzi: chi sta dietro a una casella di palazzo piu' avanti (piu' vicina allo schermo) si ridisegna in trasparenza sopra
   function silhouettes(g, G, sx, sy, TW) {
     const me = G.me, M = MP(), ZU = TW * 0.575;
@@ -1031,14 +1063,12 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     const sz = big ? 13 : 10;
     for (const m of M.metro) { const [a, b] = P2(m.x + 0.5, m.y + 0.5); g.fillStyle = '#c8302a'; g.fillRect(a - sz / 2 + 1, b - sz / 2 + 1, sz - 2, sz - 2); g.fillStyle = '#fff'; g.font = '800 ' + (sz - 3) + 'px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('M', a, b + 0.5); }
     M.loot.forEach((l, i) => { if (G.rob[i] >= 0) { if (big) ico(l.sx, l.sy, '❌', sz - 2); return; } ico(l.sx, l.sy, SHOPS[l.k][0], sz); });
-    if (isX && big) for (const t of M.tombs) dot(t.x + 0.5, t.y + 0.5, 2.2, '#c8c8a0', '#000');
-    M.cams.forEach((k, i) => { if (G.cam[i] > G.time) dot(k.x + 0.5, k.y + 0.5, big ? 3.5 : 3, (now / 400 | 0) % 2 ? '#ff3a3a' : '#a01a1a', '#fff'); else if (!isX && big) dot(k.x + 0.5, k.y + 0.5, 2.5, '#666', '#aaa'); });
     if (M.police && big) ico(M.police.sx, M.police.sy, '🚓', sz);
     if (G.open) { const E = M.EP[G.ei]; ico(E.x, E.y, E.e, sz + 3); dot(E.x, E.y, sz * 0.9, 'rgba(120,255,160,' + (0.25 + 0.2 * Math.sin(now / 200)) + ')'); }
-    if (!isX) {
-      for (const id in G.lf) { const f = G.lf[id], a = G.time - f.t, per = G.opt.flash || 30; if (a > per) continue; dot(f.x, f.y, (big ? 7 : 5) + a * 0.1, 'rgba(255,216,74,' + (0.85 * (1 - a / per)) + ')', 'rgba(0,0,0,.6)'); ico(f.x, f.y, '?', sz - 1); }
-      for (const q of G.pg) dot(q.x, q.y, 4 + 3 * ((now / 300) % 1), q.k === 'r' || q.k === 'c' ? 'rgba(255,60,50,.85)' : q.k === 'm' ? 'rgba(120,200,255,.85)' : 'rgba(255,230,140,.85)', '#fff');
-    }
+    // la ZONA (cerchio che si allarga dall'ultimo punto noto; dopo la metro anche intorno alle fermate): la vedono tutti
+    const circ = (x, y, r, fill, line) => { const [a, b] = P2(x, y); g.beginPath(); g.arc(a, b, Math.max(3, r * s), 0, 7); g.fillStyle = fill; g.fill(); g.setLineDash([4, 3]); g.strokeStyle = line; g.lineWidth = 1.5; g.stroke(); g.setLineDash([]); };
+    for (const id in G.lf) { const f = G.lf[id], X = byId(G, +id); if (!X || X.out) continue; circ(f.x, f.y, zoneR(G, f.t), 'rgba(255,216,74,.14)', 'rgba(255,216,74,.85)'); ico(f.x, f.y, '?', sz - 1); if (f.m) { const rm = Math.min(ZONE_MAX, 1.5 + (G.time - f.m) * ZONE_V); for (const m of M.metro) circ(m.sx, m.sy, rm, 'rgba(120,200,255,.12)', 'rgba(120,200,255,.8)'); } }
+    if (!isX) for (const q of G.pg) dot(q.x, q.y, 4 + 3 * ((now / 300) % 1), q.k === 'r' ? 'rgba(255,60,50,.85)' : 'rgba(120,180,255,.85)', '#fff');
     for (const c of G.chars) if (c !== me && c.alive && !c.out && !!c.mx === !!isX && !ugOn(G, c)) dot(c.x, c.y, 3, isX ? XC : DC, '#000');
     const [mx, my] = P2(cq.x, cq.y), wx = cq.wdx || 1, wy = cq.wdy || 0, ang = Math.atan2((wx + wy) * 0.7071, (wx - wy) * 0.7071);
     g.translate(mx, my); g.rotate(ang); g.fillStyle = isX ? '#ff6a5a' : '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
@@ -1077,12 +1107,10 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       else if ((c.fk || 0) === 1) add(4, N(c) + ' ha ammanettato una vecchietta che passava di lì. Bel lavoro, sbirro.');
       if ((c.ar || 0) >= 1 && w === 'd') add(6, N(c) + ' ha stretto le manette con le dita a mitraglietta: tendinite garantita, ma che soddisfazione.');
       if ((c.dl || 0) >= 2) add(5, N(c) + ' ha perso ' + c.dl + ' duelli di manette: braccine di pastafrolla.');
-      if ((c.ca || 0) >= 4) add(4, N(c) + ' ha acceso ' + c.ca + ' telecamere: il Grande Fratello in persona.');
     }
     for (const c of X) {
-      if ((c.tb || 0) >= 3) add(5, N(c) + ' è sceso nelle fogne ' + c.tb + ' volte: profumo di topo per una settimana.');
       if ((c.mr || 0) >= 3) add(4, N(c) + ' ha preso la metro ' + c.mr + ' volte: abbonamento mensile del crimine.');
-      if ((c.ch || 0) >= 3) add(5, N(c) + ' è finito ' + c.ch + ' volte davanti alle telecamere: più che un ladro, un influencer.');
+      if (!(c.dgN || 0) && w === 'd') add(4, N(c) + ' ha finito i travestimenti e si è fatto beccare in borghese. Il carnevale è finito, coglione.');
       if (!(c.rb || 0) && G.time > 150) add(3, N(c) + ' non ha rubato manco una caramella: Mister X o Mister Sfigato?');
     }
     L.sort((a, b) => b[0] - a[0]);
@@ -1090,7 +1118,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     return out.length ? '<br><span style="display:block;margin-top:10px;text-align:left;font-size:14px;line-height:1.45">' + out.map(t => '😂 ' + t).join('<br>') + '</span>' : '';
   }
 
-  // ---- pulsanti: 🔗 CATTURA a sinistra (detective, si preme mentre si cammina), 💨 SCATTO (Mister X), pulsantone del DUELLO, mappa ----
+  // ---- pulsanti: 🔗 CATTURA a sinistra (detective, si preme mentre si cammina), pulsantone del DUELLO, mappa (lo scatto e' stato tolto) ----
   if (!document.getElementById('mxCss')) {
     const st = document.createElement('style'); st.id = 'mxCss';
     st.textContent = '#mxCat{position:absolute;left:18px;bottom:142px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:800;font-size:30px;background:#4a5568;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#mxCat.on{background:#2f6ad8;color:#fff}'
@@ -1103,20 +1131,18 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   const catB = mkBtn('mxCat', '🔗'), sprB = mkBtn('mxSpr', '💨'), tapB = mkBtn('mxTap', ''), mapB = mkBtn('mxMap', '');
   const live = () => { const G = cq.g; return G && G.mode === 'misterx' && G.rob && G.phase === 'play' && G.pre <= 0 ? G : null; };
   function catchPress() { const G = live(); if (!G) return; const me = G.me; if (me.mx || !me.alive || me.out) return; if ((me.cc || 0) > G.time || (me.stun || 0) > G.time) { beep(180, 0.05, 0.03); return; } if (G.guest) { cqNetSend({ k: 'a', a: 'cat' }); me.cc = G.time + CAT_CD; } else doAct(G, me, { k: 'cat' }); beep(900, 0.04, 0.03); }
-  function sprintPress() { const G = live(); if (!G) return; const me = G.me; if (!me.mx || (me.spc || 0) > G.time || me.out) return; if (G.guest) { cqNetSend({ k: 'a', a: 'sprint' }); me.sp = G.time + SPR_T; me.spc = G.time + SPR_CD; me.spH = G.time + 1.5; if (me.dg) { me.dg = 0; me.dgH = G.time + 1.5; } } else doAct(G, me, { k: 'sprint' }); beep(500, 0.05, 0.03); beep(800, 0.08, 0.03, 0.05); }
   function tapPress() { const G = live(); if (!G || !G.du) return; const me = G.me; if (G.du.x !== me.id && !G.du.ds.includes(me.id)) return; if (G.myTapId !== G.du.id) { G.myTapId = G.du.id; G.myTap = 0; G.tpS = 0; } G.myTap++; if (!G.guest) G.du.n[me.id] = G.myTap; beep(me.mx ? 300 + (G.myTap % 4) * 40 : 500 + (G.myTap % 4) * 50, 0.03, 0.03); }
   catB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); catchPress(); });
-  sprB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); sprintPress(); });
   tapB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); tapPress(); });
   mapB.onclick = e => { e.stopPropagation(); const G = live(); if (G) { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } };
-  if (!window.mxKeys) { window.mxKeys = 1; document.addEventListener('keydown', e => { if (e.repeat && e.key !== ' ') return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = e.key.toLowerCase(); if (k === 'q') catchPress(); else if (k === 'r') sprintPress(); else if (k === ' ' && G.du) { e.preventDefault(); if (!e.repeat) tapPress(); } else if (k === 'm') G.big = !G.big; }); }
+  if (!window.mxKeys) { window.mxKeys = 1; document.addEventListener('keydown', e => { if (e.repeat && e.key !== ' ') return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = e.key.toLowerCase(); if (k === 'q') catchPress(); else if (k === ' ' && G.du) { e.preventDefault(); if (!e.repeat) tapPress(); } else if (k === 'm') G.big = !G.big; }); }
   (function loop() {
     requestAnimationFrame(loop);
     const G = live(), panel = !$('#cqTask').hidden, me = G && G.me, duelMe = !!(G && G.du && (G.du.x === me.id || G.du.ds.includes(me.id)));
-    const cOn = !!(G && !me.mx && me.alive && !me.out && !panel && !duelMe), sOn = !!(G && me.mx && me.alive && !me.out && !panel && !duelMe), tOn = !!(G && duelMe);
+    const cOn = !!(G && !me.mx && me.alive && !me.out && !panel && !duelMe), sOn = false, tOn = !!(G && duelMe);
     if (catB.hidden === cOn) catB.hidden = !cOn; if (sprB.hidden === sOn) sprB.hidden = !sOn; if (tapB.hidden === tOn) tapB.hidden = !tOn;
     if (cOn) { const ready = (me.cc || 0) <= G.time && (me.stun || 0) <= G.time, p = { x: cq.x, y: cq.y }; let tgt = !!G.du && byId(G, G.du.x) && Math.hypot(byId(G, G.du.x).x - p.x, byId(G, G.du.x).y - p.y) < DUEL_JOIN;
-      if (!tgt) tgt = passers(G).some(q => Math.hypot(q.x - p.x, q.y - p.y) < CATCH_R) || xs(G).some(X => !MODE.hide(X) && Math.hypot(X.x - p.x, X.y - p.y) < CATCH_R);
+      if (!tgt) tgt = passers(G).some(q => Math.hypot(q.x - p.x, q.y - p.y) < CATCH_R) || xs(G).some(X => (X.dg || !MODE.hide(X)) && Math.hypot(X.x - p.x, X.y - p.y) < CATCH_R);
       const on = ready && tgt; if (catB.classList.contains('on') !== on) catB.classList.toggle('on', on); const t = (me.stun || 0) > G.time ? '😵' : '🔗'; if (catB.textContent !== t) catB.textContent = t; }
     if (sOn) { const cd = Math.max(0, (me.spc || 0) - G.time), t = cd > 0 ? Math.ceil(cd) + '' : '💨'; if (sprB.textContent !== t) sprB.textContent = t; if (sprB.classList.contains('off') !== cd > 0) sprB.classList.toggle('off', cd > 0); }
     if (tOn) { const t = me.mx ? '💪<br>DIVINCOLATI!' : '🔗<br>STRINGI!'; if (tapB.dataset.t !== t) { tapB.dataset.t = t; tapB.innerHTML = t; tapB.className = me.mx ? 'x' : 'd'; } }

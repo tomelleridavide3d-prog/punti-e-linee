@@ -24,14 +24,14 @@
     M.tombs.forEach((t, i) => { if (!ok(t.x + 0.5, t.y + 0.5)) miss.push('tombino' + i); });
     let pbad = 0; for (const R of M.PR) for (const [x, y] of R.p) if (!cqCellFree(Math.floor(x), Math.floor(y))) pbad++;
     if (pbad) miss.push('passanti nei muri ' + pbad);
-    if (M.loot.length < 6 || M.metro.length < 5 || M.cams.length < 8 || M.tombs.length < 12) miss.push('pochi oggetti');
-    if (sd <= 3) out.push('città ' + sd + ': ' + Math.round(ms) + ' ms, strade ' + M.VX.length + 'x' + M.HY.length + ', palazzi ' + M.B.length + ', colpi ' + M.loot.length + ', metro ' + M.metro.length + ', telecamere ' + M.cams.length + ', tombini ' + M.tombs.length + ', lampioni ' + M.lamps.length + ', passanti ' + M.PR.length + ', ponti ' + M.bridges.length + ', parco ' + !!M.parkR + ', piazze ' + M.plazas.length + ', libere ' + free + ', oggetti ' + M.props.length);
+    if (M.loot.length < 6 || M.metro.length < 5) miss.push('pochi oggetti');
+    if (sd <= 3) out.push('città ' + sd + ': ' + Math.round(ms) + ' ms, strade ' + M.VX.length + 'x' + M.HY.length + ', palazzi ' + M.B.length + ', colpi ' + M.loot.length + ', metro ' + M.metro.length + ', vie buie ' + M.dark.reduce((s, v) => s + v, 0) + ', lampioni ' + M.lamps.length + ', passanti ' + M.PR.length + ', ponti ' + M.bridges.length + ', parco ' + !!M.parkR + ', piazze ' + M.plazas.length + ', libere ' + free + ', oggetti ' + M.props.length);
     if (miss.length) bad.push(sd + ': ' + miss.join(' '));
   }
   out.push('città con problemi: ' + (bad.length ? bad.join(' | ') : 'nessuna'));
   // ---- partite ----
   const N = +(window.__N || 6);
-  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.misterx = Object.assign({}, store.settings.cqModeOpt.misterx || {}, { mx: window.__MX || 'c', n: +(window.__NC || 7), flash: 30, time: 420 }); saveStore();
+  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.misterx = Object.assign({}, store.settings.cqModeOpt.misterx || {}, { mx: window.__MX || 'c', n: +(window.__NC || 7), flash: 45, time: 420 }); saveStore();
   $('#cqTask').hidden = true; cqLobby(); await w(500);
   const res = { x: 0, d: 0 };
   for (let k = 0; k < N; k++) {

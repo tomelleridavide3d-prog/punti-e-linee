@@ -5118,7 +5118,7 @@ function cqDraw() {
     // M.prop(c) -> [tipo, opzione, nome visibile?, x, y]: il personaggio si disegna come quell'oggetto della mappa, centrato in x, y (es. Nascondino)
     if (G.mode && G.M.prop) for (const o of list) if (o.mo) { const pr = G.M.prop(o.mo); if (pr) { o.pr = pr; if (!pr[2]) o.name = null; if (pr[3] != null) { o.x = pr[3]; o.y = pr[4]; } } }
     if (G.mode) for (const o of list) if (o.dr && o.dr.anon) o.name = null;   // M.draw con .anon: personaggio senza nome (es. Mister X travestito da passante)
-    if (G.mode && G.M.extras) for (const e of G.M.extras(G)) if (seen(e.x, e.y)) list.push(e);   // M.extras(G): altre persone disegnate dal gioco, senza logica (es. la folla di passanti di Mister X)
+    if (G.mode && G.M.extras) for (const e of G.M.extras(G)) if (e.all || seen(e.x, e.y)) list.push(e);   // M.extras(G): altre persone disegnate dal gioco, senza logica (es. la folla di passanti di Mister X); e.all = sempre (il buio le scurisce, non spariscono)
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
     for (const C of cqOtherClones()) if (seen(C.x, C.y)) list.push({ x: C.x, y: C.y, L: C.o.look, w: C.walk, f: C.face, name: C.o.name });
     if (S && G.phase === 'play') {   // bosco: animali, avventuriero, fucile caduto
@@ -5190,7 +5190,7 @@ function cqDraw() {
   }
   if (nl > 0) {
     const lights = [[tx + X, ty + Y - TH, (MN ? MN.r : G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
-    if (MN) for (const [lx, ly, lr, ls] of MN.lights) lights.push([tx + px(lx, ly), ty + py(lx, ly) - TH * 0.5 - cqZpx(lx, ly, TW), lr * TW, ls]);
+    if (MN) for (const [lx, ly, lr, ls, la, lh] of MN.lights) lights.push([tx + px(lx, ly), ty + py(lx, ly) - TH * 0.5 - cqZpx(lx, ly, TW), lr * TW, ls, la, lh]);   // la, lh: luce a cono (torcia), angolo sullo schermo e mezza apertura
     if (fR) {
       const fx = tx + px(F.x + 0.5, F.y + 0.5), fy = ty + py(F.x + 0.5, F.y + 0.5) - TH * 0.5;
       lights.push([fx, fy, fR * TW, 1]);
@@ -5355,10 +5355,12 @@ function cqNightLayer(g, W, H, a, lights) {
   const n = cq.ng || (cq.ng = c.getContext('2d', CQ_CPU));
   n.globalCompositeOperation = 'source-over'; n.clearRect(0, 0, w, h); n.fillStyle = 'rgba(6,10,26,' + a + ')'; n.fillRect(0, 0, w, h);
   n.globalCompositeOperation = 'destination-out';
-  for (const [x, y, r, s] of lights) {
+  for (const [x, y, r, s, la, lh] of lights) {
     const gr = n.createRadialGradient(x / k, y / k, 0, x / k, y / k, r / k);
     gr.addColorStop(0, 'rgba(0,0,0,' + s + ')'); gr.addColorStop(0.55, 'rgba(0,0,0,' + (s * 0.8) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
-    n.fillStyle = gr; n.fillRect(0, 0, w, h);
+    n.fillStyle = gr;
+    if (lh) { n.beginPath(); n.moveTo(x / k, y / k); n.arc(x / k, y / k, r / k, la - lh, la + lh); n.closePath(); n.fill(); continue; }   // cono (torcia)
+    n.fillRect(0, 0, w, h);
   }
   n.globalCompositeOperation = 'source-over';
   g.drawImage(c, 0, 0, w, h, 0, 0, w * k, h * k);
