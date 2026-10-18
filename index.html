@@ -2505,7 +2505,13 @@ function cqOpus(d) {
 }
 function cqVoiceSend(P) {   // il mio microfono verso un amico, con priorita' alta
   const sd = P.tr && P.tr.sender; if (!sd) return;
-  sd.replaceTrack(cqV.mic && (!cqV.radio || cqImpSid(P.sid)) ? cqV.mic.getAudioTracks()[0] : null).catch(() => {});
+  // ogni amico riceve una COPIA sua del microfono: con 3+ persone alcuni browser (Firefox) non mandano la stessa traccia a piu' collegamenti
+  const want = cqV.mic && (!cqV.radio || cqImpSid(P.sid)) ? cqV.mic.getAudioTracks()[0] : null;
+  if (!want || P.mtSrc !== want || !P.mt || P.mt.readyState !== 'live') {
+    if (P.mt && P.mt !== P.mtSrc) try { P.mt.stop(); } catch {}
+    P.mt = null; P.mtSrc = want; if (want) try { P.mt = want.clone(); } catch { P.mt = want; }
+  }
+  sd.replaceTrack(P.mt).catch(() => {});
   try { const p = sd.getParameters(); if (p.encodings && p.encodings[0]) { p.encodings[0].maxBitrate = 48000; p.encodings[0].priority = 'high'; p.encodings[0].networkPriority = 'high'; sd.setParameters(p).catch(() => {}); } } catch {}
 }
 function cqVoiceSig(to, o) { const N = cq.net; const c = cqV.sent || (cqV.sent = {}); c[o.k] = (c[o.k] || 0) + 1; if (N) N.F.push(cqNetRef(`cq/${N.code}/rtc/${to}`), Object.assign({ f: N.sid }, o)).catch(() => {}); }
@@ -2562,7 +2568,7 @@ function cqVoiceRedo(sid) {
   if (N.sid < sid) cqVoiceCall(sid); else cqVoiceSig(sid, { k: 're', d: '' });
 }
 function cqVoiceRedoAll() { const N = cq.net; if (N) for (const sid of Object.keys(N.pl)) if (sid !== N.sid) cqVoiceRedo(sid); }
-function cqVoiceDrop(sid) { const P = cqV.peers[sid]; if (!P) return; delete cqV.peers[sid]; try { P.pc.close(); } catch {} if (P.src) P.src.disconnect(); if (P.g) P.g.disconnect(); if (P.au) P.au.srcObject = null; }
+function cqVoiceDrop(sid) { const P = cqV.peers[sid]; if (!P) return; delete cqV.peers[sid]; try { P.pc.close(); } catch {} if (P.mt && P.mt !== P.mtSrc) try { P.mt.stop(); } catch {} if (P.src) P.src.disconnect(); if (P.g) P.g.disconnect(); if (P.au) P.au.srcObject = null; }
 async function cqVoiceCall(sid) {
   const P = cqVoicePeer(sid, true); if (!P) return;
   try { await P.pc.setLocalDescription(cqOpus(await P.pc.createOffer())); cqVoiceSig(sid, { k: 'offer', d: JSON.stringify(P.pc.localDescription) }); } catch (e) { console.warn(e); }
@@ -2648,15 +2654,27 @@ function cqVoiceTick(dt) {
     const c = G && G.chars.find(o => o.sid === P.sid); if (c) c.talk = now - (P.talk || 0) < 400;
   }
   if (G && G.me) G.me.talk = !!cqV.mic && cqV.lvl > 7;
+  if (cqMicDead()) cqVoiceMicAgain();
   if (cqV.mic) {   // il mio livello, per il mio 🔊
     if (!cqV.man) try { cqV.man = actx.createAnalyser(); cqV.man.fftSize = 256; actx.createMediaStreamSource(cqV.mic).connect(cqV.man); cqV.manS = cqV.mic; } catch {}
     if (cqV.man && cqV.manS !== cqV.mic) { cqV.man = null; } else if (cqV.man) { cqV.man.getByteTimeDomainData(cqVBuf); let m = 0; for (let i = 0; i < 256; i++) m = Math.max(m, Math.abs(cqVBuf[i] - 128)); cqV.lvl = m; }
   } else cqV.lvl = 0;
 }
-async function cqVoiceMic() {
-  if (cqV.mic) { cqV.mic.getTracks().forEach(t => t.stop()); cqV.mic = null; for (const P of Object.values(cqV.peers)) if (P.tr) P.tr.sender.replaceTrack(null).catch(() => {}); cqVoiceUI(); return; }
+const CQ_MIC = { audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } };
+// il microfono acceso si e' spento da solo (schermo spento, altra app che lo usa, chiamata): lo riprendo e lo ridò a tutti gli amici
+async function cqVoiceMicAgain() {
+  if (!cqV.mic || cqV.micFix) return; cqV.micFix = 1;
   try {
-    cqV.mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true, channelCount: 1 } });
+    const s = await navigator.mediaDevices.getUserMedia(CQ_MIC);
+    if (cqV.mic) { cqV.mic.getTracks().forEach(t => t.stop()); cqV.mic = s; for (const P of Object.values(cqV.peers)) cqVoiceSend(P); } else s.getTracks().forEach(t => t.stop());
+  } catch {}
+  setTimeout(() => { cqV.micFix = 0; }, 5000);
+}
+const cqMicDead = () => { const t = cqV.mic && cqV.mic.getAudioTracks()[0]; return !!cqV.mic && (!t || t.readyState === 'ended'); };
+async function cqVoiceMic() {
+  if (cqV.mic) { cqV.mic.getTracks().forEach(t => t.stop()); cqV.mic = null; for (const P of Object.values(cqV.peers)) cqVoiceSend(P); cqVoiceUI(); return; }
+  try {
+    cqV.mic = await navigator.mediaDevices.getUserMedia(CQ_MIC);
     for (const P of Object.values(cqV.peers)) cqVoiceSend(P);
     // su alcuni Android il microfono aggiunto a un collegamento gia' fatto non parte: si rifanno quelli non perfetti
     setTimeout(() => { for (const P of Object.values(cqV.peers)) if (P.pc.connectionState !== 'connected') cqVoiceRedo(P.sid); }, 3000);
@@ -2668,7 +2686,7 @@ window.addEventListener('online', () => setTimeout(() => { if (cqV.reT) cqV.reT 
 try { if (navigator.connection) navigator.connection.addEventListener('change', () => setTimeout(() => { if (cqV.reT) cqV.reT = {}; cqVoiceRedoAll(); }, 2000)); } catch {}
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState !== 'visible' || !cq.net) return;
-  setTimeout(() => { for (const P of Object.values(cqV.peers)) if (P.pc.connectionState !== 'connected') cqVoiceRedo(P.sid); cqVoiceSync(); }, 1500);
+  setTimeout(() => { const t = cqV.mic && cqV.mic.getAudioTracks()[0]; if (cqMicDead() || (t && t.muted)) cqVoiceMicAgain(); for (const P of Object.values(cqV.peers)) if (P.pc.connectionState !== 'connected') cqVoiceRedo(P.sid); cqVoiceSync(); }, 1500);
 });
 document.addEventListener('pointerdown', () => {
   if (!Object.keys(cqV.peers).length) return;
@@ -2691,6 +2709,12 @@ if (r.type === 'candidate-pair') { ps[r.state] = (ps[r.state] || 0) + 1; if (r.n
         if (r.type === 'outbound-rtp' && r.kind === 'audio') tx = r.bytesSent;
       });
       via = lid ? (lt[lid] === 'relay' ? 'ponte' : 'diretta') : '';
+      if (cqV.mic && P.pc.connectionState === 'connected') {
+        const now = Date.now();
+        if (tx > (P.tx0 || 0)) { P.tx0 = tx; P.txT = now; P.txFix = 0; }
+        else if (!P.txT) P.txT = now;
+        else if (now - P.txT > 9000) { P.txT = now; if (!P.txFix) { P.txFix = 1; P.mtSrc = null; cqVoiceSend(P); } else { P.txFix = 0; cqVoiceRedo(P.sid); } }
+      } else P.txT = 0;
       Object.assign(o, { L: [...L].join(','), R: [...R].join(','), pair, rx, tx, ip, rip, ps, via });
     } catch {}
     peers.push(o);
