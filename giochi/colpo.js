@@ -14,7 +14,7 @@
 // Strumenti: 🪙 monetina (distrae), 👊 stordire da dietro, quadro elettrico (luci di un piano per 40 s; una guardia va a controllare).
 CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const SQ = L.squadre, GD = L.guardie;
-  for (const t of ['fdoor', 'lift', 'fgate', 'bdoor', 'wardrobe', 'coats', 'wine', 'boxes', 'column', 'keys', 'bottles', 'palm', 'boiler', 'car', 'bin']) GD.tall.add(t);   // le porte chiuse e i mobili alti fermano la vista
+  for (const t of ['fdoor', 'lift', 'fgate', 'bdoor', 'wardrobe', 'coats', 'wine', 'boxes', 'column', 'keys', 'bottles', 'palm', 'boiler', 'car', 'drape', 'bin']) GD.tall.add(t);   // le porte chiuse e i mobili alti fermano la vista
   // TRE PIANI AFFIANCATI nella stessa mappa, con 16 caselle di vuoto in mezzo (da un piano non si vede mai l'altro):
   // piano terra x 0-79 (l'hotel al centro, fuori i 4 parcheggi), primo piano x 96-155 (O1 = spostamento), interrato x 172-231 (OI).
   // Si passa da un piano all'altro entrando nelle caselle dei PASSAGGI (M.portals): lo scalone della hall, la scala di servizio, e i tre passaggi per l'interrato.
@@ -22,8 +22,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const floorOf = x => x < 88 ? 0 : x < 164 ? 1 : 2;
   const FLN = ['Piano terra', 'Primo piano', 'Interrato'];
   const SRCH_T = 2, ACC_T = 1.5, PRT_T = 1.5, KP_T = 3, TURN_T = 1.2, TURN_WIN = 1.8, SWAP_T = 3, TAKE_T = 2, CMB_T = 12, FREE_T = 4, CONF_T = 2, LSR_T = 1.5;
-  const EV_WAIT = 60, ALERT_T = 60, DARK_T = 40, DARK_CD = 30, COINS = 3, COIN_R = 6.5, STUN_R = 1.25, OP_R = 1.5, VAN_R = 1.9, CELL_OPEN = 6;
-  const LIT_R = 6.4, DARK_R = 3.3, MY_R = 1.9, SEE_G = 22, WALK = 0.6, RUN_R = 4.5, LAMP_R = 2.0;
+  const HIDE_R = 1.35, EV_WAIT = 60, ALERT_T = 60, DARK_T = 40, DARK_CD = 30, COINS = 3, COIN_R = 6.5, STUN_R = 1.25, OP_R = 1.5, VAN_R = 1.9, CELL_OPEN = 6;
+  const HB_R = 5, LIT_R = 6.4, DARK_R = 3.3, MY_R = 1.9, SEE_G = 22, WALK = 0.6, RUN_R = 4.5, LAMP_R = 2.0;
   const ALA = { T: 'Piano terra', S: 'Primo piano', I: 'Interrato' };
   // i 4 parcheggi da cui si puo' entrare (uno a caso a ogni partita): li' aspetta il furgone della fuga
   const ENT = ['Parcheggio principale', 'Vicolo delle cucine', 'Parcheggio del giardino', 'Parcheggio del personale'];
@@ -103,6 +103,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     DC(28.2, 34.2, 6.6, 4.6, '#3a2442'); DC(28.4, 34.4, 6.2, 0.08, '#c8a040'); DC(28.4, 38.52, 6.2, 0.08, '#c8a040');
     pp('vase', 23, 23); pp('vase', 23, 37); pp('vase', 56, 33); pp('vase', 56, 46); pp('bench', 25, 25); pp('bench', 25, 46);
     // bar americano: bancone, bottiglie, sgabelli, tavolini
+    // TENDE di velluto (nascondigli): s = muro a cui sono appese
+    for (const [x, y, sd] of [[21, 9, 'n'], [11, 25, 'w'], [11, 35, 'w'], [33, 9, 'n'], [46, 9, 'n'], [33, 50, 's'], [46, 50, 's']]) pp('drape', x, y, { s: sd });
     row('bottles', 14, 20, 9); row('barc', 15, 19, 11); pp('stool', 15, 12); pp('stool', 17, 12); pp('stool', 19, 12);
     pp('rtable', 13, 15); pp('rtable', 16, 15); pp('rtable', 19, 15); pp('armch', 21, 16, { c: '#5a2a1a' }); pp('palm', 11, 17);
     row('wine', 11, 17, 20);
@@ -160,6 +162,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       pp(step ? 'vstep' : x === 39 && y === 37 ? 'chand' : edge ? 'balus' : 'void', x, y, step ? { d: y - 26 } : null);
     }
     for (const y of [24, 25, 26]) { pp('balus', 36, y); pp('balus', 43, y); }
+    for (const [x, y, sd] of [[27, 24, 'w'], [52, 24, 'e'], [27, 46, 'w'], [52, 46, 'e'], [31, 9 - 0, 'n']]) pp('drape', x, y, { s: sd });
     for (const [x, y] of [[27, 21], [52, 21], [27, 50], [52, 50]]) pp('palm', x, y); pp('vase', 27, 36); pp('vase', 52, 36); pp('bench', 29, 49); pp('bench', 50, 49);
     // camere: 4 a ovest (porta a est), suite e 2 camere a est (porta a ovest). Letto, comodini, armadio con la cassaforte, scrivania, poltrona
     const room = (n, x0, y0, w, h, dy, west, c) => {
@@ -168,6 +171,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       four('bed', bxF, y0 + 2, { c: c[0] === '#2a3a5a' ? '#c8a040' : '#8a3040', head: 'n', cano: n.startsWith('Suite') });
       pp('nstand', bxF - 2, y0 + 1); pp('nstand', bxF + 1, y0 + 1); pp('wardrobe', wx, y0 + 1); pp('safe', wx, y0 + 2);
       pp('desk', dx, y0 + h - 1); pp('armch', wx, y0 + h - 2, { c: '#6a3a2a' }); pp('palm', west ? x0 + w - 1 : x0, y0);
+      pp('drape', wx, y0 + 5, { s: west ? 'w' : 'e' });
       camere.push({ n, ns: [bxF + 1 + ox, y0 + 1], sf: [wx + ox, y0 + 2], sign: [(west ? x0 + w : x0 - 1) + ox, dy] });
       return camere.length - 1;
     };
@@ -276,10 +280,14 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       let a = -1; for (const [dx, dy] of [[0, -1], [-1, 0], [0, 1], [1, 0]]) { const r = ri(x + dx, y + dy); if (r >= 0 && !holes.some(([hx, hy, hw, hh]) => x + dx >= hx && x + dx < hx + hw && y + dy >= hy && y + dy < hy + hh)) { a = r; if (rooms[r].ala !== 'X') break; } }
       ROOM[y * W + x] = a;
     }
+    // NASCONDIGLI: armadi, sotto i letti, tende, cappotti del guardaroba, armadietti dello spogliatoio, carrelli della biancheria (non quelli dove si fruga)
+    const HN = { wardrobe: ['🚪', 'nell\'armadio'], bed: ['🛏️', 'sotto il letto'], drape: ['🎭', 'dietro la tenda'], coats: ['🧥', 'tra i cappotti'], locker: ['🚪', 'nell\'armadietto'], cart: ['🧺', 'nel carrello della biancheria'] };
+    const HS = [];
+    for (const [t, x, y, o] of props) { if (!HN[t] || (o && o.part)) continue; if (t === 'locker' && !(y === 34 && x !== 62 && x !== 67)) continue; if (t === 'coats' && x === 16) continue; HS.push({ x, y, t, e: HN[t][0], n: HN[t][1] }); }
     const jail = [[62.5, 48.5], [64.5, 48.5], [66.5, 49.5], [63.5, 49.6], [65.5, 47.5], [62.5, 47.5]], cellOut = [66.0, 45.3];
     return { w: W, h: H, rooms, doors, decals, props, holes, tasks: [], hall: gal, cams: [], vending: [], ring: ents[0].ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
       deco, draw, floor: FLOOR, decoDraw, drawWall, bg: () => '#07080b', hz, hb: 0.3, hzSide, bgSc: 1.5,
-      hcams: cams, SP, routes, lamps, LITC, ROOM, gates, vdoor, cdoor, teca, jail, cellOut, camere, cellRoom: cell, vaultRoom: vault, portals, PORT, ents, jailIco: [64.5, 48.5] };
+      hcams: cams, SP, routes, lamps, LITC, ROOM, gates, vdoor, cdoor, teca, jail, cellOut, camere, cellRoom: cell, vaultRoom: vault, portals, PORT, ents, jailIco: [64.5, 48.5], HS };
   }
   const roomAt = (x, y) => { const M = MP(), xi = Math.floor(x), yi = Math.floor(y); return xi < 0 || yi < 0 || xi >= W || yi >= H ? -1 : M.ROOM[yi * W + xi]; };
   const alaAt = (x, y) => { const r = roomAt(x, y); return r >= 0 ? MP().rooms[r].ala : null; };
@@ -467,6 +475,11 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
         line(S(x + 0.15, y + 0.85, 1.7), S(x + 0.85, y + 0.85, 1.7), c, w); line(S(x + 0.85, y + 0.85, 1.7), S(x + 0.85, y + 0.15, 1.7), c, w); line(S(x + 0.15, y + 0.15, 1.7), S(x + 0.85, y + 0.15, 1.7), c, w); line(S(x + 0.15, y + 0.15, 1.7), S(x + 0.15, y + 0.85, 1.7), c, w);
         glow(x + 0.5, y + 0.5, 1.2, 1.5, 'rgba(160,220,255,.3)'); break; }
       // ---- arredi di lusso ----
+      case 'drape': {   // tenda di velluto rosso appesa al muro (s = lato del muro), con il bastone e il fermatenda d'oro: ci si nasconde dietro
+        const sd = o.s || 'n', v = sd === 'w' || sd === 'e', a = sd === 'n' || sd === 'w' ? 0.12 : 0.6, b = a + 0.3;
+        for (let i = 0; i < 5; i++) { const u0 = 0.05 + i * 0.18, u1 = u0 + 0.2, c = i % 2 ? '#6a1828' : '#8a2434'; v ? bx(x + a, y + u0, x + b, y + u1, 0, 2.05, c) : bx(x + u0, y + a, x + u1, y + b, 0, 2.05, c); }
+        v ? bx(x + a - 0.03, y + 0.02, x + a + 0.06, y + 0.98, 2.05, 2.15, '#c8a040') : bx(x + 0.02, y + a - 0.03, x + 0.98, y + a + 0.06, 2.05, 2.15, '#c8a040');
+        v ? bx(x + a, y + 0.42, x + b + 0.03, y + 0.58, 0.95, 1.05, '#d8b44a') : bx(x + 0.42, y + a, x + 0.58, y + b + 0.03, 0.95, 1.05, '#d8b44a'); break; }
       case 'void': break;   // il vuoto dell'atrio
       case 'balus':   // balaustra di marmo col corrimano d'ottone
         bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 0.1, '#d8d0c0');
@@ -618,6 +631,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       return { k: 'ev', t: '🔓 Tenta l\'evasione (una volta sola)', on: true };
     }
     if (c.op) return { k: 'wait', t: opTxt(G, c), on: false };
+    if (c.hd) { const h = MP().HS[c.hd.i]; return { k: 'unhide', t: '🚶 Esci (sei ' + h.n + ')', on: true }; }
     // stordire da dietro: priorita' (la guardia si gira!)
     const gd = stunTarget(G, c); if (gd) return { k: 'stun', g: gd.id, t: '👊 Stordisci la guardia', on: true };
     // guardia a terra da frugare (se ha il badge)
@@ -648,11 +662,17 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     if (nearSpot(G, c, 'quadro')) return { k: 'quad', t: '⚡ Quadro elettrico', on: true };
     // frugare
     const s = srcAt(G, c); if (s) return { k: 'src', s, t: '🔍 Fruga: ' + spot(G, s).n, on: true };
+    // NASCONDIGLIO vicino: ci si infila solo se nessuna guardia ti sta guardando
+    const hi = hideAt(G, c); if (hi >= 0) { const h = M.HS[hi]; return seenBy(G, c) ? { k: 'wait', t: '👀 Ti stanno guardando: non puoi nasconderti', on: false } : { k: 'hide', i: hi, t: h.e + ' Nasconditi ' + h.n, on: true }; }
     return null;
   }
   const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
   const nearSpot = (G, c, k) => { const s = spot(G, k), p = P(c); return !!s && Math.hypot(p.x - s.x - 0.5, p.y - s.y - 0.5) < OP_R; };
   function srcAt(G, c) { let b = null, bd = OP_R; const p = P(c); for (const k of needSpots(G)) { const s = spot(G, k), d = Math.hypot(p.x - s.x - 0.5, p.y - s.y - 0.5); if (d < bd) { bd = d; b = k; } } return b; }
+  // nascondiglio entro HIDE_R (il piu' vicino), o -1
+  function hideAt(G, c) { const p = P(c), H = MP().HS; let b = -1, bd = HIDE_R; for (let i = 0; i < H.length; i++) { const h = H[i], d = Math.hypot(p.x - h.x - 0.5, p.y - h.y - 0.5); if (d < bd) { bd = d; b = i; } } return b; }
+  // qualche guardia mi vede adesso? (con la portata secondo la luce)
+  function seenBy(G, c) { const p = P(c), ak = alertOn(G) ? 1.22 : 1; return G.gd.some(g => g.st !== 'ko' && Math.hypot(g.x - p.x, g.y - p.y) < 12 && GD.sees(g, p.x, p.y, rangeAt(G, p.x, p.y) * ak) > 0); }
   // guardia da stordire: vicina, di spalle (non mi guarda), non all'inseguimento
   function stunTarget(G, c) {
     const p = P(c);
@@ -674,6 +694,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     if (a.k === 'kpv') { keypad(G, c, a.v); return; }
     const cur = action(G, c); if (!cur || cur.k !== a.k || !cur.on) return;
     const p = P(c);
+    if (a.k === 'hide') { if (seenBy(G, c)) return; c.hd = { i: cur.i, t: G.time }; c.op = null; c.path = []; return; }
+    if (a.k === 'unhide') { c.hd = null; return; }
     if (a.k === 'stun') { const g = G.gd.find(o => o.id === cur.g); if (!g) return; GD.stun(G, g); c.ko = (c.ko || 0) + 1; GD.noise(G, g.x, g.y, 2.2); say(G, 'stun', { a: c.id, g: g.id }); return; }
     if (OPD[a.k]) c.op = { k: a.k, t0: G.time, d: OPD[a.k], x: p.x, y: p.y, s: cur.s, sd: cur.sd, nz: 0 };
   }
@@ -720,7 +742,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   function catchT(G, gd, c) {
     if (c.jail || c.esc) return;
     const M = MP(), n = G.chars.filter(o => o.jail).length, s = M.jail[n % M.jail.length];
-    c.jail = 1; c.jt = G.time; c.jn = (c.jn || 0) + 1; c.op = null; c.path = []; c.ca = (c.ca || 0) + 1; c.evUsed = 0;
+    c.hd = null; c.jail = 1; c.jt = G.time; c.jn = (c.jn || 0) + 1; c.op = null; c.path = []; c.ca = (c.ca || 0) + 1; c.evUsed = 0;
     let lost = 0; for (const i of G.it) if (i.st === 1 && i.c === c.id) { i.st = 2; i.c = -1; lost++; } if (c.dm) c.dm = 0;
     if (c.bot || c === G.me) { c.x = s[0]; c.y = s[1]; if (c === G.me) { cq.x = s[0]; cq.y = s[1]; G.myJn = c.jn; } }
     c.js = s; say(G, 'caught', { a: c.id, l: lost }); G.rescT = G.time + 15;   // il computer non corre subito a liberarlo (la guardia e' ancora li')
@@ -831,10 +853,13 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (G.time - c.jt > EV_WAIT && !c.evUsed && !(G.cellO > G.time) && !G.chars.some(o => !o.jail && o.goal && o.goal.k === 'free' && Math.hypot(o.x - M.cellOut[0], o.y - M.cellOut[1]) < 12)) { if (Math.random() < 0.02) tryEscape(G, c, Math.random() < 0.55); }
       return;
     }
+    // nascosto: resto dentro finche' le guardie non sono lontane
+    if (c.hd) { c.walk = 0; c.path = []; if (G.time > (c.hdU || 0) && !G.gd.some(g => g.st !== 'ko' && Math.hypot(g.x - c.x, g.y - c.y) < 6)) doAct(G, c, { k: 'unhide' }); return; }
     if ((c.think -= dt) <= 0) {
       c.think = 0.35 + Math.random() * 0.2;
       const chaser = G.gd.find(g => g.st === 'chase' && g.tgt === c.id), sus = G.gd.find(g => (g.st === 'sus' || g.st === 'inv') && g.st !== 'ko' && Math.hypot((g.st === 'sus' ? g.lx : g.ix) - c.x, (g.st === 'sus' ? g.ly : g.iy) - c.y) < 3 && Math.hypot(g.x - c.x, g.y - c.y) < 9);
       if (chaser || sus) { if (!((c.scare || 0) > G.time) && c.goal) c.g0 = c.goal.k + (c.goal.s || '') + '@' + (MP().rooms[roomAt(c.x, c.y)] || {}).n; c.scare = G.time + 4 + Math.random() * 3; }
+      if ((sus || chaser) && !c.op && hideAt(G, c) >= 0 && !seenBy(G, c)) { const a = action(G, c); if (a && a.k === 'hide') { doAct(G, c, { k: 'hide' }); c.hdU = G.time + 4 + Math.random() * 6; return; } }
       if (sus && !chaser && !c.op) { c.goal = { k: 'flee' }; if (!c.path.length || Math.random() < 0.3) flee(G, c, sus); }
       else if (chaser) { c.goal = { k: 'flee' }; if (!c.path.length || Math.random() < 0.4) flee(G, c, chaser); if ((c.coins || 0) > 0 && Math.random() < 0.05) { const a = Math.random() * 7; doAct(G, c, { k: 'coin', x: c.x + Math.cos(a) * 4, y: c.y + Math.sin(a) * 4 }); } }
       else {
@@ -888,7 +913,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   // dove ci si mette per salire sul furgone
   const vanP = G => MP().ents[G.plan ? G.plan.e : 0].van;
   const scrA = a => { const c = Math.cos(a), s = Math.sin(a); return Math.atan2((c + s) / 2, c - s); };
-  const env = G => ({ thieves: free(G), pos: P, vis: c => c.bot ? 0.65 : 1,   // i compagni del computer si notano un po' meno (come negli altri giochi furtivi cooperativi)
+  const env = G => ({ thieves: free(G).filter(c => !c.hd), pos: P, vis: c => c.bot ? 0.65 : 1,   // i compagni del computer si notano un po' meno (come negli altri giochi furtivi cooperativi)
   range: (x, y) => rangeAt(G, x, y), alert: alertOn(G), k: G.opt.dif === 'f' ? 0.8 : G.opt.dif === 'd' ? 1.25 : 1, speed: 1,
     onCatch: (gd, c) => catchT(G, gd, c), onKo: () => { G.alE = Math.max(G.alE || 0, G.time + ALERT_T); say(G, 'kofound', {}); },
     onChase: (gd, c) => { gd.cs0 = G.time; if (window.__LOG) window.__LOG.push(Math.round(G.time) + 's VISTO ' + c.name + ' da ' + gd.id + ' d=' + Math.hypot(gd.x - P(c).x, gd.y - P(c).y).toFixed(1) + ' in ' + (MP().rooms[roomAt(P(c).x, P(c).y)] || {}).n + ' meta ' + (c.goal ? c.goal.k : '-') + ' (prima: ' + c.g0 + ')' + ' guardia era ' + gd.st0 + ' sosp ' + (G.time - (gd.sT || 0)).toFixed(1) + 's' + (c.op ? ' OP ' + c.op.k : '') + ((c.hold || 0) > G.time ? ' FERMO' : '') + ((c.scare || 0) > G.time ? ' PAURA' : '') + (darkAt(G, P(c).x, P(c).y) ? ' buio' : '') + (alertOn(G) ? ' ALLERTA' : '')); GD.radio(G, gd); say(G, 'chase', { a: c.id }); } });
@@ -922,6 +947,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     intro: G => G.plan ? '💎 Entrate dal ' + ENT[G.plan.e] + ': guardate la lavagna in alto a sinistra!' : '💎 Colpo all\'hotel',
     speed(c) {
       const G = cq.g; if (!G || !G.plan) return 1; if (c.op || c.esc) return 0;
+      if (c.hd) return 0;
       return (c === G.me ? (cq.hcRun && !c.jail ? 1 : WALK) : 1) * (c.dm ? 0.94 : 1);
     },
     big(G) {
@@ -936,6 +962,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       const me = G.me; if (!G.plan) return '💎 Colpo all\'hotel';
       return `<b style="color:${TC}">🦹 Ladri</b> · ⏳ ${mmss(Math.max(0, G.left))} · 🪙 ${me.coins || 0}` + (alertOn(G) ? ' · <b style="color:#ff6a5a">🚨 ALLERTA</b>' : '') + (G.chars.some(c => c.jail) ? ' · ⛓️ ' + G.chars.filter(c => c.jail).length : '');
     },
+    hide: c => !!c.hd,   // nascosto: non si disegna (si vedono solo gli occhi nel nascondiglio)
     nameCol: c => c.jail ? '#9aa0a8' : TC,
     // le guardie (non sono personaggi: si disegnano come comparse) quando le vedo
     extras(G) {
@@ -978,6 +1005,11 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       // battito del cuore se una guardia mi sospetta o mi insegue
       G.hb = 0;
       for (const g of G.gd) { if (g.st === 'chase' && g.tgt === me.id) G.hb = 1; else if (g.st === 'sus' && Math.hypot(g.lx - cq.x, g.ly - cq.y) < 2.5) G.hb = Math.max(G.hb, 0.4 + 0.6 * g.sus); }
+      if (!me.jail) for (const g of G.gd) { if (g.st === 'ko' || floorOf(g.x) !== floorOf(cq.x)) continue; const d = Math.hypot(g.x - cq.x, g.y - cq.y); if (d < HB_R) G.hb = Math.max(G.hb, (me.hd ? 0.35 : 0.2) + (me.hd ? 0.55 : 0.4) * (1 - d / HB_R)); }   // una guardia vicina che non mi vede: il cuore batte
+      // nascosto: mi muovo = esco (dopo un attimo, se no chi tiene il joystick uscirebbe subito)
+      if (me.hd && !G.hdW) { G.hdW = 1; G.hdT = performance.now(); } else if (!me.hd) G.hdW = 0;
+      if (me.hd && !me.bot && performance.now() - G.hdT > 600 && cqDir() && !G.hdOut) { G.hdOut = performance.now(); if (G.guest) cqNetSend({ k: 'a', a: 'unhide' }); else doAct(G, me, { k: 'unhide' }); }
+      if (G.hdOut && performance.now() - G.hdOut > 800) G.hdOut = 0;
       if (G.hb > 0 && (G.hbT = (G.hbT || 0) - dt) <= 0) { G.hbT = 0.35 + 0.4 * (1 - G.hb); G.hbP = performance.now(); const v = 0.05 + 0.1 * G.hb; beep(58, 0.11, v, 0, 'sine'); beep(50, 0.12, v * 0.8, 0.15, 'sine'); }
       // rumore durante la combinazione (click che si sentono)
       for (const c of G.chars) if (c.op && c.op.k === 'cmb' && Math.random() < dt * 2) { const d = Math.hypot(c.x - cq.x, c.y - cq.y); if (d < 10) beep(1800 + Math.random() * 400, 0.02, 0.02 * (1 - d / 10)); }
@@ -992,7 +1024,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       // telecamere: chi resta nel cono per 0,7 s fa venire la guardia piu' vicina
       M.hcams.forEach((cm, i) => {
         if (darkAt(G, cm.x, cm.y) || G.ccd[i] > G.time) { G.cs[i] = 0; return; }
-        const seen = free(G).find(c => GD.camSees(G, cm, P(c).x, P(c).y));
+        const seen = free(G).find(c => !c.hd && GD.camSees(G, cm, P(c).x, P(c).y));
         if (!seen) { G.cs[i] = Math.max(0, G.cs[i] - dt); return; }
         G.cs[i] += dt; if (G.cs[i] < 0.7) return;
         G.cs[i] = 0; G.ccd[i] = G.time + 6; const p = P(seen);
@@ -1029,10 +1061,11 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (why === 'win') cqModeEnd({ t: '💎 Colpo riuscito!', why: 'Il diamante è sul furgone' + (G.chars.some(c => c.jail) ? ' (qualcuno è rimasto in cella…)' : '') + '.' + funny(G, 1), win: G.chars.map(c => c.id), rank });
       else cqModeEnd({ t: '🚔 Colpo fallito', why: (why === 'jail' ? 'Tutti in cella: le guardie festeggiano.' : 'Tempo scaduto: sta arrivando la polizia.') + funny(G, 0), win: [], rank });
     },
-    csnap: c => { const G = cq.g; return [c.jail ? 1 : 0, Math.round((G.time - (c.jt || 0)) * 10) / 10, c.op ? Object.keys(OPD).indexOf(c.op.k) : -1, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.coins || 0, c.jn || 0, c.js || 0, c.dm ? 1 : 0, c.esc ? 1 : 0, c.evUsed ? 1 : 0, [c.sc || 0, c.ko || 0, c.fr || 0, c.ca || 0, c.ev || 0, c.evf || 0, c.lo || 0]]; },
+    csnap: c => { const G = cq.g; return [c.jail ? 1 : 0, Math.round((G.time - (c.jt || 0)) * 10) / 10, c.op ? Object.keys(OPD).indexOf(c.op.k) : -1, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.coins || 0, c.jn || 0, c.js || 0, c.dm ? 1 : 0, c.esc ? 1 : 0, c.evUsed ? 1 : 0, [c.sc || 0, c.ko || 0, c.fr || 0, c.ca || 0, c.ev || 0, c.evf || 0, c.lo || 0], c.hd ? c.hd.i : -1]; },
     capply(G, c, a) {
       c.jail = a[0]; c.jt = G.time - a[1]; const k = Object.keys(OPD)[a[2]];
       c.op = k ? { k, t0: G.time - a[3], d: OPD[k], x: c === G.me ? cq.x : c.x, y: c === G.me ? cq.y : c.y } : null;
+      c.hd = a[11] >= 0 ? (c.hd && c.hd.i === a[11] ? c.hd : { i: a[11], t: G.time }) : null;
       c.coins = a[4]; c.jn = a[5]; c.js = a[6] || null; c.dm = a[7]; c.esc = a[8]; c.evUsed = a[9]; [c.sc, c.ko, c.fr, c.ca, c.ev, c.evf, c.lo] = a[10];
     },
     snap(G) {
@@ -1113,6 +1146,10 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       // allerta: bordo rosso che pulsa; inseguito: bordi rossi col battito
       if (alertOn(G)) { const a = 0.18 + 0.12 * Math.sin(now * 4); g.strokeStyle = 'rgba(255,40,40,' + a + ')'; g.lineWidth = 8; g.strokeRect(4, 4, W2 - 8, H2 - 8); }
       if (G.hb > 0) { const k = Math.max(0, 1 - (performance.now() - (G.hbP || 0)) / 380), a = 0.12 + 0.3 * G.hb * (0.5 + 0.5 * k); const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.72); gr.addColorStop(0, 'rgba(160,0,0,0)'); gr.addColorStop(1, 'rgba(160,0,0,' + a + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2); }
+      for (const c of G.chars) { if (!c.hd || !c.alive) continue; const h = M.HS[c.hd.i]; if (!near(h.x, h.y, 16)) continue; const X = sx(h.x + 0.5, h.y + 0.5), Y = sy(h.x + 0.5, h.y + 0.5) - TW * (h.t === 'bed' ? 0.5 : 1.1), bl = (now * 0.8 + c.id) % 3 < 0.12;
+        g.fillStyle = 'rgba(10,10,14,.7)'; cqRR(g, X - 13, Y - 7, 26, 14, 7); g.fill(); g.fillStyle = '#f2f0e8'; for (const s of [-1, 1]) { g.beginPath(); g.ellipse(X + s * 5, Y, 3.2, bl ? 0.6 : 3, 0, 0, 7); g.fill(); } g.fillStyle = '#1a1a1a'; if (!bl) for (const s of [-1, 1]) { g.beginPath(); g.arc(X + s * 5 + Math.sin(now) * 1.2, Y, 1.5, 0, 7); g.fill(); } }
+      if (me.hd) { const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.18, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.6); gr.addColorStop(0, 'rgba(0,0,0,0)'); gr.addColorStop(1, 'rgba(0,0,0,.78)'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2);
+        const h = M.HS[me.hd.i]; g.font = '700 13px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(10,10,14,.7)'; cqRR(g, W2 / 2 - 120, H2 * 0.62 - 13, 240, 26, 9); g.fill(); g.fillStyle = '#e8e0c8'; g.fillText(h.e + ' Sei nascosto ' + h.n + ' · muoviti per uscire', W2 / 2, H2 * 0.62); }
       if (me.jail) { g.fillStyle = 'rgba(30,34,44,.35)'; g.fillRect(0, 0, W2, H2); }
       // lampadari di cristallo della hall e del salone (accesi finche' il quadro non spegne il piano terra)
       if (mf === 0 && !darkAt(G, 40, 30)) for (const [x, y] of [[33.5, 36.5], [46.5, 36.5], [40, 15.5]]) if (near(x, y, 16)) chandelier(g, sx(x, y), sy(x, y) - TW * 4.4, TW, now);
@@ -1270,7 +1307,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     };
     draw();
   }
-  window.__lockPuzzle = lockPuzzle; window.__route = route; window.__floorOf = floorOf;   // per le prove
+  window.__lockPuzzle = lockPuzzle; window.__route = route; window.__floorOf = floorOf; window.__needs = needSpots; window.__act = action;   // per le prove
 
   // ---- MAPPA: radar in alto a destra, grande toccandolo ----
   // un'immagine per piano (gli altri piani non ci sono: la mappa piccola mostra solo il piano dove sei)
@@ -1373,7 +1410,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const runB = mkBtn('hcRun', '🐾'), coinB = mkBtn('hcCoin', '🪙'), mapB = mkBtn('hcMap', ''), boardB = mkBtn('hcBoard', '');
   const live = () => { const G = cq.g; return G && G.mode === 'colpo' && G.plan && G.phase === 'play' && G.pre <= 0 ? G : null; };
   function coinPress() {
-    const G = live(); if (!G) return; const me = G.me; if (me.jail || (me.coins || 0) <= 0) { beep(180, 0.05, 0.03); return; }
+    const G = live(); if (!G) return; const me = G.me; if (me.jail || me.hd || (me.coins || 0) <= 0) { beep(180, 0.05, 0.03); return; }
     // la monetina vola davanti a me (dove sto andando), fermata dai muri
     const dx = cq.wdx || 1, dy = cq.wdy || 0, m = Math.hypot(dx, dy) || 1; let r = 0.5; while (r < 5 && !GD.opaque(cq.x + dx / m * r, cq.y + dy / m * r)) r += 0.25; r = Math.max(0.5, r - 0.4);
     const x = cq.x + dx / m * r, y = cq.y + dy / m * r;
