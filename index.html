@@ -1745,6 +1745,8 @@ const CQ_SPEED = 3.4, CQ_R = 0.3;
 let CQ_W, CQ_H, CQ_ROOMS, CQ_DOORS, CQ_DECALS, CQ_PROPS, CQ_TASKS, CQ_CAMS, CQ_VENDING, CQ_RING, CQ_BUTTON, CQ_SABS, CQ_IN, CQ_HELP, CQ_HALL;
 let CQ_MAP, CQ_CAMDESK;   // il pacchetto intero (per le cose che hanno solo alcune mappe) e le scrivanie delle telecamere
 let cqFloor, cqSolid, cqRoomOf, cqDeco;
+// decorazioni alte (CQ_MAP.decoTall, es. cespugli e sassi dell'isola) su terreno piano: si disegnano in ordine con gli oggetti, non col pavimento (se no un masso dietro ci finisce sopra)
+const cqDecoUp = (x, y) => !!(CQ_MAP.decoTall && cqDeco && cqDeco[y] && cqDeco[y][x] && CQ_MAP.decoTall.includes(cqDeco[y][x]) && !cqHc(x, y));
 // mappa "Studio": lo studio cinematografico
 function cqMapStudio() {
   // stanze del set: nome, posizione, misura, colori del pavimento a scacchi, colore dei muri, tipo di pavimento (k)
@@ -4827,7 +4829,7 @@ function cqTools(g, TW) {
     px, py,
     // casella alzata (mappe con le altezze): colonna di blocchi a strati, pavimento in cima, poi l'oggetto che c'e' sopra
     zcell(x, y, o) {
-      const z = cqHc(x, y); if (!z) { if (o) this.cell(x, y, o); return; }
+      const z = cqHc(x, y); if (!z) { if (cqDecoUp(x, y)) drawDeco(cqDeco[y][x], x, y); if (o) this.cell(x, y, o); return; }
       const hb = CQ_MAP.hb || 0.7;
       const sd = (i) => CQ_MAP.hzSide ? CQ_MAP.hzSide(x, y, i, z) : '#7d6f58';   // due blocchi (roccia + strato di prato in cima) e le righe degli strati: poco lavoro anche ridisegnando a ogni fotogramma
       if (z > 1) bx(x, y, x + 1, y + 1, 0, (z - 1) * hb, sd(0)); bx(x, y, x + 1, y + 1, (z - 1) * hb, z * hb, sd(z - 1));
@@ -4840,7 +4842,7 @@ function cqTools(g, TW) {
       if (TW < 40) return;
       floorTex(x, y);
       if (cqSolid[y][x] && cqSolid[y][x].prop) poly(q, 'rgba(0,0,0,.22)');   // ombra sotto gli oggetti
-      if (cqDeco && cqDeco[y][x]) drawDeco(cqDeco[y][x], x, y);
+      if (cqDeco && cqDeco[y][x] && !cqDecoUp(x, y)) drawDeco(cqDeco[y][x], x, y);
     },
     canopy, mob, rifle, trap,
     // oggetto della mappa disegnato fuori dalla sua cella (es. un personaggio travestito), con la stessa ombra degli oggetti veri
@@ -4875,7 +4877,7 @@ function cqBuildBg() {
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqFloor[y][x] && !cqHc(x, y)) job.push({ k: 0, x, y, b: [(x - y - 1) * TW / 2 - 2, (x + y) * TH / 2 - 2 - (cqDeco && cqDeco[y][x] ? TW : 0), (x - y + 1) * TW / 2 + 2, (x + y + 2) * TH / 2 + 2] });
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
-  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] || cqHc(x, y)) { const o = cqSolid[y][x], tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW, zp = cqHc(x, y) * (CQ_MAP.hb || 0.7) * U; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? CQ_TREE_UP : 3.5) * U - TW - zp, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
+  for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] || cqHc(x, y) || cqDecoUp(x, y)) { const o = cqSolid[y][x], tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW, zp = cqHc(x, y) * (CQ_MAP.hb || 0.7) * U; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? CQ_TREE_UP : 3.5) * U - TW - zp, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
   cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true; cq.glw = new Map();
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
@@ -5187,7 +5189,7 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
       if (!B && !FO && cqFloor[y][x] && rr > a0 && l < a1 && bt > b0 && t < b1) T.floor(x, y);
       const o = cqSolid[y][x], zc = cqHc(x, y);
       const tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW;
-      if ((o || zc) && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? CQ_TREE_UP : 3.5) * U - TW - zc * (CQ_MAP.hb || 0.7) * U < b1) items.push({ d: x + y + 1, x, y, o });
+      if ((o || zc || cqDecoUp(x, y)) && rr + sd > a0 && l - sd < a1 && bt + TW > b0 && t - (tall ? CQ_TREE_UP : 3.5) * U - TW - zc * (CQ_MAP.hb || 0.7) * U < b1) items.push({ d: x + y + 1, x, y, o });
     }
   }
   if (!B && !FO) T.decals();

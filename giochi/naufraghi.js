@@ -177,7 +177,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const ring = []; for (let i = 0; i < 10; i++) ring.push([camps[0].cx + (i % 3) - 1, camps[0].cy + Math.floor(i / 3) - 1]);
     const holes = []; for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (ter[y][x] === 255) { let w = 1; while (x + w < N && ter[y][x + w] === 255) w++; holes.push([x, y, w, 1]); x += w - 1; }
     return { ok: okAll, w: W, h: H, rooms, doors: [], decals, props, holes, trees, bg: x => x >= RX - 8 ? '#050608' : '#2e79b3', deco: deco2, tasks: [], hall: 0, cams: [], vending: [], ring: ring.filter(([x, y]) => free(x, y)).concat([[camps[0].cx, camps[0].cy + 1]]),
-      button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm', 'oak'], xray: 1, canopy, trunk, hz, hb: 1, hzSide, decoDraw,
+      button: { x: -10, y: -10 }, sabs: {}, inn: { Isola: "sull'isola" }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall, canKinds: ['palm', 'oak'], xray: 1, canopy, trunk, hz, hb: 1, hzSide, decoDraw, decoTall: ['bush', 'pebble'],
       ter, camps, mouths, RZ, lms, items, sharks, top, R, seed };
   }
 
@@ -264,7 +264,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       case 'bigrock': {
         const f = Math.floor(hsh(x, y, 76) * 4), C3 = [['#8e8a82', '#9c988f', '#a8a49a'], ['#857f74', '#948e82', '#a39d90'], ['#918b7f', '#a09a8e', '#aea89c']][Math.floor(hsh(x, y, 77) * 3)];
         if (f === 0) { bx(x + 0.04, y + 0.08, x + 0.96, y + 0.96, 0, 1.05, C3[0]); bx(x + 0.15, y + 0.18, x + 0.85, y + 0.82, 1.05, 1.6, C3[1]); bx(x + 0.3, y + 0.3, x + 0.62, y + 0.6, 1.6, 1.8, C3[2]); }   // masso alto
-        else if (f === 1) { bx(x - 0.05, y + 0.05, x + 1.05, y + 0.95, 0, 0.6, C3[0]); bx(x + 0.1, y + 0.12, x + 0.95, y + 0.8, 0.6, 0.95, C3[1]); bx(x + 0.5, y + 0.2, x + 0.85, y + 0.6, 0.95, 1.1, C3[2]); }   // lastra larga
+        else if (f === 1) { bx(x + 0.02, y + 0.05, x + 0.98, y + 0.95, 0, 0.6, C3[0]); bx(x + 0.1, y + 0.12, x + 0.95, y + 0.8, 0.6, 0.95, C3[1]); bx(x + 0.5, y + 0.2, x + 0.85, y + 0.6, 0.95, 1.1, C3[2]); }   // lastra larga
         else if (f === 2) { bx(x + 0.02, y + 0.3, x + 0.55, y + 0.98, 0, 1.25, C3[0]); bx(x + 0.45, y + 0.02, x + 0.98, y + 0.6, 0, 0.85, C3[1]); bx(x + 0.1, y + 0.4, x + 0.45, y + 0.85, 1.25, 1.45, C3[2]); }   // due massi
         else { bx(x + 0.08, y + 0.1, x + 0.92, y + 0.92, 0, 0.7, C3[0]); bx(x + 0.22, y + 0.25, x + 0.75, y + 0.75, 0.7, 1.5, C3[1]); bx(x + 0.35, y + 0.38, x + 0.6, y + 0.6, 1.5, 2.2, C3[2]); }   // guglia
         if (hsh(x, y, 75) < 0.5) bx(x + 0.1, y + 0.1, x + 0.45, y + 0.45, f === 1 ? 0.95 : 1.05, (f === 1 ? 0.95 : 1.05) + 0.05, '#5a8a44');
