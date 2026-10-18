@@ -37,7 +37,7 @@
   { const t0 = performance.now(); cq.bg = null; cqBuildBg(); out.push('mappa pronta in ' + Math.round(performance.now() - t0) + ' ms, tessere ' + cq.bg.tiles.length); }
   // ---- partite ----
   const N = +(window.__N || 6);
-  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.colpo = Object.assign({}, store.settings.cqModeOpt.colpo || {}, { n: +(window.__NC || 4), dif: window.__DIF || 'n', time: 600 }); saveStore();
+  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.colpo = Object.assign({}, store.settings.cqModeOpt.colpo || {}, { n: +(window.__NC || 4), dif: window.__DIF || 'n', time: 600, ora: window.__ORA || 'n' }); saveStore();
   $('#cqTask').hidden = true; cqLobby(); await w(500);
   const res = { win: 0, jail: 0, time: 0 };
   for (let k = 0; k < N; k++) {

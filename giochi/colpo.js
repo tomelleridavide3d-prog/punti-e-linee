@@ -23,7 +23,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const FLN = ['Piano terra', 'Primo piano', 'Interrato'];
   const SRCH_T = 2, ACC_T = 1.5, PRT_T = 1.5, KP_T = 3, TURN_T = 1.2, TURN_WIN = 1.8, SWAP_T = 3, TAKE_T = 2, CMB_T = 12, FREE_T = 4, CONF_T = 2, LSR_T = 1.5;
   const HIDE_R = 1.35, EV_WAIT = 60, ALERT_T = 60, DARK_T = 40, DARK_CD = 30, COINS = 3, COIN_R = 6.5, STUN_R = 1.25, OP_R = 1.5, VAN_R = 1.9, CELL_OPEN = 6;
-  const HB_R = 5, LIT_R = 6.4, DARK_R = 3.3, MY_R = 1.9, SEE_G = 22, WALK = 0.6, RUN_R = 4.5, LAMP_R = 2.0;
+  const HB_R = 5, DAY_R = 3.9, LIT_R = 6.4, DARK_R = 3.3, MY_R = 1.9, SEE_G = 22, WALK = 0.6, RUN_R = 4.5, LAMP_R = 2.0;
   const ALA = { T: 'Piano terra', S: 'Primo piano', I: 'Interrato' };
   // i 4 parcheggi da cui si puo' entrare (uno a caso a ogni partita): li' aspetta il furgone della fuga
   const ENT = ['Parcheggio principale', 'Vicolo delle cucine', 'Parcheggio del giardino', 'Parcheggio del personale'];
@@ -800,7 +800,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     let tx = x, ty = y; if (!cqCellFree(Math.floor(tx), Math.floor(ty))) { const q = cqSpot(Math.floor(tx), Math.floor(ty)); tx = q.x; ty = q.y; }
     c.path = route(c.x, c.y, tx, ty); c.gx = tx; c.gy = ty; return c.path.length > 0 || Math.hypot(c.x - tx, c.y - ty) < 0.7;
   }
-  const rangeAt = (G, x, y) => litAt(G, x, y) ? LIT_R : DARK_R;   // portata delle guardie verso il punto x, y: in luce lontano, in ombra solo la torcia
+  const day = G => G.opt && G.opt.ora === 'p';   // POMERIGGIO: l'hotel e' tutto illuminato
+  const rangeAt = (G, x, y) => day(G) ? DAY_R : litAt(G, x, y) ? LIT_R : DARK_R;   // portata delle guardie verso il punto x, y: in luce lontano, in ombra solo la torcia
   // una guardia mi vedrebbe in x, y? (con un po' di margine)
   function danger(G, x, y, m = 1) { for (const g of G.gd) { if (g.st === 'ko' || Math.hypot(g.x - x, g.y - y) > 10) continue; if (GD.sees(g, x, y, rangeAt(G, x, y) * (alertOn(G) ? 1.22 : 1) + m) > 0) return g; } return null; }
   // fuga: lontano da chi mi insegue, fuori dalla sua vista, e senza finire addosso alle altre guardie (strada e arrivo)
@@ -936,11 +937,12 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     n: 'Colpo all\'hotel',
     desc: '💎 Tutti ladri insieme: rubate il diamante nel caveau del Grand Hotel senza farvi prendere dalle guardie. Il colpo cambia ogni volta.',
     maps: [['grandhotel', 'Grand Hotel di notte']],
-    def: { time: 720, dif: 'n', map: 'grandhotel', n: 4, fill: true },
+    def: { time: 720, ora: 'n', dif: 'n', map: 'grandhotel', n: 4, fill: true },
     ns: [[2, '2'], [4, '4'], [6, '6'], [8, '8']],   // anche in due (meno guardie)
-    opts: o => `<div class="row"><div class="lbl">Guardie</div>${seg('dif', [['f', 'Facili'], ['n', 'Normali'], ['d', 'Difficili']], o.dif || 'n')}</div>
+    opts: o => `<div class="row"><div class="lbl">Quando</div>${seg('ora', [['n', '🌙 Notte'], ['p', '☀️ Pomeriggio']], o.ora || 'n')}</div>
+      <div class="row"><div class="lbl">Guardie</div>${seg('dif', [['f', 'Facili'], ['n', 'Normali'], ['d', 'Difficili']], o.dif || 'n')}</div>
       <div class="row"><div class="lbl">Durata</div>${seg('time', [[600, '10:00'], [720, '12:00'], [900, '15:00']], o.time || 720)}</div><div class="hint">In due le guardie sono meno.</div>`,
-    read: d => ({ dif: d.get('dif') || 'n', time: +d.get('time') || 720 }),
+    read: d => ({ dif: d.get('dif') || 'n', time: +d.get('time') || 720, ora: d.get('ora') || 'n' }),
     start(G) {
       cq.mapDirty = true; cqUseMap('grandhotel');   // porte di nuovo chiuse (la mappa fissa resta in memoria tra una partita e l'altra)
       const M = MP(), R = M.routes, dif = G.opt.dif || 'n';
@@ -1105,6 +1107,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     // NOTTE: luci del soffitto per ala (il quadro elettrico le spegne), torce delle guardie, telecamere; io vedo poco intorno a me
     night(G) {
       if (!G.plan) return null;
+      if (day(G)) { const mf = floorOf(cq.x); return { a: 0, r: 0, lights: [], see: x => floorOf(x) === mf }; }   // pomeriggio: luce dappertutto (si vede comunque solo il mio piano)
       const me = G.me, M = MP(), mf = floorOf(cq.x), near = (x, y, k) => Math.abs(x - cq.x) < k && Math.abs(y - cq.y) < k && floorOf(x) === mf, lights = [[cq.x, cq.y, MY_R, 0.75]];
       for (const [x, y, a] of M.lamps) if (near(x, y, 16) && !(a !== 'X' && G.time < (G.dk[a] || 0))) lights.push([x, y, LAMP_R * 1.15, 0.78]);
       for (const g of G.gd) if (near(g.x, g.y, 20)) { lights.push([g.x, g.y, 1.0, 0.6]); if (g.st !== 'ko') lights.push([g.x, g.y, DARK_R * 1.05, 0.72, scrA(g.a), GD.HALF]); }
@@ -1121,10 +1124,12 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (!G.plan) return;
       const me = G.me, W2 = cq.w, H2 = cq.h, M = MP(), now = performance.now() / 1000, mf = floorOf(cq.x), near = (x, y, r) => Math.abs(x - cq.x) < r && Math.abs(y - cq.y) < r && floorOf(x) === mf;
       const wedge = (pts, col, line) => { g.fillStyle = col; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(sx(x, y), sy(x, y)) : g.moveTo(sx(x, y), sy(x, y))); g.closePath(); g.fill(); if (line) { g.strokeStyle = line; g.lineWidth = 1.5; g.stroke(); } };
+      if (day(G)) { g.fillStyle = 'rgba(255,190,110,.07)'; g.fillRect(0, 0, W2, H2); }   // luce calda del pomeriggio
       // CONI DI VISTA delle guardie che vedo (fermati dai muri) e delle telecamere accese
       for (const gd of G.gd) {
         if (gd.st === 'ko' || !guardSeen(G, gd)) continue;
         const ak = alertOn(G) ? 1.22 : 1, ch = gd.st === 'chase', su = gd.sus > 0.05;
+        if (day(G)) { wedge(GD.cone(gd.x, gd.y, gd.a, DAY_R * ak), ch ? 'rgba(255,60,50,.26)' : su ? 'rgba(255,150,40,.24)' : 'rgba(255,236,150,.2)', ch ? 'rgba(255,80,60,.75)' : su ? 'rgba(255,170,60,.65)' : 'rgba(200,170,60,.55)'); continue; }
         wedge(GD.cone(gd.x, gd.y, gd.a, LIT_R * ak), ch ? 'rgba(255,60,50,.1)' : su ? 'rgba(255,150,40,.09)' : 'rgba(255,236,150,.06)', ch ? 'rgba(255,80,60,.35)' : su ? 'rgba(255,170,60,.3)' : 'rgba(255,236,150,.18)');   // fin qui ti vede se sei in luce
         wedge(GD.cone(gd.x, gd.y, gd.a, DARK_R * ak), ch ? 'rgba(255,60,50,.3)' : su ? 'rgba(255,150,40,.28)' : 'rgba(255,236,150,.2)', ch ? 'rgba(255,80,60,.75)' : su ? 'rgba(255,170,60,.65)' : 'rgba(255,236,150,.45)');   // la torcia: qui ti vede anche al buio
       }
@@ -1260,7 +1265,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       : pl.c === 'pes' ? '⚖️ <b>Sensore di peso</b>: serve il diamante finto, nella vetrina della boutique (piano terra).' + it('fake')
       : '🎛️ <b>Cassaforte a combinazione</b>: va ascoltata con calma (12 s fermi, e ogni 3 s fa rumore).' + (G.cb ? ' — ✅ aperta' : '');
     cqCloseTask(); $('#tkTitle').textContent = '📋 Il colpo di stanotte';
-    $('#tkBody').innerHTML = `<p class="lead" style="text-align:left;font-size:14px;line-height:1.5">1) ${A}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">2) ${B}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">3) ${C}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">4) 🚐 Portate il diamante al furgone: stanotte vi aspetta nel <b>${ENT[pl.e].toLowerCase()}</b>, ${ENTD[pl.e]}.</p><p class="hint">🪜 Lo scalone della hall porta al primo piano; c'è anche la scala di servizio, in fondo alla zona del personale. ⭐ Le stelline indicano i posti da frugare. Se vi prendono finite in cella (sala della sicurezza, piano terra) e perdete quello che avete in tasca. 🐾 Di base cammini piano (silenzioso); 🏃 correre fa rumore e le guardie vicine vengono a vedere. Nell'ombra una guardia ti vede solo da vicino con la torcia (cono forte), sotto una lampada da lontano (cono leggero). 🪙 monetina: distrae le guardie. 👊 alle spalle di una guardia: la stordisci. ⚡ quadro elettrico: luci di un'ala spente per ${DARK_T} s.</p>`;
+    $('#tkBody').innerHTML = `<p class="lead" style="text-align:left;font-size:14px;line-height:1.5">1) ${A}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">2) ${B}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">3) ${C}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">4) 🚐 Portate il diamante al furgone: stanotte vi aspetta nel <b>${ENT[pl.e].toLowerCase()}</b>, ${ENTD[pl.e]}.</p><p class="hint">🪜 Lo scalone della hall porta al primo piano; c'è anche la scala di servizio, in fondo alla zona del personale. ⭐ Le stelline indicano i posti da frugare. Se vi prendono finite in cella (sala della sicurezza, piano terra) e perdete quello che avete in tasca. 🐾 Di base cammini piano (silenzioso); 🏃 correre fa rumore e le guardie vicine vengono a vedere. ${day(G) ? '☀️ È pomeriggio: c\'è luce dappertutto e le guardie vedono a media distanza ovunque (niente ombre: usa nascondigli, colonne e monetine).' : 'Nell\'ombra una guardia ti vede solo da vicino con la torcia (cono forte), sotto una lampada da lontano (cono leggero).'} 🪙 monetina: distrae le guardie. 👊 alle spalle di una guardia: la stordisci. ⚡ quadro elettrico: luci di un'ala spente per ${DARK_T} s.</p>`;
     $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#cqTask').hidden = false; $('#tkClose').onclick = () => cqCloseTask();
   }
   // tastierino
@@ -1384,6 +1389,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       g.font = '800 14px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = '#f2dca0'; g.fillText('Sei al ' + FLN[mf].toLowerCase(), W2 / 2, cy - R - 26);
       g.font = '600 12px system-ui,sans-serif'; g.fillStyle = 'rgba(230,236,255,.85)'; g.fillText(floorsTxt(G), W2 / 2, cy - R - 9); g.fillText('Tocca la mappa per chiuderla', W2 / 2, cy + R + 16); return; }
     mapDraw(g, G, W2 - RADAR - 8, 122 + RADAR, RADAR, 3.2, cq.x, cq.y, false);
+    g.fillStyle = 'rgba(10,12,16,.72)'; cqRR(g, W2 - RADAR - 8 - 46, 122 + RADAR * 2 + 3, 92, 28, 7); g.fill();   // fondino: si legge anche sul pavimento chiaro del pomeriggio
     g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = '#f2dca0'; g.fillText(['🏛️ Piano terra', '⬆️ Primo piano', '⬇️ Interrato'][mf], W2 - RADAR - 8, 122 + RADAR * 2 + 12);
     g.font = '600 10px system-ui,sans-serif'; g.fillStyle = 'rgba(230,236,255,.75)'; g.fillText('🗺️ tocca', W2 - RADAR - 8, 122 + RADAR * 2 + 25);
   }
