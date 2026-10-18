@@ -233,7 +233,7 @@
     def: { time: 240, seek: 1, hide: 20, me: 'rnd', dark: 'on', map: 'studio', n: 8, fill: true },
     opts: o => `<div class="row"><div class="lbl">Cercatori</div>${seg('seek', [[1, '1'], [2, '2']], o.seek)}</div>
       <div class="row"><div class="lbl">Tempo per nascondersi</div>${seg('hide', [[15, '15 s'], [20, '20 s']], o.hide)}</div>${cq.net ? '' : '<div class="row"><div class="lbl">Il mio ruolo</div>' + seg('me', [['rnd', 'A caso'], ['h', 'Nascosto'], ['s', 'Cercatore']], o.me || 'rnd') + '</div>'}
-      <div class="row"><div class="lbl">Durata della caccia</div>${seg('time', [[180, '3:00'], [240, '4:00'], [300, '5:00']], o.time)}</div>
+      <div class="row"><div class="lbl">Durata della caccia</div>${seg('time', [[120, '2:00'], [180, '3:00'], [240, '4:00'], [300, '5:00']], o.time)}</div>
       <div class="row"><div class="lbl">Luci</div>${seg('dark', [['on', 'Accese'], ['dark', 'Al buio'], ['rnd', 'A caso']], o.dark || 'on')}</div>`,
     read: d => ({ time: +d.get('time') || 240, seek: +d.get('seek') || 1, hide: +d.get('hide') || 20, me: d.get('me') || 'rnd', dark: d.get('dark') || 'on' }),
     start(G) {
