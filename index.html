@@ -3291,7 +3291,7 @@ function cqModeLobby(id) {
     <div class="row"><div class="lbl">Mappa</div>${seg('mmap', M.maps, M.maps.some(m => m[0] === o.map) ? o.map : M.maps[0][0])}</div>
     ${M.opts(o)}
     <div class="row"><div class="lbl">Personaggi (tu compreso)</div>${seg('n', [[4, '4'], [6, '6'], [8, '8'], [10, '10']], o.n)}</div>
-    <div class="row"><div class="lbl">Riempi i posti liberi con il computer</div>${seg('fill', [[1, 'Sì'], [0, 'No']], o.fill === false ? 0 : 1)}</div>
+    <div class="row"><div class="lbl">Chi gioca</div>${seg('fill', [[0, 'Solo giocatori reali'], [1, 'Riempi con il computer']], o.fill === false ? 0 : 1)}<div class="hint">Con gli amici: «Solo giocatori reali» = niente personaggi del computer, giocate solo voi del set.</div></div>
   </form><button class="btn primary go" id="lbGo" type="button">${cq.net ? '✔ Imposta' : 'Si gira!'}</button>${cqVoiceBox()}`;
   const f = $('#lbF'), read = () => { const d = new FormData(f); return Object.assign({}, M.read(d), { map: d.get('mmap'), n: +d.get('n'), fill: d.get('fill') !== '0' }); };
   const save = () => { (store.settings.cqModeOpt || (store.settings.cqModeOpt = {}))[id] = read(); saveStore(); };

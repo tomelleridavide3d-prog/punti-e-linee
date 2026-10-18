@@ -8,8 +8,8 @@ const name = n => `(async () => {
 })()`;
 const st = who => `(() => { const G = cq.g; if (!G || !G.mode) return '${who}: niente partita'; const a = G.chars.find(c => c.name === 'zzAmico'); return '${who}: ruoli ' + G.chars.map(c => c.name + ':' + c.r).join(' ') + ' | amico vivo ' + a.alive + ' oggetto ' + JSON.stringify(a.pr) + ' cambi ' + a.chg + ' errori ' + a.err + ' stordito ' + Math.max(0, (a.stun || 0) - G.time).toFixed(1) + ' | corpi ' + G.bodies.length + ' | tolti ' + (G.gone || []).map(a => a.join(',')).join(' ') + ' | ' + $('#cqModeBar').textContent; })()`;
 export default [
-  [0, name('zzHost'), 0], [1, name('zzAmico'), 800],
-  [0, `(async () => { $('#netNew').click(); await new Promise(r => setTimeout(r, 2500)); store.settings.cqOpt = Object.assign(cqOpt(), { game: 'nascondino' }); store.settings.cqModeOpt = Object.assign(store.settings.cqModeOpt || {}, { nascondino: { time: 240, seek: 1, hide: 20, map: 'studio', n: 4, fill: true } }); cqNetList(); return 'host: set aperto, gioco nascondino'; })()`, 1000],
+  [0, 'window.__FILL = ' + (process.env.FILL !== '0'), 0], [0, name('zzHost'), 0], [1, name('zzAmico'), 800],
+  [0, `(async () => { $('#netNew').click(); await new Promise(r => setTimeout(r, 2500)); store.settings.cqOpt = Object.assign(cqOpt(), { game: 'nascondino' }); store.settings.cqModeOpt = Object.assign(store.settings.cqModeOpt || {}, { nascondino: { time: 240, seek: 1, hide: 20, map: 'studio', n: 4, fill: window.__FILL !== false } }); cqNetList(); return 'host: set aperto, gioco nascondino'; })()`, 1000],
   [1, `(async () => { const code = Object.keys(cq.sets || {}).find(k => cq.sets[k].h === 'zzHost'); cqNetJoin(code); await new Promise(r => setTimeout(r, 2000)); return 'amico nel set: ' + $('#hlInfo').textContent.slice(0, 60); })()`, 500],
   // partita: host cercatore, amico nascosto, computer fermi
   [0, `(async () => { cqNewMatch(); await new Promise(r => setTimeout(r, 1500)); const G = cq.g; G.pre = 0; for (const c of G.chars) { c.r = c === G.me ? 1 : 0; if (c.bot) { c.think = 999; c.path = []; } } return 'host: partita, io cercatore'; })()`, 2500],
