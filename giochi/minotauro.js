@@ -12,7 +12,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   const SQ = L.squadre, MG = L.mappe;
   const NN = 18, W = NN * 3 + 1, HALF = W / 2, CA = NN / 2 - 2;   // incroci 18x18: incrocio i occupa le caselle 1+3i e 2+3i, i muri stanno su 3i
   const NEED = 4, COPY_T = 2, COPY_R = 1.35, EXPLORE = 3.8, CATCH = 0.75, ROAR_CD = 18, ROAR_R = 7, ROAR_T = 3, WARN = 5, MSPD = 1.05, EAT_T = 3, HEAR = 6, LEVER_T = 10, LEVER_R = 1.6, FURY = 0.15, FREE_T = 4, FREE_R = 1.4, SAFE_T = 2.5, VIS_OFF = 1.7, DOOR_T = 12, DOOR_CD = 25, DOOR_R = 1.6, ROT_CD = 60, ROT_WARN = 3, TRAP_T = 2.5, TRAP_CD = 25, NOISE_T = 5, SNIFF_CD = 30, SNIFF_T = 2, MTRAP_N = 2, MTRAP_T = 2, STEAL_CD = 3;
-  const VIS_E = 3.6, VIS_M = 5.6, TORCH_SEE = 10, LIT_R = 2.4, PRINT_T = 9, CHALK_MAX = 8, HIDE_R = 1.45, EXIT_R = 1.05, ESC_T = 2.5, LOOP = 0.06;
+  const VIS_E = 3.6, VIS_M = 5.6, TORCH_SEE = 10, LIT_R = 2.4, PRINT_T = 9, CHALK_MAX = 8, HIDE_R = 1.45, EXIT_R = 1.05, ESC_T = 3.6, LOOP = 0.06;
   // LE 4 ZONE DEL TEMPIO (una per quarto): pavimento, pietra dei muri, decorazioni. zq(x, y) = zona della casella
   const ZN = [
     { n: '🏛️ Ingresso in rovina', f: ['#6a6150', '#655c4b'], w: ['#9a8e78', '#938770', '#a09480'] },
@@ -447,7 +447,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     say(G, full(G, t) ? 'all' : 'copy', { a: c.id, b: t, n: nfr(G, t), i });
   }
   function caught(G, v, by) {
-    const p = P(v);
+    const p = P(v); if (v.tf) v.tfc = 1;
     if (!v.cg) {
       const used = G.chars.filter(c => c.jail).map(c => c.js), js = MP().chains.findIndex((q, i) => !used.includes(i)), q = MP().chains[js >= 0 ? js : 0];
       v.cg = 1; v.jail = 1; v.js = js >= 0 ? js : 0; v.hd = 0; v.op = null; v.path = []; v.walk = 0; v.x = q[0] + 0.5; v.y = q[1] + 0.5; v.jT = G.time;
@@ -580,6 +580,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   function say(G, k, o) { const e = Object.assign({ n: ++G.lgN, k }, o); G.lg.push(e); if (G.lg.length > 10) G.lg.shift(); show(G, e); }
   const bn0 = B => B ? '<b>' + esc(B.name) + '</b>' : 'Qualcuno';
   function show(G, e) {
+    if ((e.k === 'jail' || e.k === 'catch') && e.a === G.me.id) { G.jfx = performance.now(); G.jfxG = e.k === 'catch'; for (let i = 0; i < 4; i++) beep(420 - i * 60, 0.09, 0.05, 0.25 + i * 0.12, 'square'); }
     if ((e.k === 'copy' || e.k === 'all') && e.a === G.me.id && MP().frag[e.i]) { G.cfx = { x: MP().frag[e.i].x, y: MP().frag[e.i].y, t: performance.now() }; G.rfx = performance.now(); }
     const me = G.me, A = byId(G, e.a), B = byId(G, e.b), an = A ? '<b>' + esc(A.name) + '</b>' : '', T = TT(G);
     let t = '';
@@ -762,7 +763,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       const who = me.mino ? '<b style="color:#ff8a70">🐂 Minotauro</b>' + (me.ct ? ' · 👻 ' + me.ct : '') : '<b style="color:' + T[me.t].l + '">' + (G.nt === 1 ? '🔦 Esploratore' : T[me.t].n) + '</b>';
       return `${who} · 💎 ${sc} · 🧱 ${mmss(Math.max(0, G.next - G.time))} · ⏳ ${mmss(Math.max(0, G.left))}`;
     },
-    hide: c => { const G = cq.g; if (c.out) return true; if (!G.me.alive || c === G.me) return false; if (G.me.mino && (G.me.snT || 0) > G.time) return false; if (c.tf && c.t !== G.me.t && dist(G.me, c) > VIS_OFF && !litAt(c.x, c.y)) return true; return !!c.hd && c.t !== G.me.t && dist(G.me, c) > 1.0; },
+    hide: c => { const G = cq.g; if (c.out || G.esc) return true; if (!G.me.alive || c === G.me) return false; if (G.me.mino && (G.me.snT || 0) > G.time) return false; if (c.tf && c.t !== G.me.t && dist(G.me, c) > VIS_OFF && !litAt(c.x, c.y)) return true; return !!c.hd && c.t !== G.me.t && dist(G.me, c) > 1.0; },
     nameCol: c => c.mino ? '#ff8a70' : c.t != null && c.t >= 0 ? TT(cq.g)[c.t].l : null,
     draw: c => c.mino && c.alive ? bull : null,
     btn(G) { const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
@@ -840,7 +841,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
           else if (c.op.k === 'lever') { if (!lev[c.t]) { lev[c.t] = 1; G.gp[c.t] = Math.min(1, (G.gp[c.t] || 0) + dt / LEVER_T); if (G.gp[c.t] >= 1) { G.open[c.t] = 1; c.op = null; say(G, 'open', { a: c.id, b: c.t }); } } }
           else if (G.time - c.op.t0 >= COPY_T) copyDone(G, c);
         }
-        if (!G.esc && full(G, c.t) && G.open[c.t] && dxy(c, MP().exit.x, MP().exit.y) < EXIT_R) { G.esc = { id: c.id, t: c.t, at: G.time + ESC_T }; c.out = 1; c.path = []; say(G, 'esc', { a: c.id, b: c.t }); }
+        if (!G.esc && full(G, c.t) && G.open[c.t] && dxy(c, MP().exit.x, MP().exit.y) < EXIT_R) { G.esc = { id: c.id, t: c.t, at: G.time + ESC_T, md: M && M.alive ? Math.round(dist(M, c) * 10) / 10 : 99 }; c.out = 1; c.path = []; say(G, 'esc', { a: c.id, b: c.t }); }
       }
       if (M && M.alive && !G.esc && !((M.eat || 0) > G.time)) for (const e of expl(G)) if (dist(M, e) < CATCH && !((e.safe || 0) > G.time)) caught(G, e, M);
       if (G.esc && G.time >= G.esc.at) { this.finish(G); return; }
@@ -862,10 +863,10 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       if (G.esc) {
         const w = G.esc.t, A = byId(G, G.esc.id);
         const rank = G.chars.slice().sort((a, b) => (b.t === w) - (a.t === w) || (b.out | 0) - (a.out | 0) || (b.fr || 0) - (a.fr || 0)).map(line);
-        cqModeEnd({ t: G.nt === 1 ? '🚪 Gli esploratori sono scappati!' : T[w].e + ' Vincono i ' + T[w].n + '!', why: (A ? A.name : 'Qualcuno') + ' ha trovato l\'uscita del labirinto.', win: G.chars.filter(c => !c.mino && c.t === w).map(c => c.id), rank });
+        cqModeEnd({ t: G.nt === 1 ? '🚪 Gli esploratori sono scappati!' : T[w].e + ' Vincono i ' + T[w].n + '!', why: (A ? A.name : 'Qualcuno') + ' ha trovato l\'uscita del labirinto.' + funny(G, w), win: G.chars.filter(c => !c.mino && c.t === w).map(c => c.id), rank });
       } else {
         const rank = G.chars.slice().sort((a, b) => (b.mino | 0) - (a.mino | 0) || (b.alive | 0) - (a.alive | 0) || (b.fr || 0) - (a.fr || 0)).map(line);
-        cqModeEnd({ t: '🐂 Vince il Minotauro!', why: expl(G).length ? 'Tempo finito: nessuno è uscito dal labirinto.' : 'Ha preso tutti gli esploratori.', win: M ? [M.id] : [], rank });
+        cqModeEnd({ t: '🐂 Vince il Minotauro!', why: (expl(G).length ? 'Tempo finito: nessuno è uscito dal labirinto.' : 'Ha preso tutti gli esploratori.') + funny(G, -1), win: M ? [M.id] : [], rank });
       }
     },
     // online: squadra (-1 = Minotauro), nascosto, stordito, copia in corso, attesa del muggito, uscito, cristalli, presi
@@ -886,7 +887,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       const per = G.time - G.wsT < 2.5 || Math.floor(G.time * 2) % 6 === 0, perM = G.time - G.mkT < 2.5 || Math.floor(G.time * 2) % 6 === 3;
       return { left: Math.round(G.left * 10) / 10, nx: Math.round((G.next - G.time) * 10) / 10, wv: G.wv, ws: per ? hex(G.S) : null, pd: G.pend ? hex(G.pend) : null, pk: G.pendK || '',
         fc: G.fc.slice(0, G.nt), cs: G.cs.map(v => v < 0 ? '-' : v).join(''), mv: G.mv, mk: perM ? G.mk.map(m => [m.x, m.y, m.t, m.d, m.o]) : null,
-        esc: G.esc ? [G.esc.id, G.esc.t, Math.round((G.esc.at - G.time) * 10) / 10] : null, lg: G.lg, gp: G.gp.slice(0, G.nt).map(v => Math.round(v * 100) / 100), op: G.open.slice(0, G.nt), dc: G.dc.map(v => Math.max(0, Math.round((v - G.time) * 10) / 10)), dd: G.dcd.map(v => Math.max(0, Math.round((v - G.time) * 10) / 10)), rl: G.rl.map(v => Math.max(0, Math.round(v - G.time))), vo: G.vo.join(''), mt: G.mt.filter(t => t.on).map(t => [t.x, t.y]), tr: G.tr.map(v => Math.max(0, Math.round(v - G.time))), nz: G.noise ? [Math.round(G.noise.x * 10) / 10, Math.round(G.noise.y * 10) / 10, Math.round((G.time - G.noise.t) * 10) / 10] : null, pa: Math.round(((G.pendAt || 0) - G.time) * 10) / 10,
+        esc: G.esc ? [G.esc.id, G.esc.t, Math.round((G.esc.at - G.time) * 10) / 10, G.esc.md] : null, lg: G.lg, gp: G.gp.slice(0, G.nt).map(v => Math.round(v * 100) / 100), op: G.open.slice(0, G.nt), dc: G.dc.map(v => Math.max(0, Math.round((v - G.time) * 10) / 10)), dd: G.dcd.map(v => Math.max(0, Math.round((v - G.time) * 10) / 10)), rl: G.rl.map(v => Math.max(0, Math.round(v - G.time))), vo: G.vo.join(''), mt: G.mt.filter(t => t.on).map(t => [t.x, t.y]), tr: G.tr.map(v => Math.max(0, Math.round(v - G.time))), nz: G.noise ? [Math.round(G.noise.x * 10) / 10, Math.round(G.noise.y * 10) / 10, Math.round((G.time - G.noise.t) * 10) / 10] : null, pa: Math.round(((G.pendAt || 0) - G.time) * 10) / 10,
         bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]) };
     },
     apply(G, x) {
@@ -897,7 +898,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       G.pend = x.pd ? unhex(x.pd, n) : null; G.pendK = x.pk;
       x.fc.forEach((v, t) => { G.fc[t] = v; }); if (x.cs) G.cs = [...x.cs].map(v => v === '-' ? -1 : +v);
       if (x.mk && x.mv !== G.mv && !(G.time < (G.mkH || 0))) { G.mk = x.mk.map(a => ({ x: a[0], y: a[1], t: a[2], d: a[3], o: a[4] })); G.mv = x.mv; }
-      G.esc = x.esc ? { id: x.esc[0], t: x.esc[1], at: G.time + x.esc[2] } : null;
+      G.esc = x.esc ? { id: x.esc[0], t: x.esc[1], at: G.time + x.esc[2], md: x.esc[3] } : null;
       if (x.mt) G.mt = x.mt.map(([a, b]) => ({ x: a, y: b, on: 1 }));
       if (x.vo != null) { G.vo = [...x.vo].map(Number); G.tr = x.tr.map(v => v > 0 ? G.time + v : 0); G.noise = x.nz ? { x: x.nz[0], y: x.nz[1], t: G.time - x.nz[2] } : null; }
       if (x.dc) { G.dc = x.dc.map(v => v > 0 ? G.time + v : 0); G.dcd = x.dd.map(v => v > 0 ? G.time + v : 0); G.rl = x.rl.map(v => v > 0 ? G.time + v : 0); G.pendAt = G.time + (x.pa || 0); }
@@ -1020,8 +1021,10 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.72);
         gr.addColorStop(0, 'rgba(160,0,0,0)'); gr.addColorStop(1, 'rgba(160,0,0,' + a + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2);
       }
+      if (G.esc) escScene(g, G, W2, H2, TW);
+      if (G.jfx && performance.now() - G.jfx < 1700) catchScene(g, G, W2, H2);
       // mappina in alto a destra
-      minimap(g, G, W2);
+      if (!G.esc) minimap(g, G, W2);
     }
   };
   // ---- mappina vista dall'alto (girata come lo schermo): si scopre esplorando, con i muri come sono ADESSO (dopo un cambio si aggiorna da sola).
@@ -1090,6 +1093,73 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,240,200,.8)'; g.fillText('Tocca la mappa per chiuderla', W2 / 2, Math.max(130 + R, H2 / 2 - 40) + R + 16); return; }
     mapDraw(g, G, W2 - RADAR - 8, 122 + RADAR, RADAR, 7, cq.x, cq.y, false);
     g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,240,200,.75)'; g.fillText('🗺️ tocca', W2 - RADAR - 8, 122 + RADAR * 2 + 12);
+  }
+  // SCENETTA D'USCITA: in un riquadro, la porta che si alza sulla luce del sole e chi esce che ci entra camminando (niente Minotauro)
+  function escScene(g, G, W2, H2, TW) {
+    const A = byId(G, G.esc.id); if (!A) return;
+    const k = Math.max(0, Math.min(1, 1 - (G.esc.at - G.time) / ESC_T)), cw = Math.min(W2 - 40, 300), ch = 210, x0 = (W2 - cw) / 2, y0 = H2 * 0.42 - ch / 2, now = performance.now() / 1000;
+    g.save(); g.globalAlpha = Math.min(1, k * 5);
+    g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, W2, H2);
+    g.fillStyle = '#4a4034'; cqRR(g, x0, y0, cw, ch, 16); g.fill(); g.strokeStyle = '#c8a050'; g.lineWidth = 3; g.stroke();
+    // arco della porta con il cielo dentro
+    const ax = x0 + cw / 2, aw = cw * 0.42, ay = y0 + 22, ah = ch - 60;
+    g.save(); g.beginPath(); g.moveTo(ax - aw / 2, ay + ah); g.lineTo(ax - aw / 2, ay + aw / 2); g.arc(ax, ay + aw / 2, aw / 2, Math.PI, 0); g.lineTo(ax + aw / 2, ay + ah); g.closePath(); g.clip();
+    const sky = g.createLinearGradient(0, ay, 0, ay + ah); sky.addColorStop(0, '#9fd8ff'); sky.addColorStop(0.7, '#fff2c0'); sky.addColorStop(1, '#ffe08a'); g.fillStyle = sky; g.fillRect(ax - aw, ay, aw * 2, ah);
+    g.fillStyle = '#fff8d8'; g.beginPath(); g.arc(ax + aw * 0.15, ay + ah * 0.35, aw * 0.16, 0, 7); g.fill();
+    g.fillStyle = '#7ab85a'; g.fillRect(ax - aw, ay + ah * 0.78, aw * 2, ah);
+    const dy = Math.min(1, k * 1.6) * ah; g.fillStyle = '#5e3a22'; g.fillRect(ax - aw / 2, ay - dy, aw, ah); g.fillStyle = '#3a3a3a'; g.fillRect(ax - aw / 2, ay - dy + ah * 0.3, aw, 6); g.fillRect(ax - aw / 2, ay - dy + ah * 0.75, aw, 6);   // la porta sale
+    g.restore();
+    // pietre dell'arco
+    g.strokeStyle = '#8a7e66'; g.lineWidth = 8; g.beginPath(); g.moveTo(ax - aw / 2 - 4, ay + ah); g.lineTo(ax - aw / 2 - 4, ay + aw / 2); g.arc(ax, ay + aw / 2, aw / 2 + 4, Math.PI, 0); g.lineTo(ax + aw / 2 + 4, ay + ah); g.stroke();
+    // chi esce: dal davanti verso la luce, sempre piu' piccolo e luminoso
+    const w = Math.max(0, (k - 0.25) / 0.75), px = ax, py = y0 + ch - 14 - w * (ch - 80), sc = 1.15 - 0.7 * w;
+    g.globalAlpha = Math.min(1, k * 5) * (1 - Math.max(0, w - 0.8) * 5);
+    cqPlayer(g, px, py, 34 * sc, cqLookOf(A), now * 9, 1);
+    g.globalAlpha = 1;
+    g.font = '700 17px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#ffe9b0';
+    g.fillText('🚪 ' + A.name + ' è fuori!', ax, y0 + ch + 20);
+    g.restore();
+  }
+  // SCENETTA DELLA PRESA: sul telefono di chi viene preso, le catene che arrivano dai lati e si chiudono col lucchetto
+  function catchScene(g, G, W2, H2) {
+    const k = (performance.now() - G.jfx) / 1700, a = Math.min(1, k * 6, (1 - k) * 4), cy = H2 * 0.45, m = Math.min(1, k / 0.45);
+    g.save(); g.globalAlpha = a;
+    g.fillStyle = 'rgba(70,0,0,.45)'; g.fillRect(0, 0, W2, H2);
+    for (const sd of [-1, 1]) { const end = W2 / 2 - sd * 20 * (1 - m), st = sd < 0 ? -20 : W2 + 20; g.strokeStyle = '#b8b8b0'; g.lineWidth = 5;
+      for (let x = st, n = 0; (sd < 0 ? x < end : x > end) && n < 60; x -= sd * 26, n++) { g.beginPath(); g.ellipse(x, cy + Math.sin(x / 30) * 4, 12, 7, ((x / 26) | 0) % 2 ? 0 : Math.PI / 2, 0, 7); g.stroke(); if (Math.abs(x - end) < 26) break; } }
+    if (m >= 1) { g.font = '48px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🔒', W2 / 2, cy); }
+    g.font = '700 22px Georgia,serif'; g.textAlign = 'center'; g.fillStyle = '#ffd0c0'; g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.7)'; const tx = G.jfxG ? '👻 Preso di nuovo!' : '⛓️ Preso!'; g.strokeText(tx, W2 / 2, cy + 70); g.fillText(tx, W2 / 2, cy + 70);
+    g.restore();
+  }
+  // FRASI DI FINE PARTITA ("per un pelo"), in stile italiano con qualche parolaccia: al massimo 4, le piu' adatte
+  function funny(G, w) {
+    const L = [], ch = a => a[Math.floor(Math.random() * a.length)], N = c => '<b>' + esc(c.name) + '</b>', M = mino(G), ex = G.chars.filter(c => !c.mino), T = TT(G);
+    const mm = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0'), add = (pr, t) => L.push([pr + Math.random() * 0.5, t]);
+    if (G.esc) {
+      const A = byId(G, G.esc.id), d = G.esc.md;
+      if (A && d < 3) add(10, N(A) + ' è uscito con il Minotauro a ' + d.toFixed(1).replace('.', ',') + ' caselle dal culo. Che culo, appunto.');
+      else if (A && d < 7) add(7, N(A) + ' è uscito per un pelo: il Minotauro sentiva già il profumo della sua paura.');
+      if (M && d < 4) add(8, 'Il Minotauro era a due passi dalla porta e se li è fatti scappare sotto il naso. Cornuto e mazziato.');
+      if (G.time < 150) add(6, (G.nt === 1 ? 'Gli esploratori sono scappati' : 'I ' + T[w].n + ' sono scappati') + ' in ' + mm(G.time) + ': ma che cazzo avete mangiato a colazione?');
+    } else if (M) {
+      if (!expl(G).length && G.time < 200) add(9, 'Il Minotauro ha preso tutti in ' + mm(G.time) + ': stasera la mamma gli fa le lasagne.');
+      if ((M.ct || 0) >= 6) add(6, N(M) + ' ha fatto ' + M.ct + ' prigionieri: un macellaio con le corna.');
+      if (expl(G).length) add(5, 'Tempo scaduto: nessuno ha trovato l\'uscita. Gita al labirinto finita a schifo.');
+    }
+    if (M && !(M.ct || 0)) add(9, 'Il Minotauro non ha preso nessuno. Torna a pascolare, va\', bovino de \'sto cazzo.');
+    for (const c of ex) {
+      if ((c.fred || 0) >= 2) add(6, N(c) + ' ha liberato ' + c.fred + ' compagni dalle catene: santo subito. Gli altri? Neanche un grazie, ingrati.');
+      if ((c.cg || 0) >= 1 && !c.alive) add(5, N(c) + ' è stato preso due volte. Il Minotauro ormai lo saluta per nome.');
+      if ((c.tp || 0) >= 2) add(5, N(c) + ' è finito in ' + c.tp + ' trappole. Ma guardare dove metti i piedi, no eh?');
+      if (c.tfc) add(6, N(c) + ' ha spento la torcia ed è finito dritto tra le corna del Minotauro. Minchia, che mira.');
+      if ((c.hdT || 0) >= 50) add(5, N(c) + ' è rimasto nascosto dietro un\'anfora per ' + mm(c.hdT) + '. Coraggio da leone… anzi, da coniglio.');
+      if ((c.dcl || 0) >= 2) add(4, N(c) + ' ha chiuso ' + c.dcl + ' porte di pietra in faccia agli altri. Carogna, ma efficace.');
+      if ((c.stl || 0) >= 1) add(4, N(c) + ' ha rovinato ' + (c.stl > 1 ? c.stl + ' prese' : 'una presa') + ' ai rivali: la suocera del labirinto.');
+      if (!(c.fr || 0) && G.time > 120) add(2, N(c) + ' non ha preso manco un cristallo: turista per caso nel labirinto.');
+    }
+    L.sort((a, b) => b[0] - a[0]);
+    const out = L.slice(0, 4).map(l => l[1]); void ch;
+    return out.length ? '<br><span style="display:block;margin-top:10px;text-align:left;font-size:14px;line-height:1.45">' + out.map(t => '😂 ' + t).join('<br>') + '</span>' : '';
   }
   // cristallo: ottaedro allungato azzurro-viola che gira (larghezza delle facce che cambia), alone e scintille
   function crystal(g, X, Y, TW, t, still) {

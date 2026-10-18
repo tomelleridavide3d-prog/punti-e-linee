@@ -64,7 +64,7 @@
     const msTick = (performance.now() - t1) / Math.max(1, G.time * 20);
     window.cqToast = t0;
     const t = $('#tkBody .lead') ? $('#tkBody .lead').textContent : '?';
-    if (/Minotauro/.test(t)) res.mino++; else res.team++;
+    if (/Vince il Minotauro/.test(t)) res.mino++; else res.team++;
     out.push('partita ' + (k + 1) + ': ' + Math.round(G.time) + ' s, ' + t.slice(0, 90) + ' | ' + JSON.stringify(ev) + ' | cristalli ' + Array.from({ length: G.nt }, (_, t) => G.cs.filter(v => v === t).length).join('-') + ', fantasmi ' + G.chars.filter(c => !c.alive).length + ', dentro ai muri ' + wallHit + ', spostamenti ' + G.wv + ' (chiusi ' + stuck + '), segni ' + G.mk.length + ', ms/giro ' + msTick.toFixed(2));
     cq.on = true; cq.last = performance.now(); cq.raf = requestAnimationFrame(cqFrame);
   }
