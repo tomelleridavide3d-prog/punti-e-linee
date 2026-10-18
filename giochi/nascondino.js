@@ -23,7 +23,7 @@
   function menu(G) {
     const me = G.me, V = variants();
     cqCloseTask();
-    $('#tkTitle').textContent = '🪑 In cosa ti trasformi?';
+    $('#tkTitle').textContent = '🪑 Scegli l’oggetto da diventare';
     $('#tkBody').innerHTML = `<p class="hint">${hiding(G) ? 'Puoi cambiare quante volte vuoi finché i cercatori contano.' : 'Cambi rimasti: <b>' + (me.chg || 0) + '</b>'} Consiglio: mettiti vicino a oggetti uguali e resta fermo!</p>
       <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(76px,1fr));gap:8px">${V.map((v, i) => `<button class="btn" type="button" data-v="${i}" style="padding:4px;display:flex;flex-direction:column;align-items:center;gap:2px${me.pr && me.pr[0] === v[0] && JSON.stringify(me.pr[1] || 0) === JSON.stringify(v[1]) ? ';outline:3px solid #9ad0ff' : ''}"><canvas width="140" height="170" style="width:70px;height:85px"></canvas><span style="font-size:12px">${KINDS[v[0]]}</span></button>`).join('')}</div>`;
     $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
@@ -170,6 +170,28 @@
     if (!c.path.length) { const f = cqModeFree(); if (f) go(c, f.x, f.y); }
   }
 
+  // pulsante "Scegli l'oggetto" in alto al centro (come "Seleziona minigioco" della hall), solo per i nascosti vivi;
+  // a inizio partita il menu si apre da solo una volta. Un controllo ogni 0,25 s lo mostra/nasconde (anche quando si esce dal gioco)
+  function topBtn() {
+    let b = document.getElementById("nsPick");
+    if (!b) {
+      b = document.createElement("button"); b.id = "nsPick"; b.type = "button"; b.className = "btn"; b.hidden = true;
+      b.style.cssText = "position:absolute;top:112px;left:50%;transform:translateX(-50%);z-index:5;font-size:16px;font-weight:700;padding:10px 18px;background:#e0b84a;color:#2a1e08;border:0;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.35);white-space:nowrap";
+      b.onclick = () => { const G = cq.g; if (G && G.mode === "nascondino") menu(G); };
+      ($("#ciack") || document.body).appendChild(b);
+    }
+    const G = cq.g, me = G && G.me, on = !!(G && G.mode === "nascondino" && G.phase === "play" && me && me.r === 0 && me.alive && (hiding(G) || (me.chg || 0) > 0));
+    if (on) {
+      const t = hiding(G) ? "🪑 Scegli l'oggetto" : "🪑 Cambia oggetto (" + (me.chg || 0) + ")"; if (b.textContent !== t) b.textContent = t;
+      if (!G.menuShown) { G.menuShown = true; if ($("#cqTask").hidden) menu(G); }   // la prima volta si apre da solo
+    }
+    if (on) { const mb = $("#cqModeBar").getBoundingClientRect(), pr = b.offsetParent ? b.offsetParent.getBoundingClientRect().top : 0, t = Math.round(mb.bottom - pr + 8) + "px"; if (mb.height && b.style.top !== t) b.style.top = t; }   // subito sotto la barra in alto
+    if (b.hidden === on) b.hidden = !on;
+    const ce = $("#cqCount"), ct = on ? Math.round(b.offsetTop + b.offsetHeight + 8) + "px" : "";   // la scritta grande del gioco va sotto il pulsante
+    if (ce && ce.style.top !== ct) ce.style.top = ct;
+  }
+  if (!window.nsTopI) window.nsTopI = setInterval(topBtn, 250);
+
   CQ_MODES.nascondino = {
     n: 'Nascondino sul set',
     desc: '🪑 I <b>nascosti</b> scelgono da un menu in che oggetto trasformarsi (armadietto, sedia, attaccapanni, cinepresa, vaso, cono…), si muovono a forma di oggetto e si fermano dove si confondono meglio. I <b>cercatori</b> contano a schermo nero, poi colpiscono gli oggetti sospetti: se è un nascosto è eliminato, se è un oggetto vero restano storditi (3 errori = fuori). Ogni 30 secondi circa ogni nascosto fa un verso. 🤫 In vocale ti sentono da vicino: se ti nascondi, stai zitto!',
@@ -195,7 +217,7 @@
       const me = G.me, h = Math.ceil((G.opt.hide || 20) - G.time);
       if (me.r === 1) { if (!me.alive) return '🚫 Sei fuori'; if (hiding(G)) return '🙈 Stai contando… ' + h; if (stunned(G, me)) return '❤️'.repeat(Math.max(0, MAXERR - (me.err || 0))); return ''; }   // colpo sbagliato: al centro solo i cuori rimasti
       if (!me.alive) return '';
-      if (hiding(G)) return (me.pr ? '🤫 Sei ' + art(me.pr[0]) + '. ' : '🪑 Premi Oggetto e scegli! ') + 'I cercatori partono tra ' + h;
+      if (hiding(G)) return (me.pr ? '🤫 Sei ' + art(me.pr[0]) + '. ' : '🪑 Scegli l’oggetto da diventare! ') + 'I cercatori partono tra ' + h;
       const nt = (me.nt || 0) - G.time; if (nt > 0 && nt < 5) return '🔔 Tra ' + Math.ceil(nt) + ' farai un verso!';
       return '';
     },
@@ -213,7 +235,7 @@
     btn(G) {
       const me = G.me; if (!me.alive) return null;
       if (me.r === 1) return hiding(G) ? null : { t: '🔪 Colpisci', on: !stunned(G, me) && !!target(G, me) };
-      return { t: hiding(G) ? '🪑 Oggetto' : '🪑 Cambia (' + (me.chg || 0) + ')', on: hiding(G) || (me.chg || 0) > 0 };
+      return null;   // i nascosti usano il pulsante in alto al centro (topBtn)
     },
     act(G) {
       const me = G.me; if (!me.alive) return;

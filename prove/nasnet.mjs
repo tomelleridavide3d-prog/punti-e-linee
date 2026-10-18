@@ -14,6 +14,7 @@ export default [
   // partita: host cercatore, amico nascosto, computer fermi
   [0, `(async () => { cqNewMatch(); await new Promise(r => setTimeout(r, 1500)); const G = cq.g; G.pre = 0; for (const c of G.chars) { c.r = c === G.me ? 1 : 0; if (c.bot) { c.think = 999; c.path = []; } } return 'host: partita, io cercatore'; })()`, 2500],
   [0, st('host'), 0], [1, st('amico'), 0],
+  [1, `(() => 'amico: menu aperto da solo ' + !$('#cqTask').hidden + ' (' + $('#tkTitle').textContent + ') | pulsante in alto ' + (document.getElementById('nsPick') && !document.getElementById('nsPick').hidden))()`, 0],
   [1, `(() => { const G = cq.g, P = CQ_PROPS.find(p => p[0] === 'crate' && cqCellFree(p[1] + 1, p[2]) && !CQ_PROPS.some(q => q !== p && Math.hypot(q[1] - p[1] - 1, q[2] - p[2]) < 1.7)); cq.x = P[1] + 1.5; cq.y = P[2] + 0.5; return 'amico vicino a una cassa: pulsante ' + $('#cqKill').textContent + ' | ' + $('#cqCount').textContent; })()`, 800],
   [1, `(() => { cqMyKill(); document.querySelector('#tkBody [data-v]').click(); return 'amico: trasformato ' + JSON.stringify(cq.g.me.pr) + ' | ' + __T.slice(-1)[0]; })()`, 1500],
   [0, st('host'), 0],
@@ -25,6 +26,7 @@ export default [
   [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'); G.me.stun = 0; G.me.hitH = 0; cq.x = a.x + 0.9; cq.y = a.y; return 'host: accanto all amico, bersaglio ' + JSON.stringify(G.M.btn(G)); })()`, 600],
   [0, `(() => { cqMyKill(); return 'host: colpo -> ' + __T.slice(-1)[0]; })()`, 1500],
   [0, st('host'), 0], [1, st('amico'), 0],
+  [1, `(() => 'amico: menu aperto da solo ' + !$('#cqTask').hidden + ' (' + $('#tkTitle').textContent + ') | pulsante in alto ' + (document.getElementById('nsPick') && !document.getElementById('nsPick').hidden))()`, 0],
   [1, `(() => 'amico: ' + __T.slice(-1)[0] + ' | ' + $('#cqModeBar').textContent)()`, 0],
   // ruoli scambiati: l'amico (di nuovo vivo) cerca, io sono una cassa accanto a lui
   [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'); a.alive = true; a.r = 1; G.me.r = 0; G.me.pr = ['crate', 0]; cq.x = a.x + 0.9; cq.y = a.y; return 'host: ora sono una cassa vicino all amico'; })()`, 1500],
