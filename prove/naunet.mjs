@@ -23,8 +23,8 @@ export default [
   [1, `(() => { const G = cq.g, c = CQ_MAP.camps[1], q = cqSpot(c.rx, c.ry); cq.x = q.x; cq.y = q.y; return 'amico alla zattera'; })()`, 1500],
   [0, st('host'), 0], [1, `(() => 'amico: ' + __T.slice(-1)[0])()`, 0],
   // l'host colpisce l'amico
-  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'); cq.x = a.x + 0.8; cq.y = a.y; return 'host accanto all amico: ' + JSON.stringify(G.M.btn(G)); })()`, 700],
-  [0, `(() => { cqMyKill(); return 'host: ' + __T.slice(-1)[0]; })()`, 1200],
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.name === 'zzAmico'); cq.x = a.x + 0.8; cq.y = a.y; return 'host accanto all amico: pulsante 🔪 ' + document.getElementById('nfAtk').textContent + ' acceso ' + document.getElementById('nfAtk').classList.contains('on'); })()`, 700],
+  [0, `(() => { document.getElementById('nfAtk').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 7 })); return 'host: ' + __T.slice(-1)[0]; })()`, 1200],
   [0, st('host'), 0], [1, `(() => 'amico: ' + __T.slice(-1)[0] + ' | ' + $('#cqCount').textContent)()`, 0],
   [1, `(() => { const G = cq.g, c = CQ_MAP.camps[1]; return 'amico risorto? posizione ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ' campo ' + c.cx + ',' + c.cy; })()`, 6000],
   // l'amico si nasconde vicino a un cespuglio
