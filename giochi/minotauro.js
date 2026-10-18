@@ -207,8 +207,10 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         bx(x + 0.35, y + 0.35, x + 0.65, y + 0.65, 0.68, 0.74, '#b0a68f'); break; }
       case 'ped': {   // colonnina di pietra per il cristallo: base, fusto scanalato, capitello
         bx(x + 0.18, y + 0.18, x + 0.82, y + 0.82, 0, 0.18, '#7a705e'); cyl(x + 0.5, y + 0.5, 0.2, 0.18, 0.95, ['#a39a86', '#9a917c', '#aca38e'][o.v || 0]);
-        K.strokes([[S(x + 0.42, y + 0.69, 0.22), S(x + 0.42, y + 0.69, 0.92)], [S(x + 0.58, y + 0.69, 0.22), S(x + 0.58, y + 0.69, 0.92)], [S(x + 0.69, y + 0.5, 0.22), S(x + 0.69, y + 0.5, 0.92)]], 'rgba(60,50,40,.35)');
-        bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0.95, 1.08, '#b0a690'); break; }
+        K.strokes([[S(x + 0.42, y + 0.69, 0.22), S(x + 0.42, y + 0.69, 0.92)], [S(x + 0.58, y + 0.69, 0.22), S(x + 0.58, y + 0.69, 0.92)], [S(x + 0.69, y + 0.5, 0.22), S(x + 0.69, y + 0.5, 0.92)]], '#8a8170');
+        bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0.95, 1.08, '#b0a690');
+        { const G = cq.g, i = MP().frag.findIndex(f => f.cx === x && f.cy === y); if (G && G.mode === 'minotauro' && G.cs && i >= 0 && here(G, i)) { glow(x + 0.5, y + 0.5, 1.5, 1.3, 'rgba(120,230,255,.5)'); const [X, Y] = S(x + 0.5, y + 0.5, 1.55); crystal(K.g, X, Y, K.TW, 0.7, true); } }
+        break; }
       case 'brazier': bx(x + 0.4, y + 0.4, x + 0.6, y + 0.6, 0, 0.8, '#3e352e'); cyl(x + 0.5, y + 0.5, 0.3, 0.8, 1.0, '#5a4a3a'); dot(x + 0.5, y + 0.5, 1.12, 0.13, '#ff9a2a'); dot(x + 0.5, y + 0.5, 1.22, 0.07, '#ffe080'); glow(x + 0.5, y + 0.5, 1.1, 1.6, 'rgba(255,170,60,.55)'); break;
       case 'altar': {   // altare con le corna di toro e le candele
         bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 0.3, '#6f6450'); bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0.3, 0.75, '#857a64'); bx(x + 0.1, y + 0.1, x + 0.9, y + 0.9, 0.75, 0.85, '#9a8f78');
@@ -342,21 +344,15 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   function drawZones(G) {
     const B = cq.bg; if (!G.rz.length) return;
     if (!B) { G.rz = []; return; }   // mappa pronta da rifare: si rifa' gia' con i muri nuovi
-    const t0 = performance.now(), TW = B.TW, sc = B.dpr; cq.baking = true;
+    const t0 = performance.now();
     while (G.rz.length && performance.now() - t0 < ZONE_MS) {
       const z = G.rz[0]; if (z.B !== B) { G.rz.shift(); continue; }
-      // pezzo di STRIP x STRIP*6 pixel: da sinistra a destra, poi la striscia sotto
+      // pezzo di STRIP x STRIP*6 pixel: da sinistra a destra, poi la striscia sotto (cqBgZone del motore: rimette anche gli aloni di luce)
       const ya = z.y, yb = Math.min(z.y1, z.y + STRIP), xa = z.x != null ? z.x : z.x0, xb = Math.min(z.x1, xa + STRIP * 6);
       if (xb >= z.x1) { z.x = null; z.y = yb; } else z.x = xb;
-      for (const t of B.tiles) {
-        const x0 = Math.max(xa, t.x), y0 = Math.max(ya, t.y), x1 = Math.min(xb, t.x + t.w), y1 = Math.min(yb, t.y + t.h);
-        if (x1 <= x0 || y1 <= y0) continue;
-        const g = t.c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -t.x * sc, -t.y * sc);
-        cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 17);
-      }
+      cqBgZone([xa, ya, xb, yb]);
       if (z.y >= z.y1) G.rz.shift();
     }
-    cq.baking = false; B.ver++;
   }
   // su ogni telefono: le caselle dei muri come dice lo stato
   function syncWalls(G) {
@@ -565,6 +561,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       if (me.hd && me.hdX == null) { me.hdX = cq.x; me.hdY = cq.y; }
       if (!me.hd) me.hdX = me.hdY = null;
       syncWalls(G); syncMarks(G); feet(G);
+      if (!G.csD) G.csD = G.cs.slice();
+      G.cs.forEach((v, i) => { if (G.csD[i] !== v) { G.csD[i] = v; const f = MP().frag[i]; cqBgCell(f.cx, f.cy, 1); } });
       if ((G.exT = (G.exT || 0) - dt) <= 0) { G.exT = 0.2; explore(G); }
       const M = mino(G);
       if (M && M !== me && M.alive && (M.walk || M.mv) && (G.stT = (G.stT || 0) - dt) <= 0) { G.stT = 0.42; const d = Math.hypot(M.x - cq.x, M.y - cq.y); if (d < 10) thud(0.7 * (1 - d / 10), 52 + Math.random() * 10); }
@@ -678,11 +676,6 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         const ox = -Math.sin(f[2]) * 0.14 * f[5], oy = Math.cos(f[2]) * 0.14 * f[5], X = sx(f[0] + ox, f[1] + oy), Y = sy(f[0] + ox, f[1] + oy), a = Math.atan2(sy(f[0] + Math.cos(f[2]), f[1] + Math.sin(f[2])) - sy(f[0], f[1]), sx(f[0] + Math.cos(f[2]), f[1] + Math.sin(f[2])) - sx(f[0], f[1]));
         g.fillStyle = 'rgba(255,110,50,' + (0.75 * k) + ')'; g.beginPath(); g.ellipse(X, Y, TW * 0.11, TW * 0.055, a, 0, 7); g.fill();
       }
-      // cristalli: galleggiano sopra la colonnina, girano piano e brillano (quelli presi non ci sono piu')
-      MP().frag.forEach((f, i) => {
-        if (!here(G, i) || !near(f.x, f.y, 14) || (!vis(f.x, f.y) && !(me.mino && near(f.x, f.y, 9)))) return;
-        crystal(g, sx(f.x, f.y), sy(f.x, f.y) - TW * (1.45 + 0.08 * Math.sin(now * 2 + i)), TW, now + i);
-      });
       // occhi rossi del Minotauro nel buio (quando non lo vedo)
       const M = mino(G);
       if (M && M !== me && M.alive && !ghost && !(MN && MN.see(M.x, M.y)) && Math.hypot(M.x - cq.x, M.y - cq.y) < 9) {
@@ -720,45 +713,63 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     }
     if (nw) G.exV++;
   }
-  function minimap(g, G, W2) {
-    const me = G.me, all = me.mino || !me.alive, mw = 148, x0 = W2 - mw - 6, y0 = 122, dpr = cq.dpr || 1, s = mw / W;
-    let C = G.mm; const key = G.wv + '|' + all + '|' + G.exV + '|' + dpr + '|' + G.SdV + '|' + (G.rz ? G.rz.length : 0);
-    if (!C || C.key !== key) {
-      if (!C) { C = G.mm = { c: document.createElement('canvas') }; }
-      C.key = key; C.c.width = Math.round(mw * dpr); C.c.height = Math.round(mw * dpr);
-      const k = C.c.getContext('2d', CQ_CPU); k.setTransform(1, 0, 0, 1, 0, 0); k.clearRect(0, 0, C.c.width, C.c.height);
-      k.setTransform(s / 2 * dpr, s / 2 * dpr, -s / 2 * dpr, s / 2 * dpr, mw / 2 * dpr, 0);
-      // una casella = un pixel di un'immagine piccola, poi incollata girata (molto piu' leggero di una forma per casella)
-      const sm = C.s || (C.s = document.createElement('canvas')); sm.width = W; sm.height = W;
-      const sg = sm.getContext('2d', CQ_CPU), im = sg.createImageData(W, W), d = im.data, ex = G.ex;
-      for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
-        const i = (y * W + x) * 4, o = cqSolid[y][x], c = !all && !ex[y * W + x] ? [8, 8, 12, 150] : o && (o.prop === 'mw' || o.prop === 'mwt') ? [70, 60, 46, 255] : o && o.prop === 'exitd' ? [224, 184, 74, 255] : [170, 155, 124, 255];
-        d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = c[3];
-      }
-      sg.putImageData(im, 0, 0); k.imageSmoothingEnabled = false; k.drawImage(sm, 0, 0);
+  // MAPPA: un pixel per casella (immagine W x W, rifatta solo quando cambia qualcosa), poi disegnata girata come lo schermo.
+  //  - RADAR rotondo in alto a destra, ingrandito intorno a me (si leggono i corridoi vicini)
+  //  - MAPPA INTERA grande al centro toccando il radar (G.big), si chiude toccandola di nuovo
+  function mapImg(G) {
+    const me = G.me, all = me.mino || !me.alive, key = G.wv + '|' + all + '|' + G.exV + '|' + G.SdV + '|' + (G.rz ? G.rz.length : 0);
+    let C = G.mm; if (!C) C = G.mm = { c: document.createElement('canvas') };
+    if (C.key === key) return C.c;
+    C.key = key; const sm = C.c; sm.width = W; sm.height = W;
+    const sg = sm.getContext('2d', CQ_CPU), im = sg.createImageData(W, W), d = im.data, ex = G.ex;
+    for (let y = 0; y < W; y++) for (let x = 0; x < W; x++) {
+      const i = (y * W + x) * 4; if (!all && !ex[y * W + x]) continue;   // non esplorato: trasparente
+      const o = cqSolid[y][x], c = o && (o.prop === 'mw' || o.prop === 'mwt') ? [74, 62, 46] : o && o.prop === 'exitd' ? [240, 196, 80] : o && o.prop === 'ped' ? [150, 140, 120] : [214, 196, 152];
+      d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
     }
-    g.drawImage(C.c, x0, y0, mw, mw);
-    const P2 = (x, y) => [x0 + (x - y) * s / 2 + mw / 2, y0 + (x + y) * s / 2];
-    const dot = (x, y, r, col) => { const [X, Y] = P2(x, y); g.fillStyle = col; g.beginPath(); g.arc(X, Y, r, 0, 7); g.fill(); };
-    // cristalli: quelli che la squadra ha visto (il Minotauro li conosce tutti)
-    const tw = 0.6 + 0.4 * Math.sin(performance.now() / 250);
-    MP().frag.forEach((f, i) => { if (!here(G, i) || (!all && !G.ex[Math.floor(f.y) * W + Math.floor(f.x)])) return; dot(f.x, f.y, 2.6, 'rgba(110,230,255,' + tw + ')'); });
-    // l'uscita: compare con i cristalli (il Minotauro la scopre quando una squadra li ha tutti)
-    if (!me.alive || (me.mino ? Array.from({ length: G.nt }, (_, t) => t).some(t => full(G, t)) : full(G, me.t))) { const e = MP().exit; dot(e.x, e.y, 3.4, (performance.now() / 400 | 0) % 2 ? '#7be0a0' : '#2f8a5a'); }
-    if (!me.mino && me.alive) for (const c of G.chars) if (c !== me && c.alive && !c.out && !c.mino && c.t === me.t) dot(c.x, c.y, 2.2, TT(G)[c.t].l);
-    // io: punto con la direzione
-    const [X, Y] = P2(cq.x, cq.y); g.fillStyle = me.mino ? '#ff5a3a' : '#ffffff'; g.strokeStyle = 'rgba(0,0,0,.7)'; g.lineWidth = 1.5; g.beginPath(); g.arc(X, Y, 3, 0, 7); g.fill(); g.stroke();
+    sg.putImageData(im, 0, 0); return sm;
+  }
+  // disegna la mappa con centro (cx, cy) in caselle sul punto (X, Y) dello schermo, s = pixel per casella; dentro un cerchio di raggio R
+  function mapDraw(g, G, X, Y, R, s, cx, cy, big) {
+    const me = G.me, all = me.mino || !me.alive, img = mapImg(G), now = performance.now();
+    const P2 = (x, y) => [X + (x - cx - (y - cy)) * s * 0.7071, Y + (x - cx + (y - cy)) * s * 0.7071];
+    g.save();
+    g.fillStyle = 'rgba(14,12,10,.86)'; g.strokeStyle = '#c8a050'; g.lineWidth = 2.5; g.beginPath(); if (big) cqRR(g, X - R, Y - R, R * 2, R * 2, 16); else g.arc(X, Y, R, 0, 7); g.fill(); g.stroke();
+    g.beginPath(); if (big) cqRR(g, X - R + 3, Y - R + 3, R * 2 - 6, R * 2 - 6, 14); else g.arc(X, Y, R - 2, 0, 7); g.clip();
+    g.translate(X, Y); g.rotate(Math.PI / 4); g.scale(s, s); g.translate(-cx, -cy); g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0); g.setTransform(cq.dpr || 1, 0, 0, cq.dpr || 1, 0, 0);
+    const dot = (x, y, r, col, ring) => { const [a, b] = P2(x, y); g.fillStyle = col; g.beginPath(); g.arc(a, b, r, 0, 7); g.fill(); if (ring) { g.strokeStyle = ring; g.lineWidth = 1.5; g.stroke(); } };
+    // cristalli visti (il Minotauro li conosce tutti), che pulsano
+    const tw = 0.6 + 0.4 * Math.sin(now / 250);
+    MP().frag.forEach((f, i) => { if (!here(G, i) || (!all && !G.ex[f.cy * W + f.cx])) return; dot(f.x, f.y, big ? 4 : 3.5, 'rgba(120,230,255,' + tw + ')', 'rgba(255,255,255,.8)'); });
+    // uscita (con i cristalli; il Minotauro quando una squadra li ha tutti)
+    const exitOn = !me.alive || (me.mino ? Array.from({ length: G.nt }, (_, t) => t).some(t => full(G, t)) : full(G, me.t));
+    if (exitOn) { const e = MP().exit; dot(e.x, e.y, big ? 6 : 5, (now / 400 | 0) % 2 ? '#7be0a0' : '#2f8a5a', '#fff'); }
+    if (!me.mino && me.alive) for (const c of G.chars) if (c !== me && c.alive && !c.out && !c.mino && c.t === me.t) dot(c.x, c.y, 3, TT(G)[c.t].l, '#000');
+    // io: freccia che guarda dove vado
+    const [mx, my] = P2(cq.x, cq.y), wx = cq.wdx || 1, wy = cq.wdy || 0, ang = Math.atan2((wx + wy) * 0.7071, (wx - wy) * 0.7071);
+    g.translate(mx, my); g.rotate(ang); g.fillStyle = me.mino ? '#ff5a3a' : '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(7, 0); g.lineTo(-5, -5); g.lineTo(-2.5, 0); g.lineTo(-5, 5); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+    // nel radar: uscita fuori dal cerchio -> freccia sul bordo
+    if (!big && exitOn) { const e = MP().exit, [a, b] = P2(e.x, e.y), d = Math.hypot(a - X, b - Y); if (d > R - 6) { const k = (R - 7) / d, ex = X + (a - X) * k, ey = Y + (b - Y) * k; g.fillStyle = '#7be0a0'; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); g.arc(ex, ey, 5, 0, 7); g.fill(); g.stroke(); } }
+  }
+  const RADAR = 66;
+  function minimap(g, G, W2) {
+    if (G.big) { const H2 = cq.h, R = Math.min(W2 - 24, H2 - 300, 420) / 2; mapDraw(g, G, W2 / 2, Math.max(130 + R, H2 / 2 - 40), R, (R * 2 - 10) / (W * 1.4142), W / 2, W / 2, true);
+      g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,240,200,.8)'; g.fillText('Tocca la mappa per chiuderla', W2 / 2, Math.max(130 + R, H2 / 2 - 40) + R + 16); return; }
+    mapDraw(g, G, W2 - RADAR - 8, 122 + RADAR, RADAR, 7, cq.x, cq.y, false);
+    g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(255,240,200,.75)'; g.fillText('🗺️ tocca', W2 - RADAR - 8, 122 + RADAR * 2 + 12);
   }
   // cristallo: ottaedro allungato azzurro-viola che gira (larghezza delle facce che cambia), alone e scintille
-  function crystal(g, X, Y, TW, t) {
+  function crystal(g, X, Y, TW, t, still) {
     const u = TW / 34 * 1.45, a = Math.sin(t * 1.3), w1 = 7 * u * (0.55 + 0.45 * Math.abs(a)), w2 = 7 * u - w1, h = 13 * u;
-    const gl = g.createRadialGradient(X, Y, 0, X, Y, 24 * u); gl.addColorStop(0, 'rgba(120,230,255,.45)'); gl.addColorStop(1, 'rgba(120,230,255,0)'); g.fillStyle = gl; g.fillRect(X - 24 * u, Y - 24 * u, 48 * u, 48 * u);
+    if (!still) { const gl = g.createRadialGradient(X, Y, 0, X, Y, 24 * u); gl.addColorStop(0, 'rgba(120,230,255,.45)'); gl.addColorStop(1, 'rgba(120,230,255,0)'); g.fillStyle = gl; g.fillRect(X - 24 * u, Y - 24 * u, 48 * u, 48 * u); }
     const face = (x0, x1, top, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(X, top ? Y - h : Y + h * 0.8); g.lineTo(X + x0, Y); g.lineTo(X + x1, Y); g.closePath(); g.fill(); };
     const sd = a > 0 ? 1 : -1;
     face(-7 * u, -7 * u + w1 * 2 * (sd > 0 ? 1 : 0.4), 1, '#8fe8ff'); face(-7 * u + w1 * 2 * (sd > 0 ? 1 : 0.4), 7 * u, 1, '#5ab8f0');
     face(-7 * u, -7 * u + w1 * 2 * (sd > 0 ? 1 : 0.4), 0, '#6a7ee8'); face(-7 * u + w1 * 2 * (sd > 0 ? 1 : 0.4), 7 * u, 0, '#4a58c8');
-    g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X, Y - h); g.lineTo(X - 7 * u, Y); g.lineTo(X, Y + h * 0.8); g.stroke();
-    for (let k = 0; k < 3; k++) { const ph = (t * 0.9 + k / 3) % 1, sx = X + Math.sin(k * 2.1 + t) * 9 * u, sy = Y - ph * 18 * u; g.fillStyle = 'rgba(220,250,255,' + (1 - ph) + ')'; g.fillRect(sx - 1, sy - 1, 2, 2); }
+    g.strokeStyle = '#e8fbff'; g.lineWidth = 1; g.beginPath(); g.moveTo(X, Y - h); g.lineTo(X - 7 * u, Y); g.lineTo(X, Y + h * 0.8); g.stroke();
+    if (!still) for (let k = 0; k < 3; k++) { const ph = (t * 0.9 + k / 3) % 1, sx = X + Math.sin(k * 2.1 + t) * 9 * u, sy = Y - ph * 18 * u; g.fillStyle = 'rgba(220,250,255,' + (1 - ph) + ')'; g.fillRect(sx - 1, sy - 1, 2, 2); }
     void w2;
   }
 
@@ -769,11 +780,23 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     (document.getElementById('ciack') || document.body).appendChild(b); return b;
   })();
   cb.onclick = e => { e.stopPropagation(); chalk(); };
-  if (!window.mnKeys) { window.mnKeys = 1; document.addEventListener('keydown', e => { if ((e.key === 'g' || e.key === 'G') && !e.repeat && cq.g && cq.g.mode === 'minotauro' && !(e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) chalk(); }); }
+  const mb = document.getElementById('mnMap') || (() => {
+    const b = document.createElement('button'); b.id = 'mnMap'; b.type = 'button'; b.hidden = true; b.title = 'Mappa (M)'; b.setAttribute('aria-label', 'Mappa');
+    b.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent';
+    (document.getElementById('ciack') || document.body).appendChild(b); return b;
+  })();
+  mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'minotauro') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } };
+  if (!window.mnKeys) { window.mnKeys = 1; document.addEventListener('keydown', e => { if (e.repeat || !cq.g || cq.g.mode !== 'minotauro' || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; if (e.key === 'g' || e.key === 'G') chalk(); if (e.key === 'm' || e.key === 'M') cq.g.big = !cq.g.big; }); }
   (function loop() {
     requestAnimationFrame(loop);
     const G = cq.g, on = !!(cq.on && G && G.mode === 'minotauro' && G.fc && G.phase === 'play' && G.pre <= 0 && G.me.alive && !G.me.mino && !G.me.out && $('#cqTask').hidden);
     if (cb.hidden === on) cb.hidden = !on;
+    const mo = !!(cq.on && G && G.mode === 'minotauro' && G.fc && G.phase === 'play' && $('#cqTask').hidden);
+    if (mb.hidden === mo) mb.hidden = !mo;
+    if (mo) { const W2 = cq.w, H2 = cq.h; let css;
+      if (G.big) { const R = Math.min(W2 - 24, H2 - 300, 420) / 2, cy = Math.max(130 + R, H2 / 2 - 40); css = 'left:' + (W2 / 2 - R) + 'px;top:' + (cy - R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px;border-radius:16px'; }
+      else css = 'left:' + (W2 - 2 * RADAR - 8) + 'px;top:122px;width:' + 2 * RADAR + 'px;height:' + 2 * RADAR + 'px;border-radius:50%';
+      if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; } }
     if (!(G && G.mode === 'minotauro' && G.phase === 'play')) { const cv = document.getElementById('cqCanvas'); if (cv && cv.style.transform) cv.style.transform = ''; }
   })();
 });

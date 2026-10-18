@@ -4503,7 +4503,16 @@ function cqTools(g, TW) {
   };
   const dot = (x, y, z, r, col) => { const [X, Y] = S(x, y, z); g.fillStyle = col; g.beginPath(); g.arc(X, Y, r * TW, 0, 7); g.fill(); };
   const line = (a, b, col, w) => { g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke(); };
-  const glow = (x, y, z, r, col) => { const [X, Y] = S(x, y, z), gr = g.createRadialGradient(X, Y, 0, X, Y, r * TW); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,230,140,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X, Y, r * TW, 0, 7); g.fill(); };
+  // ALONI DI LUCE (torce, bracieri, lampade): MAI dipinti nella mappa pronta. Li' si registrano soltanto (cqGlowAdd) e cqDraw li disegna tutti
+  // insieme a ogni fotogramma. Prima erano dipinti nello sfondo e di nuovo nei riquadri ridisegnati intorno ai personaggi: le sfumature
+  // semitrasparenti si sommavano e intorno al personaggio compariva una luce "quadrata". Nei riquadri (cq.noGlow) non si disegnano;
+  // le tele senza g.__bg (chiome trasparenti) le saltano; le altre (telecamere di Ciack US) le disegnano direttamente.
+  const glow = (x, y, z, r, col) => {
+    const [X, Y] = S(x, y, z);
+    if (cq.baking) { const b = g.__bg; if (b) { const m = g.getTransform(); cqGlowAdd((m.a * X + m.c * Y + m.e) / b.sc + b.x - b.ox, (m.b * X + m.d * Y + m.f) / b.sc + b.y - b.oy, r * TW, col); } return; }
+    if (cq.noGlow) return;
+    const gr = g.createRadialGradient(X, Y, 0, X, Y, r * TW); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,230,140,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X, Y, r * TW, 0, 7); g.fill();
+  };
   const desk = (x, y) => {
     for (const [a, b] of [[0.08, 0.16], [0.82, 0.16], [0.08, 0.74], [0.82, 0.74]]) bx(x + a, y + b, x + a + 0.1, y + b + 0.1, 0, 0.7, '#6b5238');
     bx(x + 0.02, y + 0.1, x + 0.98, y + 0.9, 0.7, 0.85, '#b99a72');
@@ -4865,7 +4874,7 @@ function cqBuildBg() {
   job.push({ k: 1, b: [-1e9, -1e9, 1e9, 1e9] });
   const cells = [];
   for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) if (cqSolid[y][x] || cqHc(x, y)) { const o = cqSolid[y][x], tall = o && o.prop === 'tree', sd = tall ? CQ_TREE_SD * TW : TW, zp = cqHc(x, y) * (CQ_MAP.hb || 0.7) * U; cells.push({ k: 2, d: x + y, x, y, o, b: [(x - y - 1) * TW / 2 - sd, (x + y) * TH / 2 - (tall ? CQ_TREE_UP : 3.5) * U - TW - zp, (x - y + 1) * TW / 2 + sd, (x + y + 2) * TH / 2 + TW] }); }
-  cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true;
+  cq.canSp = CQ_MAP.trees ? Object.assign(cqCanopySprites(TW, sc), { TW }) : null; cq.baking = true; cq.glw = new Map();
   cells.sort((a, b) => a.d - b.d); job.push(...cells);
   const tiles = [];
   for (let ty = 0; ty * TS < bh; ty++) for (let tx = 0; tx * TS < bw; tx++) {
@@ -4873,6 +4882,7 @@ function cqBuildBg() {
       if (!job.some(j => j.k !== 1 && !(j.b[2] < x0 || j.b[0] > x1 || j.b[3] < y0 || j.b[1] > y1))) continue; }
     const c = document.createElement('canvas'); c.width = Math.min(TP, Math.ceil((bw - tx * TS) * sc)); c.height = Math.min(TP, Math.ceil((bh - ty * TS) * sc));
     const g = c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, (ox - tx * TS) * sc, (oy - ty * TS) * sc);
+    g.__bg = { x: tx * TS, y: ty * TS, sc, ox, oy };   // per registrare gli aloni di luce (cqGlowAdd)
     const T = cqTools(g, TW), x0 = tx * TS - ox, y0 = ty * TS - oy, x1 = x0 + c.width / sc, y1 = y0 + c.height / sc;
     for (const j of job) {
       if (j.b[2] < x0 || j.b[0] > x1 || j.b[3] < y0 || j.b[1] > y1) continue;
@@ -4935,19 +4945,28 @@ function cqFadeImg(t, B) {
   g.drawImage(p.f, 0, 0);
   return (t.fade = { c, x: p.x, y: p.y, w: p.w, h: p.h, B, ver: B.ver, a, p });
 }
-// ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
-function cqBgCell(x, y, low) {   // low: oggetto basso (porta, leva, forziere...): si ridisegna una zona molto piu' piccola
+// aloni di luce registrati dalla mappa pronta: chiave = posizione + colore, valore [x, y, raggio, colore] in pixel della mappa (origine = casella 0,0)
+function cqGlowAdd(x, y, R, col) { (cq.glw || (cq.glw = new Map())).set(Math.round(x) + ',' + Math.round(y) + col, [x, y, R, col]); }
+// ridisegna nella mappa pronta un rettangolo r = [x0, y0, x1, y1] (coordinate della mappa pronta); prima toglie gli aloni che ci stanno dentro (chi c'e' ancora li rimette)
+function cqBgZone(r) {
   const B = cq.bg; if (!B) return;
-  const TW = B.TW, TH = TW / 2, U = TH * 1.15, sc = B.dpr;
-  const r = [B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - (low ? 3.5 : CQ_TREE_UP) * U - TW - cqHc(x, y) * (CQ_MAP.hb || 0.7) * U, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW];
+  const TW = B.TW, sc = B.dpr;
+  if (cq.glw) for (const [k, v] of cq.glw) { const X = v[0] + B.ox, Y = v[1] + B.oy; if (X >= r[0] && X <= r[2] && Y >= r[1] && Y <= r[3]) cq.glw.delete(k); }
   cq.baking = true;
   for (const t of B.tiles) {
     const x0 = Math.max(r[0], t.x), y0 = Math.max(r[1], t.y), x1 = Math.min(r[2], t.x + t.w), y1 = Math.min(r[3], t.y + t.h);
     if (x1 <= x0 || y1 <= y0) continue;
     const g = t.c.getContext('2d', CQ_CPU); g.setTransform(sc, 0, 0, sc, -t.x * sc, -t.y * sc);   // coordinate dell'intera mappa pronta
+    g.__bg = { x: t.x, y: t.y, sc, ox: B.ox, oy: B.oy };
     cqRedraw(g, cqTools(g, TW), [x0, y0, x1, y1], B.ox, B.oy, TW, [], 17);
   }
   cq.baking = false; B.ver++;
+}
+// ridisegna nella mappa pronta solo la zona di una cella (albero tagliato, falo' o tenda che crescono)
+function cqBgCell(x, y, low) {   // low: oggetto basso (porta, leva, forziere...): si ridisegna una zona molto piu' piccola
+  const B = cq.bg; if (!B) return;
+  const TW = B.TW, TH = TW / 2, U = TH * 1.15;
+  cqBgZone([B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - (low ? 3.5 : CQ_TREE_UP) * U - TW - cqHc(x, y) * (CQ_MAP.hb || 0.7) * U, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW]);
 }
 function cqDraw() {
   const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
@@ -5040,6 +5059,7 @@ function cqDraw() {
       if (a[0] < b[2] && b[0] < a[2] && a[1] < b[3] && b[1] < a[3]) { a[0] = Math.min(a[0], b[0]); a[1] = Math.min(a[1], b[1]); a[2] = Math.max(a[2], b[2]); a[3] = Math.max(a[3], b[3]); rs.splice(j, 1); j = i; }
     }
     // modo 1: ogni riquadro si compone a parte (disegnato dal processore) e poi si incolla sullo schermo (piu' lento, di riserva)
+    cq.noGlow = true;   // nei riquadri gli aloni non si ridisegnano (si sommerebbero): li disegna il passaggio qui sotto
     if (CQ_GFX !== 1) for (const q of rs) cqRedraw(g, T, q, tx, ty, TW, list, Math.ceil(((q[2] - q[0]) / TW + (q[3] - q[1]) / TH) / 2) + 9, B);
     else { const rc = cq.rc || (cq.rc = document.createElement('canvas')), rg = cq.rg || (cq.rg = rc.getContext('2d', CQ_CPU));
     for (const q of rs) {
@@ -5051,6 +5071,12 @@ function cqDraw() {
       cqRedraw(rg, cqTools(rg, TW), [x0, y0, x1, y1], tx, ty, TW, list, Math.ceil(((x1 - x0) / TW + (y1 - y0) / TH) / 2) + 9, B);
       g.drawImage(rc, 0, 0, pw, ph, x0, y0, pw / dp, ph / dp);
     } }
+  }
+  cq.noGlow = false;
+  // aloni di luce della mappa (vedi glow in cqTools): una volta sola, sopra a tutto, solo quelli sullo schermo
+  if (cq.glw) for (const [gx, gy, R, col] of cq.glw.values()) {
+    const X = tx + gx, Y = ty + gy; if (X < -R || X > W + R || Y < -R || Y > H + R) continue;
+    const gr = g.createRadialGradient(X, Y, 0, X, Y, R); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,230,140,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X, Y, R, 0, 7); g.fill();
   }
   if (nl > 0) {
     const lights = [[tx + X, ty + Y - TH, (MN ? MN.r : G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
