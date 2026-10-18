@@ -33,6 +33,17 @@ export default [
   [1, `(() => { const b = cq.g.M.btn(cq.g); cqMyKill(); return 'amico: ' + JSON.stringify(b); })()`, 900],
   [0, `(() => { const G = cq.g; return 'host: stordito ' + Math.max(0, G.me.slow - G.time).toFixed(1) + ' trema ' + $('#cqCanvas').style.transform + ' | ' + $('#cqCount').textContent + ' | ' + __T.slice(-1)[0]; })()`, 0],
   [1, `(() => 'amico: ' + __T.slice(-1)[0] + ' | pulsante ' + JSON.stringify(cq.g.M.btn(cq.g)))()`, 0],
+  // porta di pietra, torcia spenta e leva antica (host esploratore)
+  [0, `(() => { const G = cq.g, S = CQ_MAP.S, k = CQ_MAP.gates[0], c = S[k].c; cq.x = (c[0][0] + c[1][0]) / 2 + 0.5 + (c[0][0] === c[1][0] ? 1 : 0); cq.y = (c[0][1] + c[1][1]) / 2 + 0.5 + (c[0][1] === c[1][1] ? 1 : 0); return 'host vicino alla porta: ' + JSON.stringify(G.M.btn(G)); })()`, 600],
+  [0, `(() => { cqMyKill(); return 'host: ' + __T.slice(-1)[0]; })()`, 1500],
+  [1, `(() => { const S = CQ_MAP.S, k = CQ_MAP.gates[0], c = S[k].c[0]; return 'amico: porta chiusa qui? ' + !!(cqSolid[c[1]][c[0]] && cqSolid[c[1]][c[0]].prop === 'sdoor'); })()`, 0],
+  [0, `(() => { $('#mnTorch').click(); return 'host: torcia ' + (cq.g.me.tf ? 'spenta' : 'accesa'); })()`, 1500],
+  [1, `(() => { const h = cq.g.chars.find(c => c.name === 'zzHost'); return 'amico: torcia host spenta ' + h.tf + ', lo vede ' + !cq.g.M.hide(h); })()`, 0],
+  [0, `(() => { $('#mnTorch').click(); const l = CQ_MAP.levers[0], q = cqSpot(l.x, l.y); cq.x = q.x; cq.y = q.y; return 'host alla leva antica: ' + JSON.stringify(cq.g.M.btn(cq.g)); })()`, 600],
+  [0, `(() => { cqMyKill(); return 'host: ' + __T.slice(-1)[0]; })()`, 1200],
+  [1, `(() => 'amico: avviso ' + !!cq.g.pend + ' | ' + $('#cqCount').textContent)()`, 3500],
+  [0, `(() => 'host muri dopo la leva: v' + cq.g.wv + ' ' + ${walls})()`, 0],
+  [1, `(() => 'amico muri dopo la leva: v' + cq.g.wv + ' ' + ${walls})()`, 0],
   // i muri si spostano tra poco: avviso e confronto host/amico
   [0, `(() => { const G = cq.g; G.next = G.time + 6.5; return 'host: cambio tra 6,5 s'; })()`, 3000],
   [1, `(() => { const G = cq.g; return 'amico: avviso ' + !!G.pend + ' caselle che cambiano ' + (G.pc || []).length + ' | ' + $('#cqCount').textContent; })()`, 5000],
