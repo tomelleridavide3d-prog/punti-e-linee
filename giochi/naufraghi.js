@@ -14,7 +14,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   const N = 128, C = 64, RX = 130, RY = 2;   // isola 128x128 col centro in 64,64 (il mare aperto e' lo sfondo blu, non caselle); le rovine a parte, a destra (lontane: dall'isola non si vedono)
   const REACH = 1.2, KCD = 6, JAIL = 5, SAFE = 2.5, LIVES = 2, TOUCH = 0.7, PICK = 0.8, RAFT_R = 1.9, STEAL_T = 3, CHEST_T = 3, CHEST_CD = 45, CHEST_N = 3;
   const GUN = 6, FAST_T = 40, MAP_T = 20, SAIL_T = 6, SEE_N = 4.2, SEEN_T = 11, RUIN_SEE = 2.6, COVER = 1.5;
-  const NEED = { log: 4, rope: 2, sail: 1, comp: 1 }, ORDER = ['comp', 'sail', 'rope', 'log'];
+  const NEED = { log: 4, rope: 2, sail: 1, comp: 1 }, ORDER = ['comp', 'sail', 'rope', 'log'], SHOW = ['log', 'rope', 'sail', 'comp'];   // SHOW: ordine nella ricetta
+  const CHOP_T = 2, REGROW = 90, LOGS = 20, OPT = { steal: 3, chest: 3, chop: 2 }, OPN = { steal: 1, chest: 2, chop: 3 };   // taglio: 2 s fermo, l'albero ricresce dopo 90 s; LOGS tronchi pronti (nascosti finche' non si taglia)
   const SHOP = [['fast', '👟 Scarpe veloci', 3, '+30% di velocità per ' + FAST_T + ' secondi.'], ['gun', '🔫 Pistola', 5, 'Colpisce un nemico fino a ' + GUN + ' caselle, 2 colpi. Lo sparo si sente!'], ['map', '🗺️ Mappa del tesoro', 3, 'Per ' + MAP_T + ' secondi la tua squadra vede dove sono corde e vela.']];
   const RUIN = '#7d745f';
   const TEAMS = [{ n: 'Granchi', f: 'dei Granchi', c: '#e0604a', l: '#ff9a85', e: '🦀' }, { n: 'Delfini', f: 'dei Delfini', c: '#3a9ad0', l: '#8fd0f5', e: '🐬' }];
@@ -142,8 +143,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     const sp = sl && spot(sl.x, sl.y, 2.5) || rspot([3, 4], 0, []) || [C + 0.5, C + 3.5]; items.push(['sail', ...sp]); used.push(sp);
     for (const l of lmSh.filter(l => l !== sl).slice(0, 3)) { const p = spot(l.x, l.y, 2.5); if (p) { items.push(['rope', ...p]); used.push(p); } }
     while (items.filter(i => i[0] === 'rope').length < 5) { const p = rspot([3, 4], 14, used); if (!p) break; items.push(['rope', ...p]); used.push(p); }
-    for (let i = 0; i < 12; i++) { const p = rspot([2], 6, used); if (p) { items.push(['log', ...p]); used.push(p); } }
-    for (let i = 0; i < 10; i++) { const p = rspot([3], 6, used); if (p) { items.push(['log', ...p]); used.push(p); } }
+    for (let i = 0; i < LOGS; i++) items.push(['log', -10, -10]);   // i tronchi si tagliano dagli alberi: questi restano nascosti (st 3) finche' qualcuno non taglia
     // ---- ROVINE (coordinate "da 0" spostate di RX, RY), meta' 0 a sinistra, meta' 1 a destra (speculare) ----
     const rooms = [{ n: 'Isola', x: 0, y: 0, w: N, h: N, c: ['#4f8a3c', '#4a8338'], wc: 'none', k: 'isle', nl: 1, nm: 1 }];
     const RZ = { half: [], gates: [], comp: null };
@@ -185,8 +185,14 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   const TERC = { 2: ['#e6d29a', '#dfca91'], 3: ['#4f8a3c', '#4a8338'], 4: ['#76984e', '#709149'], 5: ['#b4ab8c', '#aca385'], 6: ['#76984e', '#709149'], 7: ['#a89c80', '#a09478'] };
   const FLOOR = {
     isle(K, x, y) {
-      const t = CQ_MAP.ter[y][x], col = TERC[t]; if (!col) return;
-      const P = (u, v) => K.S(x + u, y + v, 0); K.poly([P(0, 0), P(1, 0), P(1, 1), P(0, 1)], col[(x + y) % 2]);
+      const t = CQ_MAP.ter[y][x], P = (u, v) => K.S(x + u, y + v, 0);
+      if (t <= 1) {   // mare: nel pavimento (non si ridisegna intorno ai personaggi). Colori piu' chiari: sopra ci va l'ombra delle caselle con un oggetto (-22%)
+        K.poly([P(0, 0), P(1, 0), P(1, 1), P(0, 1)], t ? ((x + y) % 2 ? '#6ee7ff' : '#69e0ff') : ((x + y) % 2 ? '#3c9fe9' : '#3a99e2'));
+        if (K.hsh(x, y, 70) < 0.35) { const u = 0.1 + 0.6 * K.hsh(x, y, 71), v = 0.15 + 0.7 * K.hsh(x, y, 72); K.poly([P(u, v), P(u + 0.3, v), P(u + 0.3, v + 0.05), P(u, v + 0.05)], t ? '#b1ffff' : '#73c8ff'); }
+        return;
+      }
+      const col = TERC[t]; if (!col) return;
+      K.poly([P(0, 0), P(1, 0), P(1, 1), P(0, 1)], col[(x + y) % 2]);
       if (K.TW < 40) return;
       if (t === 2) { K.speck(x, y, 7, ['rgba(255,250,220,.5)', 'rgba(150,110,50,.22)'], K.TW / 24); }
       else if (t === 3 || t === 4 || t === 6) {
@@ -248,7 +254,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   function draw(K, t, x, y, o) {
     const { bx, cyl, qL, dot, glow, line, S, poly, hsh } = K;
     switch (t) {
-      case 'sea': {
+      case 'sea': break;   // il mare si disegna col pavimento (FLOOR.isle); l'oggetto serve solo a non farci camminare
+      case 'seaOld': {
         const sh = CQ_MAP.ter[y][x] === 1, P = (u, v, z) => S(x + u, y + v, z || 0.02);
         poly([P(0, 0), P(1, 0), P(1, 1), P(0, 1)], sh ? ((x + y) % 2 ? '#56b4d0' : '#52afcb') : ((x + y) % 2 ? '#2f7cb6' : '#2d77b0'));
         if (hsh(x, y, 70) < 0.35) { const u = 0.1 + 0.6 * hsh(x, y, 71), v = 0.15 + 0.7 * hsh(x, y, 72); poly([P(u, v), P(u + 0.3, v), P(u + 0.3, v + 0.05), P(u, v + 0.05)], sh ? '#8ad4e8' : '#5a9cd0'); }
@@ -354,10 +361,11 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
   function action(G, c) {
     if (!c.alive || jailed(G, c) || G.go) return null;
     const me = c === G.me, h = held(G, c);
-    if (c.op) return { k: 'wait', t: (c.op.k === 'steal' ? '🫳 Rubando… ' : '💰 Apro… ') + Math.round(Math.min(1, (G.time - c.op.t0) / (c.op.k === 'steal' ? STEAL_T : CHEST_T)) * 100) + '%', on: false };
+    if (c.op) return { k: 'wait', t: ({ steal: '🫳 Rubo… ', chest: '💰 Apro… ', chop: '🪓 Taglio… ' })[c.op.k] + Math.round(Math.min(1, (G.time - c.op.t0) / OPT[c.op.k]) * 100) + '%', on: false };
     const v = stabTarget(G, c); if (v) return { k: 'stab', v: v.id, t: G.time < (c.kcd || 0) ? '🔪 ' + Math.ceil(c.kcd - G.time) + ' s' : '🔪 Colpisci', on: G.time >= (c.kcd || 0) };
     const gt = gunTarget(G, c); if (gt) return { k: 'shoot', v: gt.id, t: '🔫 Spara (' + c.gun + ')', on: true };
     if (!h && nearRaft(G, c, 1 - c.t) && OB.count(G, 1 - c.t)) return { k: 'steal', t: G.time < (c.stc || 0) ? '🫳 Aspetta ' + Math.ceil(c.stc - G.time) + ' s' : '🫳 Ruba dalla zattera', on: G.time >= (c.stc || 0) };
+    if (!h) { const ti = treeNear(G, c); if (ti >= 0) return { k: 'chop', i: ti, t: '🪓 Taglia', on: true }; }
     if (nearChest(c)) return { k: 'chest', t: chestOk(G) ? '💰 Apri il forziere' : '💰 Si riapre tra ' + Math.ceil(G.chest - G.time) + ' s', on: chestOk(G) };
     if (me && nearTrader(c)) return { k: 'shop', t: '🛒 Mercante (' + (c.co || 0) + ' 🪙)', on: true };
     const lv = leverNear(G, c); if (lv >= 0) return { k: 'lev', i: lv, t: '🔧 Tira la leva', on: true };
@@ -376,6 +384,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     else if (a.k === 'shoot') { const v = byId(G, a.v); if (c.gun > 0 && v && v.alive && !jailed(G, v) && v.t !== c.t && dist(c, v) < GUN + 0.5) { c.gun--; const q = P(v); G.fx.push([p.x, p.y, q.x, q.y, G.time]); kill(G, v, c, 'g'); } }
     else if (a.k === 'steal' && real.k === 'steal' && real.on) { c.op = { k: 'steal', t0: G.time, x: p.x, y: p.y }; say(G, 'stl', { a: c.id, b: 1 - c.t }); }
     else if (a.k === 'chest' && real.k === 'chest' && real.on) { c.op = { k: 'chest', t0: G.time, x: p.x, y: p.y }; }
+    else if (a.k === 'chop' && real.k === 'chop') { c.op = { k: 'chop', t0: G.time, x: p.x, y: p.y, i: real.i }; }
     else if (a.k === 'lev' && real.k === 'lev') { G.R.lev[a.i] = 1; G.R.p[MP().RZ.half[a.i].g[0]] = 1; say(G, 'lev', { a: c.id, h: a.i }); }
     else if (a.k === 'gearok') { const g = a.i, gt = MP().RZ.gates[g]; if (gt && gt.n === 2 && !G.R.p[g]) { G.R.p[g] = 1; say(G, 'gear', { a: c.id, h: gt.h }); } }
     else if (a.k === 'hide') { if (cover(p.x, p.y)) { c.hd = 1; c.path = []; } }
@@ -446,10 +455,14 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (e.w === 'g') { beep(160, 0.25, 0.08, 0, 'sawtooth'); beep(90, 0.3, 0.06, 0.04, 'square'); } else for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square');
     }
     else if (e.k === 'take') t = A === me ? '✋ Hai preso ' + KN(e.i) + '! Portala alla zattera.' : A && A.t === me.t ? '✋ ' + an + ' ha preso ' + KN(e.i) + '!' : '⚠️ ' + an + ' (' + TEAMS[A ? A.t : 0].n + ') ha preso ' + KN(e.i) + '!';
-    else if (e.k === 'put') { const ok = e.b === me.t; t = (ok ? '🛠️ ' + (A === me ? 'Hai' : an + ' ha') + ' montato ' : '🛠️ I ' + TEAMS[e.b].n + ' hanno montato ') + KN(e.i) + ' sulla zattera (' + e.c + '/' + TOT + ').'; beep(ok ? 660 : 330, 0.1, 0.04); beep(ok ? 880 : 294, 0.14, 0.04, 0.1); }
+    else if (e.k === 'put') { const ok = e.b === me.t; if (A) fly(G, e.i, P(A), raftOf(G, e.b), ok); if (ok) G.pop = { k: e.i, until: G.time + 1.4 }; t = (ok ? '🛠️ ' + (A === me ? 'Hai' : an + ' ha') + ' montato ' : '🛠️ I ' + TEAMS[e.b].n + ' hanno montato ') + KN(e.i) + ' sulla zattera (' + e.c + '/' + TOT + ').'; beep(ok ? 660 : 330, 0.1, 0.04); beep(ok ? 880 : 294, 0.14, 0.04, 0.1); }
     else if (e.k === 'stl') { if (e.b === me.t) { t = '⚠️ Qualcuno sta rubando dalla vostra zattera!'; beep(440, 0.1, 0.05); beep(440, 0.1, 0.05, 0.2); } }
-    else if (e.k === 'stolen') t = A === me ? '🫳 Hai rubato ' + KN(e.i) + ' ai ' + TEAMS[e.b].n + '! Scappa!' : e.b === me.t ? '😱 ' + an + ' vi ha rubato ' + KN(e.i) + '!' : '🫳 ' + an + ' ha rubato ' + KN(e.i) + ' ai ' + TEAMS[e.b].n + '!';
+    else if (e.k === 'stolen') { if (A) fly(G, e.i, { x: e.x, y: e.y }, P(A), A === me); if ((A === me || e.b === me.t) && navigator.vibrate) try { navigator.vibrate(A === me ? 120 : [80, 60, 80]); } catch (er) { }
+      if (e.b === me.t && A) G.thief = { id: A.id, until: G.time + 6 }; beep(e.b === me.t ? 300 : 880, 0.15, 0.05); beep(e.b === me.t ? 220 : 1175, 0.2, 0.05, 0.12); }
+    if (e.k === 'stolen') t = A === me ? '🫳 Hai rubato ' + KN(e.i) + ' ai ' + TEAMS[e.b].n + '! Scappa!' : e.b === me.t ? '😱 ' + an + ' vi ha rubato ' + KN(e.i) + '!' : '🫳 ' + an + ' ha rubato ' + KN(e.i) + ' ai ' + TEAMS[e.b].n + '!';
     else if (e.k === 'drop') t = A === me ? '💢 ' + bn + ' ti ha fatto cadere ' + KN(e.i) + '!' : B === me ? '💢 Hai fatto cadere ' + KN(e.i) + ' a ' + an + '!' : '';
+    else if (e.k === 'full') t = A === me ? '✋ Avete già tutti i pezzi così: tienilo (così non lo prendono gli altri) oppure lascialo.' : '';
+    else if (e.k === 'chop') { if (A === me) { t = '🪵 Tronco tagliato! Portalo alla zattera.'; beep(392, 0.1, 0.05); beep(523, 0.14, 0.05, 0.1); } }
     else if (e.k === 'lev') t = A === me ? '🔧 Hai tirato la leva: la porta resta aperta!' : A && A.t === me.t ? '🔧 ' + an + ' ha tirato la leva delle rovine.' : '';
     else if (e.k === 'p2') t = me.t === e.h || lvl(cq.x) ? '🟫 Le due pedane insieme: una porta delle rovine si è aperta!' : '';
     else if (e.k === 'gear') { t = '⚙️ ' + (A === me ? 'Hai' : an + ' ha') + ' allineato gli ingranaggi: la stanza della bussola è aperta!'; beep(523, 0.12, 0.05); beep(784, 0.2, 0.05, 0.12); }
@@ -459,6 +472,8 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     else if (e.k === 'sail') { const ok = e.b === me.t; t = '⛵ La zattera ' + TEAMS[e.b].f + ' prende il largo!'; beep(ok ? 523 : 330, 0.15, 0.06); beep(ok ? 659 : 294, 0.15, 0.06, 0.15); beep(ok ? 784 : 262, 0.4, 0.06, 0.3); }
     if (t) cqToast(t);
   }
+
+  function fly(G, k, a, b, big) { G.flyFx.push({ k, x0: a.x, y0: a.y, x1: b.x, y1: b.y, t0: performance.now(), big }); }
 
   // ======================= PERSONAGGI DEL COMPUTER =======================
   function go(G, c, x, y) {
@@ -526,6 +541,11 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     }
     if (best) { c.gl = best.id; go(G, c, best.x, best.y); return; }
     c.gl = -1;
+    if (need(G, t, 'log') > 0 && lvl(c.x) === 0) {   // legna: l'albero piu' vicino che nessun compagno sta gia' tagliando
+      const ti = treeNear(G, c); if (ti >= 0 && !G.chars.some(o => o !== c && o.op && o.op.k === 'chop' && o.op.i === ti)) { doAct(G, c, { k: 'chop' }); return; }
+      let tb = -1, td = 1e9; MP().trees.forEach((tr, i) => { if (G.cut[i] || lvl(tr.x)) return; const d = Math.hypot(tr.x - c.x, tr.y - c.y) + (G.chars.some(o => o !== c && o.t === t && o.tr === i) ? 30 : 0); if (d < td) { td = d; tb = i; } });
+      if (tb >= 0) { c.tr = tb; const tr = MP().trees[tb]; go(G, c, tr.x + 0.5, tr.y + 0.5); return; }
+    }
     // rubare alla zattera nemica quello che manca (prima vela e bussola)
     const en = 1 - t, want = ORDER.find(k => need(G, t, k) > 0 && OB.count(G, en, k) > 0 && !G.it.some(i => i.k === k && i.st === 0 && G.kn[t].has(i.id)));
     if (want && (want === 'comp' || want === 'sail' || Math.random() < 0.5)) { if (nearRaft(G, c, en)) { doAct(G, c, { k: 'steal' }); return; } const r = raftOf(G, en); go(G, c, r.x, r.y); return; }
@@ -608,9 +628,29 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     }; });
   }
 
+  // ======================= TACCUINO DEGLI INDIZI E STILE =======================
+  // pulsante 📜 sotto la barra (solo in partita a Naufraghi): apre l'elenco degli indizi, con la spunta su quelli gia' trovati
+  if (!document.getElementById('nfCss')) {
+    const st = document.createElement('style'); st.id = 'nfCss';
+    st.textContent = '.nfRec{font-size:17px;letter-spacing:1px;white-space:nowrap}.nfK{margin:0 5px}.nfNo{filter:grayscale(1);opacity:.32}.nfBl{animation:nfBl .7s infinite alternate}.nfPop{display:inline-block;animation:nfPop .9s ease-out}.nfSub{font-size:12px;font-weight:600;opacity:.9;margin-top:2px}@keyframes nfBl{from{opacity:.25}to{opacity:1}}@keyframes nfPop{0%{transform:scale(2.2)}60%{transform:scale(.9)}100%{transform:scale(1)}}#nfNote{position:absolute;left:12px;top:128px;padding:6px 11px;border-radius:12px;border:0;background:rgba(60,44,22,.85);color:#f4e6c4;font:inherit;font-weight:700;font-size:13px;box-shadow:0 3px 10px rgba(0,0,0,.3)}';
+    document.head.appendChild(st);
+    const b = document.createElement('button'); b.id = 'nfNote'; b.type = 'button'; b.hidden = true; b.onclick = () => noteUI(cq.g);
+    const host = document.getElementById('ciack'); if (host) host.appendChild(b);
+    setInterval(() => { const G = cq.g, on = !!(G && G.mode === 'naufraghi' && G.phase === 'play' && G.it && G.pre <= 0 && $('#cqTask').hidden && !$('#ciack').hidden); if (b.hidden === on) b.hidden = !on; if (on) { const n = G.cl.filter(c => !found(G, c)).length, t = '📜 Indizi' + (n ? ' (' + n + ')' : ' ✓'); if (b.textContent !== t) b.textContent = t; } }, 300);
+  }
+  const found = (G, c) => { const it = G.it[c.id]; return !it || it.st !== 0 || it.x !== it.x0 || it.y !== it.y0; };
+  function noteUI(G) {
+    if (!G || !G.cl) return; cqCloseTask();
+    $('#tkTitle').textContent = '📜 Taccuino degli indizi';
+    $('#tkBody').innerHTML = '<p class="lead">Dove si trovano i pezzi della zattera:</p>' + G.cl.map(c => '<p style="margin:8px 0;' + (found(G, c) ? 'opacity:.5;text-decoration:line-through' : '') + '">' + (found(G, c) ? '✅ ' : '🔎 ') + esc(c.t) + '</p>').join('') + '<p class="hint" style="margin-top:12px">🪵 I tronchi si tagliano dagli alberi (🪓 Taglia, 2 secondi fermo). Quando un pezzo è già stato preso, l\'indizio è barrato: qualcuno lo sta portando… o lo ha lasciato da qualche parte!</p>';
+    $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#cqTask').hidden = false; $('#tkClose').onclick = () => cqCloseTask();
+  }
+
   // ======================= IL GIOCO NEL MOTORE =======================
   function setup(G) {
     G.it = OB.make(MP().items); G.R = { p: MP().RZ.gates.map(() => 0), o: MP().RZ.gates.map(() => 0), lev: [0, 0] };
+    for (const it of G.it) if (it.k === 'log') it.st = 3;
+    G.cut = {}; G.fall = []; G.flyFx = []; G.pop = null; G.thief = null;
     G.lg = []; G.lgN = 0; G.fx = []; G.chest = 0; G.mapT = [0, 0]; G.go = null; G.kn = [new Set(), new Set()]; G.night = false;
     G.left = G.opt.time || 300; cq.mapDirty = true;
     G.chD = 1; G.rfD = ['', ''].map((v, t) => ORDER.map(() => 0).join() );   // forziere chiuso e zattere vuote: come nella mappa pronta (niente ridisegno all'inizio)   // porte e leve cambiano la mappa: la prossima partita la rifa' da capo
@@ -625,7 +665,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
     opts: o => `<div class="row"><div class="lbl">Durata</div>${seg('time', [[300, '5:00'], [420, '7:00'], [600, '10:00']], o.time || 420)}</div>`,
     read: d => ({ time: +d.get('time') || 420 }),
     start(G) {
-      setup(G);
+      setup(G); G.pre = 7;   // 7 s di "come si gioca" prima di partire
       const sh = SQ.split(G);
       for (const t of [0, 1]) {
         const bots = sh.filter(c => c.t === t && c.bot), n = sh.filter(c => c.t === t).length;
@@ -634,7 +674,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       for (const c of G.chars) { Object.assign(c, { lv: LIVES, jail: 0, safe: 0, hd: 0, co: 0, gun: 0, fast: 0, kcd: 0, st: 0, pc: 0, tg: 0, op: null, gl: -1 }); const s = SQ.spawn(MP().camps[c.t], 6); c.x = s.x; c.y = s.y; c.path = []; }
     },
     gstart(G) { setup(G); for (const c of G.chars) Object.assign(c, { lv: LIVES, hd: 0, co: 0, gun: 0 }); },
-    intro: G => { const T = TEAMS[G.me.t || 0]; return T.e + ' Sei nei ' + T.n + ': costruite la zattera e salpate per primi!'; },
+    intro: G => { const T = TEAMS[G.me.t || 0]; return T.e + ' Sei nei ' + T.n + ': costruite la ZATTERA e salpate per primi!\n🪵 ×4  tagliali dagli alberi 🪓\n🪢 ×2  sparse sull\'isola: leggi gli indizi 📜\n⛵ ×1  una sola per tutti!\n🧭 ×1  nel cuore delle rovine ⛏️\nSi parte tra'; },
     speed(c) { const G = cq.g; if (!G || !G.it) return 1; if (!c.alive) return 1.1; if (jailed(G, c)) return 0; return OB.speed(G, c) * (fastOn(G, c) ? 1.3 : 1); },
     big(G) {
       const me = G.me; if (me.t == null) return '';
@@ -651,10 +691,16 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       }
       return '';
     },
+    // barra in alto: la RICETTA della mia zattera (montati a colori, in mano ai compagni che lampeggiano, mancanti grigi) e sotto il resto
     hud(G) {
-      const me = G.me; if (me.t == null) return '🏝️ Naufraghi';
-      const T = TEAMS[me.t], hearts = me.alive ? '❤️'.repeat(Math.max(0, me.lv || 0)) : '👻';
-      return `${TEAMS[0].e} ${pieces(G, 0)}/${TOT} – ${pieces(G, 1)}/${TOT} ${TEAMS[1].e} · <b style="color:${T.l}">${T.n}</b> · ${hearts} · 🪙 ${me.co || 0}${me.gun > 0 ? ' · 🔫' + me.gun : ''}${fastOn(G, me) ? ' · 👟' : ''} · ${dark(G) > 0.5 ? '🌙' : '☀️'} ${mmss(Math.max(0, G.left))}`;
+      const me = G.me; if (me.t == null || !G.it) return '🏝️ Naufraghi';
+      const T = TEAMS[me.t], E = TEAMS[1 - me.t], hearts = me.alive ? '❤️'.repeat(Math.max(0, me.lv || 0)) : '👻';
+      const rec = SHOW.map(k => {
+        const have = Math.min(NEED[k], OB.count(G, me.t, k)), car = G.it.filter(i => i.st === 1 && i.k === k && (byId(G, i.c) || {}).t === me.t).length, e = OB.KINDS[k].e, pop = G.pop && G.pop.k === k && G.pop.until > G.time;
+        let o = ''; for (let i = 0; i < NEED[k]; i++) o += i < have ? '<span class="' + (pop && i === have - 1 ? 'nfPop' : '') + '">' + e + '</span>' : i < have + car ? '<span class="nfBl">' + e + '</span>' : '<span class="nfNo">' + e + '</span>';
+        return '<span class="nfK">' + o + '</span>';
+      }).join('');
+      return `<div class="nfRec">${T.e} <b style="color:${T.l}">Zattera</b> ${rec}</div><div class="nfSub">${E.e} ${E.n} ${pieces(G, 1 - me.t)}/${TOT} · ${hearts} · 🪙 ${me.co || 0}${me.gun > 0 ? ' · 🔫' + me.gun : ''}${fastOn(G, me) ? ' · 👟' : ''} · ${dark(G) > 0.5 ? '🌙' : '☀️'} ${mmss(Math.max(0, G.left))}</div>`;
     },
     hide: c => { const G = cq.g; return jailed(G, c) || (G.me.alive && c.t !== G.me.t && (!!c.hd || (!lvl(c.x) && !lvl(cq.x) && !los(cq.x, cq.y, c.x, c.y)))); },   // nascosto o dietro la collina
     nameCol: c => c.t != null ? TEAMS[c.t].l : null,
@@ -675,7 +721,9 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (me.hd && Math.hypot(cq.x - (me.hdX != null ? me.hdX : cq.x), cq.y - (me.hdY != null ? me.hdY : cq.y)) > 0.25) { me.hd = 0; me.hdH = G.time + 1; if (G.guest) cqNetSend({ k: 'hd', v: 0 }); }
       if (me.hd && me.hdX == null) { me.hdX = cq.x; me.hdY = cq.y; }
       if (!me.hd) me.hdX = me.hdY = null;
-      syncGates(G);
+      syncGates(G); syncTrees(G);
+      // colpi d'ascia di chi sta tagliando vicino a me
+      for (const c of G.chars) if (c.op && c.op.k === 'chop' && Math.hypot(c.x - cq.x, c.y - cq.y) < 12 && (c.axT = (c.axT || 0) - dt) <= 0) { c.axT = 0.45; thud(0.35, 480 + Math.random() * 120); }
       G.fx = G.fx.filter(f => G.time - f[4] < 0.5);
     },
     tick(G, dt) {
@@ -685,15 +733,19 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       // computer: passaggi tra isola e rovine
       for (const c of G.chars) if (c.bot && c.alive && !jailed(G, c)) { const to = portal(G, c); if (to) { c.x = to.x; c.y = to.y; c.tp = G.time; c.path = []; } }
       gateTick(G);
+      for (const i in G.cut) if (G.cut[i] <= G.time) delete G.cut[i];   // l'albero ricresce
       // pezzi: chi esce o e' colpito li lascia; chi ci passa sopra li prende; alla propria zattera si montano; toccare chi porta lo fa cadere
       OB.orphans(G, c => !c.alive || jailed(G, c));
       for (const c of active(G)) {
         const p = P(c);
-        if (c.op) { const done = G.time - c.op.t0 >= (c.op.k === 'steal' ? STEAL_T : CHEST_T); if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.6 || (c.op.k === 'steal' && (held(G, c) || active(G).some(e => e.t !== c.t && !e.hd && dist(e, c) < 1.4)))) c.op = null; else if (done) finishOp(G, c); }
+        if (c.op) { const done = G.time - c.op.t0 >= OPT[c.op.k]; if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.6 || (c.op.k === 'steal' && (held(G, c) || active(G).some(e => e.t !== c.t && !e.hd && dist(e, c) < 1.4)))) c.op = null; else if (done) finishOp(G, c); }
         const got = !c.hd && OB.pickup(G, c, p, PICK, (cc, it) => need(G, cc.t, it.k) > 0 || OB.count(G, 1 - cc.t, it.k) < NEED[it.k] || cc.bot === false);
         if (got) { if (got.k === 'sail' || got.k === 'comp') say(G, 'take', { a: c.id, i: got.k }); G.kn[c.t].add(got.id); }
         const h = held(G, c);
-        if (h && nearRaft(G, c, c.t) && OB.count(G, c.t, h.k) < NEED[h.k]) { OB.put(G, h, c.t); c.pc = (c.pc || 0) + 1; say(G, 'put', { a: c.id, b: c.t, i: h.k, c: pieces(G, c.t) }); }
+        if (h && nearRaft(G, c, c.t)) {
+          if (OB.count(G, c.t, h.k) < NEED[h.k]) { OB.put(G, h, c.t); c.pc = (c.pc || 0) + 1; c.fullW = -1; say(G, 'put', { a: c.id, b: c.t, i: h.k, c: pieces(G, c.t) }); }
+          else if (c.fullW !== h.id) { c.fullW = h.id; say(G, 'full', { a: c.id, i: h.k }); }   // la zattera ne ha gia' abbastanza: resta in mano (lo si dice una volta)
+        }
       }
       for (const c of active(G)) { const h = held(G, c); if (!h || (c.safe || 0) > G.time) continue; const by = active(G).find(e => e.t !== c.t && !e.hd && dist(e, c) < TOUCH); if (by) { const p = P(c); OB.drop(G, h, p.x, p.y, c); c.stc = G.time + 5; say(G, 'drop', { a: c.id, b: by.id, i: h.k }); } }
       // cosa conosce ogni squadra: i pezzi visti da vicino (e la vela, a meta' partita, anche dal computer)
@@ -723,7 +775,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       SQ.end(G, w, why, c => [name(c), '— ' + TEAMS[c.t].e + ' 🛠️ ' + (c.pc || 0) + ' pezzi · 🫳 ' + (c.st || 0) + ' furti · 🔪 ' + (c.tg || 0) + (c.alive ? '' : ' · 👻')], c => (c.pc || 0) * 10 + (c.st || 0) * 6 + (c.tg || 0) * 3, TEAMS);
     },
     // online: squadra, attesa, vite, nascosto, monete, pistola, scarpe, azione in corso, attesa del colpo, statistiche
-    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.t, r(c.jail || 0), c.lv || 0, c.hd ? 1 : 0, c.co || 0, c.gun || 0, r(c.fast || 0), c.op ? c.op.k === 'steal' ? 1 : 2 : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, r(c.kcd || 0), c.st || 0, c.pc || 0, c.tg || 0]; },
+    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.t, r(c.jail || 0), c.lv || 0, c.hd ? 1 : 0, c.co || 0, c.gun || 0, r(c.fast || 0), c.op ? OPN[c.op.k] : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, r(c.kcd || 0), c.st || 0, c.pc || 0, c.tg || 0]; },
     capply(G, c, a) {
       c.t = a[0];
       const was = !!c.jail; c.jail = a[1] > 0 ? G.time + a[1] : 0;
@@ -732,12 +784,13 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       if (!(c === G.me && G.time < (c.hdH || 0))) c.hd = a[3];
       if (!(c === G.me && G.time < (c.coH || 0))) c.co = a[4];
       c.gun = a[5]; c.fast = a[6] > 0 ? G.time + a[6] : 0;
-      c.op = a[7] ? { k: a[7] === 1 ? 'steal' : 'chest', t0: G.time - a[8], x: c.x, y: c.y } : null;
+      c.op = a[7] ? { k: ['', 'steal', 'chest', 'chop'][a[7]], t0: G.time - a[8], x: c.x, y: c.y } : null;
       c.kcd = a[9] > 0 ? G.time + a[9] : 0; c.st = a[10]; c.pc = a[11]; c.tg = a[12];
     },
-    snap: G => ({ it: OB.snap(G), p: G.R.p.join(''), o: G.R.o.join(''), lv: G.R.lev.join(''), left: Math.round(G.left * 10) / 10, ch: Math.round(Math.max(0, G.chest - G.time) * 10) / 10, mt: G.mapT.map(v => Math.round(Math.max(0, v - G.time))), go: G.go ? [G.go.t, Math.round((G.go.at - G.time) * 10) / 10] : null, lg: G.lg, fx: G.fx.map(f => f.slice(0, 4).map(v => Math.round(v * 10) / 10)), bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]) }),
+    snap: G => ({ cut: Object.keys(G.cut).map(i => [+i, Math.round(G.cut[i] - G.time)]), it: OB.snap(G), p: G.R.p.join(''), o: G.R.o.join(''), lv: G.R.lev.join(''), left: Math.round(G.left * 10) / 10, ch: Math.round(Math.max(0, G.chest - G.time) * 10) / 10, mt: G.mapT.map(v => Math.round(Math.max(0, v - G.time))), go: G.go ? [G.go.t, Math.round((G.go.at - G.time) * 10) / 10] : null, lg: G.lg, fx: G.fx.map(f => f.slice(0, 4).map(v => Math.round(v * 10) / 10)), bd: G.bodies.map(b => [b.id, Math.round(b.x * 100) / 100, Math.round(b.y * 100) / 100, b.face, Math.round(b.t * 10) / 10]) }),
     apply(G, x) {
       if (!G.it) return;
+      G.cut = {}; for (const [i, r] of x.cut || []) G.cut[i] = G.time + r;
       OB.apply(G, x.it); G.R.p = [...x.p].map(Number); G.R.o = [...x.o].map(Number); G.R.lev = [...x.lv].map(Number);
       G.left = x.left; G.chest = G.time + x.ch; G.mapT = x.mt.map(v => v > 0 ? G.time + v : 0); G.go = x.go ? { t: x.go[0], at: G.time + x.go[1] } : null;
       for (const f of x.fx || []) if (!G.fx.some(o => o[0] === f[0] && o[1] === f[1] && o[2] === f[2])) G.fx.push(f.concat([G.time]));
@@ -767,7 +820,7 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
       SQ.ring(g, c, X, Y, TW, TEAMS);
       { const q = P(c); if (inBush(q.x, q.y)) { for (const [dx, dy, r, col] of [[-0.22, -0.12, 0.3, '#3f7a36'], [0.2, -0.1, 0.28, '#4a8a40'], [0, -0.02, 0.32, '#45823c']]) { g.fillStyle = col; g.beginPath(); g.ellipse(X + dx * TW, Y + dy * TW, r * TW, r * TW * 0.7, 0, 0, 7); g.fill(); } } }
       if (c.hd) { g.font = Math.round(TW * 0.42) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🌿', X + TW * 0.38, Y - TW * 1.2); }
-      if (c.op) { const k = Math.min(1, (G.time - c.op.t0) / (c.op.k === 'steal' ? STEAL_T : CHEST_T)); g.strokeStyle = c.op.k === 'steal' ? '#ff6050' : '#f2c84a'; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 1.9, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
+      if (c.op) { const k = Math.min(1, (G.time - c.op.t0) / OPT[c.op.k]); g.strokeStyle = ({ steal: '#ff6050', chest: '#f2c84a', chop: '#c8a070' })[c.op.k]; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 1.9, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
     },
     over(g, G, sx, sy, TW) {
       if (!G.it) return;
@@ -833,26 +886,68 @@ CQ_WAIT.naufraghi = cqLib('squadre', 'oggetti', 'mappe', 'indizi').then(L => {
         if (lvl(cq.x)) { const e = MP().RZ.half[roomHalf({ x: cq.x })].exit; q = { x: e.x + 0.5, y: e.y + 0.5 }; ic = '🚪'; }
         SQ.edge(g, sx(q.x, q.y), sy(q.x, q.y) - TW, W, H, ic, TEAMS[me.t].c);
       }
-      // indizi (uno alla volta) finche' il pezzo e' ancora al suo posto
-      const cl = G.cl.filter(c => { const it = G.it[c.id]; return it && it.st === 0 && it.x === it.x0 && it.y === it.y0; });
-      if (cl.length && !G.go) {
-        const c = cl[Math.floor(now / 7) % cl.length], t = c.t;
-        g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle';
-        const words = t.split(' '), lines = []; let line = '';
-        for (const w of words) { const tt = line ? line + ' ' + w : w; if (g.measureText(tt).width > W - 64 && line) { lines.push(line); line = w; } else line = tt; }
-        lines.push(line);
-        const bw = Math.min(W - 24, Math.max(...lines.map(l => g.measureText(l).width)) + 34), bh = 10 + lines.length * 16, x0 = 12, y0 = 104;
-        g.fillStyle = 'rgba(60,44,22,.82)'; cqRR(g, x0, y0, bw, bh, 9); g.fill(); g.fillStyle = '#f4e6c4';
-        g.fillText('📜', x0 + 6, y0 + 13); lines.forEach((l, i) => g.fillText(l, x0 + 26, y0 + 13 + i * 16));
+      // alberi che cadono (0,7 s)
+      const pn = performance.now();
+      G.fall = G.fall.filter(f => pn - f.t0 < 700);
+      for (const f of G.fall) { const k = (pn - f.t0) / 700, X = sx(f.x, f.y), Y = sy(f.x, f.y), a = k * k * 1.45, u = TW / 34; g.save(); g.translate(X, Y); g.rotate(a); g.globalAlpha = 1 - k * 0.6; g.fillStyle = '#7a5232'; g.fillRect(-5 * u, -70 * u, 10 * u, 70 * u); g.fillStyle = f.k === 'oak' ? '#4a8a3a' : '#3f8a3a'; g.beginPath(); g.ellipse(0, -72 * u, 26 * u, 20 * u, 0, 0, 7); g.fill(); g.restore(); g.globalAlpha = 1; }
+      // pezzi che volano (consegna alla zattera, furto) e "+1" che sale
+      G.flyFx = G.flyFx.filter(f => pn - f.t0 < 1500);
+      for (const f of G.flyFx) {
+        const k = Math.min(1, (pn - f.t0) / 550), x = f.x0 + (f.x1 - f.x0) * k, y = f.y0 + (f.y1 - f.y0) * k, X = sx(x, y), Y = sy(x, y) - TW * 1.2 - Math.sin(k * Math.PI) * TW * 1.6;
+        if (k < 1) { g.save(); g.translate(X, Y); g.scale(1.1, 1.1); OB.KINDS[f.k].draw(g, 0, 0, TW, pn / 1000); g.restore(); }
+        else { const q = (pn - f.t0 - 550) / 950, X1 = sx(f.x1, f.y1), Y1 = sy(f.x1, f.y1) - TW * 1.6 - q * TW; g.globalAlpha = 1 - q; g.font = '800 ' + Math.round(TW * (f.big ? 0.62 : 0.45)) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.6)'; const tx = (f.big ? '+1 ' : '') + OB.KINDS[f.k].e; g.strokeText(tx, X1, Y1); g.fillStyle = '#ffe070'; g.fillText(tx, X1, Y1); g.globalAlpha = 1; }
+      }
+      // fumetti sopra le zattere vicine: cosa c'e' sopra (su quella nemica, con 🎯, cosa ruberesti)
+      if (!lvl(cq.x)) for (const t of [0, 1]) {
+        const r = raftOf(G, t); if (Math.hypot(r.x - cq.x, r.y - cq.y) > 9 || (MN && !lit(r.x, r.y))) continue;
+        const items = SHOW.map(k => OB.KINDS[k].e.repeat(Math.min(NEED[k], OB.count(G, t, k)))).join(''), tgt = ORDER.find(k => OB.count(G, t, k) > 0);
+        const txt = (t !== me.t && tgt ? '🎯' + OB.KINDS[tgt].e + '  ' : '') + (items || 'vuota'), X = sx(r.x, r.y), Y = sy(r.x, r.y) - TW * 2.3;
+        g.font = '600 13px system-ui,sans-serif'; const bw = g.measureText(txt).width + 18;
+        g.fillStyle = t === me.t ? 'rgba(20,22,26,.6)' : 'rgba(90,20,20,.72)'; cqRR(g, X - bw / 2, Y - 13, bw, 26, 9); g.fill();
+        g.beginPath(); g.moveTo(X - 6, Y + 13); g.lineTo(X + 6, Y + 13); g.lineTo(X, Y + 20); g.fill();
+        g.fillStyle = '#fff'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(txt, X, Y + 1);
+      }
+      // derubati: freccia rossa verso il ladro per qualche secondo
+      if (G.thief && G.thief.until > G.time) { const th = byId(G, G.thief.id); if (th && th.alive && lvl(th.x) === lvl(cq.x)) { const q = P(th); SQ.edge(g, sx(q.x, q.y), sy(q.x, q.y) - TW, W, H, '🫳', '#e0402a'); g.strokeStyle = '#ff5040'; g.lineWidth = 3; g.beginPath(); g.ellipse(sx(q.x, q.y), sy(q.x, q.y), TW * 0.5, TW * 0.25, 0, 0, 7); g.stroke(); } }
+      // "In mano": cosa sto portando e dove portarlo (in basso a sinistra, accanto al pulsante grande)
+      const hh = me.alive && held(G, me);
+      if (hh) {
+        const K2 = OB.KINDS[hh.k], full = OB.count(G, me.t, hh.k) >= NEED[hh.k], sub = lvl(cq.x) ? '→ esci dalle scale 🪜' : full ? 'ne avete già abbastanza' : '→ portal' + (K2.a.startsWith('la ') ? 'a' : 'o') + ' alla zattera ⛵';
+        const x0 = 12, y0 = H - 216, bw = Math.min(W - 130, 210), bh = 58;
+        g.fillStyle = 'rgba(20,22,26,.72)'; cqRR(g, x0, y0, bw, bh, 12); g.fill();
+        g.save(); g.translate(x0 + 30, y0 + 44); g.scale(1.25, 1.25); K2.draw(g, 0, 0, 34, pn / 1000 + Math.sin(pn / 300) * 0.2); g.restore();
+        g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.font = '700 14px system-ui,sans-serif'; g.fillText('In mano: ' + K2.n, x0 + 62, y0 + 21);
+        g.fillStyle = full ? '#ffb070' : '#bfe8a0'; g.font = '600 12px system-ui,sans-serif'; g.fillText(sub, x0 + 62, y0 + 40);
       }
     }
   };
+  // albero da tagliare vicino a c (sull'isola, in piedi)
+  function treeNear(G, c) {
+    const q = P(c); if (lvl(q.x)) return -1; let b = -1, bd = 1.5;
+    MP().trees.forEach((t, i) => { if (G.cut[i] || Math.abs(t.x + 0.5 - q.x) > 2 || Math.abs(t.y + 0.5 - q.y) > 2) return; const d = Math.hypot(t.x + 0.5 - q.x, t.y + 0.5 - q.y); if (d < bd) { bd = d; b = i; } });
+    return b;
+  }
+  // alberi tagliati: ceppo al posto dell'albero, ricresce dopo REGROW s (su ogni telefono, da G.cut)
+  function syncTrees(G) {
+    MP().trees.forEach((t, i) => {
+      const want = G.cut[i] ? 1 : 0; if ((t.cut ? 1 : 0) === want) return;
+      t.cut = want; cqSolid[t.y][t.x] = want ? { prop: 'stump', o: { k: t.k === 'oak' ? 'oak' : 'pine' } } : { prop: 'tree', o: t };
+      cqBgCell(t.x, t.y);
+      if (want && G.time > 0.5 && Math.hypot(t.x - cq.x, t.y - cq.y) < 14) { G.fall.push({ x: t.x + 0.5, y: t.y + 0.5, k: t.k, t0: performance.now() }); thud(0.6, 120); }
+    });
+  }
   function finishOp(G, c) {
-    const k = c.op.k; c.op = null;
+    const k = c.op.k, oi = c.op.i; c.op = null;
+    if (k === 'chop') {
+      if (G.cut[oi] || held(G, c)) return;
+      const it = G.it.find(i => i.k === 'log' && i.st === 3) || G.it.filter(i => i.k === 'log' && i.st === 0).sort((a, b) => dxy(c, b.x, b.y) - dxy(c, a.x, a.y))[0];   // finiti quelli pronti: si riusa il tronco a terra piu' lontano
+      if (!it) return;
+      G.cut[oi] = G.time + REGROW; OB.grab(G, c, it); G.kn[c.t].add(it.id); say(G, 'chop', { a: c.id }); return;
+    }
     if (k === 'chest') { if (!chestOk(G)) return; c.co = (c.co || 0) + CHEST_N; G.chest = G.time + CHEST_CD; say(G, 'chest', { a: c.id }); return; }
     const en = 1 - c.t; if (held(G, c) || !nearRaft(G, c, en)) return;
     const kk = ORDER.find(k2 => OB.count(G, en, k2) > 0); if (!kk) return;
     const it = G.it.find(i => i.st === 2 && i.b === en && i.k === kk); OB.grab(G, c, it); c.st = (c.st || 0) + 1;
-    say(G, 'stolen', { a: c.id, b: en, i: kk });
+    say(G, 'stolen', { a: c.id, b: en, i: kk, x: Math.round(raftOf(G, en).x * 10) / 10, y: Math.round(raftOf(G, en).y * 10) / 10 });
   }
 });

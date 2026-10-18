@@ -203,7 +203,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #cqHallBar span{font-size:13px;opacity:.9}
 #cqModeBar{position:absolute;left:12px;right:12px;top:62px;background:rgba(20,22,28,.72);color:#fff;border-radius:12px;padding:8px 12px;font-size:14px;font-weight:600;pointer-events:none;text-align:center}
 /* scritte grandi del gioco: riquadro scuro semitrasparente in alto, che non copre i personaggi (tutti i giochi) */
-#cqCount{position:absolute;top:158px;left:50%;transform:translateX(-50%);width:max-content;max-width:86%;text-align:center;font-size:15px;font-weight:700;line-height:1.35;color:#fff;background:rgba(20,22,26,.62);padding:8px 14px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.25);pointer-events:none}
+#cqCount{white-space:pre-line;position:absolute;top:158px;left:50%;transform:translateX(-50%);width:max-content;max-width:86%;text-align:center;font-size:15px;font-weight:700;line-height:1.35;color:#fff;background:rgba(20,22,26,.62);padding:8px 14px;border-radius:12px;box-shadow:0 3px 10px rgba(0,0,0,.25);pointer-events:none}
 #ciack.hallMode #cqHud,#ciack.hallMode #cqUse,#ciack.hallMode #cqMapBtn,#ciack.hallMode #cqItems,#ciack.hallMode #cqSabBtn,#ciack.hallMode #cqShoot{display:none!important}
 #cqMapC{display:block;width:100%;background:var(--bg);border-radius:12px}
 .tg-track{position:relative;height:30px;background:var(--bg);border-radius:15px;overflow:hidden;margin:18px 0 8px;border:1px solid var(--line)}
@@ -5036,7 +5036,7 @@ function cqDraw() {
         if (!o.on || o.body || o.fire || o.mob || o.dr || o.pr || o.tint || o.ang != null || o.adv || o.rf || o.trap) continue;
         const d = o.x + o.y, cy = o.sy - 0.9 * TW;
         for (const t of CQ_MAP.trees) {
-          if (Math.abs(t.x - o.x) > 4 || Math.abs(t.y - o.y) > 4 || d >= t.x + t.y + 1.2) continue;
+          if (t.cut || Math.abs(t.x - o.x) > 4 || Math.abs(t.y - o.y) > 4 || d >= t.x + t.y + 1.2) continue;
           const sx = tx + px(t.x + 0.5, t.y + 0.5), sy = ty + py(t.x + 0.5, t.y + 0.5) - cqZpx(t.x + 0.5, t.y + 0.5, TW);
           if (Math.abs(o.sx - sx) < 1.2 * TW && cy > sy - 5.0 * TW && cy < sy - 0.8 * TW) { o.xr = 1; break; }
         }
@@ -5166,6 +5166,7 @@ function cqDraw() {
 }
 // ridisegna da capo un riquadro dello schermo: pavimento, oggetti e personaggi che lo toccano, dal piu' lontano al piu' vicino
 function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
+  if (CQ_MAP.trees) rng += 12;   // un albero davanti con la base piu' in basso arriva col la chioma fin qui: va contato, se no quello dietro gli finisce sopra
   const TH = TW / 2, U = TH * 1.15, [x0, y0, x1, y1] = r;
   g.save(); g.beginPath(); g.rect(x0, y0, x1 - x0, y1 - y0); g.clip();
   // con lo sfondo pronto: lo rimetto nel riquadro (mai pixel vuoti ai bordi); altrimenti cancello e rifaccio il pavimento

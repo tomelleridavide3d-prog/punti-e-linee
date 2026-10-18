@@ -16,7 +16,8 @@ export default [
   [1, `(() => { const G = cq.g; return 'amico: partita ' + (G && G.mode) + ' mappa ' + cq.map + ' seme ' + cq.mapSeed + ' pezzi ' + (G && G.it ? G.it.length : '-') + ' | ' + $('#cqModeBar').textContent; })()`, 0],
   [0, st('host'), 0],
   // l'amico va su un tronco: lo prende (lo decide l'host)
-  [1, `(() => { const G = cq.g, it = G.it.find(i => i.k === 'log' && i.st === 0); cq.x = it.x; cq.y = it.y; return 'amico sul tronco ' + it.id; })()`, 1500],
+  [1, `(() => { const G = cq.g, t = CQ_MAP.trees.find(t => cqCellFree(t.x + 1, t.y) && t.x < 128); cq.x = t.x + 1.5; cq.y = t.y + 0.5; return 'amico accanto a un albero: ' + JSON.stringify(G.M.btn(G)); })()`, 700],
+  [1, `(() => { cqMyKill(); return 'amico: taglia'; })()`, 3200],
   [0, st('host'), 0], [1, st('amico'), 0],
   // l'amico porta il tronco alla sua zattera
   [1, `(() => { const G = cq.g, c = CQ_MAP.camps[1], q = cqSpot(c.rx, c.ry); cq.x = q.x; cq.y = q.y; return 'amico alla zattera'; })()`, 1500],
