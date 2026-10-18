@@ -43,7 +43,7 @@
     G.me.bot = true; G.me.think = 0; G.me.path = [];
     G.me.look = cqLook();
     cq.on = false; cancelAnimationFrame(cq.raf);
-    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['presi', /ha preso|ti ha preso|Hai preso/], ['cristalli', /cristall/], ['complete', /completa/], ['muggiti', /MUUUH|muggito/], ['spostati', /si sono spostati/], ['leve', /leva/], ['aperte', /porta è aperta/], ['lontani', /muggito lontano/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
+    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['presi', /ha preso|ti ha preso|Hai preso/], ['cristalli', /cristall/], ['complete', /completa/], ['muggiti', /MUUUH|muggito/], ['spostati', /si sono spostati/], ['catene', /incatenat/], ['liberati', /liberato/], ['leve', /leva/], ['aperte', /porta è aperta/], ['lontani', /muggito lontano/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
     let t1 = performance.now(), stuck = 0, wallHit = 0;
     for (let i = 0; i < 20 * 460 && G.phase === 'play'; i++) {
       cqModeTick(0.05); cq.x = G.me.x; cq.y = G.me.y; G.M.local(G, 0.05);

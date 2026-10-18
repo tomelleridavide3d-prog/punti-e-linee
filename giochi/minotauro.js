@@ -11,7 +11,7 @@
 CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   const SQ = L.squadre, MG = L.mappe;
   const NN = 18, W = NN * 3 + 1, HALF = W / 2, CA = NN / 2 - 2;   // incroci 18x18: incrocio i occupa le caselle 1+3i e 2+3i, i muri stanno su 3i
-  const NEED = 4, COPY_T = 2, COPY_R = 1.35, EXPLORE = 3.8, CATCH = 0.75, ROAR_CD = 18, ROAR_R = 7, ROAR_T = 3, WARN = 5, MSPD = 1.05, EAT_T = 3, HEAR = 6, LEVER_T = 10, LEVER_R = 1.6, FURY = 0.15;
+  const NEED = 4, COPY_T = 2, COPY_R = 1.35, EXPLORE = 3.8, CATCH = 0.75, ROAR_CD = 18, ROAR_R = 7, ROAR_T = 3, WARN = 5, MSPD = 1.05, EAT_T = 3, HEAR = 6, LEVER_T = 10, LEVER_R = 1.6, FURY = 0.15, FREE_T = 4, FREE_R = 1.4, SAFE_T = 2.5;
   const VIS_E = 3.6, VIS_M = 5.6, TORCH_SEE = 10, LIT_R = 2.4, PRINT_T = 9, CHALK_MAX = 8, HIDE_R = 1.45, EXIT_R = 1.05, ESC_T = 2.5, LOOP = 0.1;
   // LE 4 ZONE DEL TEMPIO (una per quarto): pavimento, pietra dei muri, decorazioni. zq(x, y) = zona della casella
   const ZN = [
@@ -30,7 +30,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   const dxy = (c, x, y) => { const p = P(c); return Math.hypot(p.x - x, p.y - y); };
   const byId = (G, id) => G.chars.find(c => c.id === id);
   const mino = G => G.chars.find(c => c.mino);
-  const expl = G => G.chars.filter(c => !c.mino && c.alive && !c.out);
+  const expl = G => G.chars.filter(c => !c.mino && c.alive && !c.out && !c.jail);
+  const jailed = G => G.chars.filter(c => !c.mino && c.alive && c.jail);
   const quad = (x, y) => (x >= HALF ? 1 : 0) + (y >= HALF ? 2 : 0);
   const nfr = (G, t) => { let n = 0, m = G.fc[t] || 0; while (m) { n += m & 1; m >>= 1; } return n; };
   const full = (G, t) => t >= 0 && nfr(G, t) >= NEED;
@@ -151,10 +152,12 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     // caselle illuminate dalle torce (servono a vedere un po' piu' lontano)
     const lit = new Uint8Array(W * W);
     for (const [tx, ty] of torches) for (let y = Math.max(0, ty - 3); y <= Math.min(W - 1, ty + 3); y++) for (let x = Math.max(0, tx - 3); x <= Math.min(W - 1, tx + 3); x++) if (Math.hypot(x - tx, y - ty) < LIT_R) lit[y * W + x] = 1;
+    const chains = [], ac = 3 * (CA + 2);
+    for (let k = 0; k < 400 && chains.length < 9; k++) { const a = rnd() * 7, r = 2 + rnd() * 2.6, x = Math.floor(ac + 0.5 + Math.cos(a) * r), y = Math.floor(ac + 0.5 + Math.sin(a) * r); if (occ.has(K(x, y)) || (x % 3 === 0 && y % 3 === 0) || chains.some(q => Math.hypot(q[0] - x, q[1] - y) < 1.8)) continue; chains.push([x, y]); }
     const ring = []; for (let i = 0; i < 10; i++) ring.push([Math.floor(startP[0].x) + (i % 3) - 1, Math.floor(startP[0].y) + Math.floor(i / 3) - 1]);
     return { w: W, h: W, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
       deco, decoAt, draw, floor: FLOOR, decoDraw, bg: () => '#06070a',
-      S, st0: st, R, roomOf, exit: EX, exitCells, starts, startP, arena, frag, torches, lit, hides, shafts, seed };
+      S, st0: st, R, roomOf, exit: EX, exitCells, starts, startP, arena, frag, torches, lit, hides, shafts, chains, seed };
   }
 
   // ---- disegno della mappa (K = attrezzi di cqTools) ----
@@ -341,7 +344,9 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   function action(G, c) {
     if (!c.alive || c.out || G.esc) return null;
     if (c.mino) return { k: 'roar', t: G.time < (c.rcd || 0) ? '🐂 ' + Math.ceil(c.rcd - G.time) + ' s' : '🐂 Muggito', on: G.time >= (c.rcd || 0) };
+    if (c.op && c.op.k === 'free') return { k: 'wait', t: '🔓 Libero… ' + Math.round(Math.min(1, (G.time - c.op.t0) / FREE_T) * 100) + '%', on: false };
     if (c.op) return c.op.k === 'lever' ? { k: 'wait', t: '🚪 Leva… ' + Math.round((G.gp[c.t] || 0) * 100) + '%', on: false } : { k: 'wait', t: '💎 Prendo… ' + Math.round(Math.min(1, (G.time - c.op.t0) / COPY_T) * 100) + '%', on: false };
+    { const v = prisonerNear(G, c); if (v) return { k: 'free', v: v.id, t: '🔓 Libera ' + v.name, on: true }; }
     if (full(G, c.t) && !G.open[c.t] && nearLever(c)) return { k: 'lever', t: '🚪 Tieni la leva', on: true };
     if (fragAt(G, c) >= 0) return { k: 'copy', t: '💎 Prendi il cristallo', on: true };
     if (c.hd) return { k: 'unhide', t: '🏺 Esci', on: true };
@@ -356,18 +361,32 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       for (const e of expl(G)) if (dist(c, e) < ROAR_R) { e.slow = G.time + ROAR_T; e.op = null; }
       say(G, 'roar', { a: c.id, x: Math.round(p.x), y: Math.round(p.y) });
     }
+    else if (a.k === 'free' && !c.mino) { const v = prisonerNear(G, c); if (v && !c.op) c.op = { k: 'free', i: -3, v: v.id, t0: G.time, x: p.x, y: p.y }; }
     else if (a.k === 'lever' && !c.mino) { if (full(G, c.t) && !G.open[c.t] && nearLever(c) && !c.op) { c.op = { k: 'lever', i: -2, t0: G.time, x: p.x, y: p.y }; if (!G.gp[c.t]) say(G, 'lever', { a: c.id, b: c.t }); } }
     else if (a.k === 'copy' && !c.mino) { const i = fragAt(G, c); if (i >= 0 && !c.op) c.op = { k: 'copy', i, t0: G.time, x: p.x, y: p.y }; }
     else if (a.k === 'hide' && !c.mino) { if (hideNear(c)) { c.hd = 1; c.path = []; } }
     else if (a.k === 'unhide') c.hd = 0;
   }
+  function release(G, v, by) {
+    v.jail = 0; v.js = -1; v.safe = G.time + SAFE_T; by.fred = (by.fred || 0) + 1;
+    say(G, 'free', { a: v.id, b: by.id });
+  }
+  // incatenato della mia squadra vicino a c (lo si libera)
+  const prisonerNear = (G, c) => jailed(G).find(v => v.t === c.t && dist(c, v) < FREE_R);
   function copyDone(G, c) {
     const i = c.op.i; c.op = null; const t = c.t; if (!here(G, i)) return;
     G.cs[i] = t; G.fc[t] = (G.fc[t] || 0) | (1 << i); c.fr = (c.fr || 0) + 1;
     say(G, full(G, t) ? 'all' : 'copy', { a: c.id, b: t, n: nfr(G, t) });
   }
   function caught(G, v, by) {
-    const p = P(v); v.alive = false; v.hd = 0; v.op = null; v.path = []; v.walk = 0; by.ct = (by.ct || 0) + 1; by.eat = G.time + EAT_T;
+    const p = P(v);
+    if (!v.cg) {
+      const used = G.chars.filter(c => c.jail).map(c => c.js), js = MP().chains.findIndex((q, i) => !used.includes(i)), q = MP().chains[js >= 0 ? js : 0];
+      v.cg = 1; v.jail = 1; v.js = js >= 0 ? js : 0; v.hd = 0; v.op = null; v.path = []; v.walk = 0; v.x = q[0] + 0.5; v.y = q[1] + 0.5; v.jT = G.time;
+      if (v === G.me) { cq.x = v.x; cq.y = v.y; }
+      by.ct = (by.ct || 0) + 1; by.eat = G.time + EAT_T;
+      say(G, 'jail', { a: v.id, b: by.id }); return;
+    } v.alive = false; v.hd = 0; v.op = null; v.path = []; v.walk = 0; by.ct = (by.ct || 0) + 1; by.eat = G.time + EAT_T;
     G.bodies.push({ id: v.id, x: p.x, y: p.y, face: v === G.me ? cq.face : v.face, look: cqLookOf(v), name: v.name, t: G.time, nk: 1 });
     say(G, 'catch', { a: v.id, b: by.id });
   }
@@ -477,6 +496,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
 
   // cronaca: l'host scrive (G.lg), ognuno racconta dal suo punto di vista
   function say(G, k, o) { const e = Object.assign({ n: ++G.lgN, k }, o); G.lg.push(e); if (G.lg.length > 10) G.lg.shift(); show(G, e); }
+  const bn0 = B => B ? '<b>' + esc(B.name) + '</b>' : 'Qualcuno';
   function show(G, e) {
     const me = G.me, A = byId(G, e.a), B = byId(G, e.b), an = A ? '<b>' + esc(A.name) + '</b>' : '', T = TT(G);
     let t = '';
@@ -484,6 +504,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     else if (e.k === 'copy') { const mine = e.b === me.t; t = mine ? '💎 ' + (A === me ? 'Hai' : an + ' ha') + ' preso un cristallo (' + e.n + '/' + NEED + ')!' : me.mino ? '💎 ' + an + ' ha preso un cristallo.' : '💎 I ' + T[e.b].n + ' hanno ' + e.n + '/' + NEED + ' cristalli.'; if (mine) { beep(660, 0.1, 0.04); beep(880, 0.14, 0.04, 0.1); } }
     else if (e.k === 'all') { const mine = e.b === me.t; t = mine ? '💎 ' + NEED + ' cristalli! L\'uscita si è illuminata: guarda la mappina e correte!' : me.mino ? '⚠️ ' + (G.nt === 1 ? 'Gli esploratori hanno' : 'I ' + T[e.b].n + ' hanno') + ' tutti i cristalli: stanno andando all\'uscita!' : '⚠️ I ' + T[e.b].n + ' hanno tutti i cristalli!'; beep(523, 0.12, 0.05); beep(659, 0.12, 0.05, 0.12); beep(1047, 0.3, 0.05, 0.24); }
     else if (e.k === 'roar') { const d = Math.hypot(e.x - cq.x, e.y - cq.y), v = Math.max(0.03, 0.16 * (1 - d / 30)); beep(72, 1.0, v, 0, 'sawtooth'); beep(58, 1.2, v * 0.8, 0.12, 'sawtooth'); beep(96, 0.5, v * 0.5, 0, 'square'); if (A === me) t = '🐂 MUUUH! Chi era vicino trema e rallenta.'; else if (!me.mino && me.alive && d < ROAR_R) t = '😱 Il muggito ti ha stordito: vai più piano per qualche secondo!'; else if (!me.mino) t = '🐂 Un muggito ' + (d < 15 ? 'vicino!' : 'in lontananza…'); }
+    else if (e.k === 'jail') { const mine = A && A.t === me.t; t = A === me ? '⛓️ Il Minotauro ti ha preso e incatenato nell\'arena! I compagni possono liberarti.' : B === me ? '🐂 Hai incatenato ' + an + ' nell\'arena! (alla prossima presa è fuori)' : mine ? '⛓️ ' + an + ' è incatenato nell\'arena: andate a liberarlo!' : '🐂 Il Minotauro ha incatenato ' + an + '.'; beep(110, 0.4, 0.07, 0, 'sawtooth'); for (let i = 0; i < 3; i++) beep(900 - i * 80, 0.05, 0.03, 0.3 + i * 0.09, 'square'); }
+    else if (e.k === 'free') { t = A === me ? '🔓 ' + bn0(B) + ' ti ha liberato! Scappa!' : B === me ? '🔓 Hai liberato ' + an + '!' : A && A.t === me.t ? '🔓 ' + bn0(B) + ' ha liberato ' + an + '!' : me.mino ? '😤 Hanno liberato ' + an + '!' : ''; beep(660, 0.1, 0.04); beep(990, 0.15, 0.04, 0.1); }
     else if (e.k === 'lever') { const mine = e.b === me.t; t = mine ? '🚪 ' + (A === me ? 'Hai' : an + ' ha') + ' preso la leva: la porta si alza, tenetela 10 secondi!' : me.mino ? '🐂 Qualcuno sta aprendo la porta dell\'uscita! Il rumore viene da lì: corri!' : '⚠️ I ' + T[e.b].n + ' stanno aprendo l\'uscita!'; for (let i = 0; i < 3; i++) thud(0.7, 50 + i * 8); }
     else if (e.k === 'open') { const mine = e.b === me.t; t = mine ? '🚪 La porta è aperta! Uscite!' : me.mino ? '🐂 La porta è aperta: fermali!' : '⚠️ La porta è aperta per i ' + T[e.b].n + '!'; beep(392, 0.2, 0.05); beep(523, 0.3, 0.05, 0.2); }
     else if (e.k === 'warn') { t = '🧱 Il labirinto trema: tra ' + WARN + ' secondi i muri si spostano!'; for (let i = 0; i < 4; i++) thud(0.5, 60 + i * 15); }
@@ -528,6 +550,9 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     // squadra con la mappa completa: all'uscita
     if (full(G, t)) { const e = MP().exit; if (!G.open[t] && nearLever(c)) { doAct(G, c, { k: 'lever' }); c.path = []; return; } go(G, c, e.x - e.dx * 0.4, e.y - e.dy * 0.4); return; }
     // cristallo da prendere
+    { const pv = jailed(G).filter(v => v.t === t).sort((a, b) => dist(c, a) - dist(c, b))[0];
+      if (pv) { const mine = expl(G).filter(o => o.bot && o.t === t).sort((a, b) => dist(a, pv) - dist(b, pv))[0] === c, safeM = !M || dist(M, pv) > 7;
+        if (mine && (safeM || G.time - (pv.jT || 0) > 25)) { if (dist(c, pv) < FREE_R) { doAct(G, c, { k: 'free' }); c.path = []; return; } const q = P(pv); if (!c.path.length || Math.random() < 0.1) go(G, c, q.x + 1, q.y); return; } } }
     if (fragAt(G, c) >= 0) { doAct(G, c, { k: 'copy' }); c.path = []; return; }
     let best = null, bd = 1e9;
     MP().frag.forEach((f, i) => { if (!here(G, i) || !G.kn[t].has(i)) return; const d = Math.hypot(f.x - c.x, f.y - c.y) + (G.chars.some(o => o !== c && o.bot && o.t === t && o.gl === i) ? 14 : 0) + (M && Math.hypot(f.x - M.x, f.y - M.y) < 5 ? 10 : 0); if (d < bd) { bd = d; best = i; } });
@@ -548,6 +573,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     if (c.hunt && G.time - c.hunt.t < 4 && Math.hypot(c.hunt.x - c.x, c.hunt.y - c.y) > 0.8) { if (!c.path.length) go(G, c, c.hunt.x, c.hunt.y); return; }
     // ronda: ogni tanto vicino a un cristallo, se no in giro
     if (!c.path.length || Math.random() < 0.03) {
+      if (jailed(G).length && Math.random() < 0.45) { const a = MP().arena; go(G, c, a.x + (Math.random() - 0.5) * 6, a.y + (Math.random() - 0.5) * 6); return; }
       const live = MP().frag.filter((f, i) => here(G, i)); if (live.length && Math.random() < 0.25) { const f = live[Math.floor(Math.random() * live.length)]; go(G, c, f.cx, f.cy); }
       else wander(G, c);
     }
@@ -588,10 +614,12 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     },
     gstart(G) { setup(G); },
     intro: G => G.me.mino ? '🐂 Sei il Minotauro: prendili prima che escano!' : (() => { const T = TT(G)[G.me.t || 0]; return G.nt === 1 ? '🔦 Trovate 4 cristalli e scappate dal labirinto!' : T.e + ' Sei nei ' + T.n + ': 4 cristalli e fuori per primi!'; })(),
-    speed(c) { const G = cq.g; if (!G || !G.fc) return 1; if (!c.alive) return 1.1; if (c.out || c.op) return 0; if (c.mino && (c.eat || 0) > G.time) return 0; return (c.mino ? MSPD * (1 + FURY * fury(G)) : 1) * (slowOn(G, c) ? 0.6 : 1); },
+    speed(c) { const G = cq.g; if (!G || !G.fc) return 1; if (!c.alive) return 1.1; if (c.out || c.op || c.jail) return 0; if (c.mino && (c.eat || 0) > G.time) return 0; return (c.mino ? MSPD * (1 + FURY * fury(G)) : 1) * (slowOn(G, c) ? 0.6 : 1); },
     big(G) {
       const me = G.me; if (me.t == null) return '';
       if (G.esc) { const A = byId(G, G.esc.id); return '🚪 ' + (A ? A.name : '') + ' esce dal labirinto!'; }
+      if (me.jail) return '⛓️ Sei incatenato nell\'arena! Chiama i compagni: possono liberarti (3 s accanto a te). Alla prossima presa sei un fantasma.';
+      if (me.op && me.op.k === 'free') return '🔓 Stai liberando il compagno… resta fermo!';
       if (!me.alive) return '👻 Sei un fantasma: guardi la partita (gli altri non ti sentono).';
       if (me.op && me.op.k === 'lever') return '🚪 Tieni la leva: la porta si alza… ' + Math.round((G.gp[me.t] || 0) * 100) + '% (resta fermo!)';
       if (!me.mino && G.open[me.t]) return '🚪 La porta è aperta: SCAPPA!';
@@ -668,16 +696,18 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         const p = P(c);
         if (c.op) {
           if (Math.hypot(p.x - c.op.x, p.y - c.op.y) > 0.5) c.op = null;
+          else if (c.op.k === 'free') { const v = byId(G, c.op.v); if (!v || !v.jail || !v.alive) c.op = null; else if (G.time - c.op.t0 >= FREE_T) { c.op = null; release(G, v, c); } }
           else if (c.op.k === 'lever') { if (!lev[c.t]) { lev[c.t] = 1; G.gp[c.t] = Math.min(1, (G.gp[c.t] || 0) + dt / LEVER_T); if (G.gp[c.t] >= 1) { G.open[c.t] = 1; c.op = null; say(G, 'open', { a: c.id, b: c.t }); } } }
           else if (G.time - c.op.t0 >= COPY_T) copyDone(G, c);
         }
         if (!G.esc && full(G, c.t) && G.open[c.t] && dxy(c, MP().exit.x, MP().exit.y) < EXIT_R) { G.esc = { id: c.id, t: c.t, at: G.time + ESC_T }; c.out = 1; c.path = []; say(G, 'esc', { a: c.id, b: c.t }); }
       }
-      if (M && M.alive && !G.esc && !((M.eat || 0) > G.time)) for (const e of expl(G)) if (dist(M, e) < CATCH) caught(G, e, M);
+      if (M && M.alive && !G.esc && !((M.eat || 0) > G.time)) for (const e of expl(G)) if (dist(M, e) < CATCH && !((e.safe || 0) > G.time)) caught(G, e, M);
       if (G.esc && G.time >= G.esc.at) { this.finish(G); return; }
       // computer
       for (const c of G.chars) {
         if (!c.bot || !c.alive || c.out) continue;
+        if (c.jail) { c.path = []; c.walk = 0; continue; }
         if (c.op || G.esc) { c.path = []; c.walk = 0; continue; }
         if ((c.think -= dt) <= 0) { c.think = 0.3 + Math.random() * 0.2; if (c.mino) botMino(G, c); else botExpl(G, c); }
         if (!c.hd) cqModeStep(c, dt, (!c.mino && G.time - (c.fleeT || -9) < 2 ? 1 : 0.9) * this.speed(c)); else c.walk = 0;   // chi scappa corre
@@ -688,7 +718,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     },
     finish(G) {
       const M = mino(G), T = TT(G), name = c => c.name + (c === G.me ? ' (tu)' : '');
-      const line = c => [name(c), c.mino ? '— 🐂 Minotauro · 👻 ' + (c.ct || 0) + ' presi' : '— ' + T[c.t].e + ' 💎 ' + (c.fr || 0) + ' cristalli' + (c.out ? ' · 🚪 uscito' : c.alive ? '' : ' · 👻')];
+      const line = c => [name(c), c.mino ? '— 🐂 Minotauro · 👻 ' + (c.ct || 0) + ' presi' : '— ' + T[c.t].e + ' 💎 ' + (c.fr || 0) + ' cristalli' + (c.fred ? ' · 🔓 ' + c.fred + ' liberati' : '') + (c.out ? ' · 🚪 uscito' : c.jail && c.alive ? ' · ⛓️' : c.alive ? '' : ' · 👻')];
       if (G.esc) {
         const w = G.esc.t, A = byId(G, G.esc.id);
         const rank = G.chars.slice().sort((a, b) => (b.t === w) - (a.t === w) || (b.out | 0) - (a.out | 0) || (b.fr || 0) - (a.fr || 0)).map(line);
@@ -699,14 +729,16 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       }
     },
     // online: squadra (-1 = Minotauro), nascosto, stordito, copia in corso, attesa del muggito, uscito, cristalli, presi
-    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.t, c.hd ? 1 : 0, r(c.slow || 0), c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : -1, r(c.rcd || 0), c.out ? 1 : 0, c.fr || 0, c.ct || 0, c.op ? c.op.i : -1, r(c.eat || 0)]; },
+    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.t, c.hd ? 1 : 0, r(c.slow || 0), c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : -1, r(c.rcd || 0), c.out ? 1 : 0, c.fr || 0, c.ct || 0, c.op ? c.op.i : -1, r(c.eat || 0), c.jail ? 1 : 0, c.js == null ? -1 : c.js, r(c.safe || 0), c.cg || 0, c.fred || 0]; },
     capply(G, c, a) {
       c.t = a[0]; c.mino = a[0] === -1; c.dname = c.mino ? '🐂 ' + c.name : null;
       if (!(c === G.me && G.time < (c.hdH || 0))) c.hd = a[1];
       c.slow = a[2] > 0 ? G.time + a[2] : 0;
-      c.op = a[3] >= 0 ? { k: a[8] === -2 ? 'lever' : 'copy', i: a[8], t0: G.time - a[3], x: c.x, y: c.y } : null;
+      c.op = a[3] >= 0 ? { k: a[8] === -2 ? 'lever' : a[8] === -3 ? 'free' : 'copy', i: a[8], t0: G.time - a[3], x: c.x, y: c.y } : null;
       if (!(c === G.me && G.time < (c.rcH || 0))) c.rcd = a[4] > 0 ? G.time + a[4] : 0;
       c.out = a[5]; c.fr = a[6]; c.ct = a[7]; c.eat = a[9] > 0 ? G.time + a[9] : 0;
+      c.jail = a[10]; c.js = a[11]; c.safe = a[12] > 0 ? G.time + a[12] : 0; c.cg = a[13]; c.fred = a[14];
+      if (c === G.me && c.jail && MP().chains[c.js]) { const q = MP().chains[c.js]; cq.x = q[0] + 0.5; cq.y = q[1] + 0.5; }
     },
     snap(G) {
       const per = G.time - G.wsT < 2.5 || Math.floor(G.time * 2) % 6 === 0, perM = G.time - G.mkT < 2.5 || Math.floor(G.time * 2) % 6 === 3;
@@ -744,6 +776,14 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     },
     deco(g, c, X, Y, TW, G) {
       if (!c.mino && c.t != null && c.t >= 0 && G.nt > 1) { g.strokeStyle = TEAMS[c.t].c; g.lineWidth = 2.5; g.globalAlpha = 0.85; g.beginPath(); g.ellipse(X, Y, TW * 0.34, TW * 0.17, 0, 0, 7); g.stroke(); g.globalAlpha = 1; }
+      if (c.jail && c.alive) {   // catene dai paletti a terra ai polsi
+        const t = performance.now() / 1000;
+        for (const sd of [-1, 1]) { const x0 = X + sd * TW * 0.55, y0 = Y + TW * 0.12, x1 = X + sd * TW * 0.3, y1 = Y - TW * 0.75;
+          g.fillStyle = '#3a3630'; g.fillRect(x0 - 2, y0 - TW * 0.3, 4, TW * 0.3);
+          g.strokeStyle = '#8a8a88'; g.lineWidth = 2; for (let k = 0; k < 6; k++) { const a = k / 6, b = (k + 1) / 6, sag = Math.sin(a * Math.PI) * 4; g.beginPath(); g.ellipse(x0 + (x1 - x0) * (a + b) / 2, y0 + (y1 - y0) * (a + b) / 2 + sag, 3, 2, (k % 2) * 1.5, 0, 7); g.stroke(); } }
+        g.font = Math.round(TW * 0.4) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🆘', X, Y - TW * 1.95 + Math.sin(t * 4) * 3);
+      }
+      if ((c.safe || 0) > G.time && c.alive) { g.strokeStyle = 'rgba(140,220,255,.8)'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, Y - TW * 0.6, TW * 0.5, TW * 0.9, 0, 0, 7); g.stroke(); }
       if (c.hd) { g.font = Math.round(TW * 0.42) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🏺', X + TW * 0.38, Y - TW * 1.2); }
       if (c.op) { const k = Math.min(1, (G.time - c.op.t0) / COPY_T); g.strokeStyle = '#f2c84a'; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 1.9, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
       if (!c.mino && c.alive && slowOn(G, c)) { const t = performance.now() / 300; g.font = Math.round(TW * 0.36) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('💫', X + Math.cos(t) * TW * 0.3, Y - TW * 1.75 + Math.sin(t) * 3); }
@@ -876,7 +916,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     // uscita (con i cristalli; il Minotauro quando una squadra li ha tutti)
     const exitOn = !me.alive || (me.mino ? Array.from({ length: G.nt }, (_, t) => t).some(t => full(G, t)) : full(G, me.t));
     if (exitOn) { const e = MP().exit; dot(e.x, e.y, big ? 6 : 5, (now / 400 | 0) % 2 ? '#7be0a0' : '#2f8a5a', '#fff'); }
-    if (!me.mino && me.alive) for (const c of G.chars) if (c !== me && c.alive && !c.out && !c.mino && c.t === me.t) dot(c.x, c.y, 3, TT(G)[c.t].l, '#000');
+    if (!me.mino && me.alive) for (const c of G.chars) if (c !== me && c.alive && !c.out && !c.mino && c.t === me.t) dot(c.x, c.y, c.jail ? 4 : 3, c.jail ? ((now / 300 | 0) % 2 ? '#ff4040' : '#fff') : TT(G)[c.t].l, '#000');
     // io: freccia che guarda dove vado
     const [mx, my] = P2(cq.x, cq.y), wx = cq.wdx || 1, wy = cq.wdy || 0, ang = Math.atan2((wx + wy) * 0.7071, (wx - wy) * 0.7071);
     g.translate(mx, my); g.rotate(ang); g.fillStyle = me.mino ? '#ff5a3a' : '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
