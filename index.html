@@ -1606,7 +1606,7 @@ async function startHub() {
   let F; try { F = await hubLoad(); } catch { hub.ok = false; hub.failed = true; hubRender(); return; }
   if (hub.key !== key) return;
   const { db, ref, onValue, onDisconnect, runTransaction, onChildAdded } = F;
-  hub.ok = true;
+  hub.ok = true; devLog('sito');
   runTransaction(ref(db, 'players/' + key), cur => cur || { name: nm, rating: 1000, w: 0, l: 0, d: 0, pf: 0, pa: 0, hist: [1000] }).catch(() => {});
   hub.unsubs.push(onValue(ref(db, '.info/connected'), s => { if (s.val() !== true || hub.key !== key) return; onDisconnect(ref(db, 'presence/' + hub.sid)).remove(); hubPresence(); }));
   const fail = e => { hub.ok = false; hub.failed = true; hub.err = (e && e.code) || 'errore'; hubRender(); };
@@ -1624,6 +1624,74 @@ function stopHub() {
 function hubPresence() {
   const F = hub.fb; if (!F || !hub.ok || !hub.key) return;
   F.set(F.ref(F.db, 'presence/' + hub.sid), { g: curGame, name: (store.settings.myName || '').trim().slice(0, 14), key: hub.key, st: net && net.cfg ? 'playing' : 'free', ts: Date.now() }).catch(() => {});
+}
+// ---- registro degli accessi (solo per lo sviluppatore): chi entra, con che nome, da che dispositivo, in che gioco ----
+// si scrive in dl/<DL_K>; la lista si apre toccando 5 volte la riga "Versione del ..." e scrivendo il codice segreto
+const DL_K = '172qmd19l2qq', DL_H = 'c62109b74535df315edfe9f5d190eee2ba6171fd42773eab4feedcd34797e5c8', dlLast = {};
+function dlDevice() {
+  const u = navigator.userAgent || '';
+  const os = /iPhone/.test(u) ? 'iPhone' : /iPad/.test(u) || (/Macintosh/.test(u) && navigator.maxTouchPoints > 1) ? 'iPad' : /Android/.test(u) ? 'Android' : /Windows/.test(u) ? 'PC Windows' : /Macintosh/.test(u) ? 'Mac' : /Linux/.test(u) ? 'Linux' : 'Altro';
+  const mod = /Android/.test(u) && (u.match(/Android [\d.]+; ([^;)]+)/) || [])[1];
+  const br = /Edg\//.test(u) ? 'Edge' : /OPR\//.test(u) ? 'Opera' : /SamsungBrowser/.test(u) ? 'Samsung' : /Firefox|FxiOS/.test(u) ? 'Firefox' : /CriOS|Chrome/.test(u) ? 'Chrome' : /Safari/.test(u) ? 'Safari' : 'altro';
+  let app = false; try { app = matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch {}
+  return (os + (mod && mod !== 'K' ? ' (' + mod.trim().slice(0, 24) + ')' : '') + ' · ' + br + (app ? ' · app' : '')).slice(0, 60);
+}
+function devLog(e, g, s) {
+  if (!WEB) return;
+  const nm = (store.settings.myName || '').trim().slice(0, 14); if (!nm || /^zz/i.test(nm)) return;
+  const k = e + '|' + (g || '') + '|' + (s || ''), now = Date.now();
+  if (dlLast[k] && now - dlLast[k] < 90000) return; dlLast[k] = now;
+  const o = { n: nm, t: now, e, d: dlDevice() };
+  if (g) o.g = String(g).slice(0, 16); if (s) o.s = String(s).slice(0, 10);
+  hubLoad().then(F => F.push(F.ref(F.db, 'dl/' + DL_K), o)).catch(() => {});
+}
+let dlTaps = 0, dlTapT = 0;
+async function dlUnlock() {
+  const now = Date.now(); if (now - dlTapT > 1500) dlTaps = 0; dlTapT = now;
+  if (++dlTaps < 5) return; dlTaps = 0;
+  if (localStorage.getItem('devOn') === '1') { dlShow(); return; }
+  const c = prompt('Codice sviluppatore'); if (!c) return;
+  let h = ''; try { const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(c.trim())); h = [...new Uint8Array(b)].map(x => x.toString(16).padStart(2, '0')).join(''); } catch {}
+  if (h !== DL_H) { alert('Codice sbagliato.'); return; }
+  try { localStorage.setItem('devOn', '1'); } catch {}
+  dlBtn(); dlShow();
+}
+function dlBtn() {
+  let b = $('#dlOpen'); const on = (() => { try { return localStorage.getItem('devOn') === '1'; } catch { return false; } })();
+  if (!on) { if (b) b.remove(); return; }
+  if (!b) { b = document.createElement('button'); b.id = 'dlOpen'; b.className = 'btn'; b.type = 'button'; b.textContent = '🛠️ Accessi'; b.style.cssText = 'display:block;margin:6px auto 0'; b.onclick = dlShow; $('#appVer').after(b); }
+}
+const DL_EV = { sito: '🌐 apre il sito', set: '🎬 crea un set', entra: '🚪 entra in un set', gioco: '🎮 gioca' };
+async function dlShow() {
+  let w = $('#dlWin');
+  if (!w) {
+    w = document.createElement('div'); w.id = 'dlWin';
+    w.style.cssText = 'position:fixed;inset:0;z-index:99999;background:var(--bg);color:var(--ink);overflow:auto;padding:14px 16px 40px;font-size:14px';
+    document.body.appendChild(w);
+  }
+  w.hidden = false;
+  w.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><b style="flex:1;font-size:17px">🛠️ Accessi</b><button class="btn" type="button" id="dlRe">↻</button><button class="btn" type="button" id="dlX">Chiudi</button></div><div id="dlBody">Carico…</div>';
+  $('#dlX').onclick = () => { w.hidden = true; };
+  $('#dlRe').onclick = dlShow;
+  let rows = [];
+  try {
+    const F = await hubLoad();
+    const s = await F.get(F.query(F.ref(F.db, 'dl/' + DL_K), F.orderByChild('t'), F.limitToLast(400)));
+    rows = Object.values(s.val() || {}).filter(r => r && r.t).sort((a, b) => b.t - a.t);
+  } catch (e) { $('#dlBody').textContent = 'Non riesco a leggere la lista (' + ((e && e.code) || 'errore') + '). Controlla la connessione o le regole di Firebase.'; return; }
+  if (!rows.length) { $('#dlBody').textContent = 'Ancora nessun accesso registrato.'; return; }
+  const names = new Set(rows.map(r => r.n.toLowerCase()));
+  let h = `<div class="hint" style="margin-bottom:8px">${rows.length} voci · ${names.size} nomi diversi</div>`, day = '';
+  for (const r of rows) {
+    const d = new Date(r.t), dd = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+    if (dd !== day) { day = dd; h += `<div style="margin:12px 0 4px;font-weight:700;color:var(--muted)">${esc(dd)}</div>`; }
+    const gm = r.g ? ' · ' + esc((CQ_GAMES.find(x => x[0] === r.g) || [])[1] || r.g) : '', st = r.s ? ' · set ' + esc(r.s) : '';
+    h += `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}</b> &nbsp;<b>${esc(r.n)}</b> — ${DL_EV[r.e] || esc(r.e)}${gm}${st}<div class="hint" style="font-size:12px">${esc(r.d || '')}</div></div>`;
+  }
+  h += '<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="dlDel" style="color:#ff8a7a">🗑️ Cancella tutta la lista</button><button class="btn" type="button" id="dlOff">Nascondi il pulsante su questo telefono</button></div>';
+  $('#dlBody').innerHTML = h;
+  $('#dlDel').onclick = async () => { if (!confirm('Cancellare tutta la lista degli accessi?')) return; try { const F = await hubLoad(); await F.remove(F.ref(F.db, 'dl/' + DL_K)); } catch {} dlShow(); };
+  $('#dlOff').onclick = () => { try { localStorage.removeItem('devOn'); } catch {} dlBtn(); w.hidden = true; };
 }
 function hubLive() {
   const F = hub.fb; if (!F || !hub.ok || !net || net.role !== 'host' || !net.cfg || !game || !game.online) return;
@@ -2769,7 +2837,7 @@ function cqNetList(o) {
 function cqNetSend(o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/ev`), { s: N.sid, m: JSON.stringify(o) }).catch(() => {}); }
 async function cqNetJoin(code) {
   try { await cqNetOpen(code, 'guest'); } catch { cqToast('Collegamento non riuscito: riprova.'); return; }
-  cqCloseTask(); cqHallEnter();
+  cqCloseTask(); cqHallEnter(); devLog('entra', cq.sets && cq.sets[code] && cq.sets[code].g, code);
 }
 // riquadro "Gioca con gli amici" nella stanza d'attesa
 function cqNetBox() {
@@ -2788,7 +2856,7 @@ function cqNetBox() {
   box.innerHTML = `<div class="netBox"><b>🎬 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">Crea un set</button>`
     + (sets.length ? '<div class="hint">Set aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>Set di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun set aperto dagli amici in questo momento.</div>')
     + (old.length ? `<div class="hint">Set creati da te e rimasti aperti:</div>` + [...new Set(old)].map(k => `<div class="netRow"><span>Il tuo set (${esc(k)})</span><button class="btn" type="button" data-kill="${esc(k)}">🗑️ Elimina</button></div>`).join('') : '') + '</div>';
-  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); cqToast('🏨 Set aperto! Scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
+  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); devLog('set', '', code); cqToast('🏨 Set aperto! Scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
   box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => cqNetJoin(b.dataset.join); });
   box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Set eliminato.'); }; });
 }
@@ -2939,6 +3007,7 @@ function cqNetApply(s) {
     const chars = s.c.map(a => ({ id: a[0], name: a[1], look: cqNetLook(a[2]), bot: true, x: a[3], y: a[4], tx: a[3], ty: a[4], face: a[5], walk: 0, alive: !!a[7], imp: !!a[8], done: { size: a[9] }, sid: a[10], st: {}, kcd: 0 }));
     const me = chars[mine[0]];
     me.bot = false; me.tasks = mine[11] || []; me.done = new Set();
+    devLog('gioco', 'ciack', cq.net && cq.net.code);
     G = cq.g = { song: Math.floor(Math.random() * CQ_SONGS.game), guest: true, mid: s.mid, map: cq.map, ep: s.e, chars, me, bodies: [], phase: s.ph, sab: null, sabCd: s.sc, button: s.bt, meet: null, time: s.t, opt: s.opt, nt: s.nt };
     cqShopStart(G); cqHallOff(); cq.picking = false;
     cq.x = me.x; cq.y = me.y; cq.face = me.face; cq.tasks = me.tasks; cq.done = me.done; cq.near = null; cq.act = null; cq.actKey = ''; cq.ejMe = false;
@@ -3188,6 +3257,7 @@ function cqModeFree(k = 60) { for (let i = 0; i < k; i++) { const x = Math.floor
 const cqModePos = c => c === cq.g.me ? { x: cq.x, y: cq.y } : c;
 async function cqModeStart(id) {
   let M; try { M = await cqModeLoad(id); } catch { cqToast('Non riesco a caricare il gioco: controlla la connessione e riprova.'); return; }
+  devLog('gioco', id, cq.net && cq.net.code);
   const O = cqModeOpt(id), N = cq.net, myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
   const mapId = M.maps.some(m => m[0] === O.map) ? O.map : M.maps[0][0];
   cqUseMap(mapId, 1 + Math.floor(Math.random() * 1e9));
@@ -3245,6 +3315,7 @@ function cqModeApply(s) {
     const me = chars.find(c => c.sid === N.sid); me.bot = false;
     G = cq.g = { mode: s.mode, M, guest: true, opt: s.opt, phase: s.ph, pre: s.pre, chars, me, bodies: [], loot: [], time: s.t, known: {}, sab: null, song: s.song, mid: s.mid, ep: s.e, map: cq.map };
     cq.x = me.x; cq.y = me.y; cq.face = 1; cq.tasks = []; cq.done = new Set(); cq.near = null; cq.act = null; cq.actKey = '';
+    devLog('gioco', s.mode, N.code);
     cqHallOff(); cqModeUI(true); cqCloseTask(); $('#cqPick').hidden = true; cq.picking = false; $('#cqMap').hidden = true;
     if (M.gstart) M.gstart(G);
     beep(523, 0.12, 0.04); beep(659, 0.12, 0.04, 0.12); beep(784, 0.2, 0.04, 0.24);
@@ -3521,6 +3592,7 @@ function cqLobby() {
 }
 function cqNewMatch() {
   if (cqOpt().game && cqOpt().game !== 'ciack') { cqModeStart(cqOpt().game); return; }
+  devLog('gioco', 'ciack', cq.net && cq.net.code);
   const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
   const mapId = O.map === 'rnd' ? cqPickOne(cqMapIds()) : cqMapOk(O.map) ? O.map : 'studio';   // online la sceglie chi ha creato il set
   cqUseMap(mapId, 1 + Math.floor(Math.random() * 1e9));
@@ -5713,6 +5785,7 @@ async function checkUpdate() {
 }
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 setInterval(() => { if (document.visibilityState === 'visible') checkUpdate(); }, 60000);
+$('#appVer').onclick = dlUnlock; dlBtn();
 (() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + (CQ_GFX ? ' · grafica ' + CQ_GFX : ''); })();
 
 // ---- avvio ----

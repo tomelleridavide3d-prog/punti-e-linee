@@ -76,6 +76,17 @@
           ".validate": "newData.hasChildren(['from', 'code', 'ts']) && newData.child('code').isString() && newData.child('code').val().length <= 16"
         }
       }
+    },
+    "dl": {
+      "$k": {
+        ".read": true,
+        ".write": "!newData.exists()",
+        ".indexOn": ["t"],
+        "$id": {
+          ".write": "!data.exists() || !newData.exists()",
+          ".validate": "newData.hasChildren(['n', 't', 'e']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('t').isNumber() && newData.child('e').isString() && newData.child('e').val().length <= 16"
+        }
+      }
     }
   }
 }
