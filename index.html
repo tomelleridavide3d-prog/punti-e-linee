@@ -3110,7 +3110,8 @@ const CQ_GAMES = [
   ['cosa', 'La Cosa', '❄️', '#3a6f8f', 'Base polare nella bufera: uno di voi non è umano. Esami del sangue, lanciafiamme e un elicottero per scappare.'],
   ['naufraghi', 'Naufraghi', '🏝️', '#2f8a7a', 'Due squadre su un\'isola misteriosa: costruite la zattera, rubate i pezzi agli altri e salpate per primi.'],
   ['minotauro', 'Il Minotauro', '🐂', '#7a4a2e', 'Labirinto al buio con i muri che si spostano: copiate i frammenti di mappa e scappate prima che il Minotauro vi prenda.'],
-  ['misterx', 'Mister X', '🎩', '#2a3a5a', 'Città di notte: Mister X fa 3 colpi e scappa, travestito tra la folla. I detective lo vedono solo quando lampeggia… e lo ammanettano a colpi di dita.']];
+  ['misterx', 'Mister X', '🎩', '#2a3a5a', 'Città di notte: Mister X fa 3 colpi e scappa, travestito tra la folla. I detective lo vedono solo quando lampeggia… e lo ammanettano a colpi di dita.'],
+  ['colpo', 'Colpo all\'hotel', '💎', '#5a3a6a', 'Tutti ladri insieme: rubate il diamante del Grand Hotel senza farvi vedere dalle guardie. Il colpo cambia ogni volta.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
@@ -5360,7 +5361,7 @@ function cqNightLayer(g, W, H, a, lights) {
     gr.addColorStop(0, 'rgba(0,0,0,' + s + ')'); gr.addColorStop(0.55, 'rgba(0,0,0,' + (s * 0.8) + ')'); gr.addColorStop(1, 'rgba(0,0,0,0)');
     n.fillStyle = gr;
     if (lh) { n.beginPath(); n.moveTo(x / k, y / k); n.arc(x / k, y / k, r / k, la - lh, la + lh); n.closePath(); n.fill(); continue; }   // cono (torcia)
-    n.fillRect(0, 0, w, h);
+    n.fillRect(x / k - r / k - 1, y / k - r / k - 1, 2 * r / k + 2, 2 * r / k + 2);   // solo il quadrato della luce (fuori dal cerchio la sfumatura e' trasparente: stesso risultato, molto meno lavoro)
   }
   n.globalCompositeOperation = 'source-over';
   g.drawImage(c, 0, 0, w, h, 0, 0, w * k, h * k);
