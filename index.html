@@ -3098,7 +3098,8 @@ const CQ_GAMES = [
   ['nascondino', 'Nascondino sul set', '🪑', '#8a6a2f', 'Trasformati in un oggetto del set e resta immobile… oppure cerca chi si nasconde.'],
   ['cosa', 'La Cosa', '❄️', '#3a6f8f', 'Base polare nella bufera: uno di voi non è umano. Esami del sangue, lanciafiamme e un elicottero per scappare.'],
   ['naufraghi', 'Naufraghi', '🏝️', '#2f8a7a', 'Due squadre su un\'isola misteriosa: costruite la zattera, rubate i pezzi agli altri e salpate per primi.'],
-  ['minotauro', 'Il Minotauro', '🐂', '#7a4a2e', 'Labirinto al buio con i muri che si spostano: copiate i frammenti di mappa e scappate prima che il Minotauro vi prenda.']];
+  ['minotauro', 'Il Minotauro', '🐂', '#7a4a2e', 'Labirinto al buio con i muri che si spostano: copiate i frammenti di mappa e scappate prima che il Minotauro vi prenda.'],
+  ['misterx', 'Mister X', '🎩', '#2a3a5a', 'Città di notte: Mister X fa 3 colpi e scappa, travestito tra la folla. I detective lo vedono solo quando lampeggia… e lo ammanettano a colpi di dita.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
@@ -5104,6 +5105,8 @@ function cqDraw() {
     }
     // M.prop(c) -> [tipo, opzione, nome visibile?, x, y]: il personaggio si disegna come quell'oggetto della mappa, centrato in x, y (es. Nascondino)
     if (G.mode && G.M.prop) for (const o of list) if (o.mo) { const pr = G.M.prop(o.mo); if (pr) { o.pr = pr; if (!pr[2]) o.name = null; if (pr[3] != null) { o.x = pr[3]; o.y = pr[4]; } } }
+    if (G.mode) for (const o of list) if (o.dr && o.dr.anon) o.name = null;   // M.draw con .anon: personaggio senza nome (es. Mister X travestito da passante)
+    if (G.mode && G.M.extras) for (const e of G.M.extras(G)) if (seen(e.x, e.y)) list.push(e);   // M.extras(G): altre persone disegnate dal gioco, senza logica (es. la folla di passanti di Mister X)
     if (G.clone && seen(G.clone.x, G.clone.y)) list.push({ x: G.clone.x, y: G.clone.y, L: cqLook(), w: G.clone.walk, f: G.clone.face, name: G.me.name });
     for (const C of cqOtherClones()) if (seen(C.x, C.y)) list.push({ x: C.x, y: C.y, L: C.o.look, w: C.walk, f: C.face, name: C.o.name });
     if (S && G.phase === 'play') {   // bosco: animali, avventuriero, fucile caduto
