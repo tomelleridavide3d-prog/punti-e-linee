@@ -8,24 +8,33 @@
   await w(300); openCiack(); $('#pkGo').click(); await w(500);
   document.querySelector('#tkBody [data-g=colpo]').click(); await w(2500);
   out.push('impostazioni: ' + $('#tkBody').textContent.includes('Guardie'));
-  // ---- mappa ----
-  cq.mapDirty = true; cqUseMap('grandhotel'); const M = CQ_MAP;
+  // ---- mappa (tre piani: si passa con scale e ascensori) ----
+  cq.mapDirty = true; cqUseMap('grandhotel'); const M = CQ_MAP, W = M.w;
   for (const k in M.gates) for (const [x, y] of M.gates[k].c) cqSolid[y][x] = null;
-  for (const [x, y] of M.vdoor.c) cqSolid[y][x] = null; cqSolid[3][55] = null; cqSolid[4][55] = null;
-  const s0 = [58, 32], seen = new Uint8Array(M.w * M.h), q = [s0]; seen[s0[1] * M.w + s0[0]] = 1; let reach = 0, free = 0;
-  while (q.length) { const [x, y] = q.pop(); reach++; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (cqCellFree(nx, ny) && !seen[ny * M.w + nx]) { seen[ny * M.w + nx] = 1; q.push([nx, ny]); } } }
-  const isl = []; for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) if (cqCellFree(x, y)) { free++; if (!seen[y * M.w + x]) isl.push(x + ',' + y); }
-  out.push('caselle libere ' + free + ', raggiungibili ' + reach + (isl.length ? ' CHIUSE: ' + isl.slice(0, 12).join(' ') : ''));
-  const ok = (x, y) => seen[Math.floor(y) * M.w + Math.floor(x)], bad = [];
+  for (const [x, y] of M.vdoor.c) cqSolid[y][x] = null; for (const [x, y] of M.cdoor.c) cqSolid[y][x] = null;
+  const hc = (x, y) => M.hz[y][x], portal = (x, y) => M.PORT[y * W + x];
+  const s0 = [Math.floor(M.ents[0].van.x), Math.floor(M.ents[0].van.y)], seen = new Uint8Array(M.w * M.h), q = [s0]; seen[s0[1] * W + s0[0]] = 1; let reach = 0, free = 0;
+  while (q.length) { const [x, y] = q.pop(); reach++;
+    const nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => [x + dx, y + dy]).filter(([nx, ny]) => Math.abs(hc(nx, ny) - hc(x, y)) <= 1);
+    const P = portal(x, y); if (P) { const [ax, ay] = M.portals[P - 1].to(x + 0.5, y + 0.5); nb.push([Math.floor(ax), Math.floor(ay)]); }
+    for (const [nx, ny] of nb) if (cqCellFree(nx, ny) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; q.push([nx, ny]); } }
+  const isl = []; for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) if (cqCellFree(x, y)) { free++; if (!seen[y * W + x]) isl.push(x + ',' + y); }
+  out.push('caselle libere ' + free + ', raggiungibili ' + reach + (isl.length ? ' CHIUSE: ' + isl.slice(0, 16).join(' ') : ''));
+  const ok = (x, y) => seen[Math.floor(y) * W + Math.floor(x)], bad = [];
   const adj = (x, y) => [[0, 1], [1, 0], [-1, 0], [0, -1]].some(([dx, dy]) => cqCellFree(x + dx, y + dy) && ok(x + dx, y + dy));
   for (const k in M.SP) { const s = M.SP[k]; if (k === 'comod' || k === 'safe') continue; if (!cqSolid[s.y] || !cqSolid[s.y][s.x]) bad.push(k + ' senza oggetto'); else if (!adj(s.x, s.y)) bad.push(k + ' irraggiungibile'); }
-  M.camere.forEach((r, i) => { if (!adj(r.ns[0], r.ns[1])) bad.push('comodino ' + i); if (!adj(r.sf[0], r.sf[1])) bad.push('cassaforte ' + i); });
+  M.camere.forEach((r, i) => { if (!adj(r.ns[0], r.ns[1]) || cqSolid[r.ns[1]][r.ns[0]].prop !== 'nstand') bad.push('comodino ' + i); if (!adj(r.sf[0], r.sf[1]) || cqSolid[r.sf[1]][r.sf[0]].prop !== 'safe') bad.push('cassaforte ' + i); });
   for (const k in M.routes) for (const [x, y] of M.routes[k].route) if (!cqCellFree(Math.floor(x), Math.floor(y)) || !ok(x, y)) bad.push('ronda ' + k + ' ' + x + ',' + y);
   for (const [x, y] of M.jail) if (!cqCellFree(Math.floor(x), Math.floor(y))) bad.push('cella ' + x + ',' + y);
   for (const k in M.gates) if (!ok(M.gates[k].s[0], M.gates[k].s[1])) bad.push('porta ' + k);
-  if (!ok(M.van.x, M.van.y)) bad.push('furgone'); if (!ok(M.cellOut[0], M.cellOut[1])) bad.push('fuori cella');
-  if (!adj(M.teca.x, M.teca.y)) bad.push('teca');
+  M.ents.forEach((E, i) => { if (!ok(E.van.x, E.van.y)) bad.push('furgone ' + i); for (const [x, y] of E.ring) if (!cqCellFree(x, y) || !ok(x, y)) bad.push('partenza ' + i + ' ' + x + ',' + y); if (cqSolid[E.v[1]][E.v[0]] || cqSolid[E.v[1]][E.v[0] - 1]) bad.push('posto del furgone ' + i + ' occupato'); });
+  M.portals.forEach((P, i) => { const [ax, ay] = P.to(P.cells[0][0] + 0.5, P.cells[0][1] + 0.5); if (!cqCellFree(Math.floor(ax), Math.floor(ay)) || portal(Math.floor(ax), Math.floor(ay)) || window.__floorOf(ax) !== P.tf) bad.push('arrivo del passaggio ' + i); });
+  if (!ok(M.cellOut[0], M.cellOut[1])) bad.push('fuori cella'); if (!adj(M.teca.x, M.teca.y)) bad.push('teca');
+  // percorsi tra piani (come li fanno guardie e computer): dal furgone al caveau, ai posti del primo piano, ritorno
+  const R = window.__route, v0 = M.ents[1].van, pts = [[M.teca.x + 0.5, M.teca.y + 1.5], [M.SP.postit.x + 0.5, M.SP.postit.y + 1.5], [M.camere[3].ns[0] + 0.5, M.camere[3].ns[1] + 1.5], [v0.x, v0.y]];
+  for (const [x, y] of pts) for (const [a, b] of [[v0.x, v0.y], [M.teca.x + 0.5, M.teca.y + 1.5], [M.SP.kUff.x + 0.5, M.SP.kUff.y + 1.5]]) if (Math.hypot(a - x, b - y) > 1 && !R(a, b, x, y).length) bad.push('percorso ' + a.toFixed(0) + ',' + b.toFixed(0) + ' -> ' + x.toFixed(0) + ',' + y.toFixed(0));
   out.push('problemi mappa: ' + (bad.length ? bad.join(' | ') : 'nessuno'));
+  { const t0 = performance.now(); cq.bg = null; cqBuildBg(); out.push('mappa pronta in ' + Math.round(performance.now() - t0) + ' ms, tessere ' + cq.bg.tiles.length); }
   // ---- partite ----
   const N = +(window.__N || 6);
   store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.colpo = Object.assign({}, store.settings.cqModeOpt.colpo || {}, { n: +(window.__NC || 4), dif: window.__DIF || 'n', time: 600 }); saveStore();
@@ -43,7 +52,7 @@
     for (let i = 0; i < 20 * 620 && G.phase === 'play'; i++) {
       cqModeTick(0.05); cq.x = G.me.x; cq.y = G.me.y; G.M.local(G, 0.05);
       if (G.o1 && !steps[0]) steps[0] = Math.round(G.time); if (G.o2 && !steps[1]) steps[1] = Math.round(G.time); if (G.o3 && !steps[2]) steps[2] = Math.round(G.time);
-      if (i % 100 === 0) { for (const c of G.chars) if (!cqFree(c.x, c.y)) wallHit++; for (const g of G.gd) if (!cqFree(g.x, g.y)) wallHit++; }
+      if (i % 100 === 0) { for (const c of G.chars) if (!cqFree(c.x, c.y)) { wallHit++; (window.__WH = window.__WH || []).push(c.name + '@' + c.x.toFixed(1) + ',' + c.y.toFixed(1) + (c.jail ? ' cella' : '')); } for (const g of G.gd) if (!cqFree(g.x, g.y)) { wallHit++; (window.__WH = window.__WH || []).push('guardia' + g.id + ' ' + g.st + '@' + g.x.toFixed(1) + ',' + g.y.toFixed(1)); } }
       if (i % 400 === 0) { cqHudFast(); cqDraw(); }
       if (window.__TR && i % 600 === 0 && k === 0) window.__TR.push(Math.round(G.time) + 's ' + G.chars.map(c => c.name + ':' + (c.goal ? c.goal.k + (c.goal.s || '') : '-') + (c.hold > G.time ? '·FERMO' : '') + (c.scare > G.time ? '·PAURA' : '') + (c.jail ? '·CELLA' : '') + '@' + c.x.toFixed(0) + ',' + c.y.toFixed(0) + ' p' + c.path.length).join(' '));
     }
@@ -57,6 +66,7 @@
   out.push('registro: ' + (window.__LOG || []).slice(0, 40).join(' | '));
   if (window.__TR) out.push('traccia: ' + window.__TR.join(' | '));
   out.push('risultati: ' + JSON.stringify(res));
+  if (window.__WH) out.push('dentro ai muri: ' + window.__WH.slice(0, 20).join(' | '));
   out.push('errori: ' + (document.getElementById('errBar') ? document.getElementById('errBar').textContent : 'nessuno') + ' ' + (localStorage.getItem('errLog') || '').slice(0, 600));
   return out;
 })()

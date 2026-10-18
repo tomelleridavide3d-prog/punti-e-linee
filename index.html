@@ -4968,8 +4968,9 @@ function cqTools(g, TW) {
 }
 // la mappa ferma si disegna una volta sola in un'immagine (si rifa' solo se cambia la misura dello schermo)
 // mappa pronta: sulle mappe grandi (isola dei Naufraghi) al massimo 2 pixel veri per punto. Con schermi fitti (2,75-3) erano ~300 MB
-// di immagini e il telefono poteva chiudere la pagina (si ritrovava la schermata iniziale)
-const cqBgSc = () => CQ_W * CQ_H > 12000 ? Math.min(cq.dpr, 2) : cq.dpr;
+// di immagini e il telefono poteva chiudere la pagina (si ritrovava la schermata iniziale). CQ_MAP.bgSc: limite piu' basso per una mappa
+// (il Grand Hotel su tre piani: 1,5, se no la mappa pronta pesava piu' dell'isola)
+const cqBgSc = () => Math.min(CQ_MAP.bgSc || 9, CQ_W * CQ_H > 12000 ? Math.min(cq.dpr, 2) : cq.dpr);
 function cqBuildBg() {
   const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), TH = TW / 2, U = TH * 1.15;
   const ox = CQ_H * TW / 2 + TW, oy = 3.6 * U + TW;

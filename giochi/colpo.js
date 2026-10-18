@@ -1,22 +1,33 @@
 // Colpo all'hotel (furto cooperativo furtivo). Gioco del motore: si registra in CQ_MODES (vedi "MOTORE DEI GIOCHI" in index.html).
 // Usa i MODULI COMUNI (giochi/lib): guardie (ronde, cono di vista, ? -> !, telecamere), squadre (freccia sul bordo).
-// GRAND HOTEL DI NOTTE, mappa FISSA (si impara a conoscerla): ala delle camere, uffici con la sala della sicurezza, la CELLA e il locale tecnico,
-// bar, guardaroba, negozio di souvenir, hall, cucine, stanzino del custode, cortile sul retro col furgone; sotto l'INTERRATO (lavanderia, cantina, CAVEAU).
+// GRAND HOTEL DI NOTTE, mappa FISSA (si impara a conoscerla) su TRE PIANI (si vede solo il piano dove sei):
+//  - PIANO TERRA: hall di marmo con lo SCALONE, salone delle feste, bar, ristorante, boutique, guardaroba, cucine, zona del personale (sicurezza con la CELLA,
+//    locale tecnico, custode, spogliatoio, scala di servizio); fuori 4 parcheggi: si entra da uno a caso e li' aspetta il furgone;
+//  - PRIMO PIANO: galleria intorno all'atrio (il vuoto sopra la hall), ufficio del direttore, segreteria, camere e suite;
+//  - INTERRATO: lavanderia, cantina, locale caldaie, archivio e il CAVEAU.
 // TUTTI LADRI INSIEME contro le guardie del computer. Il DIAMANTE nel caveau e' sempre li', ma IL COLPO CAMBIA A OGNI PARTITA (G.plan):
 //  1) come si scende all'interrato: ascensore di servizio (badge del direttore) / scala antincendio (chiave) / montacarichi (chiavetta dello chef);
 //  2) la porta del caveau: tastierino (codice: post-it, due meta', registrazione ai monitor) / impronta del direttore / doppia serratura (in due);
 //  3) la teca: laser (quadro elettrico) / sensore di peso (diamante finto) / cassaforte a combinazione (lenta e rumorosa); poi la FUGA al furgone.
 // Si sa COSA serve (lavagna), non DOVE: i posti possibili sono indizi, quello vero e' a caso. PRESI = CELLA nella sala della sicurezza:
 // la refurtiva va nell'armadio delle confische; i compagni liberano (4 s, rumore); dopo 60 s il prigioniero puo' tentare l'EVASIONE (se sbaglia: ALLERTA).
-// Strumenti: 🪙 monetina (distrae), 👊 stordire da dietro, quadro elettrico (luci di un'ala per 40 s; una guardia va a controllare).
+// Strumenti: 🪙 monetina (distrae), 👊 stordire da dietro, quadro elettrico (luci di un piano per 40 s; una guardia va a controllare).
 CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const SQ = L.squadre, GD = L.guardie;
-  for (const t of ['fdoor', 'lift', 'fgate', 'bdoor', 'wardrobe', 'coats', 'wine', 'boxes', 'column']) GD.tall.add(t);   // le porte chiuse e i mobili alti fermano la vista
-  const W = 64, H = 58;
+  for (const t of ['fdoor', 'lift', 'fgate', 'bdoor', 'wardrobe', 'coats', 'wine', 'boxes', 'column', 'keys', 'bottles', 'palm', 'boiler', 'car', 'bin']) GD.tall.add(t);   // le porte chiuse e i mobili alti fermano la vista
+  // TRE PIANI AFFIANCATI nella stessa mappa, con 16 caselle di vuoto in mezzo (da un piano non si vede mai l'altro):
+  // piano terra x 0-79 (l'hotel al centro, fuori i 4 parcheggi), primo piano x 96-155 (O1 = spostamento), interrato x 172-231 (OI).
+  // Si passa da un piano all'altro entrando nelle caselle dei PASSAGGI (M.portals): lo scalone della hall, la scala di servizio, e i tre passaggi per l'interrato.
+  const W = 232, H = 62, O1 = 86, OI = 162;
+  const floorOf = x => x < 88 ? 0 : x < 164 ? 1 : 2;
+  const FLN = ['Piano terra', 'Primo piano', 'Interrato'];
   const SRCH_T = 2, ACC_T = 1.5, PRT_T = 1.5, KP_T = 3, TURN_T = 1.2, TURN_WIN = 1.8, SWAP_T = 3, TAKE_T = 2, CMB_T = 12, FREE_T = 4, CONF_T = 2, LSR_T = 1.5;
   const EV_WAIT = 60, ALERT_T = 60, DARK_T = 40, DARK_CD = 30, COINS = 3, COIN_R = 6.5, STUN_R = 1.25, OP_R = 1.5, VAN_R = 1.9, CELL_OPEN = 6;
   const LIT_R = 6.4, DARK_R = 3.3, MY_R = 1.9, SEE_G = 22, WALK = 0.6, RUN_R = 4.5, LAMP_R = 2.0;
-  const ALA = { A: 'Ala delle camere', U: 'Uffici e sicurezza', T: 'Piano terra', I: 'Interrato' };
+  const ALA = { T: 'Piano terra', S: 'Primo piano', I: 'Interrato' };
+  // i 4 parcheggi da cui si puo' entrare (uno a caso a ogni partita): li' aspetta il furgone della fuga
+  const ENT = ['Parcheggio principale', 'Vicolo delle cucine', 'Parcheggio del giardino', 'Parcheggio del personale'];
+  const ENTD = ['davanti all\'ingresso principale, sul viale', 'dietro alle cucine, dove scaricano le merci', 'accanto alla piscina, nel giardino', 'sul fianco dell\'hotel, vicino alla porta del personale'];
   const TC = '#ffcf5a';
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const MP = () => CQ_MAP;
@@ -26,160 +37,277 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const free = G => G.chars.filter(c => c.alive && !c.jail && !c.esc);
   const alertOn = G => !!(G.alP || G.time < (G.alE || 0));
 
-  // ======================= MAPPA: GRAND HOTEL (fissa) =======================
+  // ======================= MAPPA: GRAND HOTEL (fissa, su tre piani) =======================
+  // colori dei muri (drawWall li riconosce): crema con la boiserie, legno, personale, cemento, siepe, mattoni
+  const CREAM = '#cbbb98', WOOD = '#6a4a30', STAFF = '#7c8a86', CONC = '#4a4846', HEDGE = '#2f5a2e', BRICK = '#6a3a2e';
+  const COR = ['#6e2626', '#6a2424'], PS = ['#4a4846', '#464442'];
   function mapHotel() {
-    const rooms = [], doors = [], props = [], deco = [], lamps = [];
-    const R = (n, x, y, w, h, k, c, wc, ala, o) => { rooms.push(Object.assign({ n, x, y, w, h, k, c, wc, ala }, o || {})); return rooms.length - 1; };
-    const pp = (t, x, y, o) => props.push([t, x, y, o]);
-    const D = (x, y, w, h) => doors.push([x, y, w, h]);
-    const CAM = ['#5a3040', '#55303d'], CW = '#8c7a64';
-    // ala delle camere: 4 sopra e 4 sotto il corridoio
-    const camere = [];
-    for (let i = 0; i < 8; i++) {
-      const top = i < 4, x0 = 1 + 7 * (i % 4), y0 = top ? 1 : 12;
-      R('Camera ' + (201 + i), x0, y0, 6, 7, 'carpet', CAM, CW, 'A', { ly: top ? y0 + 4 : y0 + 2.5 });
-      D(x0 + 2, top ? 8 : 11, 2, 1);
-      const by = top ? y0 + 1 : y0 + 6, ny = top ? y0 : y0 + 6;
-      pp('bed', x0 + 3, by, { c: ['#8a3040', '#2f5a7a', '#5a6a3a', '#7a5a2a'][i % 4], head: top ? 'n' : 's' }); pp('bed', x0 + 2, by, { part: 1 }); pp('bed', x0 + 3, top ? by - 1 : by - 1 + 0, { part: 1 }); pp('bed', x0 + 2, top ? by - 1 : by - 1, { part: 1 });
-      pp('nstand', x0 + 1, ny); pp('nstand', x0 + 4, ny); pp('wardrobe', x0, y0 + 3); pp('safe', x0, top ? y0 + 5 : y0 + 1);
-      pp('desk', x0 + 5, top ? y0 + 4 : y0 + 2); pp('plant', x0 + 5, top ? y0 + 6 : y0);
-      camere.push({ x0, y0, top, ns: [x0 + 1, ny], sf: [x0, top ? y0 + 5 : y0 + 1], door: [x0 + 2, top ? 8 : 11] });
+    const rooms = [], doors = [], props = [], deco = [], lamps = [], holes = [], decals = [], camere = [];
+    let ox = 0, fa = 'T';
+    const R = (n, x, y, w, h, k, c, wc, o) => { rooms.push(Object.assign({ n, x: x + ox, y, w, h, k, c, wc, ala: fa }, o || {})); return rooms.length - 1; };
+    const pp = (t, x, y, o) => props.push([t, x + ox, y, o]);
+    const D = (x, y, w = 1, h = 1) => doors.push([x + ox, y, w, h]);
+    const L = (x, y) => lamps.push([x + ox, y, fa]);
+    const DC = (x, y, w, h, col) => decals.push([x + ox, y, w, h, col]);
+    const row = (t, x0, x1, y, o) => { for (let x = x0; x <= x1; x++) pp(t, x, y, o); };
+    const two = (t, x, y, o) => { pp(t, x, y, o); pp(t, x - 1, y, { part: 1 }); };   // oggetti lunghi 2 lungo x (auto, furgone): disegnati dalla casella davanti
+    const four = (t, x, y, o) => { pp(t, x, y, o); pp(t, x - 1, y, { part: 1 }); pp(t, x, y - 1, { part: 1 }); pp(t, x - 1, y - 1, { part: 1 }); };   // 2x2 (letto, piano a coda, fontana)
+    const X = { ala: 'X' };
+
+    // ---------------- PIANO TERRA ----------------
+    // fuori: vicolo (nord), giardino con la piscina (ovest), parcheggio del personale (est), viale d'ingresso col parcheggio principale (sud)
+    R('Vicolo delle cucine', 1, 1, 78, 7, 'asphalt', ['#2c2e32', '#2a2c30'], BRICK, Object.assign({ lx: 30, ly: 4 }, X));
+    R('Giardino', 1, 8, 9, 44, 'grass', ['#2f4b2b', '#2d4929'], HEDGE, Object.assign({ lx: 5, ly: 12 }, X));
+    R('Parcheggio del personale', 70, 8, 9, 44, 'asphalt', ['#2c2e32', '#2a2c30'], HEDGE, Object.assign({ nl: 1 }, X));
+    R('Viale d\'ingresso', 1, 52, 78, 9, 'paving', ['#57534d', '#534f49'], HEDGE, Object.assign({ lx: 20, ly: 58 }, X));
+    R('Piscina', 3, 18, 5, 15, 'pooltile', ['#9ab0b4', '#94aaae'], HEDGE, Object.assign({ nl: 1 }, X));
+    for (let y = 19; y <= 31; y++) for (let x = 4; x <= 6; x++) pp('pool', x, y);
+    // ala ovest: bar (con la scala antincendio), cantinetta, ascensore di servizio, ristorante, boutique, guardaroba
+    R('Bar americano', 11, 9, 11, 9, 'wood', ['#4e3222', '#4a3020'], WOOD, { lx: 17, ly: 16.6 });
+    R('Scala antincendio', 11, 9, 2, 3, 'stairs', PS, CONC, { nl: 1 });
+    holes.push([13, 9, 1, 3], [11, 12, 2, 1]); D(13, 10);
+    R('Cantinetta', 11, 19, 7, 2, 'stone', ['#4a4036', '#463c34'], WOOD, { nl: 1 }); D(14, 18, 2, 1);
+    R('Ascensore di servizio', 20, 19, 2, 2, 'liftf', PS, CONC, { nl: 1 }); D(22, 19, 1, 2);
+    R('Ristorante', 11, 22, 11, 18, 'parq', ['#6a4628', '#664426'], CREAM, { ly: 38.6 }); D(22, 29, 1, 3); D(10, 28, 1, 3);
+    R('Boutique', 11, 41, 11, 5, 'tile2', ['#d8d2c4', '#d0cabc'], CREAM, { ly: 44.7 }); D(22, 42, 1, 2);
+    R('Guardaroba', 11, 47, 11, 4, 'royal', ['#3a2a4a', '#382848'], WOOD, { ly: 50.2 }); D(22, 48, 1, 2);
+    D(22, 12, 1, 2); D(10, 13, 1, 2);
+    const gal = R('Galleria', 23, 9, 3, 42, 'hcarp', COR, CREAM, { nl: 1 });
+    // al centro: salone delle feste, hall di marmo con lo SCALONE, galleria est
+    R('Salone delle feste', 27, 9, 26, 14, 'parq', ['#7a5230', '#764e2e'], CREAM, { ly: 21.3 }); D(26, 14, 1, 2); D(30, 23, 2, 1); D(48, 23, 2, 1); D(53, 12, 1, 2);
+    R('Hall', 26, 24, 28, 27, 'marble', ['#d4ccbc', '#c4baa6'], CREAM, { lx: 32, ly: 48.6 });
+    R('Scalone', 37, 24, 6, 10, 'stairc', ['#ddd4c2', '#d8cfbd'], CREAM, { nl: 1 });
+    R('Galleria est', 54, 24, 3, 27, 'hcarp', COR, CREAM, { nl: 1 });
+    D(38, 51, 4, 1);   // ingresso principale
+    // ala est: cucine (montacarichi), corridoio di servizio, locale tecnico, custode, spogliatoio, sicurezza con la CELLA, scala di servizio
+    R('Cucine', 54, 9, 15, 11, 'tile', ['#b8bcc0', '#b0b4b8'], '#8a9298', { ly: 18.6 }); D(60, 8, 2, 1); D(58, 20, 2, 1);
+    R('Montacarichi', 55, 21, 2, 2, 'liftf', PS, CONC, { nl: 1 }); D(55, 20, 2, 1);
+    R('Corridoio di servizio', 58, 21, 2, 22, 'lino', ['#7a8478', '#768074'], STAFF, { nl: 1 }); D(57, 27, 1, 2); D(57, 38, 1, 2);
+    R('Scala di servizio', 58, 44, 2, 7, 'stairs', PS, CONC, { nl: 1 }); D(58, 43, 2, 1);
+    R('Locale tecnico', 61, 21, 8, 6, 'concrete', ['#4e504e', '#4a4c4a'], STAFF, { ly: 26 }); D(60, 23, 1, 2);
+    R('Stanzino del custode', 61, 28, 8, 5, 'concrete', ['#5e5a52', '#5a564e'], STAFF, { ly: 32 }); D(60, 30); D(69, 30, 1, 2);
+    R('Spogliatoio', 61, 34, 8, 5, 'tile', ['#6a7a78', '#647472'], STAFF, { ly: 38 }); D(60, 36); D(69, 35, 1, 2);
+    R('Sala della sicurezza', 61, 40, 8, 6, 'tile', ['#4a525c', '#465058'], STAFF, { ly: 44.4 }); D(60, 42, 1, 2);
+    const cell = R('Cella', 61, 47, 8, 4, 'concrete', ['#5a5a58', '#565654'], STAFF, { ly: 50.2 }); D(65, 46, 2, 1);
+    pp('cdoor', 65, 46); pp('cdoor', 66, 46);
+    // arredi del piano terra
+    // hall: reception, fontana, piano a coda, salotto, palme, colonne, candelabri ai piedi dello scalone, tappeto rosso dall'ingresso
+    for (let y = 31; y <= 36; y++) pp('recdesk', 49, y, { b: y === 33 }); pp('keys', 52, 32); pp('keys', 52, 34); pp('monitor', 52, 36);
+    four('fount', 40, 43); four('piano', 31, 45, { o: 1 });
+    row('vsofa', 29, 32, 33, { b: 'n' }); row('vsofa', 29, 32, 39, { b: 's' }); pp('armch', 28, 36, { c: '#7a1e2e' }); pp('armch', 34, 36, { c: '#7a1e2e' }); pp('ctable', 30, 36); pp('ctable', 31, 36);
+    for (const [x, y] of [[27, 25], [52, 25], [27, 50], [52, 50], [36, 50], [43, 50]]) pp('palm', x, y);
+    pp('candel', 36, 34); pp('candel', 43, 34);
+    for (const y of [27, 31, 35, 39, 43, 47]) { pp('column', 26, y); pp('column', 53, y); }
+    DC(38.75, 34, 2.5, 7.8, '#7a1e22'); DC(38.75, 44.1, 2.5, 7.9, '#7a1e22'); for (const [y, h] of [[34, 7.8], [44.1, 7.9]]) { DC(38.75, y, 0.09, h, '#c8a040'); DC(41.16, y, 0.09, h, '#c8a040'); }
+    DC(28.2, 34.2, 6.6, 4.6, '#3a2442'); DC(28.4, 34.4, 6.2, 0.08, '#c8a040'); DC(28.4, 38.52, 6.2, 0.08, '#c8a040');
+    pp('vase', 23, 23); pp('vase', 23, 37); pp('vase', 56, 33); pp('vase', 56, 46); pp('bench', 25, 25); pp('bench', 25, 46);
+    // bar americano: bancone, bottiglie, sgabelli, tavolini
+    row('bottles', 14, 20, 9); row('barc', 15, 19, 11); pp('stool', 15, 12); pp('stool', 17, 12); pp('stool', 19, 12);
+    pp('rtable', 13, 15); pp('rtable', 16, 15); pp('rtable', 19, 15); pp('armch', 21, 16, { c: '#5a2a1a' }); pp('palm', 11, 17);
+    row('wine', 11, 17, 20);
+    // ristorante: tavoli tondi con la tovaglia e le candele
+    for (const x of [13, 16, 19]) for (const y of [24, 27, 30, 33, 36]) pp('dtable', x, y);
+    pp('palm', 11, 22); pp('palm', 21, 22); pp('palm', 11, 39);
+    // boutique e guardaroba
+    row('shelf', 12, 20, 41); pp('vitrine', 14, 43); pp('vitrine', 17, 43); pp('vitrine', 20, 43); pp('mirror', 11, 45);
+    row('coats', 12, 19, 47); pp('counter', 21, 49); pp('mirror', 11, 50);
+    // salone delle feste
+    for (const [x, y] of [[29, 11], [29, 15], [29, 19], [50, 11], [50, 15], [50, 19], [34, 20], [45, 20]]) pp('dtable', x, y);
+    four('piano', 37, 11, { o: 1 }); for (const [x, y] of [[27, 9], [52, 9], [27, 22], [52, 22]]) pp('palm', x, y);
+    // cucine
+    row('stove', 62, 66, 9); pp('fridge', 67, 9); pp('fridge', 68, 9); pp('shelf', 54, 9); pp('shelf', 54, 10); pp('shelf', 55, 9);
+    pp('counter', 58, 14); pp('counter', 59, 14); pp('pot', 60, 14); pp('counter', 61, 14); pp('crate', 67, 18); pp('crate', 68, 18); pp('bucket', 54, 19); pp('table', 64, 15);
+    // zona del personale
+    pp('cart', 58, 32);
+    pp('fusebox', 68, 23); pp('generator', 61, 25); pp('shelf', 64, 21); pp('shelf', 65, 21); pp('barrel', 68, 26); pp('crate', 61, 21);
+    pp('desk', 66, 29); pp('shelf', 62, 28); pp('bucket', 68, 32); pp('crate', 61, 32);
+    for (let x = 61; x <= 68; x++) pp('locker', x, 34, x % 2 ? '#4a6a8a' : '#6a4a6a'); for (let x = 63; x <= 66; x++) pp('bench', x, 36);
+    for (let x = 62; x <= 65; x++) pp('camdesk', x, 40); pp('locker', 68, 43, '#5a6a7a'); pp('locker', 68, 44, '#7a4a3a'); pp('coffee', 61, 40); pp('table', 67, 41);
+    pp('cot', 68, 48); pp('bucket', 61, 50);
+    // fuori: lampioni, aiuole, statue, auto parcheggiate, bidoni, lettini della piscina
+    for (const [x, y] of [[30, 53], [49, 53], [12, 56], [60, 53], [77, 53], [5, 14], [2, 38], [40, 2], [20, 2], [72, 14], [72, 46]]) pp('lpost', x, y);
+    row('flower', 28, 36, 52); row('flower', 43, 51, 52); pp('statue', 34, 57); pp('statue', 45, 57);
+    for (const [x, c] of [[58, '#2a4a7a'], [62, '#8a2a2a'], [71, '#d8d8d0'], [75, '#2a2a2e']]) two('car', x, 59, { c });
+    for (const [y, c] of [[12, '#5a6a3a'], [18, '#8a7a5a'], [24, '#3a3a5a'], [46, '#7a2a2a']]) two('car', 78, y, { c });
+    two('car', 3, 50, { c: '#c8b030' }); two('car', 31, 3, { c: '#4a4a52' });
+    pp('bin', 44, 1); pp('bin', 45, 1); pp('bin', 48, 1); pp('crate', 50, 1); pp('crate', 51, 2); pp('barrel', 53, 1); pp('barrel', 54, 1);
+    for (const y of [20, 24, 28]) pp('lounger', 8, y); pp('parasol', 8, 22); pp('parasol', 8, 26); pp('statue', 5, 35); pp('bench', 2, 25);
+    // luci della notte (piano terra)
+    for (const [x, y] of [[32.5, 30.5], [47, 30.5], [39.5, 47.5], [39.5, 26.4], [49.6, 33.5], [24.5, 13], [24.5, 30.5], [24.5, 46], [55.5, 30], [55.5, 44], [17, 12.5], [16.5, 30.5], [16, 43], [40, 15.5], [61, 12], [59, 26], [59, 38], [64, 41.5], [64.5, 23.5]]) L(x, y);
+    fa = 'X'; for (const [x, y] of [[30.5, 53.5], [49.5, 53.5], [12.5, 56.5], [60.5, 53.5], [77, 53.5], [5.5, 14.5], [2.5, 38.5], [40.5, 2.5], [20.5, 2.5], [72.5, 14.5], [72.5, 46.5]]) L(x, y);
+    // i 4 ingressi: furgone (due caselle, disegnato dalla casella davanti), dove ci si mette per salire e da dove si parte
+    const ents = [
+      { v: [68, 57], van: { x: 67.6, y: 56.4 }, ring: [[63, 55], [64, 55], [65, 55], [63, 56], [64, 56], [65, 56], [63, 57], [64, 57], [65, 57], [62, 56]] },
+      { v: [68, 3], van: { x: 67.6, y: 2.4 }, ring: [[61, 4], [62, 4], [63, 4], [64, 4], [61, 5], [62, 5], [63, 5], [64, 5], [62, 6], [63, 6]] },
+      { v: [7, 46], van: { x: 6.6, y: 45.4 }, ring: [[2, 42], [3, 42], [4, 42], [2, 43], [3, 43], [4, 43], [5, 43], [2, 44], [3, 44], [4, 44]] },
+      { v: [77, 40], van: { x: 76.6, y: 39.4 }, ring: [[71, 37], [72, 37], [73, 37], [71, 38], [72, 38], [73, 38], [71, 39], [72, 39], [73, 39], [72, 40]] }];
+
+    // ---------------- PRIMO PIANO ----------------
+    ox = O1; fa = 'S';
+    R('Galleria del primo piano', 27, 21, 26, 30, 'royal', ['#5a1e26', '#561c24'], CREAM, { nl: 1 });
+    R('Atrio', 30, 27, 20, 21, 'atrium', ['#08090c', '#090a0d'], CREAM, { nl: 1 });
+    R('Scalone', 37, 24, 6, 3, 'stairdn', ['#5a4a44', '#56463f'], CREAM, { nl: 1 });
+    R('Ufficio del direttore', 27, 9, 12, 11, 'royal', ['#3a2a22', '#36261e'], WOOD, { ly: 18.6 }); D(32, 20, 2, 1); D(39, 14);
+    R('Segreteria', 40, 9, 13, 11, 'wood', ['#6a5038', '#654c36'], WOOD, { ly: 18.6 }); D(45, 20, 2, 1); D(53, 14);
+    R('Corridoio ovest', 23, 9, 3, 42, 'hcarp', COR, CREAM, { nl: 1 }); D(26, 30, 1, 2); D(26, 44, 1, 2);
+    R('Corridoio est', 54, 9, 3, 42, 'hcarp', COR, CREAM, { nl: 1 }); D(53, 30, 1, 2); D(53, 44, 1, 2);
+    R('Scala di servizio', 58, 44, 2, 7, 'stairs', PS, CONC, { nl: 1 }); D(57, 48, 1, 2);
+    R('Ripostiglio dei piani', 61, 43, 8, 8, 'lino', ['#7a8478', '#768074'], STAFF, { ly: 50 }); D(60, 48);
+    // l'ATRIO: il vuoto sopra la hall (si vede il buio, non il piano di sotto), con la balaustra intorno, i gradini che scendono e il lampadario
+    for (let y = 27; y <= 47; y++) for (let x = 30; x <= 49; x++) {
+      const edge = x === 30 || x === 49 || y === 27 || y === 47, step = x >= 37 && x <= 42 && y <= 30;
+      pp(step ? 'vstep' : x === 39 && y === 37 ? 'chand' : edge ? 'balus' : 'void', x, y, step ? { d: y - 26 } : null);
     }
-    // i letti sotto: la riga di dietro e' quella sopra (y0+5), il davanti e' y0+6
-    const COR = ['#6e2626', '#6a2424'], CORW = '#7a5a48';
-    R('Corridoio delle camere', 1, 9, 27, 2, 'hcarp', COR, CORW, 'A', { nl: 1 });
-    R('Scale', 29, 1, 3, 19, 'hcarp', COR, CORW, 'A', { nl: 1 });
-    D(28, 9, 1, 2); D(32, 9, 1, 2);
-    pp('plant', 1, 10); pp('plant', 29, 1); pp('plant', 31, 1);
-    // uffici
-    R('Corridoio degli uffici', 33, 9, 30, 2, 'hcarp', COR, CORW, 'U', { nl: 1 });
-    R('Ufficio del direttore', 33, 1, 10, 7, 'wood', ['#7a5a3a', '#74553a'], '#6a5a4a', 'U');
-    D(36, 8, 2, 1);
-    pp('desk', 37, 3); pp('desk', 38, 3); pp('dchair', 38, 2, ['#5a2a1a', 'n']); pp('shelf', 33, 1); pp('shelf', 34, 1); pp('coffee', 42, 1); pp('sofa', 42, 4); pp('sofa', 42, 5); pp('table', 40, 5); pp('plant', 33, 7); pp('lamp', 41, 1);
-    R('Sala della sicurezza', 44, 1, 11, 7, 'tile', ['#4a525c', '#465058'], '#3e4650', 'U');
-    D(48, 8, 2, 1);
-    pp('camdesk', 46, 1); pp('camdesk', 47, 1); pp('camdesk', 48, 1); pp('locker', 44, 6, '#7a4a3a'); pp('locker', 44, 5, '#5a6a7a'); pp('coffee', 53, 1); pp('table', 51, 4);
-    const cell = R('Cella', 56, 1, 7, 7, 'concrete', ['#5a5a58', '#565654'], '#3e4650', 'U');
-    D(55, 3, 1, 2); pp('cdoor', 55, 3, { v: 1 }); pp('cdoor', 55, 4, { v: 1 });
-    pp('cot', 62, 2); pp('bucket', 62, 7);
-    R('Segreteria', 33, 12, 8, 7, 'wood', ['#6a5038', '#654c36'], '#6a5a4a', 'U');
-    D(35, 11, 2, 1);
-    pp('desk', 37, 15); pp('desk', 38, 15); pp('dchair', 37, 16, ['#3a3a5a', 's']); pp('shelf', 33, 14); pp('shelf', 33, 15); pp('monitor', 40, 15); pp('plant', 40, 18);
-    R('Locale tecnico', 42, 12, 7, 7, 'concrete', ['#4e504e', '#4a4c4a'], '#3e4248', 'U');
-    D(44, 11, 2, 1);
-    pp('fusebox', 48, 15); pp('generator', 42, 17); pp('crate', 47, 18); pp('barrel', 42, 13); pp('shelf', 48, 12);
-    R('Spogliatoio', 50, 12, 13, 7, 'tile', ['#6a7a78', '#647472'], '#4a5a58', 'U');
-    D(55, 11, 2, 1); D(56, 19, 2, 1);
-    for (const x of [50, 51, 52, 53]) pp('locker', x, 12, '#4a6a8a'); for (const x of [58, 59, 60, 61, 62]) pp('locker', x, 12, '#6a4a6a');
-    pp('mirror', 62, 15); pp('plant', 50, 18);
-    // piano terra
-    const big = R('Corridoio', 1, 20, 62, 3, 'hcarp', COR, CORW, 'T', { nl: 1 });
-    pp('plant', 1, 20); pp('plant', 62, 20); pp('plant', 20, 22); pp('plant', 40, 22);
-    R('Bar', 1, 24, 14, 12, 'wood', ['#5a3a26', '#553824'], '#4a2e22', 'T');
-    D(6, 23, 3, 1);
-    for (const x of [2, 3, 4, 5]) pp('counter', x, 27); pp('shelf', 1, 24); pp('shelf', 2, 24); pp('shelf', 3, 24); pp('shelf', 4, 24);
-    for (const [x, y] of [[9, 28], [12, 28], [9, 32], [12, 32]]) pp('rtable', x, y);
-    pp('plant', 14, 24); pp('plant', 14, 35); pp('lamp', 1, 31);
-    R('Guardaroba', 16, 24, 6, 5, 'carpet', ['#3a4a5a', '#384858'], '#6a5a4a', 'T');
-    D(18, 23, 2, 1); D(22, 26, 1, 2);
-    for (const y of [24, 25, 26, 27, 28]) pp('coats', 16, y); pp('mirror', 21, 24);
-    R('Negozio di souvenir', 16, 30, 6, 6, 'tile', ['#8a7a68', '#857564'], '#6a5a4a', 'T', { ly: 32.5 });
-    D(22, 32, 1, 2);
-    pp('vitrine', 17, 31); pp('vitrine', 18, 31); pp('vitrine', 17, 34); pp('vitrine', 18, 34); pp('shelf', 16, 35); pp('shelf', 21, 35);
-    R('Hall', 23, 24, 17, 12, 'marble', ['#c8bfae', '#bfb6a4'], '#6e3b34', 'T');
-    D(28, 23, 6, 1); D(40, 27, 1, 2);
-    for (const y of [29, 30, 31, 32]) pp('counter', 26, y); pp('monitor', 25, 31); pp('plant', 23, 24); pp('plant', 39, 24); pp('plant', 23, 35);
-    pp('sofa', 35, 26); pp('sofa', 36, 26); pp('sofa', 37, 26); pp('rtable', 36, 28); pp('lamp', 38, 31); pp('sofa', 35, 33); pp('sofa', 36, 33);
-    R('Cucine', 41, 24, 14, 12, 'tile', ['#b8bcc0', '#b0b4b8'], '#7a8288', 'T');
-    D(46, 23, 2, 1); D(55, 32, 1, 2);
-    for (const x of [49, 50, 51]) pp('stove', x, 24); pp('fridge', 53, 24); pp('fridge', 54, 24);
-    for (const x of [44, 45, 46, 47]) pp('counter', x, 29); pp('pot', 50, 29); pp('shelf', 41, 33); pp('crate', 52, 35); pp('bucket', 41, 35);
-    R('Stanzino del custode', 56, 24, 7, 5, 'concrete', ['#5e5a52', '#5a564e'], '#4a4038', 'T', { ly: 26 });
-    D(58, 23, 2, 1); D(58, 29, 2, 1);
-    pp('desk', 61, 25); pp('shelf', 56, 26); pp('bucket', 62, 28); pp('crate', 56, 28);
-    R('Cortile', 56, 30, 7, 8, 'asphalt', ['#2e3034', '#2c2e32'], '#4a3a32', 'X');
-    pp('van', 60, 35, { on: 1 }); pp('van', 59, 35, { part: 1 }); pp('barrel', 62, 30); pp('crate', 56, 37); pp('cone', 57, 36);
-    // passaggi verso l'interrato (quello aperto stanotte lo decide la partita): porte chiuse sopra, aperte sotto
-    const PS = ['#4a4846', '#464442'], PSW = '#383634';
-    R('Scala antincendio', 2, 37, 2, 6, 'stairs', PS, PSW, 'I', { nl: 1 });
-    R('Ascensore di servizio', 31, 37, 2, 6, 'liftf', PS, PSW, 'I', { nl: 1 });
-    R('Montacarichi', 48, 37, 2, 6, 'liftf', PS, PSW, 'I', { nl: 1 });
-    D(2, 36, 2, 1); D(31, 36, 2, 1); D(48, 36, 2, 1); D(2, 43, 2, 1); D(31, 43, 2, 1); D(48, 43, 2, 1);
-    pp('fdoor', 2, 36); pp('fdoor', 3, 36); pp('lift', 31, 36); pp('lift', 32, 36); pp('fgate', 48, 36); pp('fgate', 49, 36);
-    // interrato
-    R('Corridoio dell\'interrato', 1, 44, 62, 2, 'concrete', ['#4c4a48', '#484644'], '#34322f', 'I', { nl: 1 });
-    R('Lavanderia', 1, 47, 19, 9, 'tile', ['#7a8a96', '#748490'], '#3e4a52', 'I');
-    D(8, 46, 2, 1);
-    for (const x of [2, 3, 4, 5, 6]) pp('washer', x, 55); pp('rtable', 12, 50); pp('rtable', 15, 50); pp('crate', 19, 47); pp('shelf', 19, 52); pp('shelf', 19, 53); pp('bucket', 1, 47);
-    const vault = R('Caveau', 22, 47, 20, 9, 'vault', ['#5a6068', '#565c64'], '#2a2e34', 'I', { ly: 54.5 });
-    D(31, 46, 2, 1); pp('bdoor', 32, 46); pp('bdoor', 31, 46, { part: 1 });
-    pp('teca', 31, 51);
-    for (const y of [48, 50, 52, 54]) { pp('gold', 22, y); pp('gold', 41, y); }
-    for (const y of [49, 51, 53]) { pp('boxes', 22, y); pp('boxes', 41, y); }
-    R('Cantina', 44, 47, 19, 9, 'stone', ['#4a4036', '#463c34'], '#3a2e26', 'I');
-    D(52, 46, 2, 1);
-    for (const x of [44, 45, 46, 47, 48, 49]) { pp('wine', x, 49); pp('wine', x, 52); } for (const x of [56, 57, 58, 59, 60, 61]) { pp('wine', x, 49); pp('wine', x, 52); }
-    pp('barrel', 62, 55); pp('barrel', 61, 55); pp('barrel', 44, 55);
-    pp('pipe', 62, 44);
-    // COLONNE di marmo nei corridoi: spezzano la vista delle guardie (ci si nasconde dietro)
-    for (const [x, y] of [[6, 9], [13, 10], [20, 9], [26, 10], [40, 9], [46, 10], [53, 9], [59, 10], [8, 20], [15, 22], [23, 20], [37, 22], [44, 20], [51, 22], [58, 20], [11, 44], [20, 45], [41, 44], [57, 45]]) pp('column', x, y);
-    // telecamere (su un palo in un angolo): angolo di partenza a0, quanto girano sw, periodo per
+    for (const y of [24, 25, 26]) { pp('balus', 36, y); pp('balus', 43, y); }
+    for (const [x, y] of [[27, 21], [52, 21], [27, 50], [52, 50]]) pp('palm', x, y); pp('vase', 27, 36); pp('vase', 52, 36); pp('bench', 29, 49); pp('bench', 50, 49);
+    // camere: 4 a ovest (porta a est), suite e 2 camere a est (porta a ovest). Letto, comodini, armadio con la cassaforte, scrivania, poltrona
+    const room = (n, x0, y0, w, h, dy, west, c) => {
+      R(n, x0, y0, w, h, 'royal', c, WOOD, { ly: y0 + h - 1.2 }); D(west ? x0 + w : x0 - 1, dy, 1, 2);
+      const bxF = west ? x0 + 5 : x0 + w - 5, wx = west ? x0 : x0 + w - 1, dx = west ? x0 + w - 2 : x0 + 1;
+      four('bed', bxF, y0 + 2, { c: c[0] === '#2a3a5a' ? '#c8a040' : '#8a3040', head: 'n', cano: n.startsWith('Suite') });
+      pp('nstand', bxF - 2, y0 + 1); pp('nstand', bxF + 1, y0 + 1); pp('wardrobe', wx, y0 + 1); pp('safe', wx, y0 + 2);
+      pp('desk', dx, y0 + h - 1); pp('armch', wx, y0 + h - 2, { c: '#6a3a2a' }); pp('palm', west ? x0 + w - 1 : x0, y0);
+      camere.push({ n, ns: [bxF + 1 + ox, y0 + 1], sf: [wx + ox, y0 + 2], sign: [(west ? x0 + w : x0 - 1) + ox, dy] });
+      return camere.length - 1;
+    };
+    room('Camera 101', 11, 9, 11, 10, 13, true, ['#2a3a5a', '#28385a']); room('Camera 102', 11, 20, 11, 10, 24, true, ['#4a2a3a', '#482838']);
+    room('Camera 103', 11, 31, 11, 10, 35, true, ['#2a4a3a', '#284838']); room('Camera 104', 11, 42, 11, 9, 46, true, ['#4a3a2a', '#483828']);
+    room('Suite presidenziale', 58, 9, 11, 13, 15, false, ['#2a3a5a', '#28385a']); room('Camera 105', 58, 23, 11, 9, 27, false, ['#4a2a3a', '#482838']);
+    room('Camera 106', 58, 33, 11, 9, 37, false, ['#2a4a3a', '#284838']);
+    pp('vsofa', 60, 18, { b: 's' }); pp('vsofa', 61, 18, { b: 's' }); pp('ctable', 61, 16); four('piano', 67, 20, { o: 1 }); pp('globe', 68, 15);
+    // ufficio del direttore e segreteria
+    pp('desk', 32, 13); pp('desk', 33, 13); pp('dchair', 33, 12, ['#5a2a1a', 'n']); row('shelf', 27, 30, 9); pp('globe', 37, 10); pp('vsofa', 36, 17, { b: 's' }); pp('vsofa', 37, 17, { b: 's' }); pp('ctable', 36, 15); pp('palm', 27, 19); pp('palm', 38, 19); pp('lamp', 38, 9);
+    DC(30.2, 11.2, 5.6, 4.6, '#4a1e22'); DC(30.4, 11.4, 5.2, 0.07, '#c8a040'); DC(30.4, 15.53, 5.2, 0.07, '#c8a040');
+    pp('desk', 46, 13); pp('monitor', 47, 13); pp('dchair', 46, 12, ['#3a3a5a', 'n']); row('shelf', 49, 52, 9); pp('locker', 40, 12, '#6a6050'); pp('locker', 40, 13, '#6a6050'); pp('vsofa', 42, 17, { b: 's' }); pp('vsofa', 43, 17, { b: 's' }); pp('palm', 52, 19);
+    row('shelf', 61, 68, 43); pp('cart', 63, 47); pp('cart', 66, 47); pp('crate', 68, 50); pp('vase', 23, 20); pp('vase', 25, 40); pp('vase', 54, 20); pp('vase', 56, 40);
+    for (const [x, y] of [[28.5, 22.5], [51.5, 22.5], [28.5, 49.5], [51.5, 49.5], [39.5, 23.6], [24.5, 20], [24.5, 40], [55.5, 20], [55.5, 40], [30, 10.5], [46, 15], [16, 12.5], [63, 13], [59.5, 46.5]]) L(x, y);
+
+    // ---------------- INTERRATO ----------------
+    ox = OI; fa = 'I';
+    R('Scala antincendio', 11, 9, 2, 4, 'stairs', PS, CONC, { nl: 1 });
+    R('Ripostiglio', 14, 9, 5, 4, 'concrete', ['#4e4c48', '#4a4844'], CONC, { nl: 1 }); D(16, 13);
+    R('Ascensore di servizio', 20, 9, 2, 4, 'liftf', PS, CONC, { nl: 1 });
+    R('Locale caldaie', 23, 9, 31, 4, 'concrete', ['#46443f', '#42403b'], CONC, { ly: 11.6 }); D(37, 13, 2, 1);
+    R('Montacarichi', 55, 9, 2, 4, 'liftf', PS, CONC, { nl: 1 });
+    R('Archivio', 58, 9, 11, 4, 'concrete', ['#4e4c48', '#4a4844'], CONC, { ly: 11.6 }); D(62, 13, 2, 1);
+    D(11, 13, 2, 1); D(20, 13, 2, 1); D(55, 13, 2, 1);
+    R('Corridoio dell\'interrato', 11, 14, 58, 2, 'concrete', ['#4c4a48', '#484644'], CONC, { nl: 1 });
+    R('Lavanderia', 11, 17, 19, 11, 'tile', ['#7a8a96', '#748490'], '#3e4a52', { ly: 26 }); D(19, 16, 2, 1);
+    const vault = R('Caveau', 31, 17, 18, 11, 'vault', ['#5a6068', '#565c64'], '#2a2e34', { ly: 26.6 }); D(39, 16, 2, 1);
+    R('Cantina', 50, 17, 19, 11, 'stone', ['#4a4036', '#463c34'], '#3a2e26', { ly: 26 }); D(58, 16, 2, 1);
+    row('shelf', 14, 18, 9); pp('crate', 18, 12);
+    for (const x of [25, 29, 33, 41, 45, 49]) pp('boiler', x, 9); pp('pipe', 37, 9); pp('generator', 52, 10);
+    row('boxes', 58, 68, 9); pp('crate', 68, 12);
+    row('washer', 12, 17, 27); pp('rtable', 20, 21); pp('rtable', 24, 21); pp('cart', 27, 19); pp('shelf', 29, 18); pp('shelf', 29, 19); pp('bucket', 11, 17);
+    pp('teca', 39, 22);
+    for (const y of [18, 20, 22, 24, 26]) { pp('gold', 31, y); pp('gold', 48, y); } for (const y of [19, 21, 23, 25]) { pp('boxes', 31, y); pp('boxes', 48, y); }
+    row('wine', 51, 56, 19); row('wine', 60, 66, 19); row('wine', 51, 56, 23); row('wine', 60, 66, 23); pp('barrel', 68, 26); pp('barrel', 67, 26); pp('barrel', 51, 26);
+    for (const [x, y] of [[15, 14.5], [33, 15], [48, 14.5], [63, 15], [39.5, 22], [20, 22], [58, 21], [38, 11]]) L(x, y);
+
+    // porte sbarrate: passaggi per l'interrato (porta al piano terra e porta di sotto), porta del caveau, porta della cella
+    const gates = {
+      sca: { d: [[13, 10, 'fdoor', { v: 1, s: 1 }], [OI + 11, 13, 'fdoor', {}], [OI + 12, 13, 'fdoor', { s: 1 }]], s: [14.5, 10.5], si: [OI + 12, 14.6], n: 'scala antincendio', e: '🚪' },
+      asc: { d: [[22, 19, 'lift', { v: 1, l: 1 }], [22, 20, 'lift', { v: 1 }], [OI + 20, 13, 'lift', { l: 1 }], [OI + 21, 13, 'lift', {}]], s: [23.5, 20.0], si: [OI + 21, 14.6], n: 'ascensore di servizio', e: '🛗' },
+      mon: { d: [[55, 20, 'fgate', {}], [56, 20, 'fgate', {}], [OI + 55, 13, 'fgate', {}], [OI + 56, 13, 'fgate', {}]], s: [56.0, 19.4], si: [OI + 56, 14.6], n: 'montacarichi', e: '📦' } };
+    for (const k in gates) gates[k].c = gates[k].d.map(q => [q[0], q[1]]);
+    for (const k in gates) for (const [x, y, t, o] of gates[k].d) props.push([t, x, y, o]);
+    const vdoor = { d: [[OI + 39, 16, 'bdoor', { part: 1 }], [OI + 40, 16, 'bdoor', {}]], s: [OI + 40, 15.5], kl: [OI + 38.5, 15.5], kr: [OI + 41.5, 15.5] };
+    vdoor.c = vdoor.d.map(q => [q[0], q[1]]); for (const [x, y, t, o] of vdoor.d) props.push([t, x, y, o]);
+    const cdoor = { d: [[65, 46, 'cdoor', {}], [66, 46, 'cdoor', {}]] }; cdoor.c = cdoor.d.map(q => [q[0], q[1]]);
+    const teca = { x: OI + 39, y: 22 };
+
+    // PASSAGGI tra i piani: caselle dove si entra (cells), piano di arrivo (tf), dove si arriva (to: tiene lo spostamento di lato sullo scalone)
+    const cellsOf = (x0, x1, y0, y1) => { const a = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) a.push([x, y]); return a; };
+    const portals = [
+      { k: 'scalone', n: 'lo scalone', f: 0, tf: 1, cells: cellsOf(37, 42, 24, 24), to: x => [x + O1, 23.4] },
+      { k: 'scalone', n: 'lo scalone', f: 1, tf: 0, cells: cellsOf(O1 + 37, O1 + 42, 26, 26), to: x => [x - O1, 26.6] },
+      { k: 'servizio', n: 'la scala di servizio', f: 0, tf: 1, cells: cellsOf(58, 59, 49, 50), to: x => [x + O1, 48.6] },
+      { k: 'servizio', n: 'la scala di servizio', f: 1, tf: 0, cells: cellsOf(O1 + 58, O1 + 59, 44, 45), to: x => [x - O1, 46.8] },
+      { k: 'sca', n: 'la scala antincendio', f: 0, tf: 2, cells: cellsOf(11, 11, 9, 11), to: () => [OI + 11.9, 11.8] },
+      { k: 'sca', n: 'la scala antincendio', f: 2, tf: 0, cells: cellsOf(OI + 11, OI + 12, 9, 10), to: () => [12.5, 10.5] },
+      { k: 'asc', n: 'l\'ascensore di servizio', f: 0, tf: 2, cells: cellsOf(20, 20, 19, 20), to: () => [OI + 20.9, 11.8] },
+      { k: 'asc', n: 'l\'ascensore di servizio', f: 2, tf: 0, cells: cellsOf(OI + 20, OI + 21, 9, 10), to: () => [21.5, 20.0] },
+      { k: 'mon', n: 'il montacarichi', f: 0, tf: 2, cells: cellsOf(55, 56, 22, 22), to: () => [OI + 55.9, 11.8] },
+      { k: 'mon', n: 'il montacarichi', f: 2, tf: 0, cells: cellsOf(OI + 55, OI + 56, 9, 10), to: () => [56.0, 21.4] }];
+    const PORT = new Uint8Array(W * H); portals.forEach((p, i) => { for (const [x, y] of p.cells) PORT[y * W + x] = i + 1; });
+    // SCALONE: gradini veri (altezze del motore), dalla hall sale verso nord fino al pianerottolo sotto l'arco
+    const hz = []; for (let y = 0; y < H; y++) hz.push(new Uint8Array(W));
+    for (let y = 24; y <= 33; y++) for (let x = 37; x <= 42; x++) hz[y][x] = Math.min(6, 34 - y);
+
+    // telecamere (su un palo, o appese al muro se p = null): angolo di partenza a0, quanto girano sw, periodo per
     const cams = [
-      { x: 38.5, y: 34.5, p: [38, 34], a0: Math.atan2(-5, -6), sw: 0.75, per: 9, r: 8.5, h: 0.4 },
-      { x: 1.5, y: 21.5, p: null, a0: 0, sw: 0.25, per: 8, r: 10, h: 0.36 },
-      { x: 62.5, y: 9.5, p: null, a0: Math.PI, sw: 0.3, per: 7, r: 9.5, h: 0.38 },
-      { x: 62.5, y: 44.5, p: null, a0: Math.PI, sw: 0.25, per: 8, r: 11, h: 0.36 },
-      { x: 1.5, y: 45.5, p: null, a0: 0, sw: 0.25, per: 10, r: 11, h: 0.36 },
-      { x: 53.5, y: 34.5, p: [53, 34], a0: Math.atan2(-6, -7), sw: 0.6, per: 8, r: 8, h: 0.4 }];
-    cams.forEach(c => { if (c.p) pp('hcam', c.p[0], c.p[1]); });
+      { x: 27.0, y: 24.6, p: null, a0: Math.atan2(1, 1), sw: 0.6, per: 9, r: 10, h: 0.4 },
+      { x: 24.5, y: 9.4, p: null, a0: Math.PI / 2, sw: 0.2, per: 8, r: 11, h: 0.34 },
+      { x: 55.5, y: 50.6, p: null, a0: -Math.PI / 2, sw: 0.25, per: 8, r: 11, h: 0.36 },
+      { x: 37.5, y: 52.4, p: null, a0: Math.PI / 2, sw: 0.8, per: 10, r: 8, h: 0.4 },
+      { x: O1 + 27.4, y: 21.4, p: null, a0: Math.atan2(1, 1), sw: 0.5, per: 9, r: 11, h: 0.38 },
+      { x: O1 + 52.6, y: 50.6, p: null, a0: Math.atan2(-1, -1), sw: 0.5, per: 10, r: 11, h: 0.38 },
+      { x: OI + 11.4, y: 14.6, p: null, a0: 0, sw: 0.2, per: 8, r: 11, h: 0.34 },
+      { x: OI + 68.6, y: 15.4, p: null, a0: Math.PI, sw: 0.2, per: 9, r: 11, h: 0.34 }];
+    cams.forEach(c => { if (c.p) props.push(['hcam', c.p[0], c.p[1]]); });
     // posti dove frugare (x, y = l'oggetto della mappa)
     const SP = {
-      giacca: { n: 'giacca del direttore', x: 16, y: 26, i: '🧥' }, recep: { n: 'cassetto della reception', x: 26, y: 30, i: '🗄️' }, custode: { n: 'scrivania del custode', x: 61, y: 25, i: '🗄️' },
-      armad: { n: "armadietto dello chef", x: 52, y: 12, i: '🚪' }, bcuc: { n: 'bancone della cucina', x: 47, y: 29, i: '🍳' }, postit: { n: 'scrivania del direttore', x: 37, y: 3, i: '📝' },
-      agenda: { n: 'agenda della segretaria', x: 37, y: 15, i: '📒' }, monit: { n: 'monitor della sicurezza', x: 47, y: 1, i: '📺' }, bicch: { n: 'bancone del bar', x: 4, y: 27, i: '🥃' },
-      tazz: { n: 'tazzina del direttore', x: 38, y: 3, i: '☕' }, kUff: { n: 'scaffale dell\'ufficio', x: 34, y: 1, i: '📚' }, kSpo: { n: 'armadietto dello spogliatoio', x: 60, y: 12, i: '🚪' },
-      kCus: { n: 'scaffale del custode', x: 56, y: 26, i: '📚' }, kLav: { n: 'lavatrice', x: 4, y: 55, i: '🧺' }, kCan: { n: 'scaffale dei vini', x: 58, y: 52, i: '🍷' },
-      vetr: { n: 'vetrina dei souvenir', x: 17, y: 31, i: '💎' }, comod: { n: 'comodino del direttore', x: 0, y: 0, i: '🛏️' }, safe: { n: 'cassaforte della camera', x: 0, y: 0, i: '🔒' },
-      conf: { n: 'armadio delle confische', x: 44, y: 6, i: '📦' }, quadro: { n: 'quadro elettrico', x: 48, y: 15, i: '⚡' } };
-    // guardie: giri di ronda [x, y, attesa, dove guarda]
+      giacca: { n: 'giacca del direttore', x: 16, y: 47, i: '🧥' }, recep: { n: 'cassetto della reception', x: 49, y: 33, i: '🗄️' }, custode: { n: 'scrivania del custode', x: 66, y: 29, i: '🗄️' },
+      armad: { n: 'armadietto dello chef', x: 62, y: 34, i: '🚪' }, bcuc: { n: 'bancone della cucina', x: 58, y: 14, i: '🍳' }, postit: { n: 'scrivania del direttore', x: O1 + 32, y: 13, i: '📝' },
+      agenda: { n: 'agenda della segretaria', x: O1 + 46, y: 13, i: '📒' }, monit: { n: 'monitor della sicurezza', x: 63, y: 40, i: '📺' }, bicch: { n: 'bancone del bar', x: 16, y: 11, i: '🥃' },
+      tazz: { n: 'tazzina del direttore', x: O1 + 33, y: 13, i: '☕' }, kUff: { n: 'scaffale dell\'ufficio', x: O1 + 27, y: 9, i: '📚' }, kSpo: { n: 'armadietto dello spogliatoio', x: 67, y: 34, i: '🚪' },
+      kCus: { n: 'scaffale del custode', x: 62, y: 28, i: '📚' }, kLav: { n: 'lavatrice', x: OI + 13, y: 27, i: '🧺' }, kCan: { n: 'scaffale dei vini', x: OI + 60, y: 19, i: '🍷' },
+      vetr: { n: 'vetrina della boutique', x: 14, y: 43, i: '💎' }, comod: { n: 'comodino del direttore', x: 0, y: 0, i: '🛏️' }, safe: { n: 'cassaforte della camera', x: 0, y: 0, i: '🔒' },
+      conf: { n: 'armadio delle confische', x: 68, y: 44, i: '📦' }, quadro: { n: 'quadro elettrico', x: 68, y: 23, i: '⚡' } };
+    // guardie: giri di ronda [x, y, attesa, dove guarda]; alcune salgono e scendono lo scalone
     const routes = {
-      cella: { post: 1, n: 'carceriere', route: [[50.5, 4.5, 4, 0], [52.5, 6.5, 3, 0], [48.5, 6.5, 3, 1.57], [51.5, 3.5, 3, 3.14]] },
-      grande: { route: [[3.5, 21.5, 2, 0], [30.5, 21.5, 1.5, 1.57], [60.5, 21.5, 2, 3.14], [30.5, 21.5, 1.5, -1.57]] },
-      interrato: { route: [[3.5, 44.5, 2, 0], [31.5, 45.5, 2, 1.57], [60.5, 44.5, 2, 3.14], [53.5, 50.5, 2, 1.57], [31.5, 45.5, 1, 0], [10.5, 50.5, 2, 1.57]] },
-      hall: { route: [[30.5, 27.5, 2, 1.57], [8.5, 30.5, 2, 0], [18.5, 26.5, 1.5, 0], [37.5, 31.5, 2, 3.14]] },
-      camere: { route: [[2.5, 9.5, 2, 0], [27.5, 9.5, 1, 0], [30.5, 2.5, 2, 1.57], [30.5, 17.5, 1, -1.57], [20.5, 10.5, 1, 3.14]] },
-      uffici: { route: [[34.5, 9.5, 1, 0], [38.5, 5.5, 2, -1.57], [36.5, 13.5, 2, 1.57], [45.5, 14.5, 2, 0], [61.5, 10.5, 2, 3.14]] },
-      cucine: { route: [[44.5, 26.5, 2, 0], [52.5, 31.5, 2, 3.14], [59.5, 26.5, 2, 1.57], [47.5, 33.5, 2, -1.57]] },
-      negozio: { route: [[18.5, 33.5, 2, 0], [28.5, 30.5, 2, 0], [30.5, 21.5, 2, 1.57], [12.5, 30.5, 2, 0]] } };
-    // luci del soffitto: una ogni 4 caselle in ogni stanza (si spengono per ala dal quadro elettrico)
-    // LUCI DELLA NOTTE: poche pozze di luce (lampade dei corridoi, lampadari della hall, bancone del bar, monitor, abat-jour di due camere); il resto e' in ombra
-    for (const [x, y, a] of [[10, 9.5, 'A'], [24, 10.5, 'A'], [30.5, 5, 'A'], [30.5, 15, 'A'], [3.5, 2.5, 'A'], [17.5, 17.5, 'A'], [36, 9.5, 'U'], [50, 10.5, 'U'], [60, 9.5, 'U'], [47.5, 3, 'U'], [41, 2, 'U'], [59.5, 4.5, 'U'], [56, 15.5, 'U'],
-      [5, 21.5, 'T'], [19, 21.5, 'T'], [30.5, 21.5, 'T'], [42, 21.5, 'T'], [56, 21.5, 'T'], [28, 27, 'T'], [34.5, 30.5, 'T'], [25.5, 30.5, 'T'], [4.5, 25.5, 'T'], [11, 30.5, 'T'], [19, 32.5, 'T'], [47.5, 27, 'T'],
-      [8, 44.5, 'I'], [24, 45, 'I'], [40, 44.5, 'I'], [56, 44.5, 'I'], [31.5, 51.5, 'I'], [10, 51, 'I'], [58.5, 31.5, 'X']]) lamps.push([x, y, a]);
-    const LITC = new Uint8Array(W * H), AI = { A: 1, U: 2, T: 3, I: 4, X: 5 };
+      cella: { post: 1, n: 'carceriere', route: [[63.5, 42.5, 4, 0], [66.5, 44.5, 3, 1.57], [62.5, 44.5, 3, 1.57], [65.5, 41.5, 3, -1.57]] },
+      hall: { route: [[35.5, 40.5, 2, 1.57], [28.5, 28.5, 2, 0], [39.5, 26.4, 3, 1.57], [50.5, 38.5, 2, 3.14], [45.5, 47.5, 2, -1.57], [24.5, 20.5, 1.5, 1.57]] },
+      primo: { route: [[O1 + 33.5, 22.5, 2, -1.57], [O1 + 33.5, 15.5, 2, 0], [O1 + 46.5, 15.5, 2, 3.14], [O1 + 51.5, 35.5, 2, 3.14], [O1 + 39.5, 49.5, 2, -1.57], [O1 + 28.5, 35.5, 2, 0]] },
+      interrato: { route: [[OI + 14.5, 14.5, 2, 0], [OI + 40.5, 15.0, 3, 1.57], [OI + 64.5, 14.5, 2, 3.14], [OI + 60.5, 21.5, 2, 3.14], [OI + 39.5, 15.0, 2, 1.57], [OI + 20.5, 22.5, 2, 0], [OI + 38.5, 11.5, 2, 1.57]] },
+      servizio: { route: [[58.5, 22.5, 2, 1.57], [60.5, 16.5, 2, 3.14], [58.5, 41.5, 2, -1.57], [64.5, 24.5, 2, 1.57], [55.5, 35.5, 2, 3.14], [64.5, 30.5, 2, 0]] },
+      camere: { route: [[O1 + 24.5, 10.5, 2, 1.57], [O1 + 24.5, 40.5, 1.5, 1.57], [O1 + 28.5, 48.5, 1, 0], [O1 + 55.5, 46.5, 1.5, -1.57], [O1 + 55.5, 10.5, 2, 1.57], [O1 + 50.5, 22.5, 1, 3.14]] },
+      ovest: { route: [[24.5, 10.5, 2, 1.57], [16.5, 13.5, 2, 0], [16.5, 31.5, 2, 0], [24.5, 49.5, 2, -1.57], [16.5, 44.5, 1.5, 0], [40.5, 16.5, 2, 1.57]] },
+      esterno: { route: [[39.5, 55.5, 2, -1.57], [6.5, 47.5, 2, -1.57], [2.5, 4.5, 2, 0], [66.5, 5.5, 2, 1.57], [73.5, 30.5, 2, 3.14], [70.5, 56.5, 2, 3.14]] } };
+    // per ogni casella: le caselle in luce (lampade per ala) e la stanza
+    const LITC = new Uint8Array(W * H), AI = { S: 1, T: 2, I: 3, X: 4 };
     for (const [lx, ly, a] of lamps) for (let y = Math.floor(ly - LAMP_R); y <= ly + LAMP_R; y++) for (let x = Math.floor(lx - LAMP_R); x <= lx + LAMP_R; x++) if (x >= 0 && y >= 0 && x < W && y < H && Math.hypot(x + 0.5 - lx, y + 0.5 - ly) < LAMP_R) LITC[y * W + x] = AI[a];
-    // per ogni casella: la stanza e l'ala
     const ri = (x, y) => { for (let i = rooms.length - 1; i >= 0; i--) { const r = rooms[i]; if (x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h) return i; } return -1; };
-    const ROOM = new Int8Array(W * H).fill(-1); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) ROOM[y * W + x] = ri(x, y);
-    for (const [x0, y0, w, h] of doors) for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) { const a = ri(x, y - 1) >= 0 ? ri(x, y - 1) : ri(x - 1, y); ROOM[y * W + x] = y0 === 36 || y0 === 43 || y0 === 46 ? rooms.findIndex(r => r.ala === 'I') : a; }
-    // porte sbarrate (passaggi e caveau): caselle e lato da cui si usano
-    const gates = {
-      sca: { c: [[2, 36], [3, 36]], s: [3, 35.5], n: 'scala antincendio', e: '🚪' },
-      asc: { c: [[31, 36], [32, 36]], s: [32, 35.5], n: 'ascensore di servizio', e: '🛗' },
-      mon: { c: [[48, 36], [49, 36]], s: [49, 35.5], n: 'montacarichi', e: '📦' } };
-    const vdoor = { c: [[31, 46], [32, 46]], s: [32, 45.5], kl: [30.5, 45.5], kr: [33.5, 45.5] };
-    const teca = { x: 31, y: 51 };
-    const jail = [[57.5, 3.5], [59.5, 3.5], [57.5, 5.5], [59.5, 5.5], [61.5, 4.5], [58.5, 2.5]], cellOut = [54.2, 4];
-    const ring = [[58, 32], [59, 32], [60, 32], [57, 33], [58, 33], [59, 33], [57, 34], [58, 34], [57, 35], [61, 32]];
-    return { w: W, h: H, rooms, doors, decals: [], props, tasks: [], hall: big, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
-      deco, draw, floor: FLOOR, decoDraw, bg: () => '#07080b',
-      hcams: cams, SP, routes, lamps, LITC, ROOM, gates, vdoor, teca, jail, cellOut, camere, cellRoom: cell, vaultRoom: vault, van: { x: 59.6, y: 34.4 } };
+    const ROOM = new Int16Array(W * H).fill(-1); for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) ROOM[y * W + x] = ri(x, y);
+    for (const [hx, hy, hw, hh] of holes) for (let y = hy; y < hy + hh; y++) for (let x = hx; x < hx + hw; x++) ROOM[y * W + x] = -1;
+    // porte: la stanza accanto (prima quella sopra o a sinistra, mai la galleria se c'e' altro)
+    for (const [x0, y0, w, h] of doors) for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) {
+      let a = -1; for (const [dx, dy] of [[0, -1], [-1, 0], [0, 1], [1, 0]]) { const r = ri(x + dx, y + dy); if (r >= 0 && !holes.some(([hx, hy, hw, hh]) => x + dx >= hx && x + dx < hx + hw && y + dy >= hy && y + dy < hy + hh)) { a = r; if (rooms[r].ala !== 'X') break; } }
+      ROOM[y * W + x] = a;
+    }
+    const jail = [[62.5, 48.5], [64.5, 48.5], [66.5, 49.5], [63.5, 49.6], [65.5, 47.5], [62.5, 47.5]], cellOut = [66.0, 45.3];
+    return { w: W, h: H, rooms, doors, decals, props, holes, tasks: [], hall: gal, cams: [], vending: [], ring: ents[0].ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
+      deco, draw, floor: FLOOR, decoDraw, drawWall, bg: () => '#07080b', hz, hb: 0.3, hzSide, bgSc: 1.5,
+      hcams: cams, SP, routes, lamps, LITC, ROOM, gates, vdoor, cdoor, teca, jail, cellOut, camere, cellRoom: cell, vaultRoom: vault, portals, PORT, ents, jailIco: [64.5, 48.5] };
   }
   const roomAt = (x, y) => { const M = MP(), xi = Math.floor(x), yi = Math.floor(y); return xi < 0 || yi < 0 || xi >= W || yi >= H ? -1 : M.ROOM[yi * W + xi]; };
   const alaAt = (x, y) => { const r = roomAt(x, y); return r >= 0 ? MP().rooms[r].ala : null; };
   const darkAt = (G, x, y) => { const a = alaAt(x, y); return !!(a && a !== 'X' && G.dk && G.time < (G.dk[a] || 0)); };
-  const litAt = (G, x, y) => { const xi = Math.floor(x), yi = Math.floor(y); if (xi < 0 || yi < 0 || xi >= W || yi >= H) return false; const a = MP().LITC[yi * W + xi]; if (!a) return false; const k = 'AUTIX'[a - 1]; return k === 'X' || !(G.time < (G.dk[k] || 0)); };
+  const litAt = (G, x, y) => { const xi = Math.floor(x), yi = Math.floor(y); if (xi < 0 || yi < 0 || xi >= W || yi >= H) return false; const a = MP().LITC[yi * W + xi]; if (!a) return false; const k = 'STIX'[a - 1]; return k === 'X' || !(G.time < (G.dk[k] || 0)); };
   const inRoom = (x, y, i) => { const r = MP().rooms[i]; return x >= r.x && x < r.x + r.w && y >= r.y && y < r.y + r.h; };
+  // passaggio tra i piani nella casella x, y (o null)
+  const portalAt = (x, y) => { const M = MP(), xi = Math.floor(x), yi = Math.floor(y); if (xi < 0 || yi < 0 || xi >= W || yi >= H || !M.PORT) return null; const i = M.PORT[yi * W + xi]; return i ? M.portals[i - 1] : null; };
+  // PERCORSO anche tra piani diversi: fino alla casella del passaggio, poi dall'arrivo alla meta (dal primo piano all'interrato si passa dal piano terra).
+  // Il passaggio scelto e' quello col percorso piu' corto; se una porta e' chiusa quel passaggio non si raggiunge e si salta.
+  function route(sx, sy, ex, ey) {
+    const a = floorOf(sx), b = floorOf(ex);
+    if (a === b) return cqPath(sx, sy, ex, ey);
+    const hop = a === 0 ? b : 0; let best = null;
+    for (const Pq of MP().portals) {
+      if (Pq.f !== a || Pq.tf !== hop) continue;
+      let c = Pq.cells[0], cd = 1e9; for (const q of Pq.cells) { const d = Math.hypot(q[0] + 0.5 - sx, q[1] + 0.5 - sy); if (d < cd) { cd = d; c = q; } }
+      const p1 = cqPath(sx, sy, c[0] + 0.5, c[1] + 0.5); if (!p1.length && cd > 0.8) continue;
+      const [ax, ay] = Pq.to(c[0] + 0.5, c[1] + 0.5), p2 = route(ax, ay, ex, ey); if (!p2.length && Math.hypot(ax - ex, ay - ey) > 0.8) continue;
+      if (!p1.length) p1.push([c[0] + 0.5, c[1] + 0.5]);
+      const n = p1.length + p2.length; if (!best || n < best.n) best = { n, p: p1.concat(p2) };
+    }
+    return best ? best.p : [];
+  }
+  // guardie e ladri del computer: passano dal passaggio solo se il loro percorso continua dall'altra parte
+  function npcTp(c) {
+    const Pq = portalAt(c.x, c.y); if (!Pq || !c.path || !c.path.some(q => floorOf(q[0]) === Pq.tf)) return false;
+    const [x, y] = Pq.to(c.x, c.y); c.x = x; c.y = y; while (c.path.length && floorOf(c.path[0][0]) !== Pq.tf) c.path.shift(); return true;
+  }
 
   // ---- disegno della mappa (K = attrezzi di cqTools). REGOLA DELLE LUCI: aloni solo con K.glow, colori pieni negli oggetti ----
   const FLOOR = {
@@ -192,18 +320,50 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (edge(-1, 0)) K.strokes([[Pp(0.12, 0), Pp(0.12, 1)]], '#b8963a', Math.max(1.5, K.TW / 26)); if (edge(1, 0)) K.strokes([[Pp(0.88, 0), Pp(0.88, 1)]], '#b8963a', Math.max(1.5, K.TW / 26));
       if ((x * 3 + y * 5) % 7 === 0) K.dot(x + 0.5, y + 0.5, 0, 0.05, '#8a3a2a');
     },
-    marble(K, x, y) {   // marmo chiaro della hall a scacchi con le venature
-      const Pp = (u, v) => K.S(x + u, y + v, 0); K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], (x + y) % 2 ? '#c4baa6' : '#d4ccbc');
+    marble(K, x, y) {   // marmo della hall a scacchi bianchi e neri con le venature
+      const Pp = (u, v) => K.S(x + u, y + v, 0), dk = (x + y) % 2; K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], dk ? '#2e2a2c' : '#e2dccf');
       if (K.TW < 40) return; const a = K.hsh(x, y, 5), b = K.hsh(x, y, 6);
-      K.strokes([[Pp(0.1, a), Pp(0.5, b)], [Pp(0.5, b), Pp(0.9, (a + b) / 2)]], 'rgba(120,110,95,.25)');
-      K.strokes([[Pp(0.03, 0.03), Pp(0.97, 0.03)], [Pp(0.03, 0.03), Pp(0.03, 0.97)]], 'rgba(255,255,255,.18)');
+      K.strokes([[Pp(0.1, a), Pp(0.5, b)], [Pp(0.5, b), Pp(0.9, (a + b) / 2)]], dk ? 'rgba(200,190,180,.18)' : 'rgba(120,110,95,.25)');
+      K.strokes([[Pp(0.03, 0.03), Pp(0.97, 0.03)], [Pp(0.03, 0.03), Pp(0.03, 0.97)]], 'rgba(255,255,255,.16)');
+    },
+    parq(K, x, y) {   // parquet a spina di pesce
+      if (K.TW < 40) return; const Pp = (u, v) => K.S(x + u, y + v, 0), L = [];
+      if ((x + y) % 2) for (const u of [0.25, 0.5, 0.75]) L.push([Pp(u, 0), Pp(u, 1)]); else for (const v of [0.25, 0.5, 0.75]) L.push([Pp(0, v), Pp(1, v)]);
+      K.strokes(L, 'rgba(0,0,0,.2)'); K.strokes([[Pp(0, 0), Pp(1, 0)], [Pp(0, 0), Pp(0, 1)]], 'rgba(255,230,190,.08)');
+    },
+    royal(K, x, y) {   // moquette con il disegno dorato (camere, uffici, galleria)
+      if (K.TW < 40) return; const Pp = (u, v) => K.S(x + u, y + v, 0);
+      K.poly([Pp(0.5, 0.22), Pp(0.78, 0.5), Pp(0.5, 0.78), Pp(0.22, 0.5)], 'rgba(200,160,64,.16)'); K.dot(x + 0.5, y + 0.5, 0, 0.04, 'rgba(230,190,90,.35)');
+      K.strokes([[Pp(0, 0), Pp(1, 0)], [Pp(0, 0), Pp(0, 1)]], 'rgba(0,0,0,.1)');
+    },
+    tile2(K, x, y) {   // piastrelle a scacchi piccoli bianche e nere
+      const Pp = (u, v) => K.S(x + u, y + v, 0);
+      for (let i = 0; i < 2; i++) for (let j = 0; j < 2; j++) if ((i + j) % 2) K.poly([Pp(i / 2, j / 2), Pp(i / 2 + 0.5, j / 2), Pp(i / 2 + 0.5, j / 2 + 0.5), Pp(i / 2, j / 2 + 0.5)], '#2a2a2e');
+    },
+    lino(K, x, y) { if (K.TW < 40) return; K.speck(x, y, 3, ['rgba(255,255,255,.1)', 'rgba(0,0,0,.12)'], K.TW / 24); },
+    paving(K, x, y) {   // lastre di pietra del viale
+      if (K.TW < 40) return; const Pp = (u, v) => K.S(x + u, y + v, 0), o = y % 2 ? 0.5 : 0;
+      K.strokes([[Pp(0, 0), Pp(1, 0)], [Pp(0, 0.5), Pp(1, 0.5)], [Pp(o, 0), Pp(o, 0.5)], [Pp((o + 0.5) % 1, 0.5), Pp((o + 0.5) % 1, 1)]], 'rgba(0,0,0,.22)');
+    },
+    pooltile(K, x, y) { if (K.TW < 40) return; const Pp = (u, v) => K.S(x + u, y + v, 0); K.strokes([[Pp(0, 0.5), Pp(1, 0.5)], [Pp(0.5, 0), Pp(0.5, 1)]], 'rgba(255,255,255,.25)'); },
+    atrium(K, x, y) { const Pp = (u, v) => K.S(x + u, y + v, 0); K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], '#060709'); },
+    stairc(K, x, y) {   // gradino dello scalone: marmo con la passatoia rossa e la bacchetta d'ottone
+      const Pp = (u, v) => K.S(x + u, y + v, 0), side = x === 37 || x === 42;
+      K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], side ? '#e4dccb' : (x + y) % 2 ? '#7a1e22' : '#7e2024');
+      if (!side) { if (x === 38) K.strokes([[Pp(0.1, 0), Pp(0.1, 1)]], '#c8a040', Math.max(1.5, K.TW / 26)); if (x === 41) K.strokes([[Pp(0.9, 0), Pp(0.9, 1)]], '#c8a040', Math.max(1.5, K.TW / 26)); }
+      if (y >= 28) K.strokes([[Pp(0, 0.96), Pp(1, 0.96)]], side ? 'rgba(120,110,95,.4)' : '#d8b44a', Math.max(1.5, K.TW / 22));
+    },
+    stairdn(K, x, y) {   // in cima allo scalone (primo piano): i gradini scendono verso il buio
+      const Pp = (u, v) => K.S(x + u, y + v, 0), d = y - 24, side = x === O1 + 37 || x === O1 + 42;
+      K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], cqShade(side ? '#cfc6b4' : '#7a1e22', 1 - d * 0.22));
+      K.strokes([[Pp(0, 0.5), Pp(1, 0.5)], [Pp(0, 0.98), Pp(1, 0.98)]], 'rgba(0,0,0,.35)', Math.max(1.5, K.TW / 22));
     },
     vault(K, x, y) {   // lastre d'acciaio con i rivetti
       const Pp = (u, v) => K.S(x + u, y + v, 0); K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], (x + y) % 2 ? '#565c64' : '#5c626a');
       if (K.TW < 40) return; K.strokes([[Pp(0, 0.02), Pp(1, 0.02)], [Pp(0.02, 0), Pp(0.02, 1)]], 'rgba(0,0,0,.25)');
       for (const [u, v] of [[0.15, 0.15], [0.85, 0.15], [0.15, 0.85], [0.85, 0.85]]) K.dot(x + u, y + v, 0, 0.03, '#7a8088');
     },
-    stairs(K, x, y) {   // gradini che scendono
+    stairs(K, x, y) {   // gradini di servizio
       const Pp = (u, v) => K.S(x + u, y + v, 0); K.poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], '#4a4846');
       const L = []; for (let i = 0; i < 4; i++) L.push([Pp(0, i / 4 + 0.05), Pp(1, i / 4 + 0.05)]); K.strokes(L, '#2e2c2a', Math.max(2, K.TW / 18));
       K.strokes([[Pp(0, 0.5), Pp(1, 0.5)]], 'rgba(200,190,170,.15)');
@@ -213,25 +373,63 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (K.TW < 40) return; for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) K.dot(x + 0.2 + i * 0.3, y + 0.2 + j * 0.3, 0, 0.035, '#76787a');
     }
   };
+  // fianchi dello scalone: marmo, piu' chiaro in cima
+  const hzSide = (x, y, i) => i ? '#e6dece' : '#cdc4b2';
   function decoDraw() {}
+  // MURI: boiserie (legno in basso, stucco crema, cornice dorata), legno, muri del personale, cemento; fuori siepi e mattoni; l'ARCO in cima allo scalone
+  function drawWall(K, x, y, col) {
+    const { bx, qL, strokes, S } = K, TW = K.TW;
+    if (y === 23 && x >= 37 && x <= 42) {   // arco dorato in cima allo scalone: dentro il buio del passaggio verso il primo piano
+      const pil = x === 37 || x === 42;
+      bx(x, y, x + 1, y + 1, 0, pil ? 3.0 : 1.8, '#d8cdb4');
+      if (!pil) { qL(x, x + 1, y + 1, 1.8, 2.6, '#0d0b0e'); bx(x, y, x + 1, y + 1, 2.6, 3.0, '#d8cdb4'); qL(x, x + 1, y + 1, 2.6, 2.66, '#c8a040'); }
+      else { qL(x + 0.15, x + 0.85, y + 1, 0.2, 2.8, '#e6dccb'); qL(x + 0.1, x + 0.9, y + 1, 2.8, 2.9, '#c8a040'); }
+      return;
+    }
+    const facade = floorOf(x) === 0 && (y === 51 || x === 69 || (x === 10 && y > 7) || y === 8) && x >= 10 && x <= 69;
+    if (facade) {   // facciata di pietra chiara con lo zoccolo e le finestre (accese o buie)
+      bx(x, y, x + 1, y + 1, 0, 1.15, '#d6ccb6'); bx(x, y, x + 1, y + 1, 1.05, 1.15, '#e8e0cc');
+      if (TW >= 40) { qL(x, x + 1, y + 1, 0, 0.18, '#a89e88'); if ((x + y) % 3 === 0) qL(x + 0.25, x + 0.75, y + 1, 0.4, 0.95, K.hsh(x, y, 3) < 0.3 ? '#e8c878' : '#2a3040'); }
+      return;
+    }
+    const edge = floorOf(x) === 0 && (x === 0 || x === 79 || y === 0 || y === 61);
+    if (col === HEDGE || edge) {   // siepe squadrata
+      bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 0.85, '#2f5a2e'); if (TW >= 40) for (let i = 0; i < 4; i++) K.dot(x + 0.2 + 0.6 * K.hsh(x, y, i), y + 0.95, 0.2 + 0.6 * K.hsh(x, y, i + 9), 0.035, '#3f7a3a');
+      return;
+    }
+    if (col === BRICK) { bx(x, y, x + 1, y + 1, 0, 1.0, '#6a3a2e'); if (TW >= 40) { const L = []; for (const z of [0.25, 0.5, 0.75]) L.push([S(x, y + 1, z), S(x + 1, y + 1, z)], [S(x + 1, y + 1, z), S(x + 1, y, z)]); strokes(L, 'rgba(0,0,0,.25)'); } return; }
+    if (col === CREAM) {   // stucco crema con la boiserie in basso e la cornice d'oro
+      bx(x, y, x + 1, y + 1, 0, 0.36, '#5a3a24'); bx(x, y, x + 1, y + 1, 0.36, 0.9, '#cbbb98'); bx(x, y, x + 1, y + 1, 0.84, 0.92, '#e2d6b8');
+      if (TW >= 40) strokes([[S(x, y + 1, 0.37), S(x + 1, y + 1, 0.37)], [S(x + 1, y + 1, 0.37), S(x + 1, y, 0.37)]], '#c8a040', Math.max(1.5, TW / 30));
+      return;
+    }
+    if (col === WOOD) { bx(x, y, x + 1, y + 1, 0, 0.9, '#5a3c26'); bx(x, y, x + 1, y + 1, 0.84, 0.92, '#7a5236'); if (TW >= 40) { const L = []; for (const u of [0.33, 0.66]) L.push([S(x + u, y + 1, 0.05), S(x + u, y + 1, 0.82)]); strokes(L, 'rgba(0,0,0,.25)'); } return; }
+    bx(x, y, x + 1, y + 1, 0, 0.9, col); bx(x, y, x + 1, y + 1, 0.82, 0.9, cqShade(col, 1.3));
+  }
   // porta in un varco del muro: lastra in piedi a meta' della casella (v = varco in un muro verticale)
   const slab = (K, x, y, v, z, col) => v ? K.bx(x + 0.38, y, x + 0.62, y + 1, 0, z, col) : K.bx(x, y + 0.38, x + 1, y + 0.62, 0, z, col);
   function draw(K, t, x, y, o) {
     const { bx, cyl, dot, glow, line, S, poly, qL } = K, g = K.g, TW = K.TW;
     o = o || {};
     switch (t) {
-      case 'bed': {   // letto matrimoniale 2x2, disegnato dalla casella davanti
+      case 'bed': {   // letto matrimoniale 2x2, disegnato dalla casella davanti (cano = a baldacchino)
         if (o.part) break; const x0 = x - 1, y0 = y - 1, n = o.head === 'n';
         bx(x0 + 0.08, y0 + 0.08, x + 0.92, y + 0.92, 0, 0.38, '#5a3a24');
         bx(x0 + 0.12, y0 + 0.12, x + 0.88, y + 0.88, 0.38, 0.55, '#ece6da');
         if (n) { bx(x0 + 0.12, y0 + 0.75, x + 0.88, y + 0.88, 0.55, 0.62, o.c); bx(x0 + 0.08, y0 + 0.02, x + 0.92, y0 + 0.14, 0, 1.15, '#4a2e1c'); for (const u of [0.3, 1.1]) bx(x0 + u, y0 + 0.2, x0 + u + 0.55, y0 + 0.55, 0.55, 0.7, '#f6f2ea'); }
         else { bx(x0 + 0.12, y0 + 0.12, x + 0.88, y + 0.25, 0.55, 0.62, o.c); for (const u of [0.3, 1.1]) bx(x0 + u, y + 0.45, x0 + u + 0.55, y + 0.8, 0.55, 0.7, '#f6f2ea'); bx(x0 + 0.08, y + 0.86, x + 0.92, y + 0.98, 0, 1.15, '#4a2e1c'); }
+        bx(x0 + 0.12, y0 + 1.3, x + 0.88, y0 + 1.55, 0.62, 0.64, '#c8a040');
+        if (o.cano) { for (const [a, b] of [[0.1, 0.1], [1.8, 0.1], [0.1, 1.8], [1.8, 1.8]]) bx(x0 + a, y0 + b, x0 + a + 0.1, y0 + b + 0.1, 0, 2.1, '#4a2e1c'); bx(x0 + 0.08, y0 + 0.08, x + 0.92, y + 0.92, 2.0, 2.15, '#7a1e2e'); qL(x0 + 0.1, x + 0.9, y + 0.92, 1.8, 2.0, '#8a2a3a'); }
         break; }
       case 'nstand': bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0, 0.55, '#6a4a30'); qL(x + 0.25, x + 0.75, y + 0.8, 0.25, 0.27, '#3a2818'); cyl(x + 0.5, y + 0.45, 0.06, 0.55, 0.8, '#c8b48a'); cyl(x + 0.5, y + 0.45, 0.2, 0.8, 1.05, '#f2e2b8'); glow(x + 0.5, y + 0.45, 0.95, 1.1, 'rgba(255,220,150,.35)'); break;
       case 'wardrobe': bx(x + 0.08, y + 0.1, x + 0.92, y + 0.9, 0, 1.9, '#6a4a30'); qL(x + 0.12, x + 0.49, y + 0.9, 0.1, 1.8, '#74523a'); qL(x + 0.51, x + 0.88, y + 0.9, 0.1, 1.8, '#74523a'); dot(x + 0.45, y + 0.9, 1.0, 0.025, '#d8c070'); dot(x + 0.55, y + 0.9, 1.0, 0.025, '#d8c070'); break;
       case 'safe': bx(x + 0.18, y + 0.2, x + 0.82, y + 0.8, 0, 0.7, '#3a3e44'); qL(x + 0.24, x + 0.76, y + 0.8, 0.08, 0.62, '#4a4f56'); dot(x + 0.5, y + 0.8, 0.36, 0.08, '#8a8e94'); dot(x + 0.5, y + 0.8, 0.36, 0.03, '#2a2a2a'); break;
       case 'cot': bx(x + 0.15, y + 0.05, x + 0.85, y + 0.95, 0, 0.35, '#5a5e64'); bx(x + 0.18, y + 0.08, x + 0.82, y + 0.92, 0.35, 0.45, '#8a8470'); break;
       case 'rtable': cyl(x + 0.5, y + 0.5, 0.06, 0, 0.72, '#2a2a2a'); cyl(x + 0.5, y + 0.5, 0.4, 0.72, 0.8, '#e8e2d4'); dot(x + 0.45, y + 0.45, 0.82, 0.05, '#c8a040'); break;
+      case 'dtable':   // tavolo tondo del ristorante: tovaglia bianca fino a terra, piatti, candela accesa
+        cyl(x + 0.5, y + 0.5, 0.42, 0, 0.74, '#ece8e0'); cyl(x + 0.5, y + 0.5, 0.44, 0.74, 0.78, '#f6f2ea');
+        for (const [a, b] of [[0.3, 0.5], [0.7, 0.5], [0.5, 0.3], [0.5, 0.7]]) dot(x + a, y + b, 0.79, 0.07, '#ffffff');
+        cyl(x + 0.5, y + 0.5, 0.025, 0.78, 1.0, '#f2ecd8'); dot(x + 0.5, y + 0.5, 1.04, 0.03, '#ffd27a'); dot(x + 0.5, y + 0.5, 1.05, 0.012, '#fff6d8'); break;
       case 'coats': bx(x + 0.1, y + 0.1, x + 0.9, y + 0.2, 0, 1.75, '#4a3a2a'); for (let i = 0; i < 3; i++) { const c = ['#2a2a32', '#5a2a2a', '#3a4a3a'][(i + x + y) % 3]; bx(x + 0.15 + i * 0.25, y + 0.2, x + 0.35 + i * 0.25, y + 0.45, 0.6, 1.6, c); } break;
       case 'vitrine': bx(x + 0.08, y + 0.1, x + 0.92, y + 0.9, 0, 0.7, '#5a4a3a'); bx(x + 0.12, y + 0.14, x + 0.88, y + 0.86, 0.7, 0.72, '#8ab8c8'); for (let i = 0; i < 3; i++) dot(x + 0.25 + i * 0.25, y + 0.5, 0.78, 0.04, ['#e8f4ff', '#f2c84a', '#d84a7a'][i]);
         line(S(x + 0.12, y + 0.86, 0.72), S(x + 0.12, y + 0.86, 1.25), '#c8e0e8', 1); line(S(x + 0.88, y + 0.86, 0.72), S(x + 0.88, y + 0.86, 1.25), '#c8e0e8', 1); line(S(x + 0.12, y + 0.86, 1.25), S(x + 0.88, y + 0.86, 1.25), '#c8e0e8', 1); line(S(x + 0.88, y + 0.14, 1.25), S(x + 0.88, y + 0.86, 1.25), '#c8e0e8', 1); break;
@@ -239,14 +437,20 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       case 'wine': bx(x + 0.05, y + 0.25, x + 0.95, y + 0.75, 0, 1.9, '#4a3020'); for (let r = 0; r < 4; r++) for (let i = 0; i < 3; i++) dot(x + 0.22 + i * 0.28, y + 0.75, 0.3 + r * 0.42, 0.055, (r + i + x) % 3 ? '#2a1a2a' : '#3a5a2a'); break;
       case 'gold': bx(x + 0.1, y + 0.15, x + 0.9, y + 0.85, 0, 0.9, '#3a3e44'); for (let r = 0; r < 2; r++) for (let i = 0; i < 2; i++) bx(x + 0.18 + i * 0.36, y + 0.3, x + 0.48 + i * 0.36, y + 0.7, 0.9 + r * 0.14, 1.02 + r * 0.14, '#e8b830'); glow(x + 0.5, y + 0.5, 1.1, 0.9, 'rgba(255,210,90,.25)'); break;
       case 'boxes': bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 1.8, '#6a7078'); for (let r = 0; r < 4; r++) for (let i = 0; i < 2; i++) { qL(x + 0.12 + i * 0.4, x + 0.48 + i * 0.4, y + 0.95, 0.1 + r * 0.42, 0.45 + r * 0.42, '#8a9098'); dot(x + 0.3 + i * 0.4, y + 0.95, 0.28 + r * 0.42, 0.02, '#2a2a2a'); } break;
-      case 'column': cyl(x + 0.5, y + 0.5, 0.42, 0, 0.18, '#b8b0a0'); cyl(x + 0.5, y + 0.5, 0.32, 0.18, 2.25, '#d8d0c0'); cyl(x + 0.5, y + 0.5, 0.42, 2.25, 2.45, '#b8b0a0'); break;
+      case 'column': cyl(x + 0.5, y + 0.5, 0.42, 0, 0.18, '#b8b0a0'); cyl(x + 0.5, y + 0.5, 0.32, 0.18, 2.25, '#e0d8c8'); cyl(x + 0.5, y + 0.5, 0.42, 2.25, 2.45, '#c8a040'); break;
       case 'pipe': bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0, 1.8, '#6a5a4a'); cyl(x + 0.5, y + 0.5, 0.25, 0.4, 0.6, '#c8402a'); break;
       case 'hcam': cyl(x + 0.5, y + 0.5, 0.05, 0, 1.75, '#3a3e44'); bx(x + 0.3, y + 0.3, x + 0.62, y + 0.55, 1.65, 1.88, '#d8dce0'); dot(x + 0.35, y + 0.35, 1.78, 0.045, '#1a1a1a'); break;
       case 'cdoor': {   // sbarre della cella
         const v = o.v, L2 = []; for (let i = 1; i < 6; i++) { const u = i / 6; L2.push(v ? [S(x + 0.5, y + u, 0), S(x + 0.5, y + u, 1.7)] : [S(x + u, y + 0.5, 0), S(x + u, y + 0.5, 1.7)]); }
         K.strokes(L2, '#8a9098', Math.max(2, TW / 14)); slab(K, x, y, v, 0.08, '#5a6068'); v ? bx(x + 0.42, y, x + 0.58, y + 1, 1.62, 1.75, '#5a6068') : bx(x, y + 0.42, x + 1, y + 0.58, 1.62, 1.75, '#5a6068'); break; }
-      case 'fdoor': slab(K, x, y, 0, 1.75, '#a8322a'); qL(x + 0.1, x + 0.9, y + 0.62, 0.8, 0.9, '#d8d8d0'); if (x === 2) { bx(x + 0.6, y + 0.5, x + 1.4, y + 0.62, 1.9, 2.15, '#2a8a4a'); glow(x + 1, y + 0.6, 2.0, 0.8, 'rgba(90,255,140,.35)'); } break;
-      case 'lift': slab(K, x, y, 0, 1.8, '#9aa2aa'); qL(x + (x === 31 ? 0.95 : 0), x + (x === 31 ? 1 : 0.05), y + 0.62, 0, 1.8, '#4a4f56'); if (x === 32) { bx(x + 0.15, y + 0.55, x + 0.35, y + 0.65, 0.9, 1.25, '#2a2e34'); dot(x + 0.25, y + 0.66, 1.15, 0.03, '#f2c84a'); dot(x + 0.25, y + 0.66, 1.0, 0.03, '#f2c84a'); } break;
+      case 'fdoor':   // porta tagliafuoco rossa (s = col cartello verde dell'uscita)
+        slab(K, x, y, o.v, 1.75, '#a8322a'); if (o.v) bx(x + 0.36, y + 0.1, x + 0.64, y + 0.9, 0.8, 0.9, '#d8d8d0'); else qL(x + 0.1, x + 0.9, y + 0.62, 0.8, 0.9, '#d8d8d0');
+        if (o.s) { o.v ? bx(x + 0.4, y + 0.3, x + 0.6, y + 0.7, 1.9, 2.15, '#2a8a4a') : bx(x - 0.4, y + 0.5, x + 0.4, y + 0.62, 1.9, 2.15, '#2a8a4a'); glow(x + (o.v ? 0.5 : 0), y + 0.6, 2.0, 0.8, 'rgba(90,255,140,.35)'); } break;
+      case 'lift':   // porta dell'ascensore: due ante d'acciaio con la cornice d'ottone (l = anta sinistra con i pulsanti)
+        slab(K, x, y, o.v, 1.8, '#9aa2aa');
+        if (o.v) { bx(x + 0.36, y + (o.l ? 0 : 0.95), x + 0.64, y + (o.l ? 0.05 : 1), 0, 1.85, '#c8a040'); if (o.l) { bx(x + 0.3, y + 0.15, x + 0.36, y + 0.35, 0.9, 1.25, '#2a2e34'); dot(x + 0.33, y + 0.25, 1.15, 0.03, '#f2c84a'); } }
+        else { qL(x + (o.l ? 0 : 0.95), x + (o.l ? 0.05 : 1), y + 0.62, 0, 1.85, '#c8a040'); if (!o.l) { bx(x + 0.15, y + 0.55, x + 0.35, y + 0.65, 0.9, 1.25, '#2a2e34'); dot(x + 0.25, y + 0.66, 1.15, 0.03, '#f2c84a'); dot(x + 0.25, y + 0.66, 1.0, 0.03, '#f2c84a'); } }
+        break;
       case 'fgate': { slab(K, x, y, 0, 0.12, '#2a2a2a'); const L2 = []; for (let i = 0; i < 5; i++) L2.push([S(x + i * 0.25, y + 0.5, 0.1), S(x + i * 0.25, y + 0.5, 1.6)]); K.strokes(L2, '#c8a828', Math.max(2, TW / 16)); bx(x, y + 0.42, x + 1, y + 0.58, 1.55, 1.7, '#2a2a2a'); break; }
       case 'bdoor': {   // porta blindata rotonda del caveau (2 caselle, disegnata da quella di destra)
         if (o.part) break; const cx0 = x, cy0 = y + 0.6;
@@ -261,6 +465,81 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
         for (const [a, b] of [[0.15, 0.85], [0.85, 0.85], [0.85, 0.15]]) line(S(x + a, y + b, 1.02), S(x + a, y + b, 1.7), c, w);
         line(S(x + 0.15, y + 0.85, 1.7), S(x + 0.85, y + 0.85, 1.7), c, w); line(S(x + 0.85, y + 0.85, 1.7), S(x + 0.85, y + 0.15, 1.7), c, w); line(S(x + 0.15, y + 0.15, 1.7), S(x + 0.85, y + 0.15, 1.7), c, w); line(S(x + 0.15, y + 0.15, 1.7), S(x + 0.15, y + 0.85, 1.7), c, w);
         glow(x + 0.5, y + 0.5, 1.2, 1.5, 'rgba(160,220,255,.3)'); break; }
+      // ---- arredi di lusso ----
+      case 'void': break;   // il vuoto dell'atrio
+      case 'balus':   // balaustra di marmo col corrimano d'ottone
+        bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 0.1, '#d8d0c0');
+        for (const a of [0.2, 0.5, 0.8]) for (const b of [0.2, 0.5, 0.8]) if ((a + b) % 0.6 < 0.31) cyl(x + a, y + b, 0.05, 0.1, 0.52, '#e6dece');
+        bx(x + 0.05, y + 0.42, x + 0.95, y + 0.58, 0.52, 0.58, '#b8963a'); bx(x + 0.42, y + 0.05, x + 0.58, y + 0.95, 0.52, 0.58, '#b8963a'); break;
+      case 'vstep': {   // i gradini dello scalone che scendono nel buio dell'atrio
+        const z = -0.3 * o.d, Pp = (u, v) => S(x + u, y + v, z);
+        poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], cqShade(x === O1 + 37 || x === O1 + 42 ? '#cfc6b4' : '#7a1e22', Math.max(0.12, 0.62 - o.d * 0.14)));
+        qL(x, x + 1, y, z, z + 0.3, cqShade('#cfc6b4', Math.max(0.1, 0.5 - o.d * 0.12))); break; }
+      case 'chand': {   // lampadario di cristallo appeso sopra l'atrio
+        const z = 1.4; line(S(x + 0.5, y + 0.5, z + 0.3), S(x + 0.5, y + 0.5, 3.4), '#8a7a4a', 1.5);
+        cyl(x + 0.5, y + 0.5, 0.75, z, z + 0.12, '#c8a040'); cyl(x + 0.5, y + 0.5, 0.45, z + 0.12, z + 0.3, '#d8b850');
+        for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; dot(x + 0.5 + Math.cos(a) * 0.7, y + 0.5 + Math.sin(a) * 0.7, z - 0.12, 0.05, '#e8f6ff'); dot(x + 0.5 + Math.cos(a) * 0.7, y + 0.5 + Math.sin(a) * 0.7, z + 0.2, 0.035, '#fff2c0'); }
+        glow(x + 0.5, y + 0.5, z + 0.1, 3.2, 'rgba(255,225,160,.45)'); break; }
+      case 'fount': {   // fontana di marmo a due vasche (2x2, disegnata dalla casella davanti)
+        if (o.part) break; const cx = x, cy = y;
+        cyl(cx, cy, 0.95, 0, 0.35, '#d8d0c0'); cyl(cx, cy, 0.85, 0.35, 0.37, '#4a8ab0'); cyl(cx, cy, 0.12, 0.37, 0.95, '#d8d0c0'); cyl(cx, cy, 0.45, 0.95, 1.05, '#d8d0c0'); cyl(cx, cy, 0.38, 1.05, 1.06, '#6aaad0');
+        cyl(cx, cy, 0.05, 1.06, 1.5, '#cfe8f4'); dot(cx, cy, 1.55, 0.08, '#e8f6ff'); glow(cx, cy, 0.5, 1.6, 'rgba(140,200,255,.3)'); break; }
+      case 'piano': {   // pianoforte a coda nero col coperchio aperto (2x2)
+        if (o.part) break; const x0 = x - 1, y0 = y - 1;
+        for (const [a, b] of [[0.2, 0.3], [1.7, 0.3], [1.0, 1.7]]) bx(x0 + a, y0 + b, x0 + a + 0.1, y0 + b + 0.1, 0, 0.62, '#111114');
+        bx(x0 + 0.1, y0 + 0.15, x + 0.9, y + 0.55, 0.62, 0.9, '#151518'); bx(x0 + 0.1, y + 0.55, x + 0.9, y + 0.8, 0.62, 0.72, '#ece8de');
+        poly([S(x0 + 0.15, y0 + 0.2, 0.9), S(x + 0.85, y0 + 0.2, 0.9), S(x + 0.6, y0 + 0.4, 1.9)], '#1e1e24'); line(S(x + 0.85, y0 + 0.2, 0.9), S(x + 0.6, y0 + 0.4, 1.9), '#3a3a44', 1.5);
+        bx(x0 + 0.7, y + 0.95, x0 + 1.3, y + 1.15, 0, 0.45, '#151518'); break; }
+      case 'vsofa': {   // divano di velluto rosso (b = lato dello schienale)
+        const c = '#7a1e2e', b = o.b || 'n'; bx(x + 0.05, y + 0.15, x + 0.95, y + 0.85, 0, 0.42, c);
+        if (b === 'n') bx(x + 0.05, y + 0.12, x + 0.95, y + 0.32, 0.42, 0.85, cqShade(c, 0.9)); else bx(x + 0.05, y + 0.68, x + 0.95, y + 0.88, 0.42, 0.85, cqShade(c, 0.9));
+        qL(x + 0.05, x + 0.95, y + 0.85, 0.05, 0.08, '#c8a040'); break; }
+      case 'armch': { const c = o.c || '#7a1e2e'; bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 0.42, c); bx(x + 0.15, y + 0.12, x + 0.85, y + 0.3, 0.42, 0.95, cqShade(c, 0.9)); bx(x + 0.12, y + 0.15, x + 0.25, y + 0.85, 0.42, 0.62, cqShade(c, 0.85)); bx(x + 0.75, y + 0.15, x + 0.88, y + 0.85, 0.42, 0.62, cqShade(c, 0.85)); break; }
+      case 'ctable': cyl(x + 0.5, y + 0.5, 0.08, 0, 0.36, '#c8a040'); bx(x + 0.12, y + 0.18, x + 0.88, y + 0.82, 0.36, 0.44, '#e8e2d8'); dot(x + 0.5, y + 0.5, 0.48, 0.07, '#c84a6a'); break;
+      case 'palm': {   // palma in un vaso d'ottone
+        cyl(x + 0.5, y + 0.5, 0.28, 0, 0.5, '#b8902e'); cyl(x + 0.5, y + 0.5, 0.06, 0.5, 1.5, '#6a4a2a');
+        const [X, Y] = S(x + 0.5, y + 0.5, 1.5); g.lineCap = 'round';
+        for (let i = 0; i < 7; i++) { const a = i * 0.9 + 0.3, r = TW * (0.55 + 0.1 * (i % 2)); g.strokeStyle = i % 2 ? '#3f7a3a' : '#4f9a44'; g.lineWidth = Math.max(2.5, TW / 12); g.beginPath(); g.moveTo(X, Y); g.quadraticCurveTo(X + Math.cos(a) * r * 0.6, Y - TW * 0.35, X + Math.cos(a) * r, Y + Math.sin(a) * r * 0.35 + TW * 0.05); g.stroke(); }
+        break; }
+      case 'candel':   // candelabro di bronzo con tre globi
+        cyl(x + 0.5, y + 0.5, 0.25, 0, 0.15, '#6a5a3a'); cyl(x + 0.5, y + 0.5, 0.05, 0.15, 1.9, '#8a7040');
+        for (const [a, b] of [[0.5, 0.5], [0.25, 0.5], [0.75, 0.5]]) { dot(x + a, y + b, a === 0.5 ? 2.15 : 1.9, 0.09, '#fff2c8'); }
+        glow(x + 0.5, y + 0.5, 2.0, 1.4, 'rgba(255,220,150,.4)'); break;
+      case 'recdesk':   // banco della reception: piano di marmo, fronte di legno con la fascia d'oro (b = campanello)
+        bx(x + 0.05, y + 0.05, x + 0.95, y + 0.95, 0, 0.95, '#5a3a24'); bx(x, y, x + 1, y + 1, 0.95, 1.05, '#e6dece'); qL(x + 0.05, x + 0.95, y + 0.95, 0.5, 0.58, '#c8a040');
+        if (o.b) { cyl(x + 0.4, y + 0.5, 0.08, 1.05, 1.12, '#e8c860'); dot(x + 0.4, y + 0.5, 1.14, 0.02, '#fff'); } break;
+      case 'keys':   // casellario delle chiavi delle camere
+        bx(x + 0.1, y + 0.3, x + 0.9, y + 0.7, 0, 1.9, '#5a3a24'); for (let r = 0; r < 4; r++) for (let i = 0; i < 3; i++) { qL(x + 0.16 + i * 0.25, x + 0.36 + i * 0.25, y + 0.7, 0.5 + r * 0.33, 0.78 + r * 0.33, '#3a2414'); dot(x + 0.26 + i * 0.25, y + 0.7, 0.6 + r * 0.33, 0.025, '#e8c860'); } break;
+      case 'barc':   // bancone del bar: legno scuro, piano di marmo, poggiapiedi d'ottone
+        bx(x, y + 0.1, x + 1, y + 0.9, 0, 1.0, '#3a2414'); bx(x, y + 0.05, x + 1, y + 0.95, 1.0, 1.08, '#e2dacb'); qL(x, x + 1, y + 0.9, 0.25, 0.3, '#c8a040'); qL(x + 0.1, x + 0.9, y + 0.9, 0.45, 0.85, '#4a2e1a');
+        dot(x + 0.3, y + 0.5, 1.15, 0.05, '#d8a040'); break;
+      case 'bottles':   // scaffale delle bottiglie con lo specchio
+        bx(x + 0.05, y + 0.1, x + 0.95, y + 0.5, 0, 1.95, '#2a1a10'); qL(x + 0.1, x + 0.9, y + 0.5, 0.2, 1.85, '#6a8a9a');
+        for (let r = 0; r < 3; r++) for (let i = 0; i < 4; i++) bx(x + 0.12 + i * 0.2, y + 0.42, x + 0.2 + i * 0.2, y + 0.5, 0.35 + r * 0.55, 0.62 + r * 0.55, ['#3a7a3a', '#8a5a1a', '#c8c8b8', '#7a1a2a'][(i + r + x) % 4]); break;
+      case 'stool': cyl(x + 0.5, y + 0.5, 0.05, 0, 0.7, '#a8acb2'); cyl(x + 0.5, y + 0.5, 0.2, 0.7, 0.8, '#8a1e22'); cyl(x + 0.5, y + 0.5, 0.18, 0, 0.03, '#6a6e74'); break;
+      case 'bench': bx(x + 0.1, y + 0.25, x + 0.9, y + 0.75, 0, 0.4, '#5a3a24'); bx(x + 0.12, y + 0.27, x + 0.88, y + 0.73, 0.4, 0.48, '#7a1e2e'); break;
+      case 'vase': cyl(x + 0.5, y + 0.5, 0.22, 0, 0.9, '#e6dece'); cyl(x + 0.5, y + 0.5, 0.28, 0.9, 0.98, '#c8a040'); cyl(x + 0.5, y + 0.5, 0.14, 0.98, 1.3, '#2a5a8a'); for (let i = 0; i < 5; i++) dot(x + 0.5 + Math.cos(i * 1.26) * 0.15, y + 0.5 + Math.sin(i * 1.26) * 0.15, 1.45, 0.06, ['#e8406a', '#f2e2f0', '#f2c84a'][i % 3]); break;
+      case 'globe': cyl(x + 0.5, y + 0.5, 0.2, 0, 0.08, '#5a3a24'); cyl(x + 0.5, y + 0.5, 0.04, 0.08, 0.8, '#8a6a3a'); { const [X, Y] = S(x + 0.5, y + 0.5, 1.05); g.fillStyle = '#3a7aa8'; g.beginPath(); g.arc(X, Y, TW * 0.22, 0, 7); g.fill(); g.fillStyle = '#6aa04a'; g.beginPath(); g.ellipse(X - TW * 0.05, Y - TW * 0.03, TW * 0.1, TW * 0.07, 0.5, 0, 7); g.fill(); g.strokeStyle = '#c8a040'; g.lineWidth = Math.max(1.5, TW / 30); g.beginPath(); g.arc(X, Y, TW * 0.26, -2.2, 1.2); g.stroke(); } break;
+      case 'cart': bx(x + 0.12, y + 0.2, x + 0.88, y + 0.8, 0.12, 0.85, '#c8ccd2'); bx(x + 0.14, y + 0.22, x + 0.86, y + 0.78, 0.85, 1.0, '#f2f0ea'); for (const [a, b] of [[0.2, 0.25], [0.8, 0.25], [0.2, 0.75], [0.8, 0.75]]) dot(x + a, y + b, 0.06, 0.05, '#2a2a2a'); break;
+      case 'boiler': cyl(x + 0.5, y + 0.5, 0.42, 0, 1.9, '#8a8478'); cyl(x + 0.5, y + 0.5, 0.44, 0.4, 0.48, '#5a5448'); cyl(x + 0.5, y + 0.5, 0.44, 1.4, 1.48, '#5a5448'); dot(x + 0.5, y + 0.92, 1.0, 0.07, '#e8e0c8'); break;
+      case 'pool': {   // acqua della piscina, illuminata da sotto
+        const Pp = (u, v) => S(x + u, y + v, -0.12); poly([Pp(0, 0), Pp(1, 0), Pp(1, 1), Pp(0, 1)], (x + y) % 2 ? '#2a7aa8' : '#2e80ae');
+        if (TW >= 40 && K.hsh(x, y, 2) < 0.4) K.strokes([[Pp(0.2, 0.4), Pp(0.6, 0.45)]], 'rgba(200,240,255,.35)', Math.max(1.5, TW / 30));
+        if ((x === 5 && (y === 21 || y === 29))) glow(x + 0.5, y + 0.5, 0, 1.4, 'rgba(90,200,255,.3)'); break; }
+      case 'lounger': bx(x + 0.15, y + 0.05, x + 0.85, y + 0.95, 0.15, 0.25, '#e8e4dc'); bx(x + 0.15, y + 0.05, x + 0.85, y + 0.3, 0.25, 0.55, '#e8e4dc'); for (const [a, b] of [[0.2, 0.1], [0.8, 0.1], [0.2, 0.9], [0.8, 0.9]]) bx(x + a - 0.03, y + b - 0.03, x + a + 0.03, y + b + 0.03, 0, 0.15, '#a8a8a8'); break;
+      case 'parasol': cyl(x + 0.5, y + 0.5, 0.04, 0, 1.6, '#e8e4dc'); { const [X, Y] = S(x + 0.5, y + 0.5, 1.6); g.fillStyle = '#c8402a'; g.beginPath(); g.ellipse(X, Y + TW * 0.05, TW * 0.6, TW * 0.28, 0, Math.PI, 0); g.fill(); g.fillStyle = '#e8e4dc'; g.beginPath(); g.ellipse(X, Y + TW * 0.05, TW * 0.6, TW * 0.08, 0, 0, Math.PI); g.fill(); } break;
+      case 'bin': bx(x + 0.08, y + 0.15, x + 0.92, y + 0.85, 0, 1.0, '#2e4a3a'); bx(x + 0.05, y + 0.12, x + 0.95, y + 0.88, 1.0, 1.08, '#24382c'); break;
+      case 'flower': bx(x + 0.02, y + 0.15, x + 0.98, y + 0.85, 0, 0.3, '#d6ccb6'); bx(x + 0.08, y + 0.2, x + 0.92, y + 0.8, 0.3, 0.38, '#3a2a1a'); for (let i = 0; i < 5; i++) dot(x + 0.15 + i * 0.17, y + 0.5 + (i % 2 ? 0.12 : -0.12), 0.48, 0.07, ['#e8406a', '#f2f0e0', '#c84aa8', '#f2c84a', '#e8406a'][i]); break;
+      case 'statue': bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 0.6, '#cfc6b4'); cyl(x + 0.5, y + 0.5, 0.14, 0.6, 1.5, '#e6dece'); dot(x + 0.5, y + 0.5, 1.65, 0.13, '#e6dece'); bx(x + 0.3, y + 0.42, x + 0.7, y + 0.58, 1.25, 1.35, '#e6dece'); break;
+      case 'lpost':   // lampione di ghisa
+        cyl(x + 0.5, y + 0.5, 0.12, 0, 0.2, '#1e2024'); cyl(x + 0.5, y + 0.5, 0.05, 0.2, 2.3, '#24262a'); bx(x + 0.36, y + 0.36, x + 0.64, y + 0.64, 2.3, 2.7, '#f6e2a0'); bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 2.7, 2.78, '#1e2024');
+        glow(x + 0.5, y + 0.5, 2.5, 1.8, 'rgba(255,220,150,.45)'); break;
+      case 'car': {   // auto parcheggiata (2 caselle lungo x, disegnata dalla casella davanti)
+        if (o.part) break; const x0 = x - 1, c = o.c || '#3a4a6a';
+        for (const [a, b] of [[0.4, 0.15], [1.6, 0.15], [0.4, 0.85], [1.6, 0.85]]) cyl(x0 + a, y + b, 0.17, 0, 0.3, '#141518');
+        bx(x0 + 0.08, y + 0.14, x0 + 1.92, y + 0.86, 0.2, 0.62, c); bx(x0 + 0.5, y + 0.2, x0 + 1.45, y + 0.8, 0.62, 1.0, cqShade(c, 1.1));
+        qL(x0 + 0.55, x0 + 1.4, y + 0.8, 0.66, 0.96, '#2a3a4a'); poly([S(x0 + 1.45, y + 0.2, 1.0), S(x0 + 1.45, y + 0.8, 1.0), S(x0 + 1.62, y + 0.8, 0.64), S(x0 + 1.62, y + 0.2, 0.64)], '#3a4a5a');
+        dot(x0 + 1.93, y + 0.28, 0.45, 0.05, '#e8e0b0'); dot(x0 + 1.93, y + 0.72, 0.45, 0.05, '#e8e0b0'); break; }
     }
   }
   CQ_MAPS.grandhotel = { n: 'Grand Hotel di notte', make: mapHotel, only: 'colpo' };
@@ -273,15 +552,15 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     kA: ['🗝️', 'la prima chiave del caveau'], kB: ['🗝️', 'la seconda chiave del caveau'], fake: ['💠', 'il diamante finto'], diam: ['💎', 'il DIAMANTE'] };
   function makePlan(G) {
     const pick = a => a[Math.floor(Math.random() * a.length)];
-    const pl = G.plan = { a: pick(['asc', 'sca', 'mon']), b: pick(['tas', 'imp', 'dop']), bc: pick(['post', 'split', 'mon']), c: pick(['las', 'pes', 'cmb']), dr: Math.floor(Math.random() * 8), gb: -1, code: String(1000 + Math.floor(Math.random() * 9000)) };
+    const pl = G.plan = { a: pick(['asc', 'sca', 'mon']), b: pick(['tas', 'imp', 'dop']), bc: pick(['post', 'split', 'mon']), c: pick(['las', 'pes', 'cmb']), dr: Math.floor(Math.random() * MP().camere.length), gb: -1, code: String(1000 + Math.floor(Math.random() * 9000)), e: Math.floor(Math.random() * 4) };
     if (window.__PLAN) Object.assign(pl, window.__PLAN);   // prove
     const it = G.it = [], add = (k, s) => it.push({ k, s, c: -1, st: 0 });
-    add(ACC[pl.a].it, pick(ACC[pl.a].cand));
+    add(ACC[pl.a].it, window.__SPOT0 || pick(ACC[pl.a].cand));   // __SPOT0: prove
     if (pl.b === 'imp') add('imp', pick(['bicch', 'tazz']));
     if (pl.b === 'dop') { add('kA', pick(['kUff', 'kSpo', 'kCus'])); add('kB', pick(['kLav', 'kCan'])); }
     if (pl.c === 'pes') add('fake', 'vetr');
     add('diam', 'teca');
-    const b = it.find(i => i.s === 'guard'); if (b) { const cand = G.gd.filter(g => !g.post); pl.gb = cand.length ? cand[Math.floor(Math.random() * cand.length)].id : -1; if (pl.gb < 0) b.s = 'giacca'; }
+    const b = it.find(i => i.s === 'guard'); if (b) { const cand = G.gd.filter(g => !g.post && floorOf(g.route[0][0]) !== 2); pl.gb = cand.length ? cand[Math.floor(Math.random() * cand.length)].id : -1; if (pl.gb < 0) b.s = 'giacca'; }   // il badge mai alla guardia dell'interrato: prima del badge li' non si arriva
   }
   // i posti dove frugare per questo colpo (con la camera del direttore)
   function spot(G, k) {
@@ -473,7 +752,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   // ======================= LADRI DEL COMPUTER =======================
   function go(G, c, x, y) {
     let tx = x, ty = y; if (!cqCellFree(Math.floor(tx), Math.floor(ty))) { const q = cqSpot(Math.floor(tx), Math.floor(ty)); tx = q.x; ty = q.y; }
-    c.path = cqPath(c.x, c.y, tx, ty); c.gx = tx; c.gy = ty; return c.path.length > 0 || Math.hypot(c.x - tx, c.y - ty) < 0.7;
+    c.path = route(c.x, c.y, tx, ty); c.gx = tx; c.gy = ty; return c.path.length > 0 || Math.hypot(c.x - tx, c.y - ty) < 0.7;
   }
   const rangeAt = (G, x, y) => litAt(G, x, y) ? LIT_R : DARK_R;   // portata delle guardie verso il punto x, y: in luce lontano, in ombra solo la torcia
   // una guardia mi vedrebbe in x, y? (con un po' di margine)
@@ -494,10 +773,10 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   // obiettivo del computer: dove andare e cosa fare li'
   function botGoal(G, c) {
     const M = MP(), pl = G.plan, mine = k => G.it.some(i => i.k === k && i.st === 1 && i.c === c.id);
-    if (c.dm) return { x: M.van.x, y: M.van.y, k: 'van' };
+    if (c.dm) { const v = vanP(G); return { x: v.x, y: v.y, k: 'van' }; }
     const jailed = G.chars.filter(o => o.jail);
     if (jailed.length && !(G.cellO > G.time) && G.time > (G.rescT || 0)) { const res = G.chars.filter(o => o.bot && !o.jail && o.goal && o.goal.k === 'free'); if (!res.length || res[0] === c) return { x: M.cellOut[0], y: M.cellOut[1], k: 'free' }; }
-    if (G.cellO > G.time && c.jail === 0 && inRoom(c.x, c.y, M.cellRoom)) return { x: 50.5, y: 9.5, k: 'out' };
+    if (G.cellO > G.time && c.jail === 0 && inRoom(c.x, c.y, M.cellRoom)) return { x: 59.5, y: 41.5, k: 'out' };
     if (conf(G).length && G.chars.filter(o => o.bot && o.goal && o.goal.k === 'conf' && o !== c).length === 0) { const s = M.SP.conf; return { x: s.x + 0.5, y: s.y + 0.5, k: 'conf' }; }
     // oggetti miei da usare
     if (!G.o1 && mine(ACC[pl.a].it)) { const gt = M.gates[pl.a]; return { x: gt.s[0], y: gt.s[1], k: 'acc' }; }
@@ -558,8 +837,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     if (c.op) { c.walk = 0; const g = danger(G, c.x, c.y, 1.6); if (g && c.op.k !== 'take' && c.op.k !== 'swp') { c.op = null; c.hold = 0; flee(G, c, g); } return; }
     // furtivo: se il prossimo passo finisce in vista di una guardia, aspetto e mi tiro indietro
     if (c.goal && c.goal.k !== 'flee' && c.goal.k !== 'van' && c.goal.k !== 'hide') {
-      if ((c.hold || 0) > G.time) { const g = danger(G, c.x, c.y, 0.8); if (g) flee(G, c, g); else { c.walk = 0; return; } }
-      else { const p = c.path[0], q = c.path[2] || p, r = c.path[4] || q; const g = p && (danger(G, q[0], q[1], 1.2) || danger(G, p[0], p[1], 1.2) || danger(G, r[0], r[1], 0.6)); if (g && g.st !== 'chase') { c.hold = G.time + 0.8 + Math.random() * 1.6; c.path = []; c.walk = 0; return; } }
+      if ((c.hold || 0) > G.time && c.goal.k !== 'stalk') { const g = danger(G, c.x, c.y, 0.8); if (g) flee(G, c, g); else { c.walk = 0; return; } }
+      else { const p = c.path[0], q = c.path[2] || p, r = c.path[4] || q; const g = p && (danger(G, q[0], q[1], 1.2) || danger(G, p[0], p[1], 1.2) || danger(G, r[0], r[1], 0.6)); if (g && g.st !== 'chase' && !(c.goal.k === 'stalk' && g.id === G.plan.gb && !GD.sees(g, c.x, c.y, rangeAt(G, c.x, c.y) + 0.5))) { c.hold = G.time + 0.8 + Math.random() * 1.6; c.path = []; c.walk = 0; return; } }   // la guardia col badge: ci si avvicina finche' non mi vede
     }
     cqModeStep(c, dt, (c.goal && c.goal.k === 'flee' ? 1 : WALK) * MODE.speed(c));
   }
@@ -567,7 +846,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   // ======================= IL GIOCO NEL MOTORE =======================
   function setup(G) {
     G.lg = []; G.lgN = 0; G.sr = {}; G.ck = [0, 0]; G.o1 = 0; G.o2 = 0; G.o3 = 0; G.lz = 0; G.sw = 0; G.cb = 0; G.tk = [-9, -9]; G.tkc = [-1, -1]; G.alE = 0; G.alP = 0;
-    G.dk = { A: 0, U: 0, T: 0, I: 0 }; G.cellO = 0; G.qi = 0; G.cn = []; G.cnN = 0; G.cs = MP().hcams.map(() => 0); G.ccd = MP().hcams.map(() => 0); G.left = G.opt.time || 600; G.esc = null; G.myJn = 0;
+    G.dk = { T: 0, S: 0, I: 0 }; G.cellO = 0; G.qi = 0; G.cn = []; G.cnN = 0; G.cs = MP().hcams.map(() => 0); G.ccd = MP().hcams.map(() => 0); G.left = G.opt.time || 600; G.esc = null; G.myJn = 0;
   }
   // porte: chiuse/aperte su ogni telefono (cqSolid) secondo lo stato
   function syncDoors(G) {
@@ -575,12 +854,20 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     G.dD = G.dD || {};
     for (const k in want) {
       const v = want[k] ? 1 : 0; if (G.dD[k] === v) continue; G.dD[k] = v;
-      const cells = k === 'vault' ? M.vdoor.c : k === 'cell' ? [[55, 3], [55, 4]] : M.gates[k].c, t = k === 'vault' ? 'bdoor' : k === 'cell' ? 'cdoor' : k === 'sca' ? 'fdoor' : k === 'asc' ? 'lift' : 'fgate';
-      cells.forEach(([x, y], i) => { cqSolid[y][x] = v ? null : { prop: t, o: k === 'cell' ? { v: 1 } : k === 'vault' && i === 0 ? { part: 1 } : {} }; cqBgCell(x, y, 1); });
+      const D2 = k === 'vault' ? M.vdoor.d : k === 'cell' ? M.cdoor.d : M.gates[k].d;   // porte di un passaggio: quella al piano terra e quella nell'interrato
+      for (const [x, y, t, o] of D2) { cqSolid[y][x] = v ? null : { prop: t, o }; cqBgCell(x, y, 1); }
       if (!v && !cqFree(cq.x, cq.y)) { const q = cqSpot(Math.floor(cq.x), Math.floor(cq.y)); cq.x = q.x; cq.y = q.y; }
-      const d = Math.hypot(cells[0][0] - cq.x, cells[0][1] - cq.y); if (d < 14 && G.time > 0.5) { thud(0.6 * (1 - d / 14), k === 'vault' ? 70 : 140); }
+      const d = Math.min(...D2.map(q => Math.hypot(q[0] - cq.x, q[1] - cq.y))); if (d < 14 && G.time > 0.5) { thud(0.6 * (1 - d / 14), k === 'vault' ? 70 : 140); }
+    }
+    // il furgone della fuga nel parcheggio di stanotte (fari accesi quando c'e' il diamante)
+    const on = G.o3 ? 1 : 0;
+    if (G.vanE !== G.plan.e || G.vanOn !== on) {
+      const E = M.ents[G.plan.e], [x, y] = E.v; G.vanE = G.plan.e; G.vanOn = on;
+      cqSolid[y][x] = { prop: 'van', o: { on } }; cqSolid[y][x - 1] = { prop: 'van', o: { part: 1 } }; cqBgCell(x, y); cqBgCell(x - 1, y);
     }
   }
+  // dove ci si mette per salire sul furgone
+  const vanP = G => MP().ents[G.plan ? G.plan.e : 0].van;
   const scrA = a => { const c = Math.cos(a), s = Math.sin(a); return Math.atan2((c + s) / 2, c - s); };
   const env = G => ({ thieves: free(G), pos: P, vis: c => c.bot ? 0.65 : 1,   // i compagni del computer si notano un po' meno (come negli altri giochi furtivi cooperativi)
   range: (x, y) => rangeAt(G, x, y), alert: alertOn(G), k: G.opt.dif === 'f' ? 0.8 : G.opt.dif === 'd' ? 1.25 : 1, speed: 1,
@@ -600,18 +887,20 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       const M = MP(), R = M.routes, dif = G.opt.dif || 'n';
       // quante guardie: secondo la difficolta' e quanti ladri (in due meno guardie)
       const nl = G.chars.length, ng = Math.min(8, { f: 4, n: 6, d: 8 }[dif] - (nl <= 2 ? 2 : 0) + (nl >= 6 ? 1 : 0));
-      const list = ['cella', 'grande', 'interrato', 'hall', 'uffici', 'camere', 'cucine', 'negozio'].slice(0, ng);
+      const list = ['cella', 'hall', 'primo', 'interrato', 'servizio', 'camere', 'ovest', 'esterno'].slice(0, ng);
+      GD.pathFn = route;   // le guardie salgono e scendono le scale
       G.gd = GD.make(list.map(k => R[k])); G.gd.forEach(g => { if (!g.post) { g.ri = Math.floor(Math.random() * g.route.length); const w = g.route[g.ri]; g.x = w[0]; g.y = w[1]; g.a = w[3] || 0; } });
       setup(G); makePlan(G); cq.hcRun = false;
+      if (window.__ENT != null) G.plan.e = window.__ENT;   // prove
       // nessun ladro del computer vestito da guardia (si confonderebbe con quelle vere)
       const sk = Object.keys(CQ_SKINS).filter(k => k !== 'guardia' && k !== 'omino' && !G.chars.some(c => c.look && c.look.skin === k));
       for (const c of G.chars) if (c.bot && c.look && c.look.skin === 'guardia') { const k = sk.shift(); c.look = k ? { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' } : { skin: 'omino', col: '#e2553a', hat: 'borsalino' }; }
-      const ring = M.ring.slice();
+      const ring = M.ents[G.plan.e].ring.slice();
       G.chars.forEach((c, i) => { const [x, y] = ring[i % ring.length]; Object.assign(c, { x: x + 0.5, y: y + 0.5, jail: 0, jt: 0, jn: 0, op: null, coins: COINS, path: [], dm: 0, esc: 0, sc: 0, ko: 0, fr: 0, ca: 0, ev: 0, evf: 0, lo: 0, t: 0 }); });
       cq.x = G.me.x; cq.y = G.me.y;
     },
-    gstart(G) { cq.mapDirty = true; cqUseMap('grandhotel'); setup(G); cq.hcRun = false; G.gd = []; G.plan = null; G.it = []; },
-    intro: G => G.plan ? '💎 Il colpo di stanotte: guarda la lavagna in alto a sinistra!' : '💎 Colpo all\'hotel',
+    gstart(G) { cq.mapDirty = true; cqUseMap('grandhotel'); GD.pathFn = route; setup(G); cq.hcRun = false; G.gd = []; G.plan = null; G.it = []; },
+    intro: G => G.plan ? '💎 Entrate dal ' + ENT[G.plan.e] + ': guardate la lavagna in alto a sinistra!' : '💎 Colpo all\'hotel',
     speed(c) {
       const G = cq.g; if (!G || !G.plan) return 1; if (c.op || c.esc) return 0;
       return (c === G.me ? (cq.hcRun && !c.jail ? 1 : WALK) : 1) * (c.dm ? 0.94 : 1);
@@ -658,6 +947,15 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (G.guest) GD.smooth(G, dt);
       // in cella: il mio personaggio ci finisce dentro sul mio telefono
       if (me.jail && me.jn !== G.myJn && me.js) { G.myJn = me.jn; cq.x = me.js[0]; cq.y = me.js[1]; cqCloseTask(); }
+      // SCALE E ASCENSORI: entrando nella casella del passaggio si cambia piano. Dopo l'arrivo il passaggio si riattiva solo quando ci si e' allontanati
+      // di 2 caselle (se no, continuando a camminare nella stessa direzione, si tornerebbe subito indietro)
+      if (!me.bot && !me.jail && !me.esc) {
+        if (G.tpL && Math.hypot(cq.x - G.tpL[0], cq.y - G.tpL[1]) > 2) G.tpL = null;
+        const Pq = portalAt(cq.x, cq.y);
+        if (Pq && !G.tpL) { const [x, y] = Pq.to(cq.x, cq.y); cq.x = x; cq.y = y; G.tpL = [x, y]; thud(0.35, Pq.k === 'asc' || Pq.k === 'mon' ? 90 : 160); }
+      }
+      // cambio di piano (scale, ascensori, cella): dissolvenza dal nero e il nome del piano
+      { const f = floorOf(cq.x); if (G.myF !== f) { if (G.myF != null) G.fade = performance.now(); G.myF = f; } }
       // battito del cuore se una guardia mi sospetta o mi insegue
       G.hb = 0;
       for (const g of G.gd) { if (g.st === 'chase' && g.tgt === me.id) G.hb = 1; else if (g.st === 'sus' && Math.hypot(g.lx - cq.x, g.ly - cq.y) < 2.5) G.hb = Math.max(G.hb, 0.4 + 0.6 * g.sus); }
@@ -671,6 +969,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       G.left -= dt;
       const M = MP(), E = env(G);
       GD.tick(G, dt, E);
+      for (const g of G.gd) npcTp(g);   // guardie che salgono o scendono
       // telecamere: chi resta nel cono per 0,7 s fa venire la guardia piu' vicina
       M.hcams.forEach((cm, i) => {
         if (darkAt(G, cm.x, cm.y) || G.ccd[i] > G.time) { G.cs[i] = 0; return; }
@@ -698,10 +997,10 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       // fuga col diamante (chi ce l'ha in tasca: anche dopo averlo ripreso dall'armadio delle confische)
       { const di = G.it.find(i => i.k === 'diam'); for (const c of G.chars) c.dm = di && di.st === 1 && di.c === c.id ? 1 : 0; }
       const dh = G.chars.find(c => c.dm && !c.jail);
-      if (dh && !G.esc && dxy(dh, M.van.x, M.van.y) < VAN_R) { G.esc = { id: dh.id, at: G.time + 1.5 }; dh.esc = 1; say(G, 'esc', { a: dh.id }); }
+      if (dh && !G.esc && dxy(dh, vanP(G).x, vanP(G).y) < VAN_R) { G.esc = { id: dh.id, at: G.time + 1.5 }; dh.esc = 1; say(G, 'esc', { a: dh.id }); }
       if (G.esc && G.time >= G.esc.at) { MODE.finish(G, 'win'); return; }
       // computer
-      for (const c of G.chars) { if (!c.bot || !c.alive || c.esc) continue; botT(G, c, dt); }
+      for (const c of G.chars) { if (!c.bot || !c.alive || c.esc) continue; botT(G, c, dt); npcTp(c); }
       if (G.left <= 0) MODE.finish(G, 'time');
     },
     finish(G, why) {
@@ -738,12 +1037,12 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     // NOTTE: luci del soffitto per ala (il quadro elettrico le spegne), torce delle guardie, telecamere; io vedo poco intorno a me
     night(G) {
       if (!G.plan) return null;
-      const me = G.me, M = MP(), near = (x, y, k) => Math.abs(x - cq.x) < k && Math.abs(y - cq.y) < k, lights = [[cq.x, cq.y, MY_R, 0.75]];
+      const me = G.me, M = MP(), mf = floorOf(cq.x), near = (x, y, k) => Math.abs(x - cq.x) < k && Math.abs(y - cq.y) < k && floorOf(x) === mf, lights = [[cq.x, cq.y, MY_R, 0.75]];
       for (const [x, y, a] of M.lamps) if (near(x, y, 16) && !(a !== 'X' && G.time < (G.dk[a] || 0))) lights.push([x, y, LAMP_R * 1.15, 0.78]);
       for (const g of G.gd) if (near(g.x, g.y, 20)) { lights.push([g.x, g.y, 1.0, 0.6]); if (g.st !== 'ko') lights.push([g.x, g.y, DARK_R * 1.05, 0.72, scrA(g.a), GD.HALF]); }
-      if (!G.o3) lights.push([M.teca.x + 0.5, M.teca.y + 0.5, 1.5, 0.55]);
+      if (!G.o3 && mf === 2) lights.push([M.teca.x + 0.5, M.teca.y + 0.5, 1.5, 0.55]);
       for (const c of G.chars) if (c !== me && c.alive && !c.esc && near(c.x, c.y, 16)) lights.push([c.x, c.y, 1.0, 0.45]);
-      return { a: 0.95, r: MY_R, lights, see: () => true };
+      return { a: 0.95, r: MY_R, lights, see: x => floorOf(x) === mf };   // si vede solo chi e' al mio piano
     },
     deco(g, c, X, Y, TW, G) {
       if (c.op) { const k = Math.min(1, (G.time - c.op.t0) / c.op.d); g.strokeStyle = '#f2c84a'; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 2.1, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
@@ -752,7 +1051,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     },
     over(g, G, sx, sy, TW) {
       if (!G.plan) return;
-      const me = G.me, W2 = cq.w, H2 = cq.h, M = MP(), now = performance.now() / 1000, near = (x, y, r) => Math.abs(x - cq.x) < r && Math.abs(y - cq.y) < r;
+      const me = G.me, W2 = cq.w, H2 = cq.h, M = MP(), now = performance.now() / 1000, mf = floorOf(cq.x), near = (x, y, r) => Math.abs(x - cq.x) < r && Math.abs(y - cq.y) < r && floorOf(x) === mf;
       const wedge = (pts, col, line) => { g.fillStyle = col; g.beginPath(); pts.forEach(([x, y], i) => i ? g.lineTo(sx(x, y), sy(x, y)) : g.moveTo(sx(x, y), sy(x, y))); g.closePath(); g.fill(); if (line) { g.strokeStyle = line; g.lineWidth = 1.5; g.stroke(); } };
       // CONI DI VISTA delle guardie che vedo (fermati dai muri) e delle telecamere accese
       for (const gd of G.gd) {
@@ -774,9 +1073,9 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       for (const k of needSpots(G)) { const s = spot(G, k); if (!near(s.x, s.y, 14)) continue; const X = sx(s.x + 0.5, s.y + 0.5), Y = sy(s.x + 0.5, s.y + 0.5) - TW * 1.25 + Math.sin(now * 3 + s.x) * 3, q = TW * (0.13 + 0.04 * Math.sin(now * 5 + s.y)); star(g, X, Y, q, '#fff4b8'); }
       if (conf(G).length) { const s = M.SP.conf; if (near(s.x, s.y, 14)) star(g, sx(s.x + 0.5, s.y + 0.5), sy(s.x + 0.5, s.y + 0.5) - TW * 1.6, TW * 0.16, '#ff9a6a'); }
       // cartello "Non disturbare" sulla porta della camera del direttore
-      if ((G.plan.a === 'asc' && G.it.some(i => i.s === 'comod')) || (G.plan.b === 'tas' && G.plan.bc === 'split')) { const r = M.camere[G.plan.dr], [dx, dy] = r.door; if (near(dx, dy, 14)) { const X = sx(dx + 1, dy + (r.top ? 0.2 : 0.8)), Y = sy(dx + 1, dy + 0.5) - TW * 1.3; g.fillStyle = '#c8302a'; cqRR(g, X - 15, Y - 7, 30, 14, 3); g.fill(); g.fillStyle = '#fff'; g.font = '700 7px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NON', X, Y - 3); g.fillText('DISTURBARE', X, Y + 3.5); } }
+      if ((G.plan.a === 'asc' && G.it.some(i => i.s === 'comod')) || (G.plan.b === 'tas' && G.plan.bc === 'split')) { const r = M.camere[G.plan.dr], [dx, dy] = r.sign; if (near(dx, dy, 14)) { const X = sx(dx + 0.5, dy + 1), Y = sy(dx + 0.5, dy + 1) - TW * 1.5; g.fillStyle = '#c8302a'; cqRR(g, X - 15, Y - 7, 30, 14, 3); g.fill(); g.fillStyle = '#fff'; g.font = '700 7px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('NON', X, Y - 3); g.fillText('DISTURBARE', X, Y + 3.5); } }
       // passaggi fuori servizio e sbarramenti
-      for (const k in M.gates) { const gt = M.gates[k]; if (!near(gt.s[0], gt.s[1], 14)) continue; const X = sx(gt.s[0] - 0.5, gt.s[1] - 0.5), Y = sy(gt.s[0] - 0.5, gt.s[1] - 0.5) - TW * 2.1; g.font = Math.round(TW * 0.42) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k !== G.plan.a ? '🚫' : G.o1 ? '✅' : '🔒', X, Y); }
+      for (const k in M.gates) for (const q of [M.gates[k].s, M.gates[k].si]) { if (!near(q[0], q[1], 14)) continue; const X = sx(q[0] - 0.5, q[1] - 0.5), Y = sy(q[0] - 0.5, q[1] - 0.5) - TW * 2.1; g.font = Math.round(TW * 0.42) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(k !== G.plan.a ? '🚫' : G.o1 ? '✅' : '🔒', X, Y); }
       // porta del caveau: tastierino / impronta / due serrature
       { const V = M.vdoor; if (near(V.s[0], V.s[1], 14) && !G.o2) { g.font = Math.round(TW * 0.4) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
         if (G.plan.b === 'dop') for (const [sd, q] of [[0, V.kl], [1, V.kr]]) { const X = sx(q[0], q[1]), Y = sy(q[0], q[1]) - TW * 1.4, on = G.time - G.tk[sd] < TURN_WIN; g.fillText(on ? '🔓' : '🗝️', X, Y); }
@@ -791,16 +1090,42 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       // i miei passi di corsa: anelli che si allargano (fin dove ti sentono)
       if (cq.hcRun && cq.walk && !me.jail) { const k = (now % 0.7) / 0.7, X = sx(cq.x, cq.y), Y = sy(cq.x, cq.y); g.strokeStyle = 'rgba(255,200,120,' + (0.5 * (1 - k)) + ')'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, Y, RUN_R * TW * 0.707 * k, RUN_R * TW * 0.354 * k, 0, 0, 7); g.stroke(); }
       // furgone: freccia per chi ha il diamante
-      if (me.dm && !me.jail) SQ.edge(g, sx(M.van.x, M.van.y), sy(M.van.x, M.van.y) - TW, W2, H2, '🚐', '#3fae5a');
+      if (me.dm && !me.jail) { const t = toward(vanP(G).x, vanP(G).y); SQ.edge(g, sx(t.x, t.y), sy(t.x, t.y) - TW, W2, H2, t.p ? '🪜' : '🚐', '#3fae5a'); }
       // allerta: bordo rosso che pulsa; inseguito: bordi rossi col battito
       if (alertOn(G)) { const a = 0.18 + 0.12 * Math.sin(now * 4); g.strokeStyle = 'rgba(255,40,40,' + a + ')'; g.lineWidth = 8; g.strokeRect(4, 4, W2 - 8, H2 - 8); }
       if (G.hb > 0) { const k = Math.max(0, 1 - (performance.now() - (G.hbP || 0)) / 380), a = 0.12 + 0.3 * G.hb * (0.5 + 0.5 * k); const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.72); gr.addColorStop(0, 'rgba(160,0,0,0)'); gr.addColorStop(1, 'rgba(160,0,0,' + a + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2); }
       if (me.jail) { g.fillStyle = 'rgba(30,34,44,.35)'; g.fillRect(0, 0, W2, H2); }
+      // lampadari di cristallo della hall e del salone (accesi finche' il quadro non spegne il piano terra)
+      if (mf === 0 && !darkAt(G, 40, 30)) for (const [x, y] of [[33.5, 36.5], [46.5, 36.5], [40, 15.5]]) if (near(x, y, 16)) chandelier(g, sx(x, y), sy(x, y) - TW * 4.4, TW, now);
+      // cambio di piano: si arriva dal nero, col nome del piano
+      if (G.fade) { const t = performance.now() - G.fade;
+        if (t < 520) { g.fillStyle = 'rgba(4,4,6,' + (1 - t / 520) + ')'; g.fillRect(0, 0, W2, H2); }
+        if (t < 1700) { const a = Math.min(1, (1700 - t) / 400); g.globalAlpha = a; g.fillStyle = 'rgba(10,10,14,.7)'; cqRR(g, W2 / 2 - 90, H2 * 0.3 - 22, 180, 44, 12); g.fill(); g.fillStyle = '#f2dca0'; g.font = '800 20px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(['🏛️ ', '⬆️ ', '⬇️ '][mf] + FLN[mf].toUpperCase(), W2 / 2, H2 * 0.3); g.globalAlpha = 1; } }
       board(g, G); minimap(g, G, W2);
     }
   };
+  // verso un punto, anche a un altro piano: se e' a un altro piano, il passaggio piu' vicino che ci porta (p = passaggio)
+  function toward(x, y) {
+    const a = floorOf(cq.x), b = floorOf(x); if (a === b) return { x, y };
+    const hop = a === 0 ? b : 0; let best = null, bd = 1e9;
+    for (const Pq of MP().portals) { if (Pq.f !== a || Pq.tf !== hop) continue; const c = Pq.cells[0], d = Math.hypot(c[0] + 0.5 - cq.x, c[1] + 0.5 - cq.y); const open = !MP().gates[Pq.k] || Pq.k === cq.g.plan.a; if (open && d < bd) { bd = d; best = c; } }
+    return best ? { x: best[0] + 0.5, y: best[1] + 0.5, p: 1 } : { x, y };
+  }
+  // lampadario disegnato sopra a tutto (e' una luce): anello d'oro, gocce di cristallo che brillano
+  function chandelier(g0, X0, Y0, TW, t) {
+    const k = Math.round(TW) + ':' + ((t * 3 | 0) % 5), C = chandelier.c || (chandelier.c = {}), dp = cq.dpr || 1;
+    if (!C[k]) { if (Object.keys(C).length > 12) for (const q in C) delete C[q]; const cv = document.createElement('canvas'); cv.width = cv.height = Math.ceil(TW * 3.4 * dp); const g = cv.getContext('2d'); g.scale(dp, dp); chandel0(g, TW * 1.7, TW * 1.7, TW, t); C[k] = cv; }
+    g0.drawImage(C[k], X0 - TW * 1.7, Y0 - TW * 1.7, TW * 3.4, TW * 3.4);
+  }
+  function chandel0(g, X, Y, TW, t) {
+    const r = TW * 0.55; g.strokeStyle = 'rgba(140,120,70,.8)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, Y - TW * 1.65); g.lineTo(X, Y - r * 0.3); g.stroke();
+    const gr = g.createRadialGradient(X, Y, 0, X, Y, TW * 1.6); gr.addColorStop(0, 'rgba(255,225,160,.35)'); gr.addColorStop(1, 'rgba(255,225,160,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X, Y, TW * 1.6, 0, 7); g.fill();
+    g.strokeStyle = '#c8a040'; g.lineWidth = Math.max(2, TW / 18); g.beginPath(); g.ellipse(X, Y, r, r * 0.4, 0, 0, 7); g.stroke();
+    for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6, x = X + Math.cos(a) * r, y = Y + Math.sin(a) * r * 0.4; g.fillStyle = (i + (t * 3 | 0)) % 5 ? '#e8f6ff' : '#ffffff'; g.beginPath(); g.ellipse(x, y + TW * 0.12, TW * 0.035, TW * 0.08, 0, 0, 7); g.fill(); g.fillStyle = '#fff2c0'; g.beginPath(); g.arc(x, y - TW * 0.05, TW * 0.03, 0, 7); g.fill(); }
+    g.fillStyle = '#d8b850'; g.beginPath(); g.ellipse(X, Y + TW * 0.05, r * 0.35, r * 0.18, 0, 0, 7); g.fill();
+  }
   // le guardie si vedono SEMPRE (abbastanza vicine allo schermo): niente comparse e sparizioni
-  function guardSeen(G, gd) { return Math.abs(gd.x - cq.x) < SEE_G && Math.abs(gd.y - cq.y) < SEE_G; }
+  function guardSeen(G, gd) { return Math.abs(gd.x - cq.x) < SEE_G && Math.abs(gd.y - cq.y) < SEE_G && floorOf(gd.x) === floorOf(cq.x); }
   // la guardia notturna un po' brilla (personaggio del gioco), stesa a terra se stordita
   const GLOOK = { skin: 'guardia', col: '#4a5f8a', hat: 'nessuno' };
   function guardDraw(g, X, Y, TW, gd) {
@@ -850,17 +1175,17 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   // il piano completo con gli indizi (pannello)
   function planUI(G) {
     const pl = G.plan, it = k => { const i = G.it.find(o => o.k === k); return !i ? '' : i.st === 1 ? ' — <b>✅ ce l\'ha ' + esc((byId(G, i.c) || {}).name || '') + '</b>' : i.st === 2 ? ' — <b>📦 confiscato!</b> (armadio delle confische, sala della sicurezza)' : i.st === 3 ? ' — ✅ usato' : ''; };
-    const A = { asc: '🛗 <b>Ascensore di servizio</b> (in fondo alla hall). Scala antincendio e montacarichi stanotte sono chiusi.<br>Serve 💳 <b>il badge del direttore</b>: nella sua giacca al guardaroba, sul comodino della sua camera (cartello «Non disturbare») oppure in tasca a una guardia (stordiscila e frugala).' + it('badge'),
-      sca: '🚪 <b>Scala antincendio</b> (in fondo al bar). Ascensore e montacarichi stanotte sono chiusi.<br>Serve 🔑 <b>la chiave della scala</b>: nel cassetto della reception o nello stanzino del custode.' + it('kSca'),
-      mon: '📦 <b>Montacarichi delle cucine</b>. Ascensore e scala antincendio stanotte sono chiusi.<br>Serve 🔑 <b>la chiavetta dello chef</b>: nel suo armadietto (spogliatoio) o sul bancone della cucina.' + it('kMon') }[pl.a];
-    const B = pl.b === 'tas' ? '🔢 <b>Tastierino</b>: serve il codice. ' + { post: 'Il direttore l\'ha scritto su un post-it sulla scrivania del suo ufficio.', split: 'Le prime due cifre sono nell\'agenda della segretaria, le ultime due nella cassaforte della camera del direttore («Non disturbare»).', mon: 'Rivedete la registrazione ai monitor della sala della sicurezza: si vede il direttore che lo digita.' }[pl.bc] + ' Codice: <b>' + codeTxt(G) + '</b> (sbagliarlo fa rumore!)'
-      : pl.b === 'imp' ? '🖐️ <b>Lettore d\'impronta</b>: serve l\'impronta del direttore, sul suo bicchiere al bancone del bar o sulla tazzina nel suo ufficio.' + it('imp')
-      : '🗝️ <b>Doppia serratura</b>: due chiavi, una ai piani di sopra (scaffale dell\'ufficio del direttore, armadietto dello spogliatoio o scaffale del custode) e una nell\'interrato (lavatrice o scaffale dei vini). Vanno girate INSIEME, da due ladri, una a sinistra e una a destra della porta.' + it('kA') + it('kB');
-    const C = pl.c === 'las' ? '🔴 <b>Laser</b> intorno alla teca: spegneteli dal quadro elettrico nel locale tecnico (accanto alla sicurezza). Una guardia andrà a controllare.' + (G.lz ? ' — ✅ spenti' : '')
-      : pl.c === 'pes' ? '⚖️ <b>Sensore di peso</b>: serve il diamante finto, nella vetrina del negozio di souvenir.' + it('fake')
+    const A = { asc: '🛗 <b>Ascensore di servizio</b> (piano terra, nella galleria accanto al bar). Scala antincendio e montacarichi stanotte sono chiusi.<br>Serve 💳 <b>il badge del direttore</b>: nella sua giacca al guardaroba (piano terra), sul comodino della sua camera (primo piano, cartello «Non disturbare») oppure in tasca a una guardia (stordiscila e frugala).' + it('badge'),
+      sca: '🚪 <b>Scala antincendio</b> (piano terra, in fondo al bar). Ascensore e montacarichi stanotte sono chiusi.<br>Serve 🔑 <b>la chiave della scala</b>: nel cassetto della reception (hall) o nello stanzino del custode (zona del personale).' + it('kSca'),
+      mon: '📦 <b>Montacarichi delle cucine</b> (piano terra). Ascensore e scala antincendio stanotte sono chiusi.<br>Serve 🔑 <b>la chiavetta dello chef</b>: nel suo armadietto (spogliatoio) o sul bancone della cucina.' + it('kMon') }[pl.a];
+    const B = pl.b === 'tas' ? '🔢 <b>Tastierino</b>: serve il codice. ' + { post: 'Il direttore l\'ha scritto su un post-it sulla scrivania del suo ufficio (primo piano).', split: 'Le prime due cifre sono nell\'agenda della segretaria, le ultime due nella cassaforte della camera del direttore («Non disturbare»): tutte e due al primo piano.', mon: 'Rivedete la registrazione ai monitor della sala della sicurezza (piano terra, zona del personale): si vede il direttore che lo digita.' }[pl.bc] + ' Codice: <b>' + codeTxt(G) + '</b> (sbagliarlo fa rumore!)'
+      : pl.b === 'imp' ? '🖐️ <b>Lettore d\'impronta</b>: serve l\'impronta del direttore, sul suo bicchiere al bancone del bar (piano terra) o sulla tazzina nel suo ufficio (primo piano).' + it('imp')
+      : '🗝️ <b>Doppia serratura</b>: due chiavi, una di sopra (scaffale dell\'ufficio del direttore al primo piano, armadietto dello spogliatoio o scaffale del custode al piano terra) e una nell\'interrato (lavatrice o scaffale dei vini). Vanno girate INSIEME, da due ladri, una a sinistra e una a destra della porta.' + it('kA') + it('kB');
+    const C = pl.c === 'las' ? '🔴 <b>Laser</b> intorno alla teca: spegneteli dal quadro elettrico nel locale tecnico (piano terra, zona del personale). Una guardia andrà a controllare.' + (G.lz ? ' — ✅ spenti' : '')
+      : pl.c === 'pes' ? '⚖️ <b>Sensore di peso</b>: serve il diamante finto, nella vetrina della boutique (piano terra).' + it('fake')
       : '🎛️ <b>Cassaforte a combinazione</b>: va ascoltata con calma (12 s fermi, e ogni 3 s fa rumore).' + (G.cb ? ' — ✅ aperta' : '');
     cqCloseTask(); $('#tkTitle').textContent = '📋 Il colpo di stanotte';
-    $('#tkBody').innerHTML = `<p class="lead" style="text-align:left;font-size:14px;line-height:1.5">1) ${A}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">2) ${B}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">3) ${C}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">4) 🚐 Portate il diamante al furgone nel cortile.</p><p class="hint">⭐ Le stelline indicano i posti da frugare. Se vi prendono finite in cella (sala della sicurezza) e perdete quello che avete in tasca. 🐾 Di base cammini piano (silenzioso); 🏃 correre fa rumore e le guardie vicine vengono a vedere. Nell'ombra una guardia ti vede solo da vicino con la torcia (cono forte), sotto una lampada da lontano (cono leggero). 🪙 monetina: distrae le guardie. 👊 alle spalle di una guardia: la stordisci. ⚡ quadro elettrico: luci di un'ala spente per ${DARK_T} s.</p>`;
+    $('#tkBody').innerHTML = `<p class="lead" style="text-align:left;font-size:14px;line-height:1.5">1) ${A}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">2) ${B}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">3) ${C}</p><p class="lead" style="text-align:left;font-size:14px;line-height:1.5">4) 🚐 Portate il diamante al furgone: stanotte vi aspetta nel <b>${ENT[pl.e].toLowerCase()}</b>, ${ENTD[pl.e]}.</p><p class="hint">🪜 Lo scalone della hall porta al primo piano; c'è anche la scala di servizio, in fondo alla zona del personale. ⭐ Le stelline indicano i posti da frugare. Se vi prendono finite in cella (sala della sicurezza, piano terra) e perdete quello che avete in tasca. 🐾 Di base cammini piano (silenzioso); 🏃 correre fa rumore e le guardie vicine vengono a vedere. Nell'ombra una guardia ti vede solo da vicino con la torcia (cono forte), sotto una lampada da lontano (cono leggero). 🪙 monetina: distrae le guardie. 👊 alle spalle di una guardia: la stordisci. ⚡ quadro elettrico: luci di un'ala spente per ${DARK_T} s.</p>`;
     $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#cqTask').hidden = false; $('#tkClose').onclick = () => cqCloseTask();
   }
   // tastierino
@@ -880,7 +1205,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   function quadroUI(G) {
     cqCloseTask(); const ok = a => (G.dk[a] || 0) + DARK_CD <= G.time;
     $('#tkTitle').textContent = '⚡ Quadro elettrico';
-    $('#tkBody').innerHTML = `<p class="lead">Spegni le luci di un'ala per ${DARK_T} secondi: le guardie vedono meno e le telecamere si spengono. Ma una guardia verrà a controllare il quadro!</p>${Object.keys(ALA).map(a => `<button type="button" class="big" data-o="${a}" ${ok(a) ? '' : 'disabled'} style="display:block;width:100%;margin:6px 0">💡 ${ALA[a]}${ok(a) ? '' : ' (non ancora)'}</button>`).join('')}${G.plan.c === 'las' && !G.lz ? '<button type="button" class="big" data-o="L" style="display:block;width:100%;margin:10px 0 6px;background:#8a2a2a;color:#fff">🔴 Spegni i laser della teca</button>' : ''}`;
+    $('#tkBody').innerHTML = `<p class="lead">Spegni le luci di un piano per ${DARK_T} secondi: le guardie vedono meno e le telecamere si spengono. Ma una guardia verrà a controllare il quadro!</p>${Object.keys(ALA).map(a => `<button type="button" class="big" data-o="${a}" ${ok(a) ? '' : 'disabled'} style="display:block;width:100%;margin:6px 0">💡 ${ALA[a]}${ok(a) ? '' : ' (non ancora)'}</button>`).join('')}${G.plan.c === 'las' && !G.lz ? '<button type="button" class="big" data-o="L" style="display:block;width:100%;margin:10px 0 6px;background:#8a2a2a;color:#fff">🔴 Spegni i laser della teca</button>' : ''}`;
     $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#cqTask').hidden = false; $('#tkClose').onclick = () => cqCloseTask();
     $('#tkBody').querySelectorAll('[data-o]').forEach(b => b.onclick = () => { const o = b.dataset.o, G2 = cq.g; cqCloseTask(); if (!G2 || G2.mode !== 'colpo') return; if (G2.guest) cqNetSend({ k: 'a', a: 'quad', o }); else doAct(G2, G2.me, { k: 'quad', o }); thud(0.5, 120); });
   }
@@ -924,36 +1249,42 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     };
     draw();
   }
-  window.__lockPuzzle = lockPuzzle;   // per le prove
+  window.__lockPuzzle = lockPuzzle; window.__route = route; window.__floorOf = floorOf;   // per le prove
 
   // ---- MAPPA: radar in alto a destra, grande toccandolo ----
-  function mapImg() {
-    const M = MP(); if (M.mimg) return M.mimg;
+  // un'immagine per piano (gli altri piani non ci sono: la mappa piccola mostra solo il piano dove sei)
+  const FREG = [[0, 0, 80, 62], [96, 8, 60, 44], [172, 8, 60, 21]];   // x, y, larghezza, altezza di ogni piano
+  function mapImg(f) {
+    const M = MP(); M.mimg = M.mimg || []; if (M.mimg[f]) return M.mimg[f];
     const c = document.createElement('canvas'); c.width = W; c.height = H; const sg = c.getContext('2d', CQ_CPU), im = sg.createImageData(W, H), d = im.data;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      if (floorOf(x) !== f) continue;
       const i = y * W + x, r = M.ROOM[i], fl = cqFloor[y] && cqFloor[y][x], s = cqSolid[y] && cqSolid[y][x];
-      let col = [16, 18, 22]; if (fl) { const R = M.rooms[r >= 0 ? r : M.hall]; const h = parseInt(R.c[0].slice(1), 16); col = [(h >> 16) & 255, (h >> 8) & 255, h & 255].map(v => Math.min(255, v * 1.15 + 18)); if (s && !s.wall) col = col.map(v => v * 0.7); } else if (s && s.wall) col = [60, 58, 56];
-      d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
+      let col = null; if (fl) { const R = M.rooms[r >= 0 ? r : M.hall]; const h = parseInt(R.c[0].slice(1), 16); col = [(h >> 16) & 255, (h >> 8) & 255, h & 255].map(v => Math.min(255, v * 1.15 + 18)); if (s && !s.wall) col = col.map(v => v * 0.7); } else if (s && s.wall) col = [60, 58, 56];
+      if (!col) continue; d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
     }
-    sg.putImageData(im, 0, 0); return (M.mimg = c);
+    sg.putImageData(im, 0, 0); return (M.mimg[f] = c);
   }
   function mapDraw(g, G, X, Y, R, s, cx, cy, big) {
-    const me = G.me, M = MP(), img = mapImg(), now = performance.now();
+    const me = G.me, M = MP(), mf = floorOf(cq.x), img = mapImg(mf), now = performance.now(), on = x => floorOf(x) === mf;
     const P2 = (x, y) => [X + (x - cx - (y - cy)) * s * 0.7071, Y + (x - cx + (y - cy)) * s * 0.7071];
     g.save();
     g.fillStyle = 'rgba(10,12,16,.88)'; g.strokeStyle = '#c8a040'; g.lineWidth = 2.5; g.beginPath(); if (big) cqRR(g, X - R, Y - R, R * 2, R * 2, 16); else g.arc(X, Y, R, 0, 7); g.fill(); g.stroke();
     g.beginPath(); if (big) cqRR(g, X - R + 3, Y - R + 3, R * 2 - 6, R * 2 - 6, 14); else g.arc(X, Y, R - 2, 0, 7); g.clip();
-    g.translate(X, Y); g.rotate(Math.PI / 4); g.scale(s, s); g.translate(-cx, -cy); g.imageSmoothingEnabled = false; g.globalAlpha = 0.9; g.drawImage(img, 0, 0); g.globalAlpha = 1; g.setTransform(cq.dpr || 1, 0, 0, cq.dpr || 1, 0, 0);
-    const dot = (x, y, r, col, ring) => { const [a, b] = P2(x, y); g.fillStyle = col; g.beginPath(); g.arc(a, b, r, 0, 7); g.fill(); if (ring) { g.strokeStyle = ring; g.lineWidth = 1.5; g.stroke(); } };
-    const ico = (x, y, t, sz) => { const [a, b] = P2(x, y); g.font = sz + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, a, b); };
+    { const FR = FREG[mf], rr = big ? 1e9 : R / s + 2, ax = Math.max(FR[0], Math.floor(cx - rr)), ay = Math.max(FR[1], Math.floor(cy - rr)), bx = Math.min(FR[0] + FR[2], Math.ceil(cx + rr)), by = Math.min(FR[1] + FR[3], Math.ceil(cy + rr));   // solo il pezzo che si vede
+      g.translate(X, Y); g.rotate(Math.PI / 4); g.scale(s, s); g.translate(-cx, -cy); g.imageSmoothingEnabled = false; g.globalAlpha = 0.9; if (bx > ax && by > ay) g.drawImage(img, ax, ay, bx - ax, by - ay, ax, ay, bx - ax, by - ay); g.globalAlpha = 1; g.setTransform(cq.dpr || 1, 0, 0, cq.dpr || 1, 0, 0); }
+    const dot = (x, y, r, col, ring) => { if (!on(x)) return; const [a, b] = P2(x, y); g.fillStyle = col; g.beginPath(); g.arc(a, b, r, 0, 7); g.fill(); if (ring) { g.strokeStyle = ring; g.lineWidth = 1.5; g.stroke(); } };
+    const ico = (x, y, t, sz) => { if (!on(x)) return; const [a, b] = P2(x, y); g.font = sz + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, a, b); };
     const sz = big ? 13 : 10;
     for (const k of needSpots(G)) { const sp = spot(G, k); dot(sp.x + 0.5, sp.y + 0.5, big ? 4 : 3, 'rgba(255,240,170,' + (0.6 + 0.4 * Math.sin(now / 250)) + ')'); }
     if (conf(G).length) ico(M.SP.conf.x + 0.5, M.SP.conf.y + 0.5, '📦', sz);
     if (!G.o1) { const gt = M.gates[G.plan.a]; ico(gt.s[0], gt.s[1], gt.e, sz); }
     else if (!G.o3) ico(M.teca.x + 0.5, M.teca.y + 0.5, '💎', sz);
     if (G.plan.c === 'las' && !G.lz && G.o1) ico(M.SP.quadro.x + 0.5, M.SP.quadro.y + 0.5, '⚡', sz - 1);
-    ico(M.van.x, M.van.y, '🚐', sz);
-    if (G.chars.some(c => c.jail)) ico(59.5, 4.5, '⛓️', sz);
+    ico(vanP(G).x, vanP(G).y, '🚐', sz);
+    // le scale: dove si cambia piano
+    for (const Pq of M.portals) if (Pq.f === mf && (!M.gates[Pq.k] || Pq.k === G.plan.a)) { const c = Pq.cells[Math.floor(Pq.cells.length / 2)]; ico(c[0] + 0.5, c[1] + 0.5, Pq.tf === 1 ? '⬆️' : Pq.tf === 2 ? '⬇️' : mf === 1 ? '⬇️' : '⬆️', sz - 2); }
+    if (G.chars.some(c => c.jail)) ico(M.jailIco[0], M.jailIco[1], '⛓️', sz);
     for (const gd of G.gd) dot(gd.x, gd.y, 3, gd.st === 'chase' ? '#ff3030' : gd.st === 'ko' ? '#888' : '#ff9a4a', '#000');
     for (const c of G.chars) if (c !== me && c.alive && !c.esc) dot(c.x, c.y, 3, c.jail ? '#9aa0a8' : TC, '#000');
     const [mx, my] = P2(cq.x, cq.y), wx = cq.wdx || 1, wy = cq.wdy || 0, ang = Math.atan2((wx + wy) * 0.7071, (wx - wy) * 0.7071);
@@ -962,11 +1293,24 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     g.restore();
   }
   const RADAR = 66;
+  // gli altri piani in breve: posti da frugare e compagni che ci sono
+  function floorsTxt(G) {
+    const mf = floorOf(cq.x), out = [];
+    for (let f = 0; f < 3; f++) {
+      if (f === mf) continue; const n = needSpots(G).filter(k => floorOf(spot(G, k).x) === f).length, p = G.chars.filter(c => c !== G.me && c.alive && !c.esc && floorOf(c.x) === f).length;
+      const bits = [n ? '⭐' + n : '', p ? '🦹' + p : '', f === 2 && G.o1 && !G.o3 ? '💎' : '', f === 0 && G.o3 ? '🚐' : ''].filter(Boolean);
+      out.push(['🏛️', '⬆️', '⬇️'][f] + ' ' + FLN[f] + (bits.length ? ': ' + bits.join(' ') : ''));
+    }
+    return out.join('  ·  ');
+  }
   function minimap(g, G, W2) {
-    if (G.big) { const H2 = cq.h, R = Math.min(W2 - 24, H2 - 300, 440) / 2, cy = Math.max(130 + R, H2 / 2 - 40); mapDraw(g, G, W2 / 2, cy, R, (R * 2 - 10) / (Math.max(W, H) * 1.4142), W / 2, H / 2, true);
-      g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(230,236,255,.85)'; g.fillText('Tocca la mappa per chiuderla', W2 / 2, cy + R + 16); return; }
+    const mf = floorOf(cq.x), FR = FREG[mf];
+    if (G.big) { const H2 = cq.h, R = Math.min(W2 - 24, H2 - 300, 440) / 2, cy = Math.max(130 + R, H2 / 2 - 40); mapDraw(g, G, W2 / 2, cy, R, (R * 2 - 10) / ((FR[2] + FR[3]) * 0.7071), FR[0] + FR[2] / 2, FR[1] + FR[3] / 2, true);
+      g.font = '800 14px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = '#f2dca0'; g.fillText('Sei al ' + FLN[mf].toLowerCase(), W2 / 2, cy - R - 26);
+      g.font = '600 12px system-ui,sans-serif'; g.fillStyle = 'rgba(230,236,255,.85)'; g.fillText(floorsTxt(G), W2 / 2, cy - R - 9); g.fillText('Tocca la mappa per chiuderla', W2 / 2, cy + R + 16); return; }
     mapDraw(g, G, W2 - RADAR - 8, 122 + RADAR, RADAR, 3.2, cq.x, cq.y, false);
-    g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(230,236,255,.75)'; g.fillText('🗺️ tocca', W2 - RADAR - 8, 122 + RADAR * 2 + 12);
+    g.font = '700 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = '#f2dca0'; g.fillText(['🏛️ Piano terra', '⬆️ Primo piano', '⬇️ Interrato'][mf], W2 - RADAR - 8, 122 + RADAR * 2 + 12);
+    g.font = '600 10px system-ui,sans-serif'; g.fillStyle = 'rgba(230,236,255,.75)'; g.fillText('🗺️ tocca', W2 - RADAR - 8, 122 + RADAR * 2 + 25);
   }
 
   // FRASI DI FINE PARTITA (con qualche parolaccia, come negli altri giochi): al massimo 4

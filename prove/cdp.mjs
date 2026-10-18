@@ -5,7 +5,7 @@ const [dir, jsFile, shot, W = '412', H = '860'] = process.argv.slice(2);
 const srv = http.createServer((q, r) => { const p = path.join(dir, decodeURIComponent(q.url.split('?')[0]) === '/' ? 'index.html' : decodeURIComponent(q.url.split('?')[0])); fs.readFile(p, (e, d) => { if (e) { r.writeHead(404); r.end(); return; } r.writeHead(200, { 'content-type': p.endsWith('.html') ? 'text/html; charset=utf-8' : 'text/javascript' }); r.end(d); }); }).listen(0);
 const port = srv.address().port, dport = 9300 + Math.floor(Math.random() * 500);
 const prof = fs.mkdtempSync(path.join(os.tmpdir(), 'cq-prof-'));
-const edge = spawn('C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe', ['--headless=new', '--autoplay-policy=no-user-gesture-required', '--mute-audio', `--remote-debugging-port=${dport}`, `--user-data-dir=${prof}`, `--window-size=${W},${H}`, 'about:blank']);
+const edge = spawn(process.platform === 'win32' ? 'C:/Program Files (x86)/Microsoft/Edge/Application/msedge.exe' : (process.env.BROWSER || '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'), [...(process.platform === 'win32' ? [] : ['--no-sandbox']), '--headless=new', '--autoplay-policy=no-user-gesture-required', '--mute-audio', `--remote-debugging-port=${dport}`, `--user-data-dir=${prof}`, `--window-size=${W},${H}`, 'about:blank']);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 let tabs; for (let i = 0; i < 50; i++) { try { tabs = await (await fetch(`http://127.0.0.1:${dport}/json`)).json(); if (tabs.find(t => t.type === 'page')) break; } catch { } await sleep(200); }
 const ws = new WebSocket(tabs.find(t => t.type === 'page').webSocketDebuggerUrl); await new Promise(r => ws.onopen = r);
@@ -18,4 +18,4 @@ const r = await send('Runtime.evaluate', { expression: fs.readFileSync(jsFile, '
 console.log(r.result.exceptionDetails ? 'ERRORE: ' + JSON.stringify(r.result.exceptionDetails).slice(0, 800) : JSON.stringify(r.result.result.value));
 if (shot) { await sleep(800); const s = await send('Page.captureScreenshot', { format: 'png' }); fs.writeFileSync(shot, Buffer.from(s.result.data, 'base64')); }
 try { const v = await (await fetch(`http://127.0.0.1:${dport}/json/version`)).json(), bw = new WebSocket(v.webSocketDebuggerUrl); await new Promise(r => bw.onopen = r); bw.send(JSON.stringify({ id: 1, method: "Browser.close" })); await sleep(700); } catch { }
-ws.close(); spawn("taskkill", ["/PID", String(edge.pid), "/T", "/F"]); srv.close(); setTimeout(() => { try { fs.rmSync(prof, { recursive: true, force: true }); } catch { } process.exit(0); }, 500);
+ws.close(); if (process.platform === 'win32') spawn("taskkill", ["/PID", String(edge.pid), "/T", "/F"]); else try { edge.kill('SIGKILL'); } catch { } srv.close(); setTimeout(() => { try { fs.rmSync(prof, { recursive: true, force: true }); } catch { } process.exit(0); }, 500);

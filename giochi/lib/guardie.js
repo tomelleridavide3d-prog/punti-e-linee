@@ -47,9 +47,11 @@
     },
     make: defs => defs.map((d, id) => ({ id, x: d.route[0][0], y: d.route[0][1], a: d.route[0][3] || 0, st: 'pat', sus: 0, route: d.route, ri: 0, path: [], wait: 0, ko: 0, tgt: -1, lx: 0, ly: 0, lose: 0, ix: 0, iy: 0, look: 0, walk: 0, post: !!d.post, n: d.n || '' })),
     // va verso x, y (percorso a celle); false se non ci arriva
+    // percorsi: un gioco puo' metterne uno suo (Colpo all'hotel: anche da un piano all'altro); chi non lo usa lo rimette a null
+    pathFn: null,
     go(gd, x, y) {
       let tx = x, ty = y; if (!cqCellFree(Math.floor(tx), Math.floor(ty))) { const q = cqSpot(Math.floor(tx), Math.floor(ty)); tx = q.x; ty = q.y; }
-      gd.path = cqPath(gd.x, gd.y, tx, ty); return gd.path.length > 0 || Math.hypot(gd.x - tx, gd.y - ty) < 0.6;
+      gd.path = (GD.pathFn || cqPath)(gd.x, gd.y, tx, ty); return gd.path.length > 0 || Math.hypot(gd.x - tx, gd.y - ty) < 0.6;
     },
     step(gd, dt, sp) {
       const p = gd.path[0]; if (!p) { gd.walk = 0; return true; }
