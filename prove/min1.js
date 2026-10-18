@@ -17,16 +17,18 @@
       const ok = (x, y) => cqPath(s0.x, s0.y, x, y).length > 0;
       M.startP.forEach((p, i) => { const q = cqSpot(Math.floor(p.x), Math.floor(p.y)); if (i && !ok(q.x, q.y)) miss.push(tag + 'partenza' + i); });
       if (!ok(M.exit.x, M.exit.y)) miss.push(tag + 'uscita');
-      M.frag.forEach((f, i) => { const q = cqSpot(f.cx, f.cy); if (!ok(q.x, q.y)) miss.push(tag + 'cristallo' + i); });
+      M.frag.forEach((f, i) => { if (f.vi != null) return; const q = cqSpot(f.cx, f.cy); if (!ok(q.x, q.y)) miss.push(tag + 'cristallo' + i); });
       { const a = cqSpot(Math.floor(M.arena.x), Math.floor(M.arena.y)); if (!ok(a.x, a.y)) miss.push(tag + 'arena'); }
       // tutte le caselle libere raggiungibili
+      const vg = []; for (const v of (M.vaults || [])) for (const [x, y] of v.cells) { vg.push([x, y, cqSolid[y][x]]); cqSolid[y][x] = null; } for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) if (cqSolid[y][x] && cqSolid[y][x].prop === 'sdoor') { vg.push([x, y, cqSolid[y][x]]); cqSolid[y][x] = null; }
       let free = 0, reach = 0; const seen = new Uint8Array(M.w * M.h), q = [[Math.floor(s0.x), Math.floor(s0.y)]]; seen[q[0][1] * M.w + q[0][0]] = 1;
       while (q.length) { const [x, y] = q.pop(); reach++; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (cqCellFree(nx, ny) && !seen[ny * M.w + nx]) { seen[ny * M.w + nx] = 1; q.push([nx, ny]); } } }
       for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) if (cqCellFree(x, y)) free++;
       if (free !== reach) miss.push(tag + 'chiuse ' + (free - reach));
+      for (const [x, y, o] of vg) cqSolid[y][x] = o;
     };
     check('');
-    if (sd <= 3) out.push('labirinto ' + sd + ': ' + Math.round(ms) + ' ms, sale ' + M.R.length + ', colonnine ' + M.frag.length + ', torce ' + M.torches.length + ', nascondigli ' + M.hides.length + ', porte ' + M.gates.length + ', leve antiche ' + M.levers.length + ', catene ' + M.chains.length + ', uscita ' + M.exit.x + ',' + M.exit.y + ', partenze ' + JSON.stringify(M.starts) + ', muri chiusi ' + M.st0.reduce((a, v) => a + v, 0) + '/' + M.S.length);
+    if (sd <= 3) out.push('labirinto ' + sd + ': ' + Math.round(ms) + ' ms, sale ' + M.R.length + ', colonnine ' + M.frag.length + ', torce ' + M.torches.length + ', nascondigli ' + M.hides.length + ', porte ' + M.gates.length + ', leve antiche ' + M.levers.length + ', catene ' + M.chains.length + ', cripte ' + M.vaults.length + ', trappole ' + M.traps.length + ', uscita ' + M.exit.x + ',' + M.exit.y + ', partenze ' + JSON.stringify(M.starts) + ', muri chiusi ' + M.st0.reduce((a, v) => a + v, 0) + '/' + M.S.length);
     if (miss.length) bad.push(sd + ': ' + miss.join(' '));
   }
   out.push('labirinti con problemi: ' + (bad.length ? bad.join(' | ') : 'nessuno'));
@@ -43,17 +45,19 @@
     G.me.bot = true; G.me.think = 0; G.me.path = [];
     G.me.look = cqLook();
     cq.on = false; cancelAnimationFrame(cq.raf);
-    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['presi', /ha preso|ti ha preso|Hai preso/], ['cristalli', /cristall/], ['complete', /completa/], ['muggiti', /MUUUH|muggito/], ['spostati', /si sono spostati/], ['catene', /incatenat/], ['liberati', /liberato/], ['porte', /porta di pietra/], ['leve', /leva/], ['aperte', /porta è aperta/], ['lontani', /muggito lontano/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
+    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['presi', /ha preso|ti ha preso|Hai preso/], ['cristalli', /cristall/], ['complete', /completa/], ['muggiti', /MUUUH|muggito/], ['spostati', /si sono spostati/], ['catene', /incatenat/], ['liberati', /liberato/], ['trappole', /trappola!/], ['porte', /porta di pietra/], ['leve', /leva/], ['aperte', /porta è aperta/], ['lontani', /muggito lontano/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
     let t1 = performance.now(), stuck = 0, wallHit = 0;
     for (let i = 0; i < 20 * 460 && G.phase === 'play'; i++) {
       cqModeTick(0.05); cq.x = G.me.x; cq.y = G.me.y; G.M.local(G, 0.05);
       if (i % 100 === 0) for (const c of G.chars) if (c.alive && !c.out && !cqFree(c.x, c.y)) wallHit++;
       if (G.wv !== G.lastWv) {   // dopo ogni spostamento: tutte le caselle libere ancora raggiungibili?
         G.lastWv = G.wv; for (let n = 0; n < 40; n++) G.M.local(G, 0.001);
-        const M = CQ_MAP, s = cqSpot(Math.floor(M.arena.x), Math.floor(M.arena.y)); let free = 0, reach = 0; const seen = new Uint8Array(M.w * M.h), q = [[Math.floor(s.x), Math.floor(s.y)]]; seen[q[0][1] * M.w + q[0][0]] = 1;
+        const M = CQ_MAP, s = cqSpot(Math.floor(M.arena.x), Math.floor(M.arena.y)); const vg = []; for (const v of (M.vaults || [])) for (const [x, y] of v.cells) { vg.push([x, y, cqSolid[y][x]]); cqSolid[y][x] = null; } for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) if (cqSolid[y][x] && cqSolid[y][x].prop === 'sdoor') { vg.push([x, y, cqSolid[y][x]]); cqSolid[y][x] = null; }
+      let free = 0, reach = 0; const seen = new Uint8Array(M.w * M.h), q = [[Math.floor(s.x), Math.floor(s.y)]]; seen[q[0][1] * M.w + q[0][0]] = 1;
         while (q.length) { const [x, y] = q.pop(); reach++; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (cqCellFree(nx, ny) && !seen[ny * M.w + nx]) { seen[ny * M.w + nx] = 1; q.push([nx, ny]); } } }
         for (let y = 0; y < M.h; y++) for (let x = 0; x < M.w; x++) if (cqCellFree(x, y)) free++;
         if (free !== reach) stuck++;
+        for (const [x, y, o] of vg) cqSolid[y][x] = o;
       }
       if (i % 400 === 0) { cqHudFast(); cqDraw(); }
     }
