@@ -93,12 +93,13 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     // arredi del piano terra
     // hall: reception, fontana, piano a coda, salotto, palme, colonne, candelabri ai piedi dello scalone, tappeto rosso dall'ingresso
     for (let y = 31; y <= 36; y++) pp('recdesk', 49, y, { b: y === 33 }); pp('keys', 52, 32); pp('keys', 52, 34); pp('monitor', 52, 36);
-    four('fount', 40, 43); four('piano', 31, 45, { o: 1 });
+    for (let y = 41; y <= 44; y++) for (let x = 38; x <= 41; x++) pp('fount', x, y, x === 41 && y === 44 ? null : { part: 1 });   // fontana 4x4 al centro della hall
+    four('piano', 31, 45, { o: 1 });
     row('vsofa', 29, 32, 33, { b: 'n' }); row('vsofa', 29, 32, 39, { b: 's' }); pp('armch', 28, 36, { c: '#7a1e2e' }); pp('armch', 34, 36, { c: '#7a1e2e' }); pp('ctable', 30, 36); pp('ctable', 31, 36);
     for (const [x, y] of [[27, 25], [52, 25], [27, 50], [52, 50], [36, 50], [43, 50]]) pp('palm', x, y);
     pp('candel', 36, 34); pp('candel', 43, 34);
     for (const y of [27, 31, 35, 39, 43, 47]) { pp('column', 26, y); pp('column', 53, y); }
-    DC(38.75, 34, 2.5, 7.8, '#7a1e22'); DC(38.75, 44.1, 2.5, 7.9, '#7a1e22'); for (const [y, h] of [[34, 7.8], [44.1, 7.9]]) { DC(38.75, y, 0.09, h, '#c8a040'); DC(41.16, y, 0.09, h, '#c8a040'); }
+    DC(38.75, 34, 2.5, 6.6, '#7a1e22'); DC(38.75, 45.2, 2.5, 6.8, '#7a1e22'); for (const [y, h] of [[34, 6.6], [45.2, 6.8]]) { DC(38.75, y, 0.09, h, '#c8a040'); DC(41.16, y, 0.09, h, '#c8a040'); }
     DC(28.2, 34.2, 6.6, 4.6, '#3a2442'); DC(28.4, 34.4, 6.2, 0.08, '#c8a040'); DC(28.4, 38.52, 6.2, 0.08, '#c8a040');
     pp('vase', 23, 23); pp('vase', 23, 37); pp('vase', 56, 33); pp('vase', 56, 46); pp('bench', 25, 25); pp('bench', 25, 46);
     // bar americano: bancone, bottiglie, sgabelli, tavolini
@@ -133,7 +134,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     pp('bin', 44, 1); pp('bin', 45, 1); pp('bin', 48, 1); pp('crate', 50, 1); pp('crate', 51, 2); pp('barrel', 53, 1); pp('barrel', 54, 1);
     for (const y of [20, 24, 28]) pp('lounger', 8, y); pp('parasol', 8, 22); pp('parasol', 8, 26); pp('statue', 5, 35); pp('bench', 2, 25);
     // luci della notte (piano terra)
-    for (const [x, y] of [[32.5, 30.5], [47, 30.5], [39.5, 47.5], [39.5, 26.4], [49.6, 33.5], [24.5, 13], [24.5, 30.5], [24.5, 46], [55.5, 30], [55.5, 44], [17, 12.5], [16.5, 30.5], [16, 43], [40, 15.5], [61, 12], [59, 26], [59, 38], [64, 41.5], [64.5, 23.5]]) L(x, y);
+    for (const [x, y] of [[32.5, 30.5], [47, 30.5], [39.5, 47.5], [40, 43], [39.5, 26.4], [49.6, 33.5], [24.5, 13], [24.5, 30.5], [24.5, 46], [55.5, 30], [55.5, 44], [17, 12.5], [16.5, 30.5], [16, 43], [40, 15.5], [61, 12], [59, 26], [59, 38], [64, 41.5], [64.5, 23.5]]) L(x, y);
     fa = 'X'; for (const [x, y] of [[30.5, 53.5], [49.5, 53.5], [12.5, 56.5], [60.5, 53.5], [77, 53.5], [5.5, 14.5], [2.5, 38.5], [40.5, 2.5], [20.5, 2.5], [72.5, 14.5], [72.5, 46.5]]) L(x, y);
     // i 4 ingressi: furgone (due caselle, disegnato dalla casella davanti), dove ci si mette per salire e da dove si parte
     const ents = [
@@ -480,10 +481,28 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
         cyl(x + 0.5, y + 0.5, 0.75, z, z + 0.12, '#c8a040'); cyl(x + 0.5, y + 0.5, 0.45, z + 0.12, z + 0.3, '#d8b850');
         for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; dot(x + 0.5 + Math.cos(a) * 0.7, y + 0.5 + Math.sin(a) * 0.7, z - 0.12, 0.05, '#e8f6ff'); dot(x + 0.5 + Math.cos(a) * 0.7, y + 0.5 + Math.sin(a) * 0.7, z + 0.2, 0.035, '#fff2c0'); }
         glow(x + 0.5, y + 0.5, z + 0.1, 3.2, 'rgba(255,225,160,.45)'); break; }
-      case 'fount': {   // fontana di marmo a due vasche (2x2, disegnata dalla casella davanti)
-        if (o.part) break; const cx = x, cy = y;
-        cyl(cx, cy, 0.95, 0, 0.35, '#d8d0c0'); cyl(cx, cy, 0.85, 0.35, 0.37, '#4a8ab0'); cyl(cx, cy, 0.12, 0.37, 0.95, '#d8d0c0'); cyl(cx, cy, 0.45, 0.95, 1.05, '#d8d0c0'); cyl(cx, cy, 0.38, 1.05, 1.06, '#6aaad0');
-        cyl(cx, cy, 0.05, 1.06, 1.5, '#cfe8f4'); dot(cx, cy, 1.55, 0.08, '#e8f6ff'); glow(cx, cy, 0.5, 1.6, 'rgba(140,200,255,.3)'); break; }
+      case 'fount': {   // FONTANA della hall (4x4, disegnata dalla casella davanti): vasca ottagonale di marmo col bordo d'oro, tre vasche, statua dorata, getti d'acqua
+        if (o.part) break; const cx = x - 1, cy = y - 1, oct = (r, z) => { const P = []; for (let i = 0; i < 8; i++) { const a = (i + 0.5) * Math.PI / 4; P.push([cx + Math.cos(a) * r, cy + Math.sin(a) * r, z]); } return P; };
+        const ring = (r, z0, z1, side, top) => {   // prisma ottagonale: i fianchi verso chi guarda, poi il piano di sopra
+          const A = oct(r, z0), B = oct(r, z1);
+          for (let i = 0; i < 8; i++) { const j = (i + 1) % 8, m = (i + 0.5 + 0.5) * Math.PI / 4; if (Math.cos(m) + Math.sin(m) <= 0) continue; poly([S(A[i][0], A[i][1], z0), S(A[j][0], A[j][1], z0), S(B[j][0], B[j][1], z1), S(B[i][0], B[i][1], z1)], cqShade(side, 0.62 + 0.3 * Math.max(0, Math.cos(m - 0.3)))); }
+          poly(B.map(p => S(p[0], p[1], z1)), top);
+        };
+        ring(1.95, 0, 0.12, '#b8b0a0', '#d8d0c0');   // gradino
+        ring(1.8, 0.12, 0.42, '#e2dacb', '#f0eadc');   // vasca grande
+        { const R = oct(1.8, 0.42); for (let i = 0; i < 8; i++) dot(R[i][0], R[i][1], 0.43, 0.045, '#d8b44a'); K.strokes(R.map((p, i) => [S(p[0], p[1], 0.42), S(R[(i + 1) % 8][0], R[(i + 1) % 8][1], 0.42)]), '#c8a040', Math.max(1.5, TW / 26)); }
+        poly(oct(1.6, 0.36).map(p => S(p[0], p[1], 0.36)), '#2f7aa8');   // acqua
+        if (TW >= 40) for (const [r, a] of [[1.15, 0.4], [0.75, 2.2], [1.35, 4.1]]) { const [X, Y] = S(cx + Math.cos(a) * r * 0.5, cy + Math.sin(a) * r * 0.5, 0.36); g.strokeStyle = 'rgba(200,240,255,.35)'; g.lineWidth = Math.max(1, TW / 40); g.beginPath(); g.ellipse(X, Y, r * TW * 0.35, r * TW * 0.17, 0, 0, 7); g.stroke(); }
+        cyl(cx, cy, 0.32, 0.36, 0.55, '#d8d0c0'); cyl(cx, cy, 0.18, 0.55, 1.15, '#e6dece'); cyl(cx, cy, 0.24, 0.62, 0.7, '#c8a040');   // colonna
+        cyl(cx, cy, 0.95, 1.15, 1.3, '#e2dacb'); cyl(cx, cy, 0.85, 1.3, 1.31, '#4a9ac8'); for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6; dot(cx + Math.cos(a) * 0.95, cy + Math.sin(a) * 0.95, 1.22, 0.035, '#d8b44a'); }   // vasca di mezzo
+        cyl(cx, cy, 0.11, 1.31, 1.8, '#e6dece'); cyl(cx, cy, 0.48, 1.8, 1.9, '#e2dacb'); cyl(cx, cy, 0.4, 1.9, 1.91, '#5aaad8'); cyl(cx, cy, 0.5, 1.86, 1.9, '#c8a040');   // vasca piccola
+        cyl(cx, cy, 0.09, 1.91, 2.25, '#d8b44a'); dot(cx, cy, 2.4, 0.12, '#e8c860'); bx(cx - 0.18, cy - 0.04, cx + 0.18, cy + 0.04, 2.25, 2.3, '#d8b44a'); dot(cx, cy, 2.55, 0.06, '#f2d878');   // statuina d'oro
+        // cascate dalle vasche e quattro getti dal bordo
+        const L = []; for (let i = 0; i < 10; i++) { const a = i * Math.PI / 5; L.push([S(cx + Math.cos(a) * 0.93, cy + Math.sin(a) * 0.93, 1.2), S(cx + Math.cos(a) * 1.0, cy + Math.sin(a) * 1.0, 0.4)]); L.push([S(cx + Math.cos(a) * 0.47, cy + Math.sin(a) * 0.47, 1.85), S(cx + Math.cos(a) * 0.55, cy + Math.sin(a) * 0.55, 1.32)]); }
+        K.strokes(L, 'rgba(190,230,255,.55)', Math.max(1, TW / 34));
+        g.strokeStyle = 'rgba(200,236,255,.6)'; g.lineWidth = Math.max(1.5, TW / 28);
+        for (let i = 0; i < 4; i++) { const a = i * Math.PI / 2 + Math.PI / 4, [X0, Y0] = S(cx + Math.cos(a) * 1.6, cy + Math.sin(a) * 1.6, 0.5), [X1, Y1] = S(cx + Math.cos(a) * 0.95, cy + Math.sin(a) * 0.95, 1.3), [XC, YC] = S(cx + Math.cos(a) * 1.35, cy + Math.sin(a) * 1.35, 1.6); g.beginPath(); g.moveTo(X0, Y0); g.quadraticCurveTo(XC, YC, X1, Y1); g.stroke(); bx(cx + Math.cos(a) * 1.62 - 0.1, cy + Math.sin(a) * 1.62 - 0.1, cx + Math.cos(a) * 1.62 + 0.1, cy + Math.sin(a) * 1.62 + 0.1, 0.42, 0.55, '#d8b44a'); }
+        glow(cx, cy, 0.5, 2.4, 'rgba(120,200,255,.32)'); glow(cx, cy, 2.4, 1.0, 'rgba(255,220,140,.35)'); break; }
       case 'piano': {   // pianoforte a coda nero col coperchio aperto (2x2)
         if (o.part) break; const x0 = x - 1, y0 = y - 1;
         for (const [a, b] of [[0.2, 0.3], [1.7, 0.3], [1.0, 1.7]]) bx(x0 + a, y0 + b, x0 + a + 0.1, y0 + b + 0.1, 0, 0.62, '#111114');
@@ -1097,6 +1116,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (me.jail) { g.fillStyle = 'rgba(30,34,44,.35)'; g.fillRect(0, 0, W2, H2); }
       // lampadari di cristallo della hall e del salone (accesi finche' il quadro non spegne il piano terra)
       if (mf === 0 && !darkAt(G, 40, 30)) for (const [x, y] of [[33.5, 36.5], [46.5, 36.5], [40, 15.5]]) if (near(x, y, 16)) chandelier(g, sx(x, y), sy(x, y) - TW * 4.4, TW, now);
+      // gocce della fontana che cadono e brillano
+      if (near(40, 43, 14)) { const U = TW * 0.575; for (let i = 0; i < 14; i++) { const k = (now * 0.9 + i / 14) % 1, a = i * 2.4, r = i % 2 ? 0.98 : 0.5, z = (i % 2 ? 1.2 : 1.85) * (1 - k) + (i % 2 ? 0.38 : 1.3) * k, X = sx(40 + Math.cos(a) * r, 43 + Math.sin(a) * r), Y = sy(40 + Math.cos(a) * r, 43 + Math.sin(a) * r) - z * U; g.fillStyle = 'rgba(220,245,255,' + (0.8 * (1 - k)) + ')'; g.fillRect(X - 1, Y - 2, 2, 3); } }
       // cambio di piano: si arriva dal nero, col nome del piano
       if (G.fade) { const t = performance.now() - G.fade;
         if (t < 520) { g.fillStyle = 'rgba(4,4,6,' + (1 - t / 520) + ')'; g.fillRect(0, 0, W2, H2); }
