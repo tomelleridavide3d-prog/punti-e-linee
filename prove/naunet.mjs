@@ -13,7 +13,9 @@ export default [
   [1, `(async () => { const code = Object.keys(cq.sets || {}).find(k => cq.sets[k].h === 'zzHost'); cqNetJoin(code); await new Promise(r => setTimeout(r, 2000)); return 'amico nel set: ' + $('#hlInfo').textContent.slice(0, 60); })()`, 500],
   // partita: host Granchi, amico Delfini, computer fermi
   [0, `(async () => { cqNewMatch(); await new Promise(r => setTimeout(r, 2500)); const G = cq.g; G.pre = 0; const a = G.chars.find(c => c.name === 'zzAmico'); G.me.t = 0; a.t = 1; for (const c of G.chars) if (c.bot) { c.think = 1e9; c.path = []; } return 'host: partita ' + G.mode + ', mappa ' + cq.map + ' seme ' + cq.mapSeed; })()`, 3000],
-  [1, `(() => { const G = cq.g; return 'amico: partita ' + (G && G.mode) + ' mappa ' + cq.map + ' seme ' + cq.mapSeed + ' pezzi ' + (G && G.it ? G.it.length : '-') + ' | ' + $('#cqModeBar').textContent; })()`, 0],
+  [1, `(() => { const G = cq.g; return 'amico: partita ' + (G && G.mode) + ' mappa ' + cq.map + ' seme ' + cq.mapSeed + ' pezzi ' + (G && G.it ? G.it.length : '-') + ' | io a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ' libero ' + cqFree(cq.x, cq.y) + ' | ' + $('#cqModeBar').textContent; })()`, 0],
+  [0, `(() => { const a = cq.g.chars.find(c => c.name === 'zzAmico'); return 'host: amico a ' + a.x.toFixed(1) + ',' + a.y.toFixed(1) + ' libero ' + cqFree(a.x, a.y) + ', episodio ' + cq.g.ep; })()`, 1500],
+  [1, `(() => 'amico dopo 1,5 s: a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ' libero ' + cqFree(cq.x, cq.y) + ', episodio ' + cq.g.ep)()`, 0],
   [0, st('host'), 0],
   // l'amico va su un tronco: lo prende (lo decide l'host)
   [1, `(() => { const G = cq.g, t = CQ_MAP.trees.find(t => cqCellFree(t.x + 1, t.y) && t.x < 128); cq.x = t.x + 1.5; cq.y = t.y + 0.5; return 'amico accanto a un albero: ' + JSON.stringify(G.M.btn(G)); })()`, 700],

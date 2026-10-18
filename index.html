@@ -3038,6 +3038,14 @@ const cqZpx = (x, y, TW) => CQ_MAP.hz ? cqHz(x, y) * (CQ_MAP.hb || 0.7) * TW * 0
 // al massimo un gradino dalla casella dove sta il centro. Prima gli angoli si confrontavano con la casella di PARTENZA: salendo di
 // un gradino un angolo poteva restare su una casella due gradini piu' in basso e da li' ogni passo era vietato (incastrati per sempre)
 const cqZBad = (x, y) => { const b = cqHc(Math.floor(x), Math.floor(y)), r = CQ_R; let m = 0; for (const [dx, dy] of [[-r, -r], [r, -r], [-r, r], [r, r]]) m = Math.max(m, Math.abs(cqHc(Math.floor(x + dx), Math.floor(y + dy)) - b)); return m; };
+function cqUnstick() {
+  if (cqFree(cq.x, cq.y)) return false;
+  const cx = Math.floor(cq.x), cy = Math.floor(cq.y);
+  const ok = (x, y) => cqCellFree(x, y) && cqFree(x + 0.5, y + 0.5);
+  for (let r = 0, R = Math.max(CQ_W, CQ_H); r <= R; r++) for (let i = -r; i <= r; i++)   // anelli sempre piu' larghi (solo il bordo di ciascuno)
+    for (const [dx, dy] of [[i, -r], [i, r], [-r, i], [r, i]]) if (ok(cx + dx, cy + dy)) { cq.x = cx + dx + 0.5; cq.y = cy + dy + 0.5; return true; }
+  return false;
+}
 function cqFreeZ(x0, y0, x1, y1) {
   if (!cqFree(x1, y1)) return false; if (!CQ_MAP.hz) return true;
   if (Math.abs(cqHc(Math.floor(x1), Math.floor(y1)) - cqHc(Math.floor(x0), Math.floor(y0))) > 1) return false;
@@ -3192,7 +3200,7 @@ async function cqModeStart(id) {
   for (let i = 0; chars.length < n; i++) chars.push({ id: chars.length, name: names[i], bot: true, look: i < 3 ? { skin: skins[i], col: CQ_SKINS[skins[i]].col, hat: 'nessuno' } : { skin: 'omino', col: cols[i], hat: cqPickOne(CQ_HATS)[0] } });
   const ring = CQ_RING.slice().sort(() => Math.random() - 0.5);
   chars.forEach((c, i) => { const [x, y] = ring[i % ring.length]; Object.assign(c, { x: x + 0.5, y: y + 0.5, face: 1, walk: 0, alive: true, path: [], think: Math.random() }); });
-  const G = cq.g = { mode: id, M, opt: O, phase: 'play', pre: 3, chars, me, bodies: [], loot: [], time: 0, known: {}, sab: null, song: Math.floor(Math.random() * CQ_SONGS.game), mid: randCode(6), ep: 1, map: cq.map, seed: cq.mapSeed };
+  const G = cq.g = { mode: id, M, opt: O, phase: 'play', pre: 3, chars, me, bodies: [], loot: [], time: 0, known: {}, sab: null, song: Math.floor(Math.random() * CQ_SONGS.game), mid: randCode(6), ep: 2 + Math.floor(Math.random() * 1e6), map: cq.map, seed: cq.mapSeed };   // ep a caso: con 1 fisso la posizione vecchia di un amico (sala d'attesa, e: 1) veniva presa per buona e lo metteva in mare
   M.start(G);
   cqHallOff(); cqModeUI(true); cqCloseTask(); $('#cqPick').hidden = true; cq.picking = false; $('#cqMap').hidden = true;
   cq.x = me.x; cq.y = me.y; cq.face = 1; cq.tasks = []; cq.done = new Set(); cq.near = null; cq.act = null; cq.actKey = '';
@@ -4546,6 +4554,7 @@ function cqFrame(t) {
   else if (d) {
     const up = CQ_MAP.hz && cqHz(cq.x + d.wx * 1.5, cq.y + d.wy * 1.5) > cqHz(cq.x, cq.y) + 0.3 ? 0.72 : 1;   // in salita piu' piano
     const sp = up * CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1) * (G && G.mode && G.M.speed ? G.M.speed(G.me) : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
+    if (G && G.mode && G.phase === 'play' && !cqFree(cq.x, cq.y)) cqUnstick();   // finito dentro un ostacolo (es. in mare): fuori
     if (cqFreeZ(cq.x, cq.y, nx, cq.y)) cq.x = nx;
     if (cqFreeZ(cq.x, cq.y, cq.x, ny)) cq.y = ny;
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
