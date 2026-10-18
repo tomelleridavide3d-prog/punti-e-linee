@@ -13,6 +13,13 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   const NN = 18, W = NN * 3 + 1, HALF = W / 2, CA = NN / 2 - 2;   // incroci 18x18: incrocio i occupa le caselle 1+3i e 2+3i, i muri stanno su 3i
   const NEED = 4, COPY_T = 2, COPY_R = 1.35, EXPLORE = 3.8, CATCH = 0.75, ROAR_CD = 18, ROAR_R = 7, ROAR_T = 3, WARN = 5, MSPD = 1.05, EAT_T = 3, HEAR = 6;
   const VIS_E = 3.6, VIS_M = 5.6, TORCH_SEE = 10, LIT_R = 2.4, PRINT_T = 9, CHALK_MAX = 8, HIDE_R = 1.45, EXIT_R = 1.05, ESC_T = 2.5, LOOP = 0.1;
+  // LE 4 ZONE DEL TEMPIO (una per quarto): pavimento, pietra dei muri, decorazioni. zq(x, y) = zona della casella
+  const ZN = [
+    { n: '🏛️ Ingresso in rovina', f: ['#6a6150', '#655c4b'], w: ['#9a8e78', '#938770', '#a09480'] },
+    { n: '🌿 Giardino sommerso', f: ['#55604a', '#505b45'], w: ['#717a60', '#6a735a', '#787f66'] },
+    { n: '💧 Sale allagate', f: ['#4f5860', '#4b545c'], w: ['#66707a', '#606a73', '#6c7680'] },
+    { n: '🐂 Santuario del toro', f: ['#6a4c40', '#64473b'], w: ['#8a6a58', '#836452', '#906f5d'] }];
+  const ZH = 28, zq = (x, y) => (x >= ZH ? 1 : 0) + (y >= ZH ? 2 : 0);
   const TEAMS = [{ n: 'Rossi', f: 'rossa', c: '#e04848', l: '#ff8a80', e: '🔴' }, { n: 'Blu', f: 'blu', c: '#3d7be0', l: '#8ab8ff', e: '🔵' }, { n: 'Verdi', f: 'verde', c: '#3fae5a', l: '#8fe0a0', e: '🟢' }];
   const COOP = [{ n: 'Esploratori', f: 'degli esploratori', c: '#e0b84a', l: '#ffe08a', e: '🔦' }];
   const TT = G => G.nt === 1 ? COOP : TEAMS;
@@ -112,13 +119,18 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     // vasi anche lungo i corridoi, contro un pilastro che non ha la torcia (nascondigli in giro)
     // (sui pilastri no: restano muri. Si mettono nell'angolo dell'incrocio vicino al pilastro, solo dove non chiudono il passaggio: incroci con 3+ uscite)
     // pavimenti: base, sale di partenza piu' chiare, arena sabbiosa
-    const rooms = [{ n: 'Labirinto', x: 0, y: 0, w: W, h: W, c: ['#5f5647', '#5a5143'], wc: '#7a6e5a', k: 'lab', nl: 1 }];
-    R.forEach(([i0, j0, w, h, kind]) => rooms.push({ n: kind === 'a' ? 'Arena' : kind === 's' ? 'Partenza' : 'Sala', x: 1 + 3 * i0, y: 1 + 3 * j0, w: 3 * w - 1, h: 3 * h - 1, c: kind === 'a' ? ['#7a6248', '#735c43'] : kind === 's' ? ['#6a6150', '#655c4b'] : ['#645a4a', '#5f5545'], wc: '#7a6e5a', k: kind === 'a' ? 'sand' : 'lab', nl: 1 }));
+    const rooms = [{ n: 'Labirinto', x: 0, y: 0, w: W, h: W, c: ZN[0].f, wc: '#7a6e5a', k: 'lab0', nl: 1 }];
+    for (let z = 0; z < 4; z++) rooms.push({ n: ZN[z].n, x: z & 1 ? ZH : 0, y: z & 2 ? ZH : 0, w: z & 1 ? W - ZH : ZH, h: z & 2 ? W - ZH : ZH, c: ZN[z].f, wc: '#7a6e5a', k: 'lab' + z, nl: 1 });
+    R.forEach(([i0, j0, w, h, kind]) => { if (kind === 'a') rooms.push({ n: 'Arena', x: 1 + 3 * i0, y: 1 + 3 * j0, w: 3 * w - 1, h: 3 * h - 1, c: ['#7a6248', '#735c43'], wc: '#7a6e5a', k: 'sand', nl: 1 }); });
     // decorazioni calpestabili: ossa, teschi, sassi, ragnatele per terra
     const deco = [], decoAt = new Map(), occ = new Set(props.map(p => K(p[1], p[2])));
     for (let y = 1; y < W - 1; y++) for (let x = 1; x < W - 1; x++) {
       if (occ.has(K(x, y)) || (x % 3 === 0 && y % 3 === 0)) continue;
-      const r = rnd(); const t = r < 0.025 ? 'bones' : r < 0.035 ? 'skull' : r < 0.075 ? 'rubble' : null;
+      const r = rnd(), z = zq(x, y);
+      const t = z === 0 ? (r < 0.06 ? 'rubble' : r < 0.075 ? 'bones' : r < 0.087 ? 'colfrag' : null)
+        : z === 1 ? (r < 0.05 ? 'roots' : r < 0.11 ? 'leaves' : r < 0.15 ? 'fern' : r < 0.18 ? 'tuft' : null)
+        : z === 2 ? (r < 0.08 ? 'puddle' : r < 0.1 ? 'rubble' : null)
+        : (r < 0.035 ? 'bones' : r < 0.05 ? 'skull' : r < 0.07 ? 'ash' : null);
       if (t) { deco.push([x, y, t]); decoAt.set(K(x, y), t); }
     }
     // colonnine dei cristalli: in una casella d'angolo di un incrocio (le altre 3 restano libere), 3 per quarto + 2, lontane tra loro e dall'uscita.
@@ -130,6 +142,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     for (let q = 0; q < 4; q++) for (let n = 0, k = 0; k < 400 && n < 3; k++) { if (ped(Math.floor(rnd() * NN / 2) + (q & 1 ? NN / 2 : 0), Math.floor(rnd() * NN / 2) + (q & 2 ? NN / 2 : 0), 9)) n++; }
     for (let k = 0; k < 600 && frag.length < 14; k++) ped(Math.floor(rnd() * NN), Math.floor(rnd() * NN), 8);
     for (let k = frag.length - 1; k > 0; k--) { const r = Math.floor(rnd() * (k + 1)); [frag[k], frag[r]] = [frag[r], frag[k]]; }   // mescolate: i cristalli veri non stanno sempre negli stessi quarti
+    const shafts = []; for (let z = 0; z < 4; z++) for (let n = 0, k = 0; k < 300 && n < 3; k++) { const x = (z & 1 ? ZH : 1) + Math.floor(rnd() * (W - ZH - 2)), y = (z & 2 ? ZH : 1) + Math.floor(rnd() * (W - ZH - 2)); if (occ.has(K(x, y)) || (x % 3 === 0 && y % 3 === 0) || shafts.some(q => Math.hypot(q[0] - x, q[1] - y) < 8)) continue; shafts.push([x, y]); n++; }
     const startP = corners.map(([i, j]) => { const i0 = i ? NN - 2 : 0, j0 = j ? NN - 2 : 0; return { x: 3 * i0 + 3.5, y: 3 * j0 + 3.5 }; });
     const arena = { x: 3 * (CA + 2) + 0.5, y: 3 * (CA + 2) + 1.5 };
     // caselle illuminate dalle torce (servono a vedere un po' piu' lontano)
@@ -138,11 +151,18 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     const ring = []; for (let i = 0; i < 10; i++) ring.push([Math.floor(startP[0].x) + (i % 3) - 1, Math.floor(startP[0].y) + Math.floor(i / 3) - 1]);
     return { w: W, h: W, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
       deco, decoAt, draw, floor: FLOOR, decoDraw, bg: () => '#06070a',
-      S, st0: st, R, roomOf, exit: EX, exitCells, starts, startP, arena, frag, torches, lit, hides, seed };
+      S, st0: st, R, roomOf, exit: EX, exitCells, starts, startP, arena, frag, torches, lit, hides, shafts, seed };
   }
 
   // ---- disegno della mappa (K = attrezzi di cqTools) ----
   const FLOOR = {
+    lab0(K, x, y) { FLOOR.lab(K, x, y); if (K.TW >= 40) K.speck(x, y, 5, ['rgba(255,245,220,.12)', 'rgba(255,245,220,.06)'], K.TW / 26); },
+    lab1(K, x, y) { FLOOR.lab(K, x, y); if (K.TW < 40) return; const Pp = (u, v) => K.S(x + u, y + v, 0); if (K.hsh(x, y, 9) < 0.5) K.strokes([[Pp(0.05, 0.5), Pp(0.45, 0.5)], [Pp(0.5, 0.05), Pp(0.5, 0.45)]], 'rgba(90,140,60,.55)', Math.max(1.5, K.TW / 26)); },
+    lab2(K, x, y) { FLOOR.lab(K, x, y); if (K.TW < 40) return; if (K.hsh(x, y, 11) < 0.3) { const [X, Y] = K.S(x + 0.3 + 0.4 * K.hsh(x, y, 12), y + 0.3 + 0.4 * K.hsh(x, y, 13), 0); K.g.fillStyle = 'rgba(200,225,240,.12)'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW / 7, K.TW / 16, 0, 0, 7); K.g.fill(); } },
+    lab3(K, x, y) {   // mosaico: rombo chiaro e scuro alternati
+      FLOOR.lab(K, x, y); if (K.TW < 40) return; const Pp = (u, v) => K.S(x + u, y + v, 0);
+      if ((x + y) % 4 === 0) { K.poly([Pp(0.5, 0.15), Pp(0.85, 0.5), Pp(0.5, 0.85), Pp(0.15, 0.5)], '#8a6040'); K.poly([Pp(0.5, 0.32), Pp(0.68, 0.5), Pp(0.5, 0.68), Pp(0.32, 0.5)], '#b08a50'); }
+    },
     lab(K, x, y) {   // lastre di pietra antica, polvere, crepe
       const Pp = (u, v) => K.S(x + u, y + v, 0);
       K.strokes([[Pp(0.04, 0.04), Pp(0.96, 0.04)], [Pp(0.04, 0.04), Pp(0.04, 0.96)]], 'rgba(255,240,210,.07)'); K.strokes([[Pp(0.96, 0.04), Pp(0.96, 0.96)], [Pp(0.04, 0.96), Pp(0.96, 0.96)]], 'rgba(0,0,0,.22)');
@@ -165,19 +185,56 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
     const u = 0.25 + 0.5 * hsh(x, y, 120), v = 0.25 + 0.5 * hsh(x, y, 121);
     if (t === 'bones') { line(S(x + u - 0.22, y + v - 0.05, 0.03), S(x + u + 0.2, y + v + 0.06, 0.03), '#d8d0bc', Math.max(2, K.TW / 16)); line(S(x + u - 0.05, y + v - 0.2, 0.03), S(x + u + 0.08, y + v + 0.18, 0.03), '#cfc6b0', Math.max(2, K.TW / 18)); dot(x + u - 0.22, y + v - 0.05, 0.04, 0.035, '#e4dcc8'); dot(x + u + 0.2, y + v + 0.06, 0.04, 0.035, '#e4dcc8'); }
     else if (t === 'skull') { dot(x + u, y + v, 0.12, 0.12, '#e2dac6'); bx(x + u - 0.06, y + v + 0.04, x + u + 0.06, y + v + 0.14, 0, 0.08, '#d4ccb6'); dot(x + u - 0.05, y + v + 0.1, 0.14, 0.03, '#2a241c'); dot(x + u + 0.04, y + v + 0.11, 0.14, 0.03, '#2a241c'); }
+    else if (t === 'colfrag') { const a = hsh(x, y, 124) < 0.5; if (a) { bx(x + 0.15, y + 0.3, x + 0.85, y + 0.62, 0, 0.3, '#a49a84'); bx(x + 0.85, y + 0.3, x + 0.9, y + 0.62, 0, 0.3, '#8a8170'); } else { K.cyl(x + 0.5, y + 0.5, 0.26, 0, 0.35, '#a49a84'); K.cyl(x + 0.5, y + 0.5, 0.2, 0.35, 0.38, '#b4aa94'); } }
+    else if (t === 'roots') { const L = []; for (let i = 0; i < 3; i++) { const a = 0.1 + 0.8 * hsh(x, y, 125 + i), b = 0.1 + 0.8 * hsh(x, y, 128 + i); L.push([S(x + a, y, 0.02), S(x + (a + b) / 2, y + 0.5, 0.04)], [S(x + (a + b) / 2, y + 0.5, 0.04), S(x + b, y + 1, 0.02)]); } K.strokes(L, '#4a3220', Math.max(2, K.TW / 18)); }
+    else if (t === 'leaves') { for (let i = 0; i < 5; i++) { const a = 0.1 + 0.8 * hsh(x, y, 131 + i), b = 0.1 + 0.8 * hsh(x, y, 136 + i); dot(x + a, y + b, 0.01, 0.06, ['#4f8a40', '#6a9a48', '#8a8a3a'][i % 3]); } }
+    else if (t === 'puddle') { const a = 0.3 + 0.4 * u, b = 0.3 + 0.4 * v, [X, Y] = S(x + a, y + b, 0.01); K.g.fillStyle = '#3a4a58'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW * 0.32, K.TW * 0.15, 0, 0, 7); K.g.fill(); K.g.fillStyle = '#5a7a90'; K.g.beginPath(); K.g.ellipse(X - K.TW * 0.06, Y - K.TW * 0.03, K.TW * 0.14, K.TW * 0.04, 0, 0, 7); K.g.fill(); }
+    else if (t === 'ash') { dot(x + u, y + v, 0.01, 0.18, '#3a302a'); dot(x + u + 0.05, y + v, 0.02, 0.08, '#5a4a40'); }
     else if (t === 'rubble') { const n = 2 + Math.floor(hsh(x, y, 122) * 3); for (let i = 0; i < n; i++) { const a = 0.15 + 0.7 * hsh(x, y, 123 + i), b = 0.15 + 0.7 * hsh(x, y, 130 + i), s = 0.05 + 0.07 * hsh(x, y, 137 + i); bx(x + a - s, y + b - s, x + a + s, y + b + s, 0, s * 1.4, i % 2 ? '#7d7262' : '#8a7f6e'); } }
+  }
+  // MURO per zona (tutti colori pieni: i muri davanti ai personaggi si ridisegnano sopra lo sfondo, le trasparenze si sommerebbero)
+  function wallDraw(K, x, y) {
+    const { bx, S, hsh, g, TW } = K, z = zq(x, y), col = ZN[z].w[Math.floor(hsh(x, y, 140) * 3)], sh = K.shade;
+    let h = 1.2 + 0.08 * hsh(x, y, 141); const chip = z === 0 && hsh(x, y, 150) < 0.3;   // ingresso: muri sbrecciati, piu' bassi
+    if (chip) h -= 0.22;
+    bx(x, y, x + 1, y + 1, 0, h, col); bx(x - 0.03, y - 0.03, x + 1.03, y + 1.03, h, h + 0.1, sh(col, 1.18));
+    if (chip && hsh(x, y, 151) < 0.6) bx(x + 0.15, y + 0.45, x + 0.6, y + 0.95, h + 0.1, h + 0.32, sh(col, 1.05));
+    if (z === 1 && hsh(x, y, 152) < 0.7) { bx(x + 0.05, y + 0.1, x + 0.7, y + 0.8, h + 0.1, h + 0.16, '#4f7a3a'); if (hsh(x, y, 153) < 0.5) bx(x + 0.4, y + 0.3, x + 0.95, y + 0.95, h + 0.1, h + 0.14, '#5a8a42'); }   // muschio sopra
+    if (TW < 40) return;
+    const faces = [[(u, zz) => S(x + u, y + 1, zz), 0.72, !isWall(x, y + 1), 1], [(u, zz) => S(x + 1, y + u, zz), 0.5, !isWall(x + 1, y), 2]];
+    const ell = (X, Y, rx, ry, c) => { g.fillStyle = c; g.beginPath(); g.ellipse(X, Y, rx, ry, 0, 0, 7); g.fill(); };
+    for (const [F, k, open, sd] of faces) {
+      const off = hsh(x, y, 142) < 0.5 ? 0.33 : 0.66, dk = sh(col, k * 0.62);
+      K.strokes([[F(0, 0.4), F(1, 0.4)], [F(0, 0.8), F(1, 0.8)], [F(off, 0), F(off, 0.4)], [F(1 - off, 0.4), F(1 - off, 0.8)], [F(off, 0.8), F(off, h)]], dk);
+      if (!open) continue;   // decorazioni solo sui lati che danno su un corridoio
+      const r = hsh(x, y, 160 + sd);
+      // nicchia con l'anfora (tutte le zone, rara)
+      if (r < 0.06 && z !== 1) { K.poly([F(0.3, 0.3), F(0.7, 0.3), F(0.7, 0.75), F(0.6, 0.85), F(0.4, 0.85), F(0.3, 0.75)], sh(col, 0.32)); const [X, Y] = F(0.5, 0.48); ell(X, Y, TW / 16, TW / 11, '#a8582e'); ell(X, Y - TW / 9, TW / 30, TW / 22, '#8e4a2a'); continue; }
+      if (z === 0) {   // crepe
+        if (r < 0.35) K.strokes([[F(0.2, h), F(0.35, 0.8)], [F(0.35, 0.8), F(0.28, 0.55)], [F(0.28, 0.55), F(0.45, 0.3)]], sh(col, 0.4), Math.max(1.5, TW / 30));
+      } else if (z === 1) {   // edera sulla parete e liane che pendono dall'alto
+        const n = 3 + Math.floor(hsh(x, y, 170 + sd) * 6);
+        for (let i = 0; i < n; i++) { const u = 0.08 + 0.84 * hsh(x, y, 180 + i * 3 + sd), zz = 0.1 + (h - 0.2) * hsh(x, y, 181 + i * 3 + sd), [X, Y] = F(u, zz); ell(X, Y, TW / 13, TW / 18, i % 2 ? '#3f7a36' : '#4f8a40'); ell(X + TW / 30, Y - TW / 40, TW / 22, TW / 30, '#62a04c'); }
+        if (r < 0.55) { const u = 0.2 + 0.6 * hsh(x, y, 190 + sd), L = 0.4 + 0.6 * hsh(x, y, 191 + sd), [X0, Y0] = F(u, h + 0.08), [X1, Y1] = F(u, h + 0.08 - L);
+          g.strokeStyle = '#3a5a2a'; g.lineWidth = Math.max(1.5, TW / 26); g.beginPath(); g.moveTo(X0, Y0); g.quadraticCurveTo(X0 + TW / 14, (Y0 + Y1) / 2, X1, Y1); g.stroke();
+          for (let i = 1; i <= 4; i++) { const t = i / 5; ell(X0 + (X1 - X0) * t + (i % 2 ? TW / 22 : -TW / 22), Y0 + (Y1 - Y0) * t, TW / 22, TW / 34, '#4f8a40'); } }
+      } else if (z === 2) {   // segno dell'acqua in basso, muschio scuro, colature
+        K.poly([F(0, 0), F(1, 0), F(1, 0.22 + 0.05 * hsh(x, y, 200)), F(0, 0.26)], sh(col, k * 0.55));
+        if (r < 0.5) { const [X, Y] = F(0.2 + 0.6 * hsh(x, y, 201 + sd), 0.15); ell(X, Y, TW / 9, TW / 22, '#3f5a44'); }
+        if (r > 0.6) { const u = 0.2 + 0.6 * hsh(x, y, 202 + sd); K.strokes([[F(u, h), F(u, 0.5)]], sh(col, 0.5), Math.max(1.5, TW / 28)); }
+      } else {   // santuario: greca scolpita a fascia e, a volte, la testa di toro in rilievo
+        const a0 = 0.62, a1 = 0.78; K.poly([F(0, a0), F(1, a0), F(1, a1), F(0, a1)], '#b08a50');
+        const L = []; for (let i = 0; i < 4; i++) { const u0 = i / 4 + 0.03, u1 = u0 + 0.18; L.push([F(u0, a0 + 0.03), F(u0, a1 - 0.03)], [F(u0, a1 - 0.03), F(u1, a1 - 0.03)], [F(u1, a1 - 0.03), F(u1, a0 + 0.06)], [F(u1, a0 + 0.06), F(u0 + 0.08, a0 + 0.06)]); }
+        K.strokes(L, '#6a4a28', Math.max(1.2, TW / 34));
+        if (r < 0.25) { const [X, Y] = F(0.5, 0.35); ell(X, Y, TW / 9, TW / 8, sh(col, 0.8)); g.strokeStyle = sh(col, 1.25); g.lineWidth = Math.max(2, TW / 18); g.beginPath(); g.moveTo(X - TW / 10, Y - TW / 16); g.quadraticCurveTo(X - TW / 5, Y - TW / 10, X - TW / 6, Y - TW / 4.5); g.moveTo(X + TW / 10, Y - TW / 16); g.quadraticCurveTo(X + TW / 5, Y - TW / 10, X + TW / 6, Y - TW / 4.5); g.stroke(); ell(X, Y + TW / 16, TW / 18, TW / 26, sh(col, 0.6)); }
+      }
+    }
   }
   function draw(K, t, x, y, o) {
     const { bx, cyl, qL, dot, glow, line, S, poly, hsh } = K;
     switch (t) {
       case 'mw': case 'mwt': {   // muro di blocchi di pietra antica, con muschio; mwt = pilastro con la torcia
-        const C3 = ['#7d705c', '#766a56', '#837562'], col = C3[Math.floor(hsh(x, y, 140) * 3)], h = 1.2 + 0.08 * hsh(x, y, 141);
-        bx(x, y, x + 1, y + 1, 0, h, col); bx(x - 0.03, y - 0.03, x + 1.03, y + 1.03, h, h + 0.1, K.shade(col, 1.18));
-        if (K.TW >= 40) for (const [F, k] of [[(u, z) => S(x + u, y + 1, z), 0.72], [(u, z) => S(x + 1, y + u, z), 0.5]]) {
-          const off = hsh(x, y, 142) < 0.5 ? 0.33 : 0.66;
-          K.strokes([[F(0, 0.4), F(1, 0.4)], [F(0, 0.8), F(1, 0.8)], [F(off, 0), F(off, 0.4)], [F(1 - off, 0.4), F(1 - off, 0.8)], [F(off, 0.8), F(off, h)]], K.shade(col, k * 0.62));
-          if (hsh(x, y, 143) < 0.28) { const [X, Y] = F(0.2 + 0.6 * hsh(x, y, 144), 0.12); K.g.fillStyle = '#4f6a36'; K.g.fillRect(X - K.TW / 10, Y - K.TW / 18, K.TW / 5, K.TW / 9); }
-        }
+        wallDraw(K, x, y);
         if (t === 'mwt') {   // torcia sul lato che si vede (davanti a sinistra se c'e' corridoio, se no a destra)
           const front = !isWall(x, y + 1) ? (u, z) => S(x + u, y + 1.04, z) : (u, z) => S(x + 1.04, y + u, z);
           line(front(0.5, 0.55), front(0.5, 0.85), '#4a3020', Math.max(3, K.TW / 9));
@@ -564,6 +621,8 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       if (!G.csD) G.csD = G.cs.slice();
       G.cs.forEach((v, i) => { if (G.csD[i] !== v) { G.csD[i] = v; const f = MP().frag[i]; cqBgCell(f.cx, f.cy, 1); } });
       if ((G.exT = (G.exT || 0) - dt) <= 0) { G.exT = 0.2; explore(G); }
+      { const z = zq(Math.floor(cq.x), Math.floor(cq.y)); if (G.zn !== z) { if (G.zn != null && G.time > 1) { G.znT = performance.now(); G.znN = ZN[z].n; } G.zn = z; } }
+      if (G.zn === 2 && (G.dripT = (G.dripT || 2) - dt) <= 0) { G.dripT = 1.5 + Math.random() * 3; const f = 1400 + Math.random() * 600; beep(f, 0.06, 0.012); beep(f * 0.7, 0.08, 0.008, 0.05); }
       const M = mino(G);
       if (M && M !== me && M.alive && (M.walk || M.mv) && (G.stT = (G.stT || 0) - dt) <= 0) { G.stT = 0.42; const d = Math.hypot(M.x - cq.x, M.y - cq.y); if (d < 10) thud(0.7 * (1 - d / 10), 52 + Math.random() * 10); }
       const cv = $('#cqCanvas'), sh = !me.mino && me.alive && slowOn(G, me) && G.time - (me.slow - ROAR_T) < 0.9;
@@ -641,7 +700,9 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       if (!me.alive) return { a: 0.45, r: 7, lights: [], see: () => true };
       const lights = [], r = me.mino ? VIS_M : VIS_E;
       lights.push([cq.x, cq.y, r, me.mino ? 0.75 : 0.95]);
-      for (const [x, y] of MP().torches) if (Math.abs(x - cq.x) < 13 && Math.abs(y - cq.y) < 13) lights.push([x + 0.5, y + 0.5, LIT_R, 0.8]);
+      const tn = performance.now() / 1000;
+      for (const [x, y] of MP().torches) if (Math.abs(x - cq.x) < 13 && Math.abs(y - cq.y) < 13) lights.push([x + 0.5, y + 0.5, LIT_R * (0.93 + 0.05 * Math.sin(tn * 9 + x * 3) + 0.03 * Math.sin(tn * 23 + y)), 0.8]);   // tremolano
+      for (const [x, y] of MP().shafts) if (Math.abs(x - cq.x) < 14 && Math.abs(y - cq.y) < 14) lights.push([x + 0.5, y + 0.5, 1.9, 0.75]);
       MP().frag.forEach((f, i) => { if (here(G, i) && Math.abs(f.x - cq.x) < 13 && Math.abs(f.y - cq.y) < 13) lights.push([f.x, f.y, 1.7, 0.6]); });
       const mates = [];
       if (!me.mino) for (const c of G.chars) if (c !== me && c.alive && !c.out && !c.mino && c.t === me.t) { mates.push(c); if (Math.hypot(c.x - cq.x, c.y - cq.y) < 16) lights.push([c.x, c.y, 2.8, 0.85]); }
@@ -676,6 +737,33 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         const ox = -Math.sin(f[2]) * 0.14 * f[5], oy = Math.cos(f[2]) * 0.14 * f[5], X = sx(f[0] + ox, f[1] + oy), Y = sy(f[0] + ox, f[1] + oy), a = Math.atan2(sy(f[0] + Math.cos(f[2]), f[1] + Math.sin(f[2])) - sy(f[0], f[1]), sx(f[0] + Math.cos(f[2]), f[1] + Math.sin(f[2])) - sx(f[0], f[1]));
         g.fillStyle = 'rgba(255,110,50,' + (0.75 * k) + ')'; g.beginPath(); g.ellipse(X, Y, TW * 0.11, TW * 0.055, a, 0, 7); g.fill();
       }
+      // lame di luce dal soffitto: fascio chiaro con la polvere che brilla
+      for (const [x, y] of MP().shafts) {
+        if (!near(x, y, 13)) continue;
+        const X = sx(x + 0.5, y + 0.5), Y = sy(x + 0.5, y + 0.5), top = Y - TW * 4.5, gr = g.createLinearGradient(X, top, X, Y);
+        gr.addColorStop(0, 'rgba(255,250,220,0)'); gr.addColorStop(1, 'rgba(255,248,215,.2)'); g.fillStyle = gr;
+        g.beginPath(); g.moveTo(X - TW * 0.22, top); g.lineTo(X + TW * 0.3, top); g.lineTo(X + TW * 0.55, Y); g.lineTo(X - TW * 0.5, Y); g.closePath(); g.fill();
+        g.fillStyle = 'rgba(255,250,225,.18)'; g.beginPath(); g.ellipse(X, Y, TW * 0.55, TW * 0.26, 0, 0, 7); g.fill();
+        for (let k = 0; k < 7; k++) { const ph = (now * 0.12 + k / 7 + x * 0.13) % 1, px = X + Math.sin(now * 0.7 + k * 2.3 + y) * TW * 0.3, py = Y - ph * TW * 4; g.fillStyle = 'rgba(255,250,225,' + (0.7 * Math.sin(ph * Math.PI)) + ')'; g.fillRect(px - 1, py - 1, 2, 2); }
+      }
+      // lucciole nel giardino sommerso, gocce che cadono nelle sale allagate (intorno a me)
+      if (!ghost || true) {
+        const zc = zq(Math.floor(cq.x), Math.floor(cq.y));
+        if (zc === 1) for (let k = 0; k < 9; k++) {
+          const fx = cq.x + Math.sin(now * 0.31 + k * 7.1) * 5 + Math.sin(now * 0.9 + k) * 0.6, fy = cq.y + Math.cos(now * 0.27 + k * 3.3) * 5;
+          if (zq(Math.floor(fx), Math.floor(fy)) !== 1) continue;
+          const X = sx(fx, fy), Y = sy(fx, fy) - TW * (0.9 + 0.4 * Math.sin(now * 1.3 + k)), a = 0.4 + 0.6 * Math.max(0, Math.sin(now * 2.2 + k * 1.7));
+          g.fillStyle = 'rgba(200,255,120,' + (a * 0.25) + ')'; g.beginPath(); g.arc(X, Y, 5, 0, 7); g.fill(); g.fillStyle = 'rgba(230,255,160,' + a + ')'; g.fillRect(X - 1.2, Y - 1.2, 2.4, 2.4);
+        }
+        if (zc === 2) for (let k = 0; k < 4; k++) {
+          const per = 2.2 + k * 0.6, ph = ((now + k * 1.37) % per) / per, seed = Math.floor((now + k * 1.37) / per) * 13 + k * 7;
+          const dx = cq.x + (Math.sin(seed * 12.9898) * 43758.5453 % 1) * 6, dy = cq.y + (Math.sin(seed * 78.233) * 12543.21 % 1) * 6;
+          if (isWall(Math.floor(dx), Math.floor(dy))) continue;
+          const X = sx(dx, dy), Y = sy(dx, dy);
+          if (ph < 0.7) { const yy = Y - TW * 3 * (1 - ph / 0.7); g.fillStyle = 'rgba(190,220,240,.8)'; g.fillRect(X - 1, yy - 4, 2, 5); }
+          else { const k2 = (ph - 0.7) / 0.3; g.strokeStyle = 'rgba(190,220,240,' + (0.7 * (1 - k2)) + ')'; g.lineWidth = 1.2; g.beginPath(); g.ellipse(X, Y, TW * 0.25 * k2 + 2, TW * 0.12 * k2 + 1, 0, 0, 7); g.stroke(); }
+        }
+      }
       // occhi rossi del Minotauro nel buio (quando non lo vedo)
       const M = mino(G);
       if (M && M !== me && M.alive && !ghost && !(MN && MN.see(M.x, M.y)) && Math.hypot(M.x - cq.x, M.y - cq.y) < 9) {
@@ -691,6 +779,11 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         SQ.edge(g, X, Y - TW, W2, H2, '🚪', TT(G)[me.t].c);
       }
       // compagni lontani: freccia sul bordo (si vedono anche sulla mappina)
+      if (G.znT && performance.now() - G.znT < 2600) {
+        const k = (performance.now() - G.znT) / 2600, a = Math.min(1, k * 6, (1 - k) * 4);
+        g.font = '700 18px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.globalAlpha = a;
+        g.lineWidth = 4; g.strokeStyle = 'rgba(0,0,0,.7)'; g.strokeText(G.znN, W2 / 2, H2 * 0.36); g.fillStyle = '#f2e2b8'; g.fillText(G.znN, W2 / 2, H2 * 0.36); g.globalAlpha = 1;
+      }
       // mappina in alto a destra
       minimap(g, G, W2);
     }
