@@ -2,7 +2,7 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>Linee e quadrettini birichini</title>
 <meta name="theme-color" content="#f5f4f0">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -13,6 +13,9 @@
 <link rel="apple-touch-icon" href="icona-apple.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 26 26'%3E%3Crect width='26' height='26' rx='6' fill='%23fff'/%3E%3Cpath d='M5 5H21V21' stroke='%232f6fe4' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3Cpath d='M5 5V21H21' stroke='%23e2553a' stroke-width='3.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E">
 <style>
+/* niente zoom col doppio tocco (iPhone): manipulation su tutto; chi ha gia' touch-action:none lo tiene (selettore piu' forte) */
+html,body,*{touch-action:manipulation}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 :root{
   --bg:#f5f4f0; --panel:#ffffff; --ink:#1d2127; --muted:#6b7280; --line:#e4e2dc; --dot:#2a2e35; --ghost:#9aa3af;
   --p0:#2f6fe4; --p1:#e2553a; --p2:#1f9d6b; --p3:#c58610;
@@ -391,6 +394,22 @@ details.gList[open] summary::after{content:' ▴'}
 <dialog id="dInvite"><div class="dlg" id="inviteBody"></div></dialog>
 
 <script>
+// iPhone: Safari ignora user-scalable=no e ingrandisce col doppio tocco o con due dita, e poi la pagina resta ingrandita.
+// Si blocca il pizzico (gesturestart), il doppio tocco veloce fuori dai campi di testo, e se lo schermo e' rimasto ingrandito lo si rimette a posto
+(() => {
+  const ios = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  ['gesturestart', 'gesturechange'].forEach(t => document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+  document.addEventListener('touchmove', e => { if (e.touches.length > 1 || (e.scale && e.scale !== 1)) e.preventDefault(); }, { passive: false });
+  if (!ios) return;
+  let last = 0;
+  document.addEventListener('touchend', e => {
+    const now = Date.now(), t = e.target, typing = t && t.closest && t.closest('input,textarea,select,[contenteditable],#board');   // il tabellone dei punti ha i suoi tocchi veloci (e touch-action gia' blocca lo zoom)
+    if (now - last < 320 && !typing && e.touches.length === 0) { e.preventDefault(); if (t && t.click && t.closest && t.closest('button,a,label,[onclick],.gcard')) t.click(); }
+    last = now;
+  }, { passive: false });
+  const vv = window.visualViewport, meta = document.querySelector('meta[name=viewport]');
+  if (vv && meta) vv.addEventListener('resize', () => { if (vv.scale > 1.02) { const c = meta.content; meta.content = c + ',minimum-scale=1'; setTimeout(() => { meta.content = c; }, 60); } });
+})();
 // errori: si salvano (ultimi 10, in questo telefono) e compare una striscia rossa da fotografare e mandare. Ogni errore una volta sola
 (() => {
   const seen = new Set();
