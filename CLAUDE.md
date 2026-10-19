@@ -36,6 +36,7 @@ Le persone si riconoscono dal nome (`nameKey`): stesso nome su due dispositivi =
 - Prove fuori dal browser vero: Playwright con un finto Firebase (moduli `firebase-app.js` / `firebase-database.js` serviti con `route`, stato condiviso tra due contesti) e peerjs.com bloccato. Mai provato su iPhone veri.
 
 ## Regole di lavoro con l'utente
+- RUOLO (richiesta dell'utente, 19-10-2026): agire SEMPRE come game designer, game developer, game artist ed esperto di psicologia del videogioco di altissimo livello: proporre, criticare e migliorare le idee con quello sguardo (divertimento, chiarezza, emozioni, ritmo, "momento da raccontare"), non solo eseguire.
 - Spiegare prima cosa comparirà (finestre, UAC) e cosa premere; un passo alla volta. L'utente non sa usare terminale/console: i comandi li esegui tu, a lui chiedi solo clic su siti.
 - A fine di ogni serie di modifiche dare **sempre il link del sito**. GitHub Pages fa tenere la pagina in cache 10 minuti: `checkUpdate()` confronta il Last-Modified del server con `document.lastModified` e ricarica da sola (all'apertura e al ritorno sulla pagina, mai con `net` attivo). Se non basta: aggiungere `?v=N` all'indirizzo.
 - Controllare a occhio con uno screenshot (Edge headless) prima di pubblicare; l'estetica la giudica l'utente.
