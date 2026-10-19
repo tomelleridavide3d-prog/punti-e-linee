@@ -1048,14 +1048,26 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     g.fillStyle = furD; g.beginPath(); g.ellipse(22, -49, 5.5, 7.5, -0.2, 0, 7); g.fill(); g.fillStyle = '#5a3a20'; g.beginPath(); g.ellipse(22.5, -49, 3.2, 5, -0.2, 0, 7); g.fill();
     // zampe davanti a noi
     if (!sleep && !dead) { leg(-12, Math.PI, fur); leg(26, 0, fur); }
-    // proboscide: si alza prima della carica, ondeggia piano, a terra arrotolata se dorme
-    const sw = Math.sin(t * 1.4) * 2.5;
-    g.fillStyle = fur; g.beginPath();
-    if (wind) { g.moveTo(36, -44); g.bezierCurveTo(48, -60, 54, -78, 46, -90); g.bezierCurveTo(44, -94, 40, -92, 41, -88); g.bezierCurveTo(46, -78, 40, -62, 30, -36); }
-    else if (sleep || dead) { g.moveTo(37, -40); g.bezierCurveTo(46, -30, 50, -16, 44, -12); g.bezierCurveTo(38, -10, 36, -16, 40, -17); g.bezierCurveTo(42, -22, 36, -30, 30, -34); }
-    else { g.moveTo(37, -42); g.bezierCurveTo(48, -30 + sw * 0.3, 46 + sw, -10, 44 + sw, -2); g.bezierCurveTo(44 + sw, 1, 49 + sw, 1, 50 + sw, -3); g.bezierCurveTo(47 + sw, -4, 40 + sw * 0.6, -14, 40, -26); g.lineTo(32, -34); }
-    g.closePath(); g.fill();
-    g.strokeStyle = 'rgba(40,24,12,.4)'; g.lineWidth = 0.9; g.beginPath(); for (let i = 0; i < 6; i++) { const yy = -36 + i * 5.5; if (wind) { g.moveTo(38 + i * 1.6, -48 - i * 7); g.lineTo(46 + i * 1.2, -50 - i * 7); } else if (!sleep && !dead) { g.moveTo(39 + i * 0.6 + sw * i / 6, yy); g.lineTo(45 + i * 0.4 + sw * i / 6, yy - 0.5); } } g.stroke();
+    // proboscide: un tubo che si assottiglia lungo una curva (pieghe ad anello, riflesso sopra, punta con il "dito" e la narice).
+    // Ondeggia sempre un po' (di piu' camminando), si alza arricciata prima della carica, a terra arrotolata se dorme o e' morto
+    const walking = !sleep && !dead && !wind && (mm.walk || 0) !== (mm.wPrev || 0); mm.wPrev = mm.walk || 0;
+    const sw = Math.sin(t * 1.3) * 2.2 + (walking ? Math.sin(w * 0.9) * 2.4 : 0), tc = Math.sin(t * 2.1 + 1) * 0.5 + 0.5;
+    const pts = wind ? [[37, -44], [54, -56], [56, -82], [44, -92]] : sleep || dead ? [[37, -42], [50, -32], [54, -14], [44, -10]] : [[37, -44], [47 + sw * 0.3, -32], [43 + sw, -14], [47 + sw * 1.4 + tc * 2, -4 - tc * 2]];
+    const bz = (k, i) => { const q = 1 - k; return q * q * q * pts[0][i] + 3 * q * q * k * pts[1][i] + 3 * q * k * k * pts[2][i] + k * k * k * pts[3][i]; };
+    const N2 = 22, L = [], R = [], C2 = [];
+    for (let i = 0; i <= N2; i++) {
+      const k = i / N2, x = bz(k, 0), y = bz(k, 1), k2 = Math.min(1, k + 0.02), k1 = Math.max(0, k - 0.02), dx = bz(k2, 0) - bz(k1, 0), dy = bz(k2, 1) - bz(k1, 1), d = Math.hypot(dx, dy) || 1, nx = -dy / d, ny = dx / d, r = 6.2 - 3.4 * k;
+      L.push([x + nx * r, y + ny * r]); R.push([x - nx * r, y - ny * r]); C2.push([x, y, nx, ny, r]);
+    }
+    const tube = (A, B, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(...A[0]); A.forEach(p => g.lineTo(...p)); for (let i = B.length - 1; i >= 0; i--) g.lineTo(...B[i]); g.closePath(); g.fill(); };
+    tube(L, R, fur);
+    tube(L, C2.map(([x, y, nx, ny, r]) => [x + nx * r * 0.25, y + ny * r * 0.25]), 'rgba(160,112,66,.55)');   // lato in luce
+    const e = C2[N2], tip = [e[0], e[1]];
+    g.fillStyle = fur; g.beginPath(); g.arc(tip[0], tip[1], e[4] + 0.4, 0, 7); g.fill();
+    g.fillStyle = '#8a6040'; g.beginPath(); g.ellipse(tip[0] + e[2] * 1.4, tip[1] + e[3] * 1.4, 2.2, 1.6, Math.atan2(e[3], e[2]), 0, 7); g.fill();   // il "dito" della punta
+    g.fillStyle = '#2a170a'; g.beginPath(); g.ellipse(tip[0] - e[2] * 0.6, tip[1] - e[3] * 0.6 + 0.6, 1.3, 0.9, 0, 0, 7); g.fill();   // narice
+    g.strokeStyle = 'rgba(40,22,10,.45)'; g.lineWidth = 0.75;
+    for (let i = 3; i < N2 - 1; i += 2) { const [x, y, nx, ny, r] = C2[i]; g.beginPath(); g.moveTo(x + nx * r * 0.9, y + ny * r * 0.9); g.quadraticCurveTo(x + (ny) * 1.2, y - nx * 1.2, x - nx * r * 0.9, y - ny * r * 0.9); g.stroke(); }
     // zanna vicina
     tusk(0, 0, 1, ivory);
     // occhio con la palpebra pesante (chiuso se dorme, a X se e' morto, rosso prima della carica)
