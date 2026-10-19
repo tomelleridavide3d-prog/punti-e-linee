@@ -16,6 +16,10 @@
     if (!M.ok) miss.push('ok=false');
     for (const k of ['eat', 'drink', 'sleep']) M.places[k].forEach(([x, y]) => { if (!ok(x + 0.5, y + 0.5)) miss.push(k + '@' + x + ',' + y); });
     M.burrows.forEach(b => { if (!ok(b.x, b.y)) miss.push('tana'); });
+    const L = M.lm || {}, spots = { menhir: L.menhir && [L.menhir.x, L.menhir.y], paint: L.paint && [L.paint.x0 + 3.5, L.paint.y0 + 1.5], dolmen: L.dolmen && [L.dolmen.x, L.dolmen.y], glade: L.glade && L.glade.sp && L.glade.sp[0] && [L.glade.sp[0][0] + 0.5, L.glade.sp[0][1] + 0.5], gtree: L.gtree && L.gtree.sp && [L.gtree.sp[0] + 0.5, L.gtree.sp[1] + 0.5] };
+    for (const k in spots) { if (!spots[k]) { if (k === 'glade' || k === 'paint' || k === 'menhir') miss.push('manca ' + k); continue; } if (!ok(...spots[k])) miss.push('irraggiungibile ' + k); }
+    for (const k of ['spring', 'cem', 'marsh', 'fall']) if (L[k]) { let any = false; for (let dy = -4; dy <= 4 && !any; dy++) for (let dx = -4; dx <= 4 && !any; dx++) { const x = Math.floor(L[k].x) + dx, y = Math.floor(L[k].y) + dy; if (cqCellFree(x, y) && ok(x + 0.5, y + 0.5)) any = true; } if (!any) miss.push('irraggiungibile ' + k); }
+    if (sd <= 12) out.push('luoghi ' + sd + ': ' + Object.keys(L).filter(k => L[k]).join(',') + ' | fav ' + JSON.stringify(M.fav));
     if (sd <= 3) out.push('prateria ' + sd + ': ' + Math.round(ms) + ' ms, alberi ' + M.trees.length + ', pascoli ' + M.places.eat.length + ', acqua ' + M.places.drink.length + ', tane ' + M.burrows.length + ', dormire ' + M.places.sleep.length + ', guadi ' + M.fords.length + ', stagni ' + M.ponds.length);
     if (miss.length) bad.push(sd + ': ' + miss.slice(0, 5).join(' '));
   }

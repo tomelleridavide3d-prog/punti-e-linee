@@ -19,6 +19,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   const THROW_R = 5.5, SPEARS = 2, SPEAR_MAX = 3, LOGS_MAX = 3, LOG_FUEL = 22, MEAT_N = 6, MEAT_NEED = 4, RAB_MAX = 2;
   const VIS_D = 6.5, VIS_N = 4, VIS_S = 2.2, SMELL = 12, PUSH_R = 4, SHOUT_R = 7, CH_R = 2.8;
   const SEE_N = 3.0, TORCH_L = 5.2;   // fin dove si vede di notte: da soli, con la torcia
+  const LOOK_T = 3, SPY_T = 12, SPY_CD = 75;   // vedetta del cerchio di pietre: 3 s a guardare, il mammut sulla mappa per 12 s, poi 75 s di riposo
   const mmss = t => Math.floor(Math.max(0, t) / 60) + ':' + String(Math.floor(Math.max(0, t) % 60)).padStart(2, '0');
   const MP = () => CQ_MAP;
   const P = c => cqModePos(c);
@@ -40,6 +41,26 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   const arrowOf = (dx, dy) => { const sx = dx - dy, sy = (dx + dy) / 2; return ARW[(Math.round(Math.atan2(sy, sx) / (Math.PI / 4)) + 8) % 8]; };
   const thud = (v, f) => { try { beep(f || 160, 0.08, 0.03 * (v || 1)); } catch {} };
   const nm = (G, c) => c === G.me ? 'Tu' : c.name;
+  // ---- LUOGHI SPECIALI ----
+  // radura delle lucciole (rifugio di notte, abbeveratoio preferito), cerchio di menhir (vedetta), riparo dipinto (le abitudini del mammut),
+  // dolmen (rifugio), cimitero dei mammut (lui ci gira alla larga), cascatella, albero millenario (ombra preferita), sorgente calda (rifugio), canneto (nascosti ma rumorosi)
+  const LMS = { glade: ['✨', 'Radura delle lucciole', 'Di notte le lucciole fanno luce: gli sciacalli non entrano. Il mammut ci viene a bere, ogni tanto.', 7.2],
+    menhir: ['🗿', 'Cerchio di pietre', 'Dal centro, in cima alla collina, si guarda lontano: per qualche secondo vedrete il mammut sulla mappa.', 4.3],
+    paint: ['🎨', 'Riparo dipinto', 'Le pitture degli antichi cacciatori raccontano le abitudini di questo mammut.', 5],
+    dolmen: ['🪨', 'Dolmen', 'Sotto la grande pietra gli sciacalli non ti prendono.', 2.8],
+    cem: ['🦴', 'Cimitero dei mammut', 'I mammut girano alla larga da questo posto.', 7],
+    fall: ['💦', 'Cascatella', '', 3.5],
+    gtree: ['🌳', 'Albero millenario', 'Ombra fresca: il mammut ci riposa volentieri nelle ore calde.', 4.2],
+    spring: ['♨️', 'Sorgente calda', 'Il calore e il vapore tengono lontani gli sciacalli di notte.', 3.8],
+    marsh: ['🎋', 'Canneto', 'Tra le canne il mammut non ti vede, ma se cammini frusciano.', 5.8] };
+  const LM = () => MP().lm || {};
+  const terAt = (x, y) => { const r = MP().ter[Math.floor(y)]; return r ? r[Math.floor(x)] : 0; };
+  const inMarsh = (x, y) => terAt(x, y) === 9;
+  const lmAt = (x, y) => { const L = LM(); for (const k in LMS) { const o = L[k]; if (o && Math.hypot(x - o.x, y - o.y) < LMS[k][3]) return k; } return null; };
+  // rifugi: li' gli sciacalli non entrano (cerchi [x, y, raggio])
+  const refC = () => { const L = LM(), out = []; if (L.glade) out.push([L.glade.x, L.glade.y, 5.4, 'glade']); if (L.spring) out.push([L.spring.x, L.spring.y, 3.1, 'spring']); if (L.dolmen) out.push([L.dolmen.x, L.dolmen.y, 1.05, 'dolmen']); return out; };
+  const refuge = (x, y) => { for (const r of refC()) if (Math.hypot(x - r[0], y - r[1]) < r[2]) return r[3]; return null; };
+  const safe = (G, x, y) => inFire(G, x, y) || !!refuge(x, y);
 
   // ======================= MAPPA: la prateria (col seme) =======================
   // ter[y][x]: 1 prato, 2 pascolo (erba alta, il mammut ci mangia), 3 sottobosco, 4 fango (riva), 5 guado (acqua bassa), 6 acqua, 7 campo
@@ -82,17 +103,63 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (ter[y][x] >= 4) hz[y][x] = 0;
     for (let k = 0; k < 3; k++) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let m = 9; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (inside(x + dx, y + dy)) m = Math.min(m, hz[y + dy][x + dx]); if (hz[y][x] > m + 1) hz[y][x] = m + 1; }
+    // ---- LUOGHI SPECIALI: riferimenti per orientarsi, ognuno con un ruolo nella caccia (vedi "LUOGHI SPECIALI" piu' sotto) ----
+    // ter: 8 radura, 9 canneto, 10 cimitero, 11 pietra calda, 12 terra d'ocra, 13 acqua calda, 14 schiuma della cascata
+    const lm = {}, res = [], resv = (x, y, pad) => res.some(r => Math.hypot(r.x - x, r.y - y) < r.r + pad);
+    const nearWater = (x, y, r) => { for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (inside(xx, yy) && ter[yy][xx] >= 4 && ter[yy][xx] <= 6) return true; return false; };
+    const flatAt = (x, y, r) => { for (let yy = y - r; yy <= y + r; yy++) for (let xx = x - r; xx <= x + r; xx++) if (!inside(xx, yy, 3) || hz[yy][xx] || ter[yy][xx] !== 1) return false; return true; };
+    const pick = (tries, lo, hi, fn) => { for (let i = 0; i < tries; i++) { const x = 8 + Math.floor(rnd() * (N - 16)), y = 8 + Math.floor(rnd() * (N - 16)), d = dC(x, y); if (d < lo || d > hi) continue; const o = fn(x, y); if (o) { res.push(o); return o; } } return null; };
+    const disc = (cx, cy, R, fn, amp = 0.14) => { const wb = MG.wobble(rnd, 3, amp); for (let yy = Math.floor(cy - R - 2); yy <= cy + R + 2; yy++) for (let xx = Math.floor(cx - R - 2); xx <= cx + R + 2; xx++) { if (!inside(xx, yy, 1)) continue; const d = Math.hypot(xx + 0.5 - cx, yy + 0.5 - cy) / wb(Math.atan2(yy + 0.5 - cy, xx + 0.5 - cx)); fn(xx, yy, d); } };
+    // cascatella: un gradino di roccia sul fiume (lontano dai guadi)
+    for (let i = 0; i < 200 && !lm.fall; i++) {
+      const v = 12 + Math.floor(rnd() * (N - 26)); if (fords.some(f => Math.abs(f - v) < 7)) continue;
+      const [u, w] = riv[v], x = vert ? u + w / 2 : v + 0.5, y = vert ? v + 0.5 : u + w / 2; if (dC(x, y) < 22) continue;
+      lm.fall = { x, y, r: 3, v }; res.push(lm.fall);
+      const [u1, w1] = riv[v + 1]; for (let k = 0; k < w1; k++) { const xx = vert ? u1 + k : v + 1, yy = vert ? v + 1 : u1 + k; if (ter[yy][xx] === 6) ter[yy][xx] = 14; }
+    }
+    // canneto: canne alte lungo il fiume (ci si nasconde, ma camminando frusciano)
+    for (let i = 0; i < 300 && !lm.marsh; i++) {
+      const v = 10 + Math.floor(rnd() * (N - 20)); if (fords.some(f => Math.abs(f - v) < 6)) continue;
+      const [u, w] = riv[v], o = rnd() < 0.5 ? -4 : w + 3, x = vert ? u + o : v, y = vert ? v : u + o;
+      if (!inside(x, y, 8) || dC(x, y) < 18 || resv(x, y, 9)) continue;
+      lm.marsh = { x: x + 0.5, y: y + 0.5, r: 5.5 }; res.push(lm.marsh);
+      disc(x + 0.5, y + 0.5, 5.6, (xx, yy, d) => { if (d < 5.6 && (ter[yy][xx] === 1 || ter[yy][xx] === 4) && !hz[yy][xx]) ter[yy][xx] = 9; }, 0.25);
+    }
+    // radura delle lucciole: stagno con le ninfee e i salici, erba fitta e fiori
+    lm.glade = pick(1500, 24, 60, (x, y) => !resv(x, y, 16) && !nearWater(x, y, 11) && flatAt(x, y, 6) ? { x: x + 0.5, y: y + 0.5, r: 7 } : null);
+    if (lm.glade) disc(lm.glade.x, lm.glade.y, 7.2, (xx, yy, d) => { if (d < 2.4) ter[yy][xx] = 6; else if (d < 7.2 && ter[yy][xx] === 1) ter[yy][xx] = 8; }, 0.12);
+    // cerchio di menhir in cima a una collina (vedetta)
+    const hl = hills.filter(h => { const d = dC(h.x, h.y); return d > 22 && d < 64 && inside(h.x, h.y, 10) && hz[h.y][h.x] >= 1 && !resv(h.x, h.y, 12); });
+    if (hl.length) {
+      const h = hl[Math.floor(rnd() * hl.length)], z = hz[h.y][h.x]; lm.menhir = { x: h.x + 0.5, y: h.y + 0.5, r: 4.2 }; res.push(lm.menhir);
+      for (let yy = h.y - 5; yy <= h.y + 5; yy++) for (let xx = h.x - 5; xx <= h.x + 5; xx++) if (inside(xx, yy) && Math.hypot(xx - h.x, yy - h.y) < 4.2 && ter[yy][xx] < 4) { hz[yy][xx] = z; ter[yy][xx] = 1; }
+    }
+    // riparo con le pitture rupestri: una parete di roccia (le pitture sulla faccia che si vede) e la terra d'ocra davanti
+    lm.paint = pick(1500, 22, 64, (x, y) => {
+      if (resv(x + 3, y + 1, 12) || nearWater(x + 3, y + 1, 5)) return null;
+      for (let yy = y - 2; yy <= y + 4; yy++) for (let xx = x - 1; xx <= x + 7; xx++) if (!inside(xx, yy, 3) || hz[yy][xx] || ter[yy][xx] !== 1) return null;
+      return { x: x + 3.5, y: y + 2, r: 5, x0: x, y0: y };
+    });
+    if (lm.paint) { const { x0, y0 } = lm.paint; for (let yy = y0 + 1; yy <= y0 + 3; yy++) for (let xx = x0 - 1; xx <= x0 + 7; xx++) if (Math.abs(xx - x0 - 3) + (yy - y0 - 1) * 1.6 < 6) ter[yy][xx] = 12; }
+    // cimitero dei mammut: ossa e zanne giganti nell'erba secca (i mammut ci girano alla larga)
+    lm.cem = pick(1500, 26, 66, (x, y) => !resv(x, y, 14) && !nearWater(x, y, 6) && flatAt(x, y, 5) ? { x: x + 0.5, y: y + 0.5, r: 6.5 } : null);
+    if (lm.cem) disc(lm.cem.x, lm.cem.y, 6.5, (xx, yy, d) => { if (d < 6.5 && ter[yy][xx] === 1) ter[yy][xx] = 10; }, 0.2);
+    // albero millenario (2x2), sorgente calda, dolmen
+    lm.gtree = pick(1500, 16, 56, (x, y) => !resv(x, y, 12) && !nearWater(x, y, 4) && flatAt(x, y, 4) ? { x: x + 1, y: y + 1, r: 4, cx: x, cy: y } : null);
+    lm.spring = pick(1500, 24, 66, (x, y) => !resv(x, y, 14) && !nearWater(x, y, 6) && flatAt(x, y, 4) ? { x: x + 1, y: y + 1, r: 3.6, cx: x, cy: y } : null);
+    if (lm.spring) { const { cx, cy } = lm.spring; disc(cx + 1, cy + 1, 3.6, (xx, yy, d) => { if (d < 3.6 && ter[yy][xx] === 1) ter[yy][xx] = 11; }, 0.15); for (const [dx, dy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) ter[cy + dy][cx + dx] = 13; }
+    lm.dolmen = pick(1500, 20, 62, (x, y) => !resv(x, y, 12) && !nearWater(x, y, 4) && flatAt(x, y, 3) ? { x: x + 0.5, y: y + 0.5, r: 2.6 } : null);
     // ---- pascoli (erba alta) e boschetti ----
     const meadows = [], groves = [];
     for (let i = 0; i < 900 && meadows.length < 16; i++) {
       const x = 5 + Math.floor(rnd() * (N - 10)), y = 5 + Math.floor(rnd() * (N - 10)), r = 3.5 + rnd() * 2.5;
-      if (dC(x, y) < 10 || ter[y][x] !== 1 || meadows.some(m => Math.hypot(m.x - x, m.y - y) < 15)) continue;
+      if (dC(x, y) < 10 || ter[y][x] !== 1 || meadows.some(m => Math.hypot(m.x - x, m.y - y) < 15) || resv(x, y, r + 2)) continue;
       const wb = MG.wobble(rnd, 3, 0.2); meadows.push({ x, y, r });
       for (let yy = y - 8; yy <= y + 8; yy++) for (let xx = x - 8; xx <= x + 8; xx++) if (inside(xx, yy) && ter[yy][xx] === 1 && Math.hypot(xx - x, yy - y) < r * wb(Math.atan2(yy - y, xx - x))) ter[yy][xx] = 2;
     }
     for (let i = 0; i < 900 && groves.length < 13; i++) {
       const x = 5 + Math.floor(rnd() * (N - 10)), y = 5 + Math.floor(rnd() * (N - 10)), r = 3.5 + rnd() * 3;
-      if (dC(x, y) < 9 || ter[y][x] !== 1 || groves.some(m => Math.hypot(m.x - x, m.y - y) < 14) || meadows.some(m => Math.hypot(m.x - x, m.y - y) < 10)) continue;
+      if (dC(x, y) < 9 || ter[y][x] !== 1 || groves.some(m => Math.hypot(m.x - x, m.y - y) < 14) || meadows.some(m => Math.hypot(m.x - x, m.y - y) < 10) || resv(x, y, r + 3)) continue;
       const wb = MG.wobble(rnd, 3, 0.22); groves.push({ x, y, r });
       for (let yy = y - 9; yy <= y + 9; yy++) for (let xx = x - 9; xx <= x + 9; xx++) if (inside(xx, yy) && ter[yy][xx] === 1 && Math.hypot(xx - x, yy - y) < r * wb(Math.atan2(yy - y, xx - x))) ter[yy][xx] = 3;
     }
@@ -102,13 +169,25 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const props = [], taken = new Set(), K = (x, y) => x + ',' + y, pp = (t, x, y, o) => { props.push([t, x, y, o]); taken.add(K(x, y)); };
     const free = (x, y) => inside(x, y) && ter[y][x] !== 6 && !taken.has(K(x, y));
     const step = (ax, ay, bx, by) => Math.abs(hz[by][bx] - hz[ay][ax]) <= 1;
-    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (ter[y][x] === 6) pp('wat', x, y);
+    const fallC = new Set(); if (lm.fall) { const [u, w] = riv[lm.fall.v]; for (let k = 0; k < w; k++) fallC.add(vert ? K(u + k, lm.fall.v) : K(lm.fall.v, u + k)); }
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (ter[y][x] === 6 || ter[y][x] >= 13) { if (fallC.has(K(x, y))) pp('fall', x, y, { vert }); else pp('wat', x, y); }
     // bordo: macchia fitta di rovi (non si passa)
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !taken.has(K(x, y))) pp('thick', x, y);
     const C2 = camp;
     pp('mfire', C2.x, C2.y);
     const campP = [['hide', -3, -2, 0], ['hide', 2, -3, 1], ['hide', -3, 2, 2], ['sprack', 3, 1], ['mdry', 1, 3], ['skull', -1, -4], ['stash', 3, -1]];
     for (const [t, dx, dy, v] of campP) pp(t, C2.x + dx, C2.y + dy, { v });
+    // ---- oggetti dei luoghi speciali ----
+    const front = a => Math.cos(a) + Math.sin(a) > 0.75;   // dalla parte di chi guarda: oggetti bassi, se no coprono il centro
+    if (lm.fall) { const v = lm.fall.v; for (const vv of [v - 1, v, v + 1]) { const [u, w] = riv[vv]; for (const i of [-1, w, -2, w + 1]) { const x = vert ? u + i : vv, y = vert ? vv : u + i; if (free(x, y) && (ter[y][x] === 4 || ter[y][x] === 1) && (Math.abs(i - w / 2) < w / 2 + 1.6 || vv === v)) pp('wrock', x, y, { v: (x * 7 + y) % 3 }); } } }
+    if (lm.glade) { const { x: gx, y: gy } = lm.glade; for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.3; if (front(a)) continue; const r = 4.3 + (k % 2) * 0.9, x = Math.floor(gx + Math.cos(a) * r), y = Math.floor(gy + Math.sin(a) * r); if (free(x, y) && ter[y][x] === 8) pp('willow', x, y, { v: k % 3 }); } }
+    if (lm.menhir) { const { x: mx0, y: my0 } = lm.menhir; for (let k = 0; k < 9; k++) { if (k === 2 || k === 6) continue; const a = k / 9 * Math.PI * 2 + 0.2, x = Math.floor(mx0 + Math.cos(a) * 3.1), y = Math.floor(my0 + Math.sin(a) * 3.1); if (free(x, y)) pp('menhir', x, y, { v: k, low: front(a) ? 1 : 0 }); } }
+    if (lm.paint) { const { x0, y0 } = lm.paint; for (let i = 0; i < 7; i++) { pp('pwall', x0 + i, y0, { i }); if (i % 3 !== 1 && free(x0 + i, y0 - 1)) pp('boulder', x0 + i, y0 - 1); } }
+    if (lm.dolmen) { const x = Math.floor(lm.dolmen.x), y = Math.floor(lm.dolmen.y); for (const [dx, dy, s2] of [[-1, -1, 'bl'], [0, -1, 'bk'], [1, -1, 'br'], [-1, 0, 'fl'], [1, 0, 'fr']]) pp('dolm', x + dx, y + dy, { s: s2 }); }
+    if (lm.cem) { const { x: ex, y: ey } = lm.cem, nb = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [-1, -1], [1, -1], [-1, 1]].some(([dx, dy]) => taken.has(K(x + dx, y + dy)));
+      for (const [t, n] of [['tusks', 4], ['mskull', 2], ['ribs', 3]]) for (let i = 0, k = 0; i < 120 && k < n; i++) { const a = rnd() * 7, r = 1 + rnd() * 4.5, x = Math.floor(ex + Math.cos(a) * r), y = Math.floor(ey + Math.sin(a) * r); if (free(x, y) && ter[y][x] === 10 && !nb(x, y)) { pp(t, x, y, { v: Math.floor(rnd() * 3) }); k++; } } }
+    if (lm.gtree) { const { cx, cy } = lm.gtree; pp('gtree', cx, cy, { part: 1 }); pp('gtree', cx + 1, cy, { part: 1 }); pp('gtree', cx, cy + 1, { part: 1 }); pp('gtree', cx + 1, cy + 1, { main: 1 }); }
+    if (lm.spring) { const { x: qx, y: qy } = lm.spring; for (let k = 0; k < 7; k++) { const a = k / 7 * Math.PI * 2 + 0.5; if (front(a)) continue; const x = Math.floor(qx + Math.cos(a) * 2.2 - 0.0001), y = Math.floor(qy + Math.sin(a) * 2.2 - 0.0001); if (free(x, y) && ter[y][x] === 11) pp('srock', x, y, { v: k % 3 }); } }
     // ---- alberi (boschetti fitti, qualcuno isolato nella prateria), rocce, cespugli ----
     const decals = [], deco = [], trees = [];
     const nearT = (x, y, r) => trees.some(t => Math.abs(t.x - x) < r && Math.abs(t.y - y) < r && Math.hypot(t.x - x, t.y - y) < r);
@@ -116,6 +195,11 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
       if (!free(x, y) || dC(x, y) < 6) continue;
       const t = ter[y][x], r = rnd();
+      if (t === 8) { if (r < 0.3) deco.push([x, y, 'flower']); else if (r < 0.34) deco.push([x, y, 'mush']); else if (r < 0.5) deco.push([x, y, 'tuft']); continue; }
+      if (t === 9) { if (r < 0.62) deco.push([x, y, 'reedT']); else if (r < 0.7) deco.push([x, y, 'puddle']); continue; }
+      if (t === 10) { if (r < 0.13) deco.push([x, y, 'bones']); else if (r < 0.42) deco.push([x, y, 'dtuft']); continue; }
+      if (t === 11 || t === 12) { if (r < 0.16) deco.push([x, y, 'pebble']); continue; }
+      if (t === 1 && resv(x, y, 0.5)) { if (r < 0.05) deco.push([x, y, 'flower']); else if (r < 0.14) deco.push([x, y, 'tuft']); continue; }
       if (t === 3) { if (r < 0.17 && !nearT(x, y, 2.6)) { tree(x, y, rnd() < 0.7 ? 'oak' : 'pine'); continue; } if (r < 0.36) deco.push([x, y, 'fern']); else if (r < 0.45) deco.push([x, y, 'mush']); continue; }
       if (t === 1) { if (r < 0.0035 && !nearT(x, y, 8)) { tree(x, y, 'oak'); continue; } if (r < 0.06) deco.push([x, y, 'flower']); else if (r < 0.2) deco.push([x, y, 'tuft']); else if (r < 0.215) deco.push([x, y, 'pebble']); continue; }
       if (t === 2) { if (r < 0.55) deco.push([x, y, 'tgrass']); else if (r < 0.62) deco.push([x, y, 'flower']); continue; }
@@ -125,7 +209,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const rocks = [];
     for (let i = 0; i < 600 && rocks.length < 11; i++) {
       const x = 4 + Math.floor(rnd() * (N - 8)), y = 4 + Math.floor(rnd() * (N - 8));
-      if (dC(x, y) < 10 || ter[y][x] !== 1 || rocks.some(r => Math.hypot(r.x - x, r.y - y) < 16)) continue;
+      if (dC(x, y) < 10 || ter[y][x] !== 1 || rocks.some(r => Math.hypot(r.x - x, r.y - y) < 16) || resv(x, y, 3)) continue;
       const cells = [[0, 0], [1, 0], [0, 1], [2, 1], [1, 2], [-1, 1]].filter(() => rnd() < 0.75);
       if (cells.length < 2 || !cells.every(([dx, dy]) => free(x + dx, y + dy) && ter[y + dy][x + dx] === 1)) continue;
       cells.forEach(([dx, dy]) => pp('boulder', x + dx, y + dy)); rocks.push({ x, y });
@@ -134,7 +218,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const burrows = [];
     for (let i = 0; i < 900 && burrows.length < 16; i++) {
       const x = 3 + Math.floor(rnd() * (N - 6)), y = 3 + Math.floor(rnd() * (N - 6));
-      if (!free(x, y) || dC(x, y) < 8 || (ter[y][x] !== 1 && ter[y][x] !== 2) || burrows.some(b => Math.hypot(b.x - x, b.y - y) < 10)) continue;
+      if (!free(x, y) || dC(x, y) < 8 || (ter[y][x] !== 1 && ter[y][x] !== 2) || burrows.some(b => Math.hypot(b.x - x, b.y - y) < 10) || resv(x, y, 1)) continue;
       burrows.push({ x: x + 0.5, y: y + 0.5 }); deco.push([x, y, 'burrow']);
     }
     // ---- raggiungibile dal campo (un gradino alla volta) ----
@@ -142,35 +226,57 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const seen = MG.flood(W, H, free, ...nf(C2.x, C2.y), step), ok = (x, y) => inside(x, y) && !!seen[y * W + x];
     // posti del mammut: dove mangia (pascoli), beve (riva o guado accanto all'acqua), dorme (bordo dei boschetti, tra le rocce)
     const eat = meadows.map(m => [Math.floor(m.x), Math.floor(m.y)]).filter(([x, y]) => ok(x, y));
-    const wetN = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inside(x + dx, y + dy) && ter[y + dy][x + dx] >= 5);
+    const wetN = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inside(x + dx, y + dy) && (ter[y + dy][x + dx] === 5 || ter[y + dy][x + dx] === 6));
     const drink = MG.scatter(rnd, 15, 5000, r => { const x = 2 + Math.floor(r() * (N - 4)), y = 2 + Math.floor(r() * (N - 4)); return free(x, y) && ok(x, y) && (ter[y][x] === 4 || ter[y][x] === 5) && wetN(x, y) && dC(x, y) > 9 ? [x, y] : null; }, 11);
     const sleep = MG.scatter(rnd, 12, 6000, r => {
       const x = 3 + Math.floor(r() * (N - 6)), y = 3 + Math.floor(r() * (N - 6)); if (!free(x, y) || !ok(x, y) || dC(x, y) < 12 || ter[y][x] > 3) return null;
       let tr = 0; for (let yy = y - 2; yy <= y + 2; yy++) for (let xx = x - 2; xx <= x + 2; xx++) { const o = taken.has(K(xx, yy)) && props.find(p => p[1] === xx && p[2] === yy); if (o && (o[0] === 'tree' || o[0] === 'boulder')) tr++; }
       return tr >= 2 ? [x, y] : null;
     }, 12);
-    const okAll = eat.length >= 4 && drink.length >= 4 && sleep.length >= 3 && burrows.filter(b => ok(Math.floor(b.x), Math.floor(b.y))).length >= 4 && trees.length >= 50;
+    // i luoghi speciali nei posti del mammut: la radura (ci beve volentieri), l'albero millenario (ombra e sonno); dal cimitero sta alla larga
+    const nCem = ([x, y]) => !lm.cem || Math.hypot(x + 0.5 - lm.cem.x, y + 0.5 - lm.cem.y) > 11;
+    for (const L2 of [eat, drink, sleep]) for (let i = L2.length - 1; i >= 0; i--) if (!nCem(L2[i])) L2.splice(i, 1);
+    const n0 = drink.length;
+    if (lm.glade) { const gl = []; disc(lm.glade.x, lm.glade.y, 4, (xx, yy, d) => { if (ter[yy][xx] === 8 && free(xx, yy) && ok(xx, yy) && wetN(xx, yy) && !gl.some(([a, b]) => Math.hypot(a - xx, b - yy) < 2.5)) gl.push([xx, yy]); }, 0); gl.slice(0, 3).forEach(p => drink.push(p)); lm.glade.sp = gl.slice(0, 3); }
+    if (lm.gtree) { const { cx, cy } = lm.gtree; for (const [dx, dy] of [[2, 2], [1, 2], [2, 1], [0, 2], [2, 0], [-1, 1], [1, -1]]) if (free(cx + dx, cy + dy) && ok(cx + dx, cy + dy)) { lm.gtree.sp = [cx + dx, cy + dy]; sleep.push(lm.gtree.sp); break; } }
+    const s0 = sleep.length - (lm.gtree && lm.gtree.sp ? 1 : 0);
+    // le abitudini di QUESTO mammut (le raccontano le pitture): pascolo preferito, dove beve (-1 = la radura), dove riposa (-1 = l'albero millenario)
+    const fav = { eat: Math.floor(rnd() * Math.max(1, eat.length)), drink: lm.glade && lm.glade.sp.length && rnd() < 0.65 ? -1 : Math.floor(rnd() * Math.max(1, n0)), sleep: lm.gtree && lm.gtree.sp && rnd() < 0.6 ? -1 : Math.floor(rnd() * Math.max(1, s0)) };
+    for (const k in lm) { const o = lm[k]; if (o && !ok(Math.floor(o.x), Math.floor(o.y)) && k !== 'fall' && k !== 'gtree' && k !== 'spring' && k !== 'glade') { const c = [[0, 1], [1, 0], [0, -1], [-1, 0], [1, 1]].map(([dx, dy]) => [Math.floor(o.x) + dx, Math.floor(o.y) + dy]).find(([x, y]) => ok(x, y)); if (!c) lm[k] = null; } }
+    const okAll = !!(lm.glade && lm.paint && lm.menhir) && eat.length >= 4 && drink.length >= 4 && sleep.length >= 3 && burrows.filter(b => ok(Math.floor(b.x), Math.floor(b.y))).length >= 4 && trees.length >= 50;
     const deco2 = deco.filter(([x, y]) => !taken.has(K(x, y)));
     const ring = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, x = Math.round(C2.x + Math.cos(a) * 2.2), y = Math.round(C2.y + Math.sin(a) * 2.2); if (free(x, y) && !ring.some(r => r[0] === x && r[1] === y)) ring.push([x, y]); }
     const rooms = [{ n: 'Prateria', x: 0, y: 0, w: W, h: H, c: ['#7fa54a', '#7aa046'], wc: 'none', k: 'prat', nl: 1, nm: 1 }];
     return { ok: okAll, w: W, h: H, rooms, doors: [], decals, props, holes: [], trees, bg: () => '#2f4a26', deco: deco2, tasks: [], hall: 0, cams: [], vending: [], ring,
       button: { x: -10, y: -10 }, sabs: {}, inn: { Prateria: 'nella prateria' }, help: '', btnTxt: '', sabTxt: '', draw, floor: FLOOR, drawWall: () => {}, hz, hb: 0.55, hzSide, decoDraw, ground,
-      ter, camp: C2, places: { eat, drink, sleep }, burrows: burrows.filter(b => ok(Math.floor(b.x), Math.floor(b.y))), ponds, vert, riv, fords, seed };
+      ter, camp: C2, places: { eat, drink, sleep }, lm, fav, n0, decoTall: ['reedT'], burrows: burrows.filter(b => ok(Math.floor(b.x), Math.floor(b.y))), ponds, vert, riv, fords, seed };
   }
 
   // ---- disegno della mappa (K = attrezzi di cqTools) ----
-  const TERC = { 1: ['#86a84e', '#81a24a'], 2: ['#6f9c40', '#6a963d'], 3: ['#5a7a3c', '#567539'], 4: ['#86735a', '#806e56'], 5: ['#7fd0e6', '#78c9df'], 6: ['#4aa8e6', '#47a2df'], 7: ['#a08a64', '#9b8560'] };
+  const TERC = { 1: ['#86a84e', '#81a24a'], 2: ['#6f9c40', '#6a963d'], 3: ['#5a7a3c', '#567539'], 4: ['#86735a', '#806e56'], 5: ['#7fd0e6', '#78c9df'], 6: ['#4aa8e6', '#47a2df'], 7: ['#a08a64', '#9b8560'], 8: ['#7db54c', '#78b048'], 9: ['#5d7a46', '#587542'], 10: ['#b3a66a', '#ada065'], 11: ['#9a968c', '#949086'], 12: ['#b88e5c', '#b28857'], 13: ['#86d9cf', '#80d3c9'], 14: ['#d4f0f8', '#cdeaf3'] };
   const FLOOR = {
     prat(K, x, y) {
       const t = CQ_MAP.ter[y][x], P2 = (u, v) => K.S(x + u, y + v, 0), col = TERC[t] || TERC[1];
       K.poly([P2(0, 0), P2(1, 0), P2(1, 1), P2(0, 1)], col[(x + y) % 2]);
       if (K.TW < 40) return;
+      if (t === 13) { K.speck(x, y, 6, ['rgba(255,255,255,.5)', 'rgba(170,250,236,.6)'], K.TW / 13); return; }
+      if (t === 14) { const L = []; for (let i = 0; i < 6; i++) { const u = 0.05 + 0.7 * K.hsh(x, y, i), v = 0.08 + 0.84 * K.hsh(x, y, i + 9); L.push([P2(u, v), P2(u + 0.22, v + 0.03)]); } K.strokes(L, 'rgba(255,255,255,.9)', Math.max(1.5, K.TW / 16)); return; }
+      const gl = t === 6 && CQ_MAP.lm && CQ_MAP.lm.glade;
+      if (gl && Math.hypot(x + 0.5 - gl.x, y + 0.5 - gl.y) < 3.3) {   // ninfee dello stagno della radura
+        const g = K.g; for (let i = 0; i < 2; i++) { if (K.hsh(x, y, 80 + i) < 0.3) continue; const [X, Y] = P2(0.25 + 0.5 * K.hsh(x, y, 82 + i), 0.25 + 0.5 * K.hsh(x, y, 84 + i)), rx = K.TW * 0.15, a0 = K.hsh(x, y, 86 + i) * 6;
+          g.fillStyle = '#3f7a34'; g.beginPath(); g.ellipse(X, Y + 1, rx, rx * 0.5, 0, 0, 7); g.fill(); g.fillStyle = '#5c9e44'; g.beginPath(); g.ellipse(X, Y, rx, rx * 0.5, 0, a0 + 0.35, a0 + 6.0); g.lineTo(X, Y); g.fill();
+          if (K.hsh(x, y, 88 + i) < 0.45) { g.fillStyle = '#f4a6cc'; for (let k = 0; k < 5; k++) { const q = k / 5 * 6.28; g.beginPath(); g.ellipse(X + Math.cos(q) * rx * 0.28, Y - 2 + Math.sin(q) * rx * 0.14, rx * 0.2, rx * 0.12, q, 0, 7); g.fill(); } g.fillStyle = '#fff3a0'; g.beginPath(); g.arc(X, Y - 2, rx * 0.12, 0, 7); g.fill(); } }
+        return;
+      }
+      if (t === 9) { K.speck(x, y, 7, ['rgba(30,50,26,.4)', 'rgba(130,180,200,.35)', 'rgba(90,120,60,.4)'], K.TW / 16); return; }
+      if (t === 11) { K.strokes([[P2(0.05, 0.45), P2(0.6, 0.5)], [P2(0.6, 0.5), P2(0.95, 0.3)], [P2(0.5, 0.05), P2(0.6, 0.5)]], 'rgba(60,58,52,.35)'); K.speck(x, y, 3, ['rgba(232,212,90,.55)', 'rgba(255,255,255,.25)'], K.TW / 22); return; }
+      if (t === 12) { K.speck(x, y, 7, ['rgba(150,70,36,.35)', 'rgba(232,190,120,.35)'], K.TW / 20); return; }
       if (t === 6 || t === 5) { if (K.hsh(x, y, 70) < 0.4) { const u = 0.1 + 0.6 * K.hsh(x, y, 71), v = 0.15 + 0.7 * K.hsh(x, y, 72); K.poly([P2(u, v), P2(u + 0.3, v), P2(u + 0.3, v + 0.05), P2(u, v + 0.05)], t === 5 ? '#c4f2ff' : '#8cd4ff'); } if (t === 5) K.speck(x, y, 4, ['rgba(140,120,90,.35)'], K.TW / 18); return; }
       if (t === 4) { K.speck(x, y, 6, ['rgba(60,45,30,.35)', 'rgba(160,140,110,.3)'], K.TW / 20); return; }
       if (t === 7) { K.speck(x, y, 6, ['rgba(70,55,35,.3)', 'rgba(190,170,130,.3)'], K.TW / 22); return; }
-      K.speck(x, y, 5, t === 3 ? ['rgba(30,50,20,.35)', 'rgba(120,90,50,.25)'] : ['rgba(200,210,110,.3)', 'rgba(40,70,20,.22)'], K.TW / 22);
+      K.speck(x, y, 5, t === 3 ? ['rgba(30,50,20,.35)', 'rgba(120,90,50,.25)'] : t === 10 ? ['rgba(240,220,150,.4)', 'rgba(120,100,50,.3)'] : t === 8 ? ['rgba(230,245,140,.4)', 'rgba(40,90,30,.25)'] : ['rgba(200,210,110,.3)', 'rgba(40,70,20,.22)'], K.TW / 22);
       const Ls = []; for (let i = 0; i < 3; i++) { const u = 0.15 + 0.7 * K.hsh(x, y, 20 + i), v = 0.15 + 0.7 * K.hsh(x, y, 30 + i); Ls.push([K.S(x + u, y + v, 0), K.S(x + u + 0.04, y + v, 0.12 + 0.1 * K.hsh(x, y, 40 + i))]); }
-      K.strokes(Ls, t === 2 ? 'rgba(150,200,90,.6)' : t === 3 ? 'rgba(90,130,60,.5)' : 'rgba(200,200,110,.55)');
+      K.strokes(Ls, t === 2 ? 'rgba(150,200,90,.6)' : t === 3 ? 'rgba(90,130,60,.5)' : t === 8 ? 'rgba(160,220,90,.7)' : t === 10 ? 'rgba(220,196,120,.7)' : 'rgba(200,200,110,.55)');
     }
   };
   // le tracce stanno nel disegno del terreno (sotto alberi, mammut e persone): ogni cella disegna le sue, col loro stato (fresca, tiepida, vecchia)
@@ -197,6 +303,17 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     if (t === 'fern') { const Ls = []; for (let i = 0; i < 6; i++) { const a = i / 6 * Math.PI * 2; Ls.push([S(x + 0.5, y + 0.5, 0.05), S(x + 0.5 + Math.cos(a) * 0.3, y + 0.5 + Math.sin(a) * 0.3, 0.2)]); } strokes(Ls, '#3f7a36', Math.max(2, K.TW / 18)); return; }
     if (t === 'mush') { bx(x + 0.45, y + 0.45, x + 0.52, y + 0.52, 0, 0.12, '#e8e0cc'); dot(x + 0.48, y + 0.48, 0.15, 0.08, '#b8402a'); return; }
     if (t === 'pebble') { bx(x + 0.3, y + 0.35, x + 0.55, y + 0.55, 0, 0.1, '#9a958a'); bx(x + 0.6, y + 0.55, x + 0.72, y + 0.68, 0, 0.07, '#8a857a'); return; }
+    if (t === 'reedT') {   // canne alte con le pannocchie scure (ci si nasconde dentro)
+      const Ls = [], Ld = [];
+      for (let i = 0; i < 8; i++) { const u = 0.1 + 0.8 * hsh(x, y, 50 + i), v = 0.1 + 0.8 * hsh(x, y, 60 + i), h = 1.0 + 0.55 * hsh(x, y, 70 + i), b = 0.08 * (hsh(x, y, 75 + i) - 0.5); (i % 2 ? Ls : Ld).push([S(x + u, y + v, 0), S(x + u + b, y + v, h)]); }
+      strokes(Ld, '#56702e', Math.max(1.5, K.TW / 24)); strokes(Ls, '#7f9a42', Math.max(1.5, K.TW / 24));
+      for (let i = 0; i < 4; i++) { const u = 0.1 + 0.8 * hsh(x, y, 50 + i * 2 + 1), v = 0.1 + 0.8 * hsh(x, y, 60 + i * 2 + 1), h = 1.0 + 0.55 * hsh(x, y, 70 + i * 2 + 1), b = 0.08 * (hsh(x, y, 75 + i * 2 + 1) - 0.5); if (hsh(x, y, 90 + i) < 0.55) { const [X, Y] = S(x + u + b, y + v, h - 0.12); K.g.fillStyle = '#5a3a1e'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW * 0.035, K.TW * 0.1, 0, 0, 7); K.g.fill(); } }
+      const Lf = []; for (let i = 0; i < 3; i++) { const u = 0.2 + 0.6 * hsh(x, y, 95 + i), v = 0.2 + 0.6 * hsh(x, y, 97 + i); Lf.push([S(x + u, y + v, 0.1), S(x + u + 0.25, y + v, 0.7)]); } strokes(Lf, '#9ab452', Math.max(2, K.TW / 18)); return; }
+    if (t === 'puddle') { const [X, Y] = S(x + 0.5, y + 0.5, 0); K.g.fillStyle = 'rgba(110,160,180,.55)'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW * 0.3, K.TW * 0.13, 0, 0, 7); K.g.fill(); K.g.fillStyle = 'rgba(220,240,255,.45)'; K.g.beginPath(); K.g.ellipse(X - K.TW * 0.08, Y - 1, K.TW * 0.1, K.TW * 0.03, 0, 0, 7); K.g.fill(); return; }
+    if (t === 'dtuft') { const Ls = []; for (let i = 0; i < 5; i++) { const u = 0.35 + 0.3 * hsh(x, y, 50 + i), v = 0.35 + 0.3 * hsh(x, y, 60 + i); Ls.push([S(x + u, y + v, 0), S(x + u + 0.12 * (i - 2), y + v, 0.28)]); } strokes(Ls, '#c8b070', Math.max(1.5, K.TW / 28)); return; }
+    if (t === 'bones') {   // ossa sparse: femori con le teste tonde
+      for (let i = 0; i < 2; i++) { const u = 0.25 + 0.5 * hsh(x, y, 40 + i), v = 0.25 + 0.5 * hsh(x, y, 45 + i), a = hsh(x, y, 49 + i) * 3, l = 0.18; const p = S(x + u - Math.cos(a) * l, y + v - Math.sin(a) * l, 0.03), q = S(x + u + Math.cos(a) * l, y + v + Math.sin(a) * l, 0.03); K.line(p, q, '#e8dfc8', Math.max(2, K.TW / 14)); for (const e of [p, q]) { K.g.fillStyle = '#f2ead6'; K.g.beginPath(); K.g.arc(e[0], e[1], K.TW / 16, 0, 7); K.g.fill(); } }
+      return; }
     if (t === 'burrow') { const [X, Y] = S(x + 0.5, y + 0.5, 0); K.g.fillStyle = '#6a5438'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW * 0.26, K.TW * 0.13, 0, 0, 7); K.g.fill(); K.g.fillStyle = '#22180e'; K.g.beginPath(); K.g.ellipse(X, Y + 1, K.TW * 0.15, K.TW * 0.075, 0, 0, 7); K.g.fill(); return; }
   }
   function draw(K, t, x, y, o) {
@@ -227,6 +344,94 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       case 'stash': {   // scorte del campo: cesta di vimini (i conigli si vedono sopra, over)
         cyl(x + 0.5, y + 0.5, 0.32, 0, 0.45, '#a8844e'); cyl(x + 0.5, y + 0.5, 0.28, 0.45, 0.47, '#4a3420'); K.strokes([[S(x + 0.18, y + 0.82, 0.15), S(x + 0.82, y + 0.82, 0.15)], [S(x + 0.18, y + 0.82, 0.3), S(x + 0.82, y + 0.82, 0.3)]], '#8a6a3a', 1.5); break; }
       case 'stump': cyl(x + 0.5, y + 0.5, 0.26, 0, 0.35, '#6b4a2e'); cyl(x + 0.5, y + 0.5, 0.19, 0.35, 0.36, '#d8b07a'); break;
+      // ---- luoghi speciali ----
+      case 'willow': {   // salice piangente: tronco storto e chioma che ricade in fili
+        const g = K.g, v = o.v || 0; cyl(x + 0.5, y + 0.5, 0.17, 0, 1.3, '#6a5034'); line(S(x + 0.5, y + 0.5, 1.2), S(x + 0.3, y + 0.5, 1.9), '#6a5034', Math.max(3, K.TW / 10));
+        const [X, Y] = S(x + 0.5, y + 0.5, 2.35), R = K.TW * 0.95;
+        g.fillStyle = ['#557f34', '#5d8a38', '#4f7a30'][v]; g.beginPath(); g.ellipse(X, Y, R, R * 0.62, 0, 0, 7); g.fill();
+        g.fillStyle = ['#7aa648', '#83b04c', '#73a044'][v]; g.beginPath(); g.ellipse(X - R * 0.15, Y - R * 0.18, R * 0.7, R * 0.4, 0, 0, 7); g.fill();
+        g.lineCap = 'round';
+        for (let i = 0; i < 22; i++) { const a = (i / 22) * Math.PI * 2, px = X + Math.cos(a) * R * (0.55 + 0.4 * hsh(x, y, i)), py = Y + Math.sin(a) * R * 0.5, l = K.TW * (0.8 + 0.7 * hsh(x, y, 30 + i)) * (Math.sin(a) > -0.2 ? 1 : 0.5);
+          g.strokeStyle = i % 3 ? '#6f9a40' : '#94bf58'; g.lineWidth = Math.max(1.5, K.TW / 26); g.beginPath(); g.moveTo(px, py); g.quadraticCurveTo(px + K.TW * 0.08, py + l * 0.5, px - K.TW * 0.03, py + l); g.stroke(); }
+        break; }
+      case 'gtree': {   // ALBERO MILLENARIO (2x2): tronco enorme con le radici e chioma a nuvole; lo disegna la casella davanti
+        if (!o.main) break;
+        const g = K.g, cx = x, cy = y;
+        for (let i = 0; i < 7; i++) { const a = i / 7 * Math.PI * 2 + 0.3, l = 1.05 + 0.3 * hsh(x, y, i); line(S(cx + Math.cos(a) * 0.5, cy + Math.sin(a) * 0.5, 0.35), S(cx + Math.cos(a) * l, cy + Math.sin(a) * l, 0), '#5a4028', Math.max(4, K.TW / 5)); }
+        cyl(cx, cy, 0.78, 0, 2.8, '#6e5236');
+        const [Xb, Yb] = S(cx, cy, 0), [Xt, Yt] = S(cx, cy, 2.8), rw = 0.78 * K.TW * 0.707;
+        g.strokeStyle = 'rgba(40,26,14,.45)'; g.lineWidth = Math.max(1.5, K.TW / 22); for (let i = 0; i < 6; i++) { const u = -0.8 + i * 0.32; g.beginPath(); g.moveTo(Xb + u * rw, Yb); g.bezierCurveTo(Xb + (u + 0.12) * rw, Yb - (Yb - Yt) * 0.35, Xb + (u - 0.1) * rw, Yb - (Yb - Yt) * 0.7, Xb + u * rw, Yt); g.stroke(); }
+        g.fillStyle = '#2a1a0c'; g.beginPath(); g.ellipse(Xb + rw * 0.15, Yb - (Yb - Yt) * 0.35, rw * 0.18, rw * 0.3, 0, 0, 7); g.fill();   // cavita' nel tronco
+        for (const [a, l] of [[-0.6, 1.2], [0.5, 1.3], [2.4, 1.1]]) line(S(cx, cy, 2.6), S(cx + Math.cos(a) * l, cy + Math.sin(a) * l, 3.6), '#6e5236', Math.max(5, K.TW / 4));
+        const [X, Y] = S(cx, cy, 4.3), R = K.TW;
+        const blobs = [[-1.5, 0.3, 1.05, '#3e6a2c'], [1.4, 0.35, 1.0, '#3e6a2c'], [0, 0.55, 1.3, '#3a6428'], [-0.8, -0.5, 1.15, '#4a7a34'], [0.9, -0.55, 1.1, '#4a7a34'], [0, -1, 1.15, '#558a3a'], [-0.4, -0.3, 0.8, '#64994a'], [0.6, -1.2, 0.6, '#76ab56'], [-1.1, -0.9, 0.55, '#6ea050']];
+        for (const [dx, dy, r, c] of blobs) { g.fillStyle = c; g.beginPath(); g.ellipse(X + dx * R, Y + dy * R, r * R, r * R * 0.78, 0, 0, 7); g.fill(); }
+        g.fillStyle = 'rgba(170,210,110,.45)'; for (let i = 0; i < 12; i++) { g.beginPath(); g.arc(X + (hsh(x, y, 60 + i) - 0.5) * R * 3, Y + (hsh(x, y, 70 + i) - 0.7) * R * 1.6, R * 0.09, 0, 7); g.fill(); }
+        break; }
+      case 'menhir': {   // pietra alta con muschio e spirali incise (quelle davanti sono basse, spezzate)
+        const h = o.low ? 0.7 + 0.2 * hsh(x, y, 3) : 1.9 + 0.7 * hsh(x, y, 4), c = ['#8f8b82', '#86827a', '#99958b'][o.v % 3];
+        bx(x + 0.22, y + 0.3, x + 0.78, y + 0.7, 0, h, c); bx(x + 0.3, y + 0.36, x + 0.7, y + 0.64, h, h + 0.25, c);
+        bx(x + 0.22, y + 0.3, x + 0.5, y + 0.5, h * 0.35, h * 0.5, '#6a8a48');
+        if (!o.low) { const g = K.g, [X, Y] = S(x + 0.5, y + 0.7, h * 0.6); g.strokeStyle = 'rgba(40,36,30,.55)'; g.lineWidth = Math.max(1.2, K.TW / 34); g.beginPath(); for (let k = 0; k < 22; k++) { const a = k * 0.5, r = K.TW * 0.0055 * k; const px = X + Math.cos(a) * r * 0.6, py = Y + Math.sin(a) * r * 0.6; k ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); }
+        break; }
+      case 'pwall': {   // parete di arenaria del riparo: le pitture sono sulla faccia davanti (y+0.95)
+        const i = o.i || 0, h = 2.3 + 0.35 * Math.sin(i * 1.7) + (i === 0 || i === 6 ? -0.5 : 0), c = '#b49a78';
+        bx(x, y + 0.15, x + 1, y + 0.95, 0, h, c); bx(x + 0.05, y + 0.1, x + 0.95, y + 0.85, h, h + 0.3, '#a68c6c');
+        bx(x, y + 0.75, x + 1, y + 1.2, h - 0.2, h + 0.05, '#9c8264');   // sporgenza del riparo
+        if (hsh(x, y, 5) < 0.6) bx(x + 0.2, y + 0.2, x + 0.6, y + 0.6, h + 0.3, h + 0.36, '#6a8a48');
+        paintings(K, x, y + 0.951, i, h); break; }
+      case 'dolm': {   // dolmen: pietre ritte e la grande lastra sopra (la disegna la pietra davanti a destra)
+        const c = '#8c887e';
+        if (o.s === 'bk') bx(x + 0.05, y + 0.15, x + 0.95, y + 0.55, 0, 1.25, c); else bx(x + 0.15, y + 0.2, x + 0.85, y + 0.8, 0, 1.3, c);
+        if (o.s === 'fr') { bx(x - 1.9, y - 0.95, x + 0.92, y + 0.88, 1.3, 1.66, '#9c988e'); bx(x - 1.5, y - 0.7, x - 0.6, y + 0.1, 1.66, 1.72, '#6a8a48'); bx(x - 0.3, y - 0.4, x + 0.4, y + 0.5, 1.66, 1.7, '#7a9a54'); }
+        break; }
+      case 'tusks': {   // due zanne giganti piantate nel terreno che formano un arco
+        const g = K.g, v = o.v || 0; bx(x + 0.15, y + 0.3, x + 0.85, y + 0.7, 0, 0.12, '#9a8a62');
+        for (const sd of [-1, 1]) { const a = S(x + 0.5 + sd * 0.35, y + 0.5, 0.05), b = S(x + 0.5 + sd * 0.45, y + 0.5, 1.4 + v * 0.15), c2 = S(x + 0.5 + sd * 0.06, y + 0.5, 1.9 + v * 0.2); g.lineCap = 'round'; g.strokeStyle = '#d8cdb0'; g.lineWidth = Math.max(4, K.TW / 6); g.beginPath(); g.moveTo(...a); g.quadraticCurveTo(b[0], b[1], c2[0], c2[1]); g.stroke(); g.strokeStyle = '#f4ecd8'; g.lineWidth = Math.max(2, K.TW / 14); g.beginPath(); g.moveTo(a[0] - 1, a[1]); g.quadraticCurveTo(b[0] - 1, b[1], c2[0], c2[1]); g.stroke(); }
+        break; }
+      case 'mskull': {   // grande cranio mezzo sepolto con la zanna spezzata
+        bx(x + 0.1, y + 0.2, x + 0.9, y + 0.85, 0, 0.7, '#e2d8c0'); bx(x + 0.2, y + 0.25, x + 0.8, y + 0.75, 0.7, 0.95, '#ece4d0');
+        bx(x + 0.25, y + 0.84, x + 0.42, y + 0.86, 0.35, 0.55, '#2a2018'); bx(x + 0.58, y + 0.84, x + 0.75, y + 0.86, 0.35, 0.55, '#2a2018');
+        line(S(x + 0.5, y + 0.86, 0.6), S(x + 0.62, y + 0.86, 0.85), '#5a4a30', 1.5);
+        const g = K.g, a = S(x + 0.3, y + 0.86, 0.2), b = S(x + 0.1, y + 1.2, 0.3); g.strokeStyle = '#f2ead8'; g.lineWidth = Math.max(3, K.TW / 9); g.lineCap = 'round'; g.beginPath(); g.moveTo(...a); g.lineTo(...b); g.stroke();
+        break; }
+      case 'ribs': {   // costato di mammut: archi d'osso sulla colonna
+        line(S(x + 0.05, y + 0.5, 0.08), S(x + 0.95, y + 0.5, 0.08), '#d8cdb0', Math.max(3, K.TW / 10));
+        const g = K.g; g.lineCap = 'round';
+        for (let i = 0; i < 5; i++) { const u = 0.12 + i * 0.19, hh = 0.9 + 0.35 * Math.sin(i / 4 * Math.PI); for (const sd of [-1, 1]) { const a = S(x + u, y + 0.5, 0.1), b = S(x + u, y + 0.5 + sd * 0.42, hh), c2 = S(x + u + 0.04, y + 0.5 + sd * 0.38, 0.05); g.strokeStyle = sd > 0 ? '#efe6d0' : '#cfc4a8'; g.lineWidth = Math.max(2, K.TW / 16); g.beginPath(); g.moveTo(...a); g.quadraticCurveTo(b[0], b[1], c2[0], c2[1]); g.stroke(); } }
+        break; }
+      case 'srock': { const c = ['#8a8270', '#7e7868', '#948c7a'][o.v || 0]; bx(x + 0.12, y + 0.15, x + 0.88, y + 0.85, 0, 0.45, c); bx(x + 0.25, y + 0.25, x + 0.75, y + 0.7, 0.45, 0.62, c); K.speck(x, y, 3, ['#e8d058'], K.TW / 18); break; }   // rocce della sorgente con lo zolfo giallo
+      case 'wrock': { const c = ['#5e625e', '#666a64', '#585c58'][o.v || 0], h = 0.55 + 0.4 * hsh(x, y, 9); bx(x + 0.05, y + 0.08, x + 0.95, y + 0.92, 0, h, c); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.7, h, h + 0.22, c); if (hsh(x, y, 8) < 0.5) bx(x + 0.2, y + 0.2, x + 0.5, y + 0.45, h + 0.22, h + 0.26, '#4e7a3c'); break; }
+      case 'fall': {   // gradino della cascata: roccia e velo d'acqua che cade verso la casella dopo (la schiuma e' nel pavimento)
+        const g = K.g, vt = o.vert;
+        bx(x, y, x + 1, y + 1, 0, 0.4, '#5a5e5a');
+        poly([S(x, y, 0.4), S(x + 1, y, 0.4), S(x + 1, y + 1, 0.4), S(x, y + 1, 0.4)], '#5aaee8');
+        const A = vt ? S(x, y + 1, 0.4) : S(x + 1, y, 0.4), B = vt ? S(x + 1, y + 1, 0.4) : S(x + 1, y + 1, 0.4), A0 = vt ? S(x, y + 1, 0) : S(x + 1, y, 0), B0 = vt ? S(x + 1, y + 1, 0) : S(x + 1, y + 1, 0);
+        poly([A, B, B0, A0], '#bfe8fa');
+        g.strokeStyle = '#ffffff'; g.lineWidth = Math.max(1.5, K.TW / 26); g.beginPath(); for (let i = 1; i < 6; i++) { const k = i / 6; g.moveTo(A[0] + (B[0] - A[0]) * k, A[1] + (B[1] - A[1]) * k); g.lineTo(A0[0] + (B0[0] - A0[0]) * k, A0[1] + (B0[1] - A0[1]) * k); } g.stroke();
+        break; }
+    }
+  }
+  // pitture rupestri sulla faccia di un pezzo di parete (u 0-1 lungo la parete, z altezza): mammut, cacciatori con le lance, mani, spirali
+  function paintings(K, x, yf, i, h) {
+    const g = K.g, P = (u, z) => K.S(x + u, yf, z), RED = '#9e3a22', DK = '#2e1e14', YEL = '#c98a30', WH = '#eadcc0';
+    const shape = (pts, col, ox = 0, oz = 0, s = 1) => { g.fillStyle = col; g.beginPath(); pts.forEach(([u, z], k) => { const p = P(ox + u * s, oz + z * s); k ? g.lineTo(...p) : g.moveTo(...p); }); g.closePath(); g.fill(); };
+    const ln = (pts, col, w, ox = 0, oz = 0, s = 1) => { g.strokeStyle = col; g.lineWidth = Math.max(1, K.TW * w); g.lineCap = 'round'; g.beginPath(); pts.forEach(([u, z], k) => { const p = P(ox + u * s, oz + z * s); k ? g.lineTo(...p) : g.moveTo(...p); }); g.stroke(); };
+    const mam = (ox, oz, s, col) => {
+      shape([[0, 0.15], [0.03, 0.42], [0.16, 0.6], [0.36, 0.64], [0.5, 0.78], [0.66, 0.7], [0.74, 0.5], [0.8, 0.26], [0.86, 0.06], [0.81, 0.04], [0.74, 0.24], [0.7, 0.3], [0.68, 0.15], [0.66, 0], [0.57, 0], [0.56, 0.2], [0.26, 0.2], [0.24, 0], [0.15, 0], [0.12, 0.18]], col, ox, oz, s);
+      ln([[0.7, 0.36], [0.82, 0.3], [0.9, 0.42]], WH, 0.025, ox, oz, s);
+    };
+    const man = (ox, oz, s, col, sp) => { ln([[0.5, 0.75], [0.5, 0.35], [0.36, 0], [0.5, 0.35], [0.64, 0]], col, 0.03, ox, oz, s); ln([[0.5, 0.62], [0.72, 0.5]], col, 0.03, ox, oz, s); const p = P(ox + 0.5 * s, oz + 0.85 * s); g.fillStyle = col; g.beginPath(); g.arc(p[0], p[1], K.TW * 0.035 * s * 2, 0, 7); g.fill(); if (sp) ln([[0.3, 0.3], [1.0, 0.85]], col, 0.018, ox, oz, s); };
+    const hand = (u, z, col) => { const p = P(u, z), r = K.TW * 0.05; g.fillStyle = col; g.beginPath(); g.ellipse(p[0], p[1], r, r * 1.1, 0, 0, 7); g.fill(); for (let k = 0; k < 5; k++) { const a = -2.6 + k * 0.42; g.beginPath(); g.ellipse(p[0] + Math.cos(a) * r * 1.7, p[1] + Math.sin(a) * r * 1.7, r * 0.3, r * 0.55, a + Math.PI / 2, 0, 7); g.fill(); } };
+    const top = Math.min(1.9, h - 0.3);
+    switch (i) {
+      case 0: hand(0.35, 1.2, RED); hand(0.62, 0.95, YEL); hand(0.5, 1.55, RED); break;
+      case 1: mam(0.08, 0.7, 0.8, RED); for (let k = 0; k < 5; k++) { const p = P(0.15 + k * 0.15, 0.45); g.fillStyle = DK; g.beginPath(); g.arc(p[0], p[1], K.TW * 0.02, 0, 7); g.fill(); } break;
+      case 2: man(0.0, 0.65, 0.55, DK, 1); man(0.3, 0.75, 0.6, DK, 1); man(0.55, 0.62, 0.5, RED, 1); break;
+      case 3: mam(0.02, 0.7, 0.95, DK); ln([[0.25, 1.5], [0.42, 1.05]], RED, 0.02); ln([[0.55, 1.6], [0.5, 1.1]], RED, 0.02); ln([[0.7, 1.5], [0.6, 1.08]], RED, 0.02); break;
+      case 4: { const c = P(0.5, Math.min(1.35, top - 0.3)); g.strokeStyle = YEL; g.lineWidth = Math.max(1.2, K.TW / 28); g.beginPath(); for (let k = 0; k < 30; k++) { const a = k * 0.5, r = K.TW * 0.01 * k; const px = c[0] + Math.cos(a) * r, py = c[1] + Math.sin(a) * r * 0.85; k ? g.lineTo(px, py) : g.moveTo(px, py); } g.stroke(); ln([[0.1, 0.6], [0.25, 0.75], [0.4, 0.6], [0.55, 0.75], [0.7, 0.6], [0.85, 0.75]], RED, 0.025); break; }
+      case 5: man(0.05, 0.7, 0.6, RED, 1); shape([[0.5, 0.75], [0.62, 0.95], [0.78, 0.98], [0.9, 1.1], [0.92, 0.95], [0.86, 0.75], [0.83, 0.6], [0.78, 0.75], [0.6, 0.75], [0.56, 0.6]], DK); { const p = P(0.75, top - 0.15); g.fillStyle = WH; g.beginPath(); g.arc(p[0], p[1], K.TW * 0.07, 0, 7); g.fill(); g.fillStyle = cqShade('#b49a78', 0.74); g.beginPath(); g.arc(p[0] + K.TW * 0.03, p[1] - 1, K.TW * 0.06, 0, 7); g.fill(); } break;
+      case 6: hand(0.4, 1.1, YEL); for (let r = 0; r < 3; r++) for (let k = 0; k < 4; k++) { const p = P(0.2 + k * 0.17, 0.55 + r * 0.14); g.fillStyle = RED; g.beginPath(); g.arc(p[0], p[1], K.TW * 0.018, 0, 7); g.fill(); } break;
     }
   }
   CQ_MAPS.prateria = { n: 'Prateria', make: mapPrateria, seeded: true, only: 'mammut' };
@@ -311,13 +516,21 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   }
 
   // ======================= IL MAMMUT =======================
-  function placeList(k) { return (MP().places[k] || []).map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, k })); }
+  function placeList(k) { const M = MP(), L = LM(); return (M.places[k] || []).map(([x, y], i) => ({ x: x + 0.5, y: y + 0.5, k, i, gl: k === 'drink' && i >= (M.n0 == null ? 1e9 : M.n0), gt: k === 'sleep' && !!(L.gtree && L.gtree.sp && L.gtree.sp[0] === x && L.gtree.sp[1] === y) })); }
   function feared(G, x, y) { return G.mm.fear.some(f => G.time - f.t < 160 && Math.hypot(f.x - x, f.y - y) < 12); }
   // il posto piu' vicino del tipo che gli serve (cosi' si puo' ragionare su dove andra'): evita i posti dove ha avuto paura, cambia rispetto all'ultimo
-  function choosePlace(G, k) {
+  // le sue abitudini (MP().fav, le raccontano le pitture): il pascolo preferito, dove beve (la radura ogni tanto: dopo esserci stato per un po' la evita), dove riposa
+  function habit(G, p, k, rest) {
+    const m = G.mm, fv = MP().fav || {};
+    if (k === 'eat') return p.i === fv.eat ? -16 : 0;
+    if (k === 'drink') return p.gl ? (G.time - (m.glT == null ? -1e9 : m.glT) > 150 ? (fv.drink === -1 ? -24 : -6) : 14) : p.i === fv.drink ? -16 : 0;
+    if (k === 'sleep') return p.gt ? (fv.sleep === -1 ? (rest ? -30 : -18) : (rest ? -10 : 0)) : p.i === fv.sleep ? -14 : 0;
+    return 0;
+  }
+  function choosePlace(G, k, rest) {
     const m = G.mm, L2 = placeList(k).filter(p => Math.hypot(p.x - m.x, p.y - m.y) > 3);
     let best = null, bs = 1e9;
-    for (const p of L2) { const d = Math.hypot(p.x - m.x, p.y - m.y), s = d * (0.9 + Math.random() * 0.25) + (feared(G, p.x, p.y) ? 60 : 0) + ((k === 'sleep' || k === 'rest') && atCamp(p.x, p.y, 18) ? 40 : 0) + (p.x === (m.last || {}).x && p.y === (m.last || {}).y ? 30 : 0); if (s < bs) { bs = s; best = p; } }
+    for (const p of L2) { const d = Math.hypot(p.x - m.x, p.y - m.y), s = d * (0.9 + Math.random() * 0.25) + habit(G, p, k, rest) + (feared(G, p.x, p.y) ? 60 : 0) + ((k === 'sleep' || k === 'rest') && atCamp(p.x, p.y, 18) ? 40 : 0) + (p.x === (m.last || {}).x && p.y === (m.last || {}).y ? 30 : 0); if (s < bs) { bs = s; best = p; } }
     return best;
   }
   function mmGo(G, x, y, max) { const m = G.mm, p = cqPath(m.x, m.y, x, y); m.path = max ? p.slice(0, max) : p; if (!m.path.length) m.path = []; }
@@ -327,7 +540,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const m = G.mm, t = cyc(G);
     if (t >= DUSK + 6 && t < DAWN) { const p = m.sleepP && !feared(G, m.sleepP.x, m.sleepP.y) ? m.sleepP : choosePlace(G, 'sleep'); m.sleepP = p; m.tgt = p; m.st = 'walk'; if (p) mmGo(G, p.x, p.y); return; }
     m.sleepP = null;
-    if (t >= HOT0 && t < HOT1 && m.restD !== dayN(G)) { const p = choosePlace(G, 'sleep'); if (p) { m.tgt = { x: p.x, y: p.y, k: 'rest' }; m.st = 'walk'; mmGo(G, p.x, p.y); return; } }
+    if (t >= HOT0 && t < HOT1 && m.restD !== dayN(G)) { const p = choosePlace(G, 'sleep', true); if (p) { m.tgt = { x: p.x, y: p.y, k: 'rest' }; m.st = 'walk'; mmGo(G, p.x, p.y); return; } }
     if (Math.max(m.need.e, m.need.w) < 0.3) {   // non ha bisogno di niente: si gratta a un albero li' vicino
       const tr = MP().trees.filter(o => !o.cut && Math.hypot(o.x - m.x, o.y - m.y) < 12 && Math.hypot(o.x - m.x, o.y - m.y) > 3);
       const o = tr.length ? tr[Math.floor(Math.random() * tr.length)] : null, sp = o && cqSpot(o.x, o.y);
@@ -379,12 +592,12 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       for (const c of active(G)) {
         const q = P(c), dx = m.x - q.x, dy = m.y - q.y, d = Math.hypot(dx, dy);
         if (torchOn(G, c) && d < PUSH_R && !sleeping && (m.st !== 'flee' || G.time - m.fT > 2)) { alarm(G, q.x, q.y); mmFleeFrom(G, q.x, q.y, 10); who = null; gain = 0; break; }   // il fuoco lo spinge via
-        const v = vis * (m.wary > G.time ? 1.35 : 1) * (torchOn(G, c) ? 1.5 : 1);
+        const v = vis * (m.wary > G.time ? 1.35 : 1) * (torchOn(G, c) ? 1.5 : 1) * (inMarsh(q.x, q.y) && !torchOn(G, c) ? 0.45 : 1);   // tra le canne non ti vede
         if (d < v) { gain += (0.45 + 1.7 * (1 - d / v)) * (sleeping ? 0.5 : 1); if (d < wd) { wd = d; who = c; } }
         if (d < SMELL && d > 0.5 && (dx * wx + dy * wy) / d > 0.6) { gain += 0.75; if (d < wd) { wd = d; who = c; } if ((m.snT || 0) < G.time) { m.snT = G.time + 6; m.sn = { id: c.id, t: G.time }; } }
       }
-      if (!sleeping && !gain && m.st !== 'flee' && m.st !== 'cur') for (const c of active(G)) { const q = P(c), d = Math.hypot(m.x - q.x, m.y - q.y); if (d > vis && d < vis * 1.9 && (dark(G) < 0.5 || torchOn(G, c))) { mmCurious(G, q.x, q.y); break; } }
-      if (!sleeping) for (const nz of G.mmN) { if (nz.used || G.time - nz.t > 2) continue; nz.used = 1; const d = Math.hypot(nz.x - m.x, nz.y - m.y); if (d < (nz.k === 'sh' ? 18 : 15) && d > 6) mmCurious(G, nz.x, nz.y); }
+      if (!sleeping && !gain && m.st !== 'flee' && m.st !== 'cur') for (const c of active(G)) { const q = P(c), d = Math.hypot(m.x - q.x, m.y - q.y); if (d > vis && d < vis * 1.9 && !inMarsh(q.x, q.y) && (dark(G) < 0.5 || torchOn(G, c))) { mmCurious(G, q.x, q.y); break; } }
+      if (!sleeping) for (const nz of G.mmN) { if (nz.used || G.time - nz.t > 2) continue; nz.used = 1; const d = Math.hypot(nz.x - m.x, nz.y - m.y); if (d < (nz.k === 'sh' ? 18 : nz.k === 'reed' ? 11 : 15) && d > (nz.k === 'reed' ? 3 : 6)) mmCurious(G, nz.x, nz.y); }
       if (m.st !== 'flee') m.aw = Math.max(0, Math.min(1.2, m.aw + (gain ? gain * (m.wary > G.time ? 1.5 : 1) : -0.3) * dt));
       if (m.aw >= 1 && who && m.st !== 'flee') { if (sleeping) say(G, 'wake', {}); mmReact(G, who); }
     }
@@ -426,7 +639,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         if (k === 'sleep') { m.st = 'sleep'; track(G, 'bed', m.x, m.y); if (!warm) say(G, 'sleep', {}); }
         else if (k === 'rest') { m.st = 'rest'; m.restD = dayN(G); m.rsE = G.time + 18 + Math.random() * 8; track(G, 'nap', m.x, m.y); }
         else if (k === 'eat') { m.st = 'graze'; m.gT = 1; }
-        else if (k === 'drink') m.st = 'drink';
+        else if (k === 'drink') { m.st = 'drink'; if (m.tgt.gl) m.glT = G.time; }
         else if (k === 'rub') { m.st = 'rub'; m.rT = G.time + 6 + Math.random() * 6; const o = m.tgt.tr; if (o) track(G, 'bark', o.x + 0.5, o.y + 0.5); }
         else m.tgt = null;
       }
@@ -467,6 +680,9 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const q = P(c), m = G.mm;
     if (m && m.st === 'dead' && !G.butch && Math.hypot(q.x - m.x, q.y - m.y) < 2.2) return { k: 'butch', t: '🔪 Macella il mammut', on: true };
     if (atCamp(q.x, q.y, 2.4) && G.fuel > 0 && !torchOn(G, c)) return { k: 'torch', t: '🔥 Prendi una torcia', on: true };
+    const L = LM();
+    if (L.menhir && Math.hypot(q.x - L.menhir.x, q.y - L.menhir.y) < 1.7) { const w = Math.ceil((G.spyCd || 0) - G.time); return w > 0 ? { k: 'look', t: '🗿 Le pietre riposano (' + w + ' s)', on: false } : { k: 'look', t: '👁️ Guarda lontano dalle pietre', on: !c.op }; }
+    if (L.paint && !c.bot && q.y > L.paint.y0 + 0.9 && q.y < L.paint.y0 + 3.2 && q.x > L.paint.x0 - 0.6 && q.x < L.paint.x0 + 7.6) return { k: 'paint', t: '🎨 Guarda le pitture', on: true };
     if (c.mt < 0 && (c.logs || 0) < LOGS_MAX) { const i = nearTree(c); if (i >= 0) return { k: 'chop', i, t: '🪓 Taglia legna (' + (c.logs || 0) + '/' + LOGS_MAX + ')', on: !c.op }; }
     if (c.mt < 0) { const d = digAt(G, c); if (d) return { k: 'dig', i: d.id, t: '⛏️ Scava insieme (' + Math.round(d.p * 100) + '%)', on: true }; if (digOk(G, q.x, q.y)) return { k: 'dig', i: -1, t: '⛏️ Scava una fossa', on: true }; }
     return null;
@@ -476,6 +692,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const q = P(c);
     if (a.k === 'butch') { const m = G.mm; if (m && m.st === 'dead' && !G.butch && Math.hypot(q.x - m.x, q.y - m.y) < 2.4) c.op = { k: 'butch', t0: G.time, x: q.x, y: q.y }; return; }
     if (a.k === 'torch') { if (atCamp(q.x, q.y, 2.8) && G.fuel > 0) { c.tor = G.time + TORCH_T; say(G, 'torch', { a: c.id }); } return; }
+    if (a.k === 'look') { const L = LM(); if (L.menhir && Math.hypot(q.x - L.menhir.x, q.y - L.menhir.y) < 2 && (G.spyCd || 0) <= G.time) c.op = { k: 'look', t0: G.time, x: q.x, y: q.y }; return; }
     if (a.k === 'chop') { const i = a.i != null && a.i >= 0 ? a.i : nearTree(c); if (i >= 0 && !G.cut[i] && (c.logs || 0) < LOGS_MAX) c.op = { k: 'chop', i, t0: G.time, x: q.x, y: q.y }; return; }
     if (a.k === 'dig') {
       let d = digAt(G, c);
@@ -568,9 +785,9 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         else {
           // bersagli: chi porta la carne, la carcassa (se non e' ancora macellata), chi e' solo fuori dalla luce, le scorte se il fuoco e' basso
           let best = null, bs = 1e9;
-          for (const c of active(G)) { const q = P(c); if (inFire(G, q.x, q.y)) continue; const d = Math.hypot(q.x - j.x, q.y - j.y), alone = !active(G).some(o => o !== c && dist2(o, c) < 3); const s = d - (c.mt >= 0 ? 8 : 0) - (alone ? 3 : 0) + (torchOn(G, c) ? 4 : 0); if (d < 18 && s < bs) { bs = s; best = { c, x: q.x, y: q.y }; } }
+          for (const c of active(G)) { const q = P(c); if (safe(G, q.x, q.y)) continue; const d = Math.hypot(q.x - j.x, q.y - j.y), alone = !active(G).some(o => o !== c && dist2(o, c) < 3); const s = d - (c.mt >= 0 ? 8 : 0) - (alone ? 3 : 0) + (torchOn(G, c) ? 4 : 0); if (d < 18 && s < bs) { bs = s; best = { c, x: q.x, y: q.y }; } }
           const m = G.mm; if (m && m.st === 'dead' && !G.butch && m.meat > 0) { const d = Math.hypot(m.x - j.x, m.y - j.y); if (d - 4 < bs && d < 26) { bs = d - 4; best = { car: 1, x: m.x, y: m.y }; } }
-          for (const it of G.meat) if (it.st === 0) { const d = Math.hypot(it.x - j.x, it.y - j.y); if (d - 5 < bs && d < 22 && !inFire(G, it.x, it.y)) { bs = d - 5; best = { it, x: it.x, y: it.y }; } }
+          for (const it of G.meat) if (it.st === 0) { const d = Math.hypot(it.x - j.x, it.y - j.y); if (d - 5 < bs && d < 22 && !safe(G, it.x, it.y)) { bs = d - 5; best = { it, x: it.x, y: it.y }; } }
           if (G.fuel < 18 && G.food > 0) { const d = Math.hypot(F.x - j.x, F.y - j.y); if (d - 6 < bs) { bs = d - 6; best = { stash: 1, x: F.x + 2, y: F.y }; } }
           j.tg = best;
           if (best) { const cx = Math.floor(best.x), cy = Math.floor(best.y); const p = cqPath(j.x, j.y, cqCellFree(cx, cy) ? cx + 0.5 : best.x, cqCellFree(cx, cy) ? cy + 0.5 : best.y); j.path = p.slice(0, 10); }
@@ -580,10 +797,11 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       // non entrano nella luce del fuoco; stanno lontani dalle torce (se sono pochi)
       if (j.path.length) cqModeStep(j, dt, j.fear > G.time ? 1.2 : 1.04); else j.walk = 0;
       if (fr && Math.hypot(j.x - F.x, j.y - F.y) < fr * 0.95) { const a = Math.atan2(j.y - F.y, j.x - F.x); j.x = F.x + Math.cos(a) * fr * 0.95; j.y = F.y + Math.sin(a) * fr * 0.95; j.path = []; }
+      for (const [rx, ry, rr] of refC()) if (Math.hypot(j.x - rx, j.y - ry) < rr) { const a = Math.atan2(j.y - ry, j.x - rx), nx = rx + Math.cos(a) * (rr + 0.05), ny = ry + Math.sin(a) * (rr + 0.05); if (cqCellFree(Math.floor(nx), Math.floor(ny))) { j.x = nx; j.y = ny; } j.path = []; }
       if (j.cd > G.time || j.fear > G.time) continue;
       const pack = G.jk.filter(o => Math.hypot(o.x - j.x, o.y - j.y) < 2.5).length;
       for (const c of active(G)) {
-        const q = P(c), d = Math.hypot(q.x - j.x, q.y - j.y); if (d > 0.75 || inFire(G, q.x, q.y)) continue;
+        const q = P(c), d = Math.hypot(q.x - j.x, q.y - j.y); if (d > 0.75 || safe(G, q.x, q.y)) continue;
         if (torchOn(G, c) && pack < 2) { j.fear = G.time + 3; j.fx = q.x; j.fy = q.y; break; }
         knock(G, c, 'j'); j.cd = G.time + 9; break;
       }
@@ -623,6 +841,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       case 'meal': T('🍖 Cena al fuoco: ' + (e.h ? e.h + ' senza coniglio, domani sarete più lenti.' : 'tutti hanno mangiato.')); break;
       case 'dawn': T('🌅 È l\'alba del giorno ' + e.d + '.' + (e.last ? ' Ultimo giorno: stanotte il mammut migra!' : '')); break;
       case 'fire': T('🔥 Il fuoco si è spento! Serve legna, presto!'); beep(200, 0.3, 0.05); break;
+      case 'spy': T('👁️ ' + who + ' guardato lontano dal cerchio di pietre: il mammut è sulla mappa per qualche secondo!'); if (a === me) G.big = 1; beep(880, 0.15, 0.04); beep(1175, 0.25, 0.04, 0.15); break;
       case 'smell': break;
       case 'cur': break;
     }
@@ -678,6 +897,9 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       }
       go(G, c, G.kn.x, G.kn.y, 14); return;
     }
+    { const L = LM(), dM = L.menhir ? Math.hypot(L.menhir.x - c.x, L.menhir.y - c.y) : 99;   // vedetta: se da tanto non si sa niente del mammut
+      if (dM < 28 && (G.spyCd || 0) <= G.time && (!G.kn || G.time - G.kn.t > 80) && !G.chars.some(o => o !== c && o.bot && o.goM && o.alive)) { c.goM = 1; if (dM < 1.4) { c.path = []; doAct(G, c, { k: 'look' }); } else go(G, c, L.menhir.x, L.menhir.y); return; }
+      c.goM = 0; }
     const tr = G.tr.filter(o => G.time - o.t < 160 && Math.hypot(o.x - c.x, o.y - c.y) < 14 && o.id > (c.trS || 0)).sort((a, b) => b.t - a.t)[0];
     if (tr) { c.trS = tr.id; const x = tr.x + (tr.dx || 0) * 4, y = tr.y + (tr.dy || 0) * 4, cx = Math.floor(x), cy = Math.floor(y); go(G, c, cqCellFree(cx, cy) ? cx + 0.5 : tr.x, cqCellFree(cx, cy) ? cy + 0.5 : tr.y, 12); return; }
     if (!c.path.length) { const L2 = placeList(['eat', 'drink', 'sleep'][Math.floor(Math.random() * 3)]); const p = L2[Math.floor(Math.random() * L2.length)]; if (p) go(G, c, p.x, p.y, 16); }
@@ -688,6 +910,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   function setup(G) {
     G.tr = []; G.trN = 0; G.mmN = []; G.trD = new Map(); G.trC = null; G.sp = []; G.spN = 0; G.fly = []; G.shouts = []; G.digs = []; G.dgN = 0; G.traps = []; G.rab = []; G.rbN = 0; G.rabT = 2; G.jk = []; G.jkN = 0;
     G.meat = []; G.home = 0; G.butch = 0; G.cut = {}; G.fall = []; G.lg = []; G.lgN = 0; G.trump = null; G.kn = null; G.ph = 0;
+    G.spy = 0; G.spyCd = 0; G.zcur = null; G.fav = 0;
     G.fuel = 42; G.food = 0; G.wind = Math.random() * Math.PI * 2; G.windT = 70; G.windTo = G.wind;
     cq.mapDirty = true;
   }
@@ -726,11 +949,13 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (G.won) return '🍖 La tribù ha la sua carne! Festa al fuoco!';
       if (!me.alive) return '👻 Sei un fantasma: guardi la caccia.';
       if (me.dn) return '🤕 A terra! Un compagno vicino ti rialza… (' + Math.ceil(DOWN_T - (G.time - me.dn)) + ' s)';
-      if (me.op) return { chop: '🪓 Taglio la legna… resta fermo', dig: G.chars.filter(o => o.op && o.op.k === 'dig' && o.op.i === me.op.i && o.alive && !o.dn).length >= 2 ? '⛏️ Scavate insieme… restate fermi' : '⛏️ Da solo non si scava: serve un compagno vicino a te!', butch: '🔪 Macello il mammut… resta fermo' }[me.op.k] || '';
+      if (me.op) return { chop: '🪓 Taglio la legna… resta fermo', dig: G.chars.filter(o => o.op && o.op.k === 'dig' && o.op.i === me.op.i && o.alive && !o.dn).length >= 2 ? '⛏️ Scavate insieme… restate fermi' : '⛏️ Da solo non si scava: serve un compagno vicino a te!', butch: '🔪 Macello il mammut… resta fermo', look: '👁️ Guardi lontano dall\'alto delle pietre… resta fermo' }[me.op.k] || '';
       if (me.mt >= 0) return '🍖 Porta la carne al fuoco del campo! (pesante)';
       if (m && m.st === 'wind' && Math.hypot(m.x - q.x, m.y - q.y) < 6) return '⚠️ IL MAMMUT STA PER CARICARE! Spostati di lato!';
       if (m && m.sn && m.sn.id === me.id && G.time - m.sn.t < 3) return '👃 Il mammut ti ha fiutato: hai il vento alle spalle!';
       if (t > DUSK - 25 && t < NIGHT && !atCamp(q.x, q.y, 8)) return G.fuel < 30 ? '🌇 Sta per fare buio e il fuoco è quasi spento: portate legna al campo!' : '🌇 Sta per fare buio: torna al fuoco del campo!';
+      const rf = isNight(G) && !inFire(G, q.x, q.y) ? refuge(q.x, q.y) : null;
+      if (rf) return { glade: '✨ Tra le lucciole sei al sicuro: gli sciacalli non entrano nella radura.', spring: '♨️ Il calore della sorgente tiene lontani gli sciacalli.', dolmen: '🪨 Sotto il dolmen gli sciacalli non ti prendono.' }[rf];
       if (isNight(G) && !inFire(G, q.x, q.y) && !torchOn(G, me)) return '🌑 Sei fuori dalla luce del fuoco: gli sciacalli cacciano al buio…';
       // la traccia piu' vicina sotto i piedi: cosa racconta
       let tb = null, td = 1.15; for (const tr of G.tr) { const d = Math.hypot(tr.x - q.x, tr.y - q.y); if (d < td) { td = d; tb = tr; } }
@@ -748,7 +973,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     draw: c => { const f = (g, X, Y, TW, L2, w, fc) => tribal(g, X, Y, TW, L2, w, fc, c); return f; },
     extras: G => extras(G),
     btn(G) { const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
-    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; if (G.guest) { cqNetSend({ k: 'a', a: a.k, i: a.i }); if (a.k === 'chop' || a.k === 'dig' || a.k === 'butch') me.op = { k: a.k, i: a.i, t0: G.time, x: cq.x, y: cq.y, local: 1 }; } else doAct(G, me, a); },
+    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; if (a.k === 'paint') { paintUI(G); return; } if (G.guest) { cqNetSend({ k: 'a', a: a.k, i: a.i }); if (a.k === 'chop' || a.k === 'dig' || a.k === 'butch' || a.k === 'look') me.op = { k: a.k, i: a.i, t0: G.time, x: cq.x, y: cq.y, local: 1 }; } else doAct(G, me, a); },
     ev(G, c, o) { if (!o) return; if (o.k === 'a') doAct(G, c, { k: o.a, i: o.i }); else if (o.k === 'th') doThrow(G, c, 'any'); else if (o.k === 'sh') doShout(G, c); },
     // su ogni telefono: alberi tagliati, pulsanti, colpi d'ascia, battito quando uno sciacallo e' vicino al buio
     local(G, dt) {
@@ -757,6 +982,8 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       for (const c of G.chars) if (c.op && c.op.k === 'chop' && Math.hypot(c.x - cq.x, c.y - cq.y) < 12 && (c.axT = (c.axT || 0) - dt) <= 0) { c.axT = 0.45; thud(0.9, 480 + Math.random() * 120); }
       for (const c of G.chars) if (c.op && c.op.k === 'dig' && Math.hypot(c.x - cq.x, c.y - cq.y) < 10 && (c.axT = (c.axT || 0) - dt) <= 0) { c.axT = 0.6; thud(0.7, 260); }
       const me = G.me;
+      const zk = lmAt(cq.x, cq.y); if (zk !== G.zcur) { G.zcur = zk; if (zk && G.time > 0.5) { const d = LMS[zk]; G.zn = { n: d[0] + ' ' + d[1], d: d[2], t: performance.now() / 1000 }; } }
+      if (inMarsh(cq.x, cq.y) && me.alive) { if (Math.hypot(cq.x - (G.mrx == null ? cq.x : G.mrx), cq.y - (G.mry == null ? cq.y : G.mry)) > 0.5) { G.mrx = cq.x; G.mry = cq.y; beep(1700 + Math.random() * 900, 0.04, 0.008); beep(2500 + Math.random() * 600, 0.03, 0.006, 0.03); } } else { G.mrx = cq.x; G.mry = cq.y; }
       if (me.op && me.op.local && Math.hypot(cq.x - me.op.x, cq.y - me.op.y) > 0.6) me.op = null;
       // passi pesanti del mammut, sciacalli vicini nel buio (battito)
       const now = performance.now();
@@ -785,12 +1012,15 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       const m = G.mm;
       // chi vede il mammut lo dice agli altri (per il computer)
       if (m.st !== 'dead') for (const c of active(G)) if (canSee(G, c, m.x, m.y) && dxy(c, m.x, m.y) < 10) { G.kn = { x: m.x, y: m.y, t: G.time }; break; }
+      if (m.st !== 'dead' && (G.spy || 0) > G.time) G.kn = { x: m.x, y: m.y, t: G.time };   // dalla vedetta tutti sanno dov'e'
+      for (const c of active(G)) { const q = P(c); if (!inMarsh(q.x, q.y)) { c.mrX = null; continue; } if (c.mrX == null) { c.mrX = q.x; c.mrY = q.y; } if (Math.hypot(q.x - c.mrX, q.y - c.mrY) > 1.4) { c.mrX = q.x; c.mrY = q.y; mmNoise(G, q.x, q.y, 'reed'); } }   // le canne frusciano
       rabTick(G, dt); jkTick(G, dt);
       // azioni in corso (tagliare, scavare, macellare): ci si deve stare fermi
       for (const c of active(G)) {
         if (!c.op) continue; const q = P(c);
         if (Math.hypot(q.x - c.op.x, q.y - c.op.y) > 0.6) { c.op = null; continue; }
         if (c.op.k === 'chop' && G.time - c.op.t0 >= CHOP_T) { const i = c.op.i; c.op = null; if (!G.cut[i] && (c.logs || 0) < LOGS_MAX) { G.cut[i] = G.time + REGROW; c.logs = (c.logs || 0) + 1; c.lgK = (c.lgK || 0) + 1;  mmNoise(G, c.op && c.op.x || P(c).x, P(c).y, 'ax'); } }
+        else if (c.op.k === 'look' && G.time - c.op.t0 >= LOOK_T) { c.op = null; if ((G.spyCd || 0) <= G.time) { G.spy = G.time + SPY_T; G.spyCd = G.time + SPY_CD; say(G, 'spy', { a: c.id }); for (const o of G.chars) o.goM = 0; } }
         else if (c.op.k === 'butch' && G.time - c.op.t0 >= BUTCH_T) {
           c.op = null; if (!G.butch && m.st === 'dead') { G.butch = 1; const n = Math.max(0, m.meat); for (let i = 0; i < n; i++) { const a = i / Math.max(1, n) * Math.PI * 2, x = Math.floor(m.x + Math.cos(a) * 1.2), y = Math.floor(m.y + Math.sin(a) * 1.2), s = cqCellFree(x, y) ? { x: x + 0.5, y: y + 0.5 } : cqSpot(Math.floor(m.x), Math.floor(m.y)); G.meat.push({ id: i, st: 0, c: -1, x: s.x, y: s.y }); } say(G, 'butch', { v: n }); }
         }
@@ -843,10 +1073,10 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       else cqModeEnd({ t: '🦣 Caccia fallita', why: why || 'Il mammut è sfuggito.', win: [], rank });
     },
     // online: lance, legna, conigli, carne in mano, torcia, a terra, rialzo, fame, azione in corso, statistiche
-    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.sp || 0, c.logs || 0, c.rab || 0, c.mt, r(c.tor || 0), c.dn ? Math.round((G.time - c.dn) * 10) / 10 : 0, Math.round((c.rv || 0) * 100), c.hun ? 1 : 0, c.op ? ({ chop: 1, dig: 2, butch: 3 })[c.op.k] || 0 : 0, c.op ? (c.op.k === 'chop' ? c.op.i : c.op.k === 'dig' ? c.op.i : 0) : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.hits || 0, c.lgK || 0, c.rbK || 0, c.mtK || 0, c.rvK || 0, c.jkK || 0]; },
+    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.sp || 0, c.logs || 0, c.rab || 0, c.mt, r(c.tor || 0), c.dn ? Math.round((G.time - c.dn) * 10) / 10 : 0, Math.round((c.rv || 0) * 100), c.hun ? 1 : 0, c.op ? ({ chop: 1, dig: 2, butch: 3, look: 4 })[c.op.k] || 0 : 0, c.op ? (c.op.k === 'chop' ? c.op.i : c.op.k === 'dig' ? c.op.i : 0) : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.hits || 0, c.lgK || 0, c.rbK || 0, c.mtK || 0, c.rvK || 0, c.jkK || 0]; },
     capply(G, c, a) {
       [c.sp, c.logs, c.rab, c.mt] = a; c.tor = a[4] > 0 ? G.time + a[4] : 0; c.dn = a[5] > 0 ? G.time - a[5] || 0.01 : 0; c.rv = a[6] / 100; c.hun = a[7];
-      const k = ['', 'chop', 'dig', 'butch'][a[8]];
+      const k = ['', 'chop', 'dig', 'butch', 'look'][a[8]];
       if (k) { if (!(c === G.me && c.op && c.op.local && c.op.k === k)) c.op = { k, i: a[9], t0: G.time - a[10], x: c === G.me ? cq.x : c.x, y: c === G.me ? cq.y : c.y }; else c.op.local = 0; } else if (!(c === G.me && c.op && c.op.local && G.time - c.op.t0 < 0.8)) c.op = null;
       [c.hits, c.lgK, c.rbK, c.mtK, c.rvK, c.jkK] = a.slice(11);
     },
@@ -858,7 +1088,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         dg: G.digs.map(d => [d.id, d.x, d.y, Math.round(d.p * 100)]), tp: G.traps.map(p => [p.id, p.x, p.y, p.used]),
         rb: G.rab.map(o => [o.id, r(o.x), r(o.y), o.face]), jk: G.jk.map(j => [j.id, r(j.x), r(j.y), j.face]),
         me: G.meat.map(i => [i.st, i.c, r(i.x), r(i.y)]), cut: Object.keys(G.cut).map(i => [+i, Math.round(G.cut[i] - G.time)]),
-        f: r(G.fuel), fo: G.food, ho: G.home, bu: G.butch, w: Math.round(G.wind * 100) / 100, tu: G.trump ? [G.trump.x, G.trump.y, r(G.trump.t), G.trump.l] : 0, lg: G.lg };
+        f: r(G.fuel), fo: G.food, ho: G.home, bu: G.butch, w: Math.round(G.wind * 100) / 100, tu: G.trump ? [G.trump.x, G.trump.y, r(G.trump.t), G.trump.l] : 0, lg: G.lg, sy: [r((G.spy || 0) - G.time), r((G.spyCd || 0) - G.time)] };
     },
     apply(G, x) {
       if (!G.tr) return;
@@ -876,6 +1106,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       G.cut = {}; for (const [i, s] of x.cut || []) G.cut[i] = G.time + s;
       G.fuel = x.f; G.food = x.fo; G.home = x.ho; G.butch = x.bu; G.wind = x.w; G.trump = x.tu ? { x: x.tu[0], y: x.tu[1], t: x.tu[2], l: x.tu[3] } : null;
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
+      if (x.sy) { G.spy = G.time + x.sy[0]; G.spyCd = G.time + x.sy[1]; }
       if (G.home >= MEAT_NEED) G.won = 1;
     },
     // notte: buio pesto tranne il fuoco, la mia torcia e quelle dei compagni
@@ -887,11 +1118,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       const mine = torchOn(G, me) ? TORCH_L : SEE_N;
       lights.push([cq.x, cq.y, mine + 0.6, 0.95]); src.push([cq.x, cq.y, mine]);
       if (fr) { const fl = fr + 0.6 + Math.sin(performance.now() / 160) * 0.15; lights.push([F.x, F.y, fl, 1]); src.push([F.x, F.y, fr]); }
+      const L = LM();   // lucciole della radura e sorgente calda: luce (e rifugio)
+      if (L.glade && Math.hypot(L.glade.x - cq.x, L.glade.y - cq.y) < 30) { lights.push([L.glade.x, L.glade.y, 5.9 + Math.sin(performance.now() / 700) * 0.25, 0.6]); src.push([L.glade.x, L.glade.y, 5.4]); }
+      if (L.spring && Math.hypot(L.spring.x - cq.x, L.spring.y - cq.y) < 30) { lights.push([L.spring.x, L.spring.y, 3.7, 0.5]); src.push([L.spring.x, L.spring.y, 3.2]); }
       for (const c of G.chars) { if (c === me || !c.alive) continue; if (Math.hypot(c.x - cq.x, c.y - cq.y) > 24) continue; const r = torchOn(G, c) ? TORCH_L : 2.2; lights.push([c.x, c.y, r + 0.4, torchOn(G, c) ? 0.9 : 0.6]); src.push([c.x, c.y, r * 0.9]); }
       return { a: 0.96 * dk, r: mine, lights, see: (x, y) => dk < 0.5 || src.some(([sx, sy, r]) => Math.hypot(x - sx, y - sy) < r) };
     },
     deco(g, c, X, Y, TW, G) {
-      if (c.op) { const T2 = { chop: CHOP_T, dig: DIG_T, butch: BUTCH_T }[c.op.k] || 3, k = c.op.k === 'dig' ? ((G.digs.find(d => d.id === c.op.i) || {}).p || 0) : Math.min(1, (G.time - c.op.t0) / T2); g.strokeStyle = { chop: '#c8a070', dig: '#a88a5a', butch: '#e05050' }[c.op.k]; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 2.05, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
+      if (c.op) { const T2 = { chop: CHOP_T, dig: DIG_T, butch: BUTCH_T, look: LOOK_T }[c.op.k] || 3, k = c.op.k === 'dig' ? ((G.digs.find(d => d.id === c.op.i) || {}).p || 0) : Math.min(1, (G.time - c.op.t0) / T2); g.strokeStyle = { chop: '#c8a070', dig: '#a88a5a', butch: '#e05050', look: '#a8d0ff' }[c.op.k]; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 2.05, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
       if (c.dn) { const k = c.rv || 0; g.fillStyle = 'rgba(0,0,0,.6)'; cqRR(g, X - 22, Y - TW * 1.45, 44, 8, 4); g.fill(); g.fillStyle = '#7be0a0'; cqRR(g, X - 21, Y - TW * 1.45 + 1, Math.max(3, 42 * k), 6, 3); g.fill(); g.font = '14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🤕', X, Y - TW * 1.85); }
       // cosa porta: sopra la testa
       const L2 = []; if (c.mt >= 0) L2.push('🍖'); if (c.logs) L2.push('🪵' + (c.logs > 1 ? c.logs : '')); if (c.rab) L2.push('🐇' + (c.rab > 1 ? c.rab : ''));
@@ -906,6 +1140,16 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       { const F = fireC(), X = sx(F.x, F.y), Y = sy(F.x, F.y); if (on(X, Y) && G.fuel > 0) { const k = Math.min(1, 0.4 + G.fuel / 70); for (let i = 0; i < 3; i++) { const t = now * 6 + i * 2.1, dx = (i - 1) * 6, h = (18 + Math.sin(t) * 5) * k; g.fillStyle = i === 1 ? '#ffd040' : '#ff7a1a'; g.beginPath(); g.moveTo(X + dx - 7 * k, Y - 4); g.quadraticCurveTo(X + dx - 4, Y - h * 0.6, X + dx + Math.sin(t * 1.7) * 2, Y - 4 - h); g.quadraticCurveTo(X + dx + 4, Y - h * 0.6, X + dx + 7 * k, Y - 4); g.fill(); } } if (on(X, Y) && G.fuel <= 0) { g.strokeStyle = 'rgba(200,200,200,.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(X, Y - 6); g.quadraticCurveTo(X + 6 * Math.sin(now * 2), Y - 18, X, Y - 30); g.stroke(); }
         // scorte: conigli sulla cesta
         const sx2 = sx(F.x + 3, F.y - 1), sy2 = sy(F.x + 3, F.y - 1); if (on(sx2, sy2) && G.food > 0) { font(13); g.fillText('🐇' + (G.food > 1 ? '×' + G.food : ''), sx2, sy2 - TW * 0.75); } }
+      // luoghi speciali: lucciole (o farfalle di giorno) nella radura, spruzzi della cascata, vapore della sorgente, corvi sul cimitero
+      { const L = LM(), dk = dark(G), Zp = TW * 0.575, near = (o, r = 24) => o && Math.abs(o.x - cq.x) < r && Math.abs(o.y - cq.y) < r;
+        if (near(L.glade)) { const gl = L.glade;
+          if (dk > 0.12) for (let i = 0; i < 32; i++) { const a = i * 2.39 + now * (0.12 + (i % 5) * 0.025), r = 1 + ((i * 37) % 55) / 10, x = gl.x + Math.cos(a) * r + Math.sin(now * 0.7 + i) * 0.35, y = gl.y + Math.sin(a) * r + Math.cos(now * 0.6 + i * 1.3) * 0.35, X = sx(x, y), Y = sy(x, y) - (0.6 + 0.45 * Math.sin(now * 1.1 + i)) * Zp; if (!on(X, Y)) continue; const b = (0.5 + 0.5 * Math.sin(now * 2.6 + i * 1.9)) * Math.min(1, dk * 1.5); g.fillStyle = 'rgba(210,255,110,' + (0.3 * b) + ')'; g.beginPath(); g.arc(X, Y, 6.5, 0, 7); g.fill(); g.fillStyle = 'rgba(245,255,190,' + b + ')'; g.beginPath(); g.arc(X, Y, 1.9, 0, 7); g.fill(); }
+          else for (let i = 0; i < 6; i++) { const a = now * 0.4 + i * 1.05, x = gl.x + Math.cos(a * (1 + i * 0.1)) * (2.6 + i * 0.5), y = gl.y + Math.sin(a * 0.8) * (2.6 + (i % 3)), X = sx(x, y), Y = sy(x, y) - (0.8 + 0.3 * Math.sin(now * 2 + i)) * Zp, fl = Math.abs(Math.sin(now * 14 + i)); if (!on(X, Y)) continue; g.fillStyle = ['#ffd84a', '#ffffff', '#9fd0ff', '#ffa0d0'][i % 4]; g.beginPath(); g.ellipse(X - 3, Y, 3.2, 2.4 * fl + 0.4, 0.4, 0, 7); g.ellipse(X + 3, Y, 3.2, 2.4 * fl + 0.4, -0.4, 0, 7); g.fill(); } }
+        if (near(L.fall, 20)) { const f = L.fall, vt = MP().vert; for (let i = 0; i < 18; i++) { const k = (now * 0.9 + i / 18) % 1, o2 = ((i * 7) % 9) / 8 - 0.5, x = vt ? f.x + o2 * 1.8 : f.x + 0.5 + k * 0.7, y = vt ? f.y + 0.5 + k * 0.7 : f.y + o2 * 1.8, X = sx(x, y), Y = sy(x, y) - (0.3 * (1 - k) + 0.35 * Math.sin(k * Math.PI)) * Zp; if (!on(X, Y)) continue; g.fillStyle = 'rgba(255,255,255,' + (0.85 * (1 - k)) + ')'; g.beginPath(); g.arc(X, Y, 1.8, 0, 7); g.fill(); }
+          for (let i = 0; i < 3; i++) { const x = vt ? f.x + (i - 1) * 0.7 : f.x + 0.9, y = vt ? f.y + 0.9 : f.y + (i - 1) * 0.7, X = sx(x, y), Y = sy(x, y) - 4; if (!on(X, Y)) continue; g.fillStyle = 'rgba(255,255,255,' + (0.16 + 0.06 * Math.sin(now * 2 + i)) + ')'; g.beginPath(); g.ellipse(X, Y, TW * 0.45, TW * 0.2, 0, 0, 7); g.fill(); } }
+        if (near(L.spring, 20)) { const q = L.spring; for (let i = 0; i < 7; i++) { const p = (now * 0.32 + i / 7) % 1, x = q.x + Math.sin(i * 2.1) * 0.5, y = q.y + Math.cos(i * 1.7) * 0.5, X = sx(x, y) + Math.sin(now * 1.5 + i) * 6 * p, Y = sy(x, y) - p * 2.8 * Zp; if (!on(X, Y)) continue; g.fillStyle = 'rgba(240,246,246,' + (0.34 * (1 - p)) + ')'; g.beginPath(); g.ellipse(X, Y, 8 + p * 15, 5 + p * 8, 0, 0, 7); g.fill(); } }
+        if (near(L.cem, 26) && dk < 0.6) for (let i = 0; i < 3; i++) { const a = now * 0.5 + i * 2.1, x = L.cem.x + Math.cos(a) * 3, y = L.cem.y + Math.sin(a) * 3, X = sx(x, y), Y = sy(x, y) - (4 + i * 0.4) * Zp, fl = Math.sin(now * 9 + i) * 4; if (!on(X, Y)) continue; g.strokeStyle = '#1a1a1e'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(X - 8, Y - fl); g.quadraticCurveTo(X - 3, Y - 3, X, Y); g.quadraticCurveTo(X + 3, Y - 3, X + 8, Y - fl); g.stroke(); }
+      }
       // tracce del mammut (solo dove si vede)
       for (const t of G.tr) {   // il vapore dello sterco fresco e delle buche calde (le tracce sono nel terreno)
         if ((t.k !== 'dung' && t.k !== 'bed') || Math.abs(t.x - cq.x) > 14 || Math.abs(t.y - cq.y) > 14 || !see(t.x, t.y)) continue;
@@ -947,6 +1191,11 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (G.trump && G.time - G.trump.t < 4) { const X = sx(G.trump.x, G.trump.y), Y = sy(G.trump.x, G.trump.y); edge(g, X, Y, W, H, '🦣', '#e0b84a'); }
       // freccia verso il fuoco: quando porto qualcosa, al tramonto e di notte se sono lontano
       { const F = fireC(), me = G.me, t = cyc(G); if (me.alive && !me.dn && (me.mt >= 0 || me.logs || me.rab || (t > DUSK - 25 && t < DAWN)) && !atCamp(cq.x, cq.y, 6)) edge(g, sx(F.x, F.y), sy(F.x, F.y), W, H, '🔥', '#ff9a40'); }
+      // nome del luogo quando ci entri
+      if (G.zn && now - G.zn.t < 3.6 && !G.big) { const k = now - G.zn.t, al = k < 0.4 ? k / 0.4 : k > 2.8 ? Math.max(0, (3.6 - k) / 0.8) : 1, Yz = Math.min(H * 0.36, 300); g.globalAlpha = al; g.textAlign = 'center'; g.textBaseline = 'middle';
+        g.font = '800 21px system-ui,sans-serif'; g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(G.zn.n, W / 2 + 1.5, Yz + 1.5); g.fillStyle = '#ffe9a8'; g.fillText(G.zn.n, W / 2, Yz);
+        if (G.zn.d) { g.font = '600 13px system-ui,sans-serif'; const ws = G.zn.d.split(' '), Ls = []; let l = ''; for (const w of ws) { if (g.measureText(l + ' ' + w).width > W - 60 && l) { Ls.push(l); l = w; } else l = l ? l + ' ' + w : w; } Ls.push(l); Ls.forEach((t, i) => { g.fillStyle = 'rgba(0,0,0,.6)'; g.fillText(t, W / 2 + 1, Yz + 25 + i * 17 + 1); g.fillStyle = '#f4ead2'; g.fillText(t, W / 2, Yz + 25 + i * 17); }); }
+        g.globalAlpha = 1; }
       // rosa del vento in alto a destra
       if (G.me.alive || true) minimap(g, G);
       if (!G.big) { const X = W - RADAR - 8 - RADAR + 22, Y = 122 + RADAR * 2 + 44, a = G.wind, sxv = Math.cos(a) - Math.sin(a), syv = (Math.cos(a) + Math.sin(a)) / 2, an = Math.atan2(syv, sxv);
@@ -963,14 +1212,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     g.font = '14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(icon, ex, ey + 1);
   }
   // ======================= MAPPA (radar in alto a destra, grande toccandola): il terreno, il campo, i compagni; il mammut no =======================
-  const MCOL = { 1: [130, 160, 78], 2: [104, 150, 62], 3: [70, 104, 50], 4: [130, 110, 80], 5: [120, 200, 225], 6: [60, 140, 210], 7: [176, 150, 106] };
+  const MCOL = { 1: [130, 160, 78], 2: [104, 150, 62], 3: [70, 104, 50], 4: [130, 110, 80], 5: [120, 200, 225], 6: [60, 140, 210], 7: [176, 150, 106], 8: [126, 184, 80], 9: [84, 112, 66], 10: [186, 172, 112], 11: [156, 152, 142], 12: [186, 144, 92], 13: [130, 222, 210], 14: [210, 238, 248] };
   const RADAR = 62;
   function mapImg() {
     const M = MP(); if (M.mimg) return M.mimg;
     const W = CQ_W, H = CQ_H, c = document.createElement('canvas'); c.width = W; c.height = H; const sg = c.getContext('2d', CQ_CPU), im = sg.createImageData(W, H), d = im.data;
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const i = y * W + x, o = cqSolid[y] && cqSolid[y][x], t = M.ter[y][x]; let col = MCOL[t] || [90, 120, 60];
-      if (o && (o.prop === 'tree' || o.prop === 'stump')) col = [40, 78, 38]; else if (o && o.prop === 'boulder') col = [150, 146, 136]; else if (o && o.prop === 'thick') col = [34, 56, 30];
+      const pr = o && o.prop; if (pr === 'tree' || pr === 'stump' || pr === 'willow' || pr === 'gtree') col = [40, 78, 38]; else if (pr === 'boulder' || pr === 'menhir' || pr === 'pwall' || pr === 'dolm' || pr === 'srock' || pr === 'wrock') col = [150, 146, 136]; else if (pr === 'tusks' || pr === 'mskull' || pr === 'ribs') col = [228, 216, 186]; else if (pr === 'fall') col = [230, 246, 252]; else if (o && o.prop === 'thick') col = [34, 56, 30];
       const z = M.hz[y][x]; if (z && t <= 3) col = col.map(v => Math.min(255, v + z * 16));
       d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
     }
@@ -988,12 +1237,16 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     if (big) { for (const p of placeList('eat')) ico(p.x, p.y, '🌾', 11); for (const p of G.traps) ico(p.x, p.y, '🕳️', 11); }
     { const [a, b] = P2(F.x, F.y); g.fillStyle = 'rgba(255,150,60,' + (0.3 + 0.15 * Math.sin(now / 250)) + ')'; g.beginPath(); g.arc(a, b, sz * 0.9, 0, 7); g.fill(); ico(F.x, F.y, '🔥', sz); }
     for (const c of G.chars) if (c !== me && c.alive) { const [a, b] = P2(c.x, c.y); g.fillStyle = c.dn ? '#ff6a4a' : '#ffe9a0'; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, c.dn ? 4.5 : 3.5, 0, 7); g.fill(); g.stroke(); }
+    { const L = LM(); for (const k in LMS) { const o = L[k]; if (!o) continue; ico(o.x, o.y, LMS[k][0], big ? 15 : 11); if (big) { const [a, b] = P2(o.x, o.y); g.font = '700 9.5px system-ui,sans-serif'; g.fillStyle = 'rgba(0,0,0,.65)'; g.fillText(LMS[k][1], a + 1, b + 14); g.fillStyle = '#fff3d6'; g.fillText(LMS[k][1], a, b + 13); } } }
+    if (big && G.fav) { const M = MP(), fv = M.fav, L = LM(), pts = []; const e = M.places.eat[fv.eat]; if (e) pts.push([e[0] + 0.5, e[1] + 0.5]); if (fv.drink === -1 && L.glade) pts.push([L.glade.x, L.glade.y]); else { const d = M.places.drink[fv.drink]; if (d) pts.push([d[0] + 0.5, d[1] + 0.5]); } if (fv.sleep === -1 && L.gtree) pts.push([L.gtree.x, L.gtree.y]); else { const q = M.places.sleep[fv.sleep]; if (q) pts.push([q[0] + 0.5, q[1] + 0.5]); }
+      for (const [x, y] of pts) { const [a, b] = P2(x, y); g.font = '14px system-ui,sans-serif'; g.fillText('⭐', a + 11, b - 9); } }
+    if ((G.spy || 0) > G.time && G.mm && G.mm.st !== 'dead') { const [a, b] = P2(G.mm.x, G.mm.y); g.fillStyle = 'rgba(255,110,50,' + (0.35 + 0.25 * Math.sin(now / 140)) + ')'; g.beginPath(); g.arc(a, b, sz + 2, 0, 7); g.fill(); ico(G.mm.x, G.mm.y, '🦣', sz + 3); }   // dalla vedetta
     if (G.mm && G.mm.st === 'dead') ico(G.mm.x, G.mm.y, '🍖', sz);   // abbattuto: si sa dove sta la carcassa
     const [mx, my] = P2(cq.x, cq.y), wx = cq.wdx || 1, wy = cq.wdy || 0, ang = Math.atan2((wx + wy) * 0.7071, (wx - wy) * 0.7071);
     g.translate(mx, my); g.rotate(ang); g.fillStyle = '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
     g.beginPath(); g.moveTo(8, 0); g.lineTo(-5, -5.5); g.lineTo(-2.5, 0); g.lineTo(-5, 5.5); g.closePath(); g.fill(); g.stroke();
     g.restore();
-    if (big) { g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(240,230,200,.9)'; g.fillText('🔥 campo · 🌾 pascoli · azzurro: acqua · verde scuro: boschi', X, Y + R + 16); g.fillText('tocca per chiudere', X, Y + R + 32); }
+    if (big) { g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(240,230,200,.9)'; g.fillText('🔥 campo · 🌾 pascoli · ✨🗿🎨 luoghi speciali' + (G.fav ? ' · ⭐ abitudini del mammut' : ''), X, Y + R + 16); g.fillText('tocca per chiudere', X, Y + R + 32); }
   }
   function minimap(g, G) {
     const W2 = cq.w, H2 = cq.h;
@@ -1180,6 +1433,18 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     for (const j of G.jk) { lerp(j); if (G.guest) j.walk = (j.walk || 0) + 0.3; out.push({ x: j.x, y: j.y, dr: (g, X, Y, TW) => drawJackal(g, X, Y, TW, j), name: null }); }
     return out;
   }
+  // le pitture rupestri: cosa raccontano di QUESTO mammut (direzioni viste da qui, come sullo schermo); sulla mappa grande compaiono le ⭐
+  function paintUI(G) {
+    const M = MP(), L = LM(), fv = M.fav || {}, pl = L.paint; if (!pl) return;
+    const w = (x, y) => { const d = Math.hypot(x - pl.x, y - pl.y); return '<b>' + IZ.dir(x - pl.x, y - pl.y) + '</b>' + (d > 45 ? ', molto lontano' : d > 22 ? ', lontano' : ', non lontano'); };
+    const e = M.places.eat[fv.eat], dr = fv.drink === -1 ? null : M.places.drink[fv.drink], sl = fv.sleep === -1 ? null : M.places.sleep[fv.sleep];
+    const h = '<div class="t">🎨 Le pitture degli antichi cacciatori</div><p>Raccontano le abitudini di questo mammut:</p>'
+      + (e ? '<p>🌾 Mangia volentieri in un pascolo ' + w(e[0] + 0.5, e[1] + 0.5) + '.</p>' : '')
+      + '<p>💧 ' + (dr ? 'Beve volentieri ' + w(dr[0] + 0.5, dr[1] + 0.5) : 'Ogni tanto scende a bere alla <b>Radura delle lucciole</b> (' + w(L.glade.x, L.glade.y) + '), ma poi per un po\' non ci torna') + '.</p>'
+      + '<p>🌳 ' + (sl ? 'Riposa e dorme ' + w(sl[0] + 0.5, sl[1] + 0.5) : 'Riposa all\'ombra dell\'<b>Albero millenario</b> (' + w(L.gtree.x, L.gtree.y) + ')') + '.</p>'
+      + '<p class="n">Sulla mappa grande ora vedi ⭐ questi posti. Dopo aver mangiato ha sete; nelle ore calde cerca ombra; al tramonto va a dormire.</p><div class="c">Tocca per chiudere</div>';
+    G.fav = 1; const el = document.getElementById('mmPaint'); if (!el) return; el.innerHTML = h; el.hidden = false; beep(520, 0.1, 0.03); beep(660, 0.14, 0.03, 0.1);
+  }
   // pulsanti a sinistra: 🎯 lancia (Q) e 📣 urla (R)
   function sideHud(G) {
     const b = document.getElementById('mmThrow'), s = document.getElementById('mmShout'); if (!b || !s) return;
@@ -1191,11 +1456,12 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   function shoutBtn() { const G = cq.g; if (!G || G.mode !== 'mammut' || G.phase !== 'play' || G.pre > 0) return; const me = G.me; if ((me.shT || 0) > G.time || !me.alive || me.dn) return; [300, 260, 330].forEach((f, i) => beep(f, 0.12, 0.05, i * 0.08)); if (G.guest) { cqNetSend({ k: 'sh' }); me.shT = G.time + SHOUT_CD; G.shouts.push([cq.x, cq.y, G.time, me.id]); } else doShout(G, me); }
   if (!document.getElementById('mmCss')) {
     const st = document.createElement('style'); st.id = 'mmCss';
-    st.textContent = '#mmThrow,#mmShout{position:absolute;border-radius:50%;border:0;font:inherit;font-weight:800;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#mmThrow{left:18px;bottom:142px;width:86px;height:86px;font-size:24px}#mmShout{left:112px;bottom:150px;width:62px;height:62px;font-size:19px}#mmThrow.on{background:#b8662a;color:#fff}#mmShout.on{background:#8a6a2a;color:#fff}';
+    st.textContent = '#mmThrow,#mmShout{position:absolute;border-radius:50%;border:0;font:inherit;font-weight:800;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#mmThrow{left:18px;bottom:142px;width:86px;height:86px;font-size:24px}#mmShout{left:112px;bottom:150px;width:62px;height:62px;font-size:19px}#mmThrow.on{background:#b8662a;color:#fff}#mmShout.on{background:#8a6a2a;color:#fff}#mmPaint{position:absolute;left:14px;right:14px;top:150px;max-width:460px;margin:0 auto;background:rgba(36,26,16,.95);border:2px solid #c8a060;border-radius:16px;padding:14px 16px;color:#f4e8cc;font-size:15px;line-height:1.45;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.5)}#mmPaint .t{font-weight:800;font-size:17px;color:#ffd88a;margin-bottom:4px}#mmPaint p{margin:6px 0}#mmPaint .n{font-size:13px;color:#d8c8a4}#mmPaint .c{text-align:center;font-size:12px;color:#b8a882;margin-top:8px}';
     document.head.appendChild(st);
     const host = document.getElementById('ciack');
     const mk = (id, fn) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.hidden = true; b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); }); if (host) host.appendChild(b); return b; };
     const tb = mk('mmThrow', throwBtn), sb = mk('mmShout', shoutBtn);
+    const pp = document.createElement('div'); pp.id = 'mmPaint'; pp.hidden = true; pp.addEventListener('pointerdown', e => { e.stopPropagation(); pp.hidden = true; }); if (host) host.appendChild(pp);
     const mb = document.createElement('button'); mb.id = 'mmMap'; mb.type = 'button'; mb.hidden = true; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent';
     mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'mammut') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } }; if (host) host.appendChild(mb);
     window.addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'm' && cq.g && cq.g.mode === 'mammut' && cq.on) cq.g.big = !cq.g.big; });
@@ -1203,7 +1469,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       const W2 = cq.w, H2 = cq.h; let css; if (G.big) { const R = Math.min(W2 - 24, H2 - 300, 460) / 2, cy = Math.max(130 + R, H2 / 2 - 40); css = 'left:' + (W2 / 2 - R) + 'px;top:' + (cy - R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px'; } else css = 'left:' + (W2 - 2 * RADAR - 8) + 'px;top:122px;width:' + 2 * RADAR + 'px;height:' + 2 * RADAR + 'px';
       if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.left = mb.style.top = ''; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:50%;' + css; } }, 250);
     window.addEventListener('keydown', e => { const k = e.key && e.key.toLowerCase(); if (!cq.g || cq.g.mode !== 'mammut' || !cq.on) return; if (k === 'q') throwBtn(); else if (k === 'r') shoutBtn(); });
-    setInterval(() => { const G = cq.g, live = !!(G && G.mode === 'mammut' && G.phase === 'play' && G.tr && G.pre <= 0 && G.me.alive && $('#cqTask').hidden && !$('#ciack').hidden); if (tb.hidden === live) { tb.hidden = !live; sb.hidden = !live; } }, 300);
+    setInterval(() => { const G = cq.g, live = !!(G && G.mode === 'mammut' && G.phase === 'play' && G.tr && G.pre <= 0 && G.me.alive && $('#cqTask').hidden && !$('#ciack').hidden); if (tb.hidden === live) { tb.hidden = !live; sb.hidden = !live; } if (!live && !pp.hidden) pp.hidden = true; }, 300);
   }
   window.__mm = { mmTick, doThrow, doShout, knock, cyc, dark, trackTxt };
 });
