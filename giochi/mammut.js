@@ -14,6 +14,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   const N = 140;   // la mappa piu' grande finora (140x140)
   // giro di un giorno: giorno, tramonto, notte, alba (secondi)
   const DAY = 180, DUSK = 105, NIGHT = 120, DAWN = 170;
+  const HOT0 = 50, HOT1 = 78;   // ore calde: riposa all'ombra
   const DOWN_T = 30, REV_T = 3, CHOP_T = 2, DIG_T = 8, BUTCH_T = 4, REGROW = 150, TRAP_T = 15, TORCH_T = 70, SHOUT_CD = 6;
   const THROW_R = 5.5, SPEARS = 2, SPEAR_MAX = 3, LOGS_MAX = 3, LOG_FUEL = 22, MEAT_N = 6, MEAT_NEED = 4, RAB_MAX = 2;
   const VIS_D = 6.5, VIS_N = 4, VIS_S = 2.2, SMELL = 12, PUSH_R = 4, SHOUT_R = 7, CH_R = 2.8;
@@ -232,7 +233,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
 
   // ======================= TRACCE =======================
   // { id, k: passo/fango/sterco/erba/ramo/corteccia/buca/sangue, x, y, t: quando, dx, dy: direzione, ct: creata (per mandarla agli amici) }
-  const TR_LIFE = { foot: 210, mud: 230, dung: 400, graze: 260, branch: 320, bark: 400, bed: 520, blood: 220 };
+  const TR_LIFE = { foot: 210, mud: 230, dung: 400, graze: 260, branch: 320, bark: 400, bed: 520, blood: 220, nap: 360 };
   // stato di una traccia: 0 freschissima, 1 fresca, 2 di qualche minuto, 3 vecchia, -1 sparita
   function stageOf(G, t) { const a = G.time - t.t, L2 = TR_LIFE[t.k] || 200; return a > L2 ? -1 : a < L2 * 0.12 ? 0 : a < L2 * 0.4 ? 1 : a < L2 * 0.75 ? 2 : 3; }
   function cellTracks(G) {
@@ -260,12 +261,13 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const a = G.time - t.t, f = a < 30 ? 'freschissima' : a < 90 ? 'fresca' : a < 200 ? 'di qualche minuto fa' : 'vecchia', dir = t.dx || t.dy ? ' · va verso ' + arrowOf(t.dx, t.dy) : '';
     switch (t.k) {
       case 'foot': return '🐾 Impronta di mammut, ' + f + dir;
-      case 'mud': return '💧 Impronta fangosa, ' + f + ': viene dall\'acqua, ha appena bevuto' + dir;
-      case 'dung': return a < 60 ? '💩 Sterco ancora fumante! È passato da pochissimo. Ha mangiato: tra un po\' avrà sete.' : '💩 Sterco ' + (a < 200 ? 'tiepido' : 'secco') + ': è passato di qui ' + (a < 200 ? 'qualche minuto fa' : 'tempo fa') + '.';
-      case 'graze': return '🌾 Erba strappata e mangiata, ' + f + ': qui ha pascolato.';
+      case 'mud': return '💧 Impronta fangosa, ' + f + ': ha appena bevuto. Ora cerca ombra o un pascolo' + dir;
+      case 'dung': return a < 60 ? '💩 Sterco ancora fumante! È passato da pochissimo. Ha mangiato: ora avrà sete, andrà all\'acqua più vicina.' : '💩 Sterco ' + (a < 200 ? 'tiepido' : 'secco') + ': è passato di qui ' + (a < 200 ? 'qualche minuto fa' : 'tempo fa') + '.';
+      case 'graze': return '🌾 Erba strappata, ' + f + ': ha pascolato qui. Dopo mangiato va a bere: cerca lo stagno o il fiume più vicino.';
       case 'branch': return '🌿 Rami spezzati, ' + f + ': è passato tra gli alberi' + dir;
       case 'bark': return '🪵 Corteccia grattata, ' + f + ': si è fermato a strofinarsi qui.';
       case 'bed': return (G.mm && G.mm.st === 'sleep' && Math.hypot(G.mm.x - t.x, G.mm.y - t.y) < 1.5) || a < 90 ? '🛏️ Buca per dormire ancora calda!' : '🛏️ Buca per dormire, ormai fredda: ci ha passato la notte.';
+      case 'nap': return '🌳 Erba schiacciata all\'ombra, ' + f + ': ha riposato qui nelle ore calde.';
       case 'blood': return '🩸 Sangue ' + (a < 40 ? 'fresco' : 'rappreso') + ': il mammut è ferito!' + dir;
     }
     return '';
@@ -303,6 +305,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         fill(a(20, 0.52, x, y, 1.35), rgba('82,62,38', 0.4 + al * 0.55));
         fill(a(18, 0.38, x + 0.03, y + 0.03, 1.35), rgba('62,46,28', 0.4 + al * 0.5));
         break; }
+      case 'nap': fill(a(20, 0.6, x, y, 1.35), rgba('150,170,80', al * 0.5)); fill(a(18, 0.45, x, y, 1.35), rgba('110,130,52', al * 0.45)); break;
       case 'blood': for (const [u, v, r] of [[0, 0, 0.06], [0.1, 0.05, 0.04], [-0.07, 0.08, 0.03]]) fill(a(10, r, x + u, y + v, 1.3), al > 0.6 ? 'rgba(196,22,30,.95)' : rgba('112,20,20', 0.4 + al * 0.6)); break;
     }
   }
@@ -310,24 +313,39 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // ======================= IL MAMMUT =======================
   function placeList(k) { return (MP().places[k] || []).map(([x, y]) => ({ x: x + 0.5, y: y + 0.5, k })); }
   function feared(G, x, y) { return G.mm.fear.some(f => G.time - f.t < 160 && Math.hypot(f.x - x, f.y - y) < 12); }
+  // il posto piu' vicino del tipo che gli serve (cosi' si puo' ragionare su dove andra'): evita i posti dove ha avuto paura, cambia rispetto all'ultimo
   function choosePlace(G, k) {
     const m = G.mm, L2 = placeList(k).filter(p => Math.hypot(p.x - m.x, p.y - m.y) > 3);
     let best = null, bs = 1e9;
-    for (const p of L2) { const d = Math.hypot(p.x - m.x, p.y - m.y), s = d * (0.6 + Math.random() * 0.9) + (feared(G, p.x, p.y) ? 70 : 0) + (k === 'sleep' && atCamp(p.x, p.y, 16) ? 40 : 0) + (p === m.last ? 50 : 0); if (s < bs) { bs = s; best = p; } }
+    for (const p of L2) { const d = Math.hypot(p.x - m.x, p.y - m.y), s = d * (0.9 + Math.random() * 0.25) + (feared(G, p.x, p.y) ? 60 : 0) + ((k === 'sleep' || k === 'rest') && atCamp(p.x, p.y, 18) ? 40 : 0) + (p.x === (m.last || {}).x && p.y === (m.last || {}).y ? 30 : 0); if (s < bs) { bs = s; best = p; } }
     return best;
   }
   function mmGo(G, x, y, max) { const m = G.mm, p = cqPath(m.x, m.y, x, y); m.path = max ? p.slice(0, max) : p; if (!m.path.length) m.path = []; }
+  // la sua giornata: all'alba ha fame -> pascolo; dopo aver mangiato ha sete -> l'acqua piu' vicina; nelle ore calde riposa all'ombra;
+  // il pomeriggio di nuovo pascolo e acqua; al tramonto cerca un posto riparato per dormire. In mezzo si gratta agli alberi e va a curiosare
   function mmPlan(G) {
     const m = G.mm, t = cyc(G);
     if (t >= DUSK + 6 && t < DAWN) { const p = m.sleepP && !feared(G, m.sleepP.x, m.sleepP.y) ? m.sleepP : choosePlace(G, 'sleep'); m.sleepP = p; m.tgt = p; m.st = 'walk'; if (p) mmGo(G, p.x, p.y); return; }
     m.sleepP = null;
-    const k = m.need.e > m.need.w ? 'eat' : 'drink';
-    if (Math.max(m.need.e, m.need.w) < 0.35) {   // non ha bisogno di niente: gironzola, si gratta su un albero
-      const tr = MP().trees.filter(o => !o.cut && Math.hypot(o.x - m.x, o.y - m.y) < 14 && Math.hypot(o.x - m.x, o.y - m.y) > 3);
+    if (t >= HOT0 && t < HOT1 && m.restD !== dayN(G)) { const p = choosePlace(G, 'sleep'); if (p) { m.tgt = { x: p.x, y: p.y, k: 'rest' }; m.st = 'walk'; mmGo(G, p.x, p.y); return; } }
+    if (Math.max(m.need.e, m.need.w) < 0.3) {   // non ha bisogno di niente: si gratta a un albero li' vicino
+      const tr = MP().trees.filter(o => !o.cut && Math.hypot(o.x - m.x, o.y - m.y) < 12 && Math.hypot(o.x - m.x, o.y - m.y) > 3);
       const o = tr.length ? tr[Math.floor(Math.random() * tr.length)] : null, sp = o && cqSpot(o.x, o.y);
       if (sp) { m.tgt = { x: sp.x, y: sp.y, k: 'rub', tr: o }; m.st = 'walk'; mmGo(G, sp.x, sp.y); return; }
     }
+    const k = m.need.w > m.need.e ? 'drink' : 'eat';
     const p = choosePlace(G, k); m.tgt = p; m.st = 'walk'; if (p) mmGo(G, p.x, p.y);
+  }
+  // curiosita': un rumore lontano (ascia, urla, albero che cade) o una figura vista da lontano lo fanno avvicinare piano per guardare;
+  // se e' gia' sospettoso invece si allontana da quella parte
+  function mmNoise(G, x, y, k) { G.mmN.push({ x, y, k, t: G.time }); if (G.mmN.length > 8) G.mmN.shift(); }
+  function mmCurious(G, x, y) {
+    const m = G.mm; if (['trap', 'wind', 'charge', 'flee', 'sleep', 'cur', 'dead'].includes(m.st) || (m.curT || 0) > G.time) return;
+    m.curT = G.time + 25;
+    if (m.wary > G.time) { alarm(G, x, y); mmFleeFrom(G, x, y, 9); return; }
+    m.st = 'cur'; m.cx = x; m.cy = y; m.cE = G.time + 7; const d = Math.hypot(x - m.x, y - m.y) || 1, ax = m.x + (x - m.x) / d * Math.min(3, d - 5), ay = m.y + (y - m.y) / d * Math.min(3, d - 5);
+    if (d > 7 && cqCellFree(Math.floor(ax), Math.floor(ay))) mmGo(G, ax, ay, 5); else m.path = [];
+    say(G, 'cur', { x: Math.round(x), y: Math.round(y) });
   }
   function mmFleeFrom(G, sx, sy, far) {
     const m = G.mm; let best = null, bs = -1e9;
@@ -353,7 +371,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   function mmTick(G, dt, warm) {
     const m = G.mm; if (!m || m.st === 'dead') return;
     const t = cyc(G), slow = 0.6 + 0.4 * m.hp / m.max;
-    m.need.e = Math.min(1, m.need.e + dt / 95); m.need.w = Math.min(1, m.need.w + dt / 120);
+    m.need.e = Math.min(1, m.need.e + dt / 110); m.need.w = Math.min(1, m.need.w + dt / (m.st === 'graze' ? 45 : 140));   // mangiare mette sete
     // ---- percezione: vista (meno di notte, poco mentre dorme) e fiuto col vento ----
     if (!warm && m.st !== 'trap' && m.st !== 'wind' && m.st !== 'charge') {
       const sleeping = m.st === 'sleep', vis = sleeping ? VIS_S : dark(G) > 0.5 ? VIS_N : VIS_D, wx = Math.cos(G.wind), wy = Math.sin(G.wind);
@@ -365,6 +383,8 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         if (d < v) { gain += (0.45 + 1.7 * (1 - d / v)) * (sleeping ? 0.5 : 1); if (d < wd) { wd = d; who = c; } }
         if (d < SMELL && d > 0.5 && (dx * wx + dy * wy) / d > 0.6) { gain += 0.75; if (d < wd) { wd = d; who = c; } if ((m.snT || 0) < G.time) { m.snT = G.time + 6; m.sn = { id: c.id, t: G.time }; } }
       }
+      if (!sleeping && !gain && m.st !== 'flee' && m.st !== 'cur') for (const c of active(G)) { const q = P(c), d = Math.hypot(m.x - q.x, m.y - q.y); if (d > vis && d < vis * 1.9 && (dark(G) < 0.5 || torchOn(G, c))) { mmCurious(G, q.x, q.y); break; } }
+      if (!sleeping) for (const nz of G.mmN) { if (nz.used || G.time - nz.t > 2) continue; nz.used = 1; const d = Math.hypot(nz.x - m.x, nz.y - m.y); if (d < (nz.k === 'sh' ? 18 : 15) && d > 6) mmCurious(G, nz.x, nz.y); }
       if (m.st !== 'flee') m.aw = Math.max(0, Math.min(1.2, m.aw + (gain ? gain * (m.wary > G.time ? 1.5 : 1) : -0.3) * dt));
       if (m.aw >= 1 && who && m.st !== 'flee') { if (sleeping) say(G, 'wake', {}); mmReact(G, who); }
     }
@@ -390,6 +410,12 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (m.path.length) cqModeStep(m, dt, 0.25); else m.walk = 0;
       if (m.need.e <= 0.02 || isNight(G)) { m.st = 'walk'; m.tgt = null; m.path = []; if (Math.random() < 0.7) track(G, 'dung', m.x - 0.4, m.y + 0.3); }
     }
+    else if (m.st === 'cur') {   // guarda verso il rumore con la proboscide alzata
+      const dx = m.cx - m.x, dy = m.cy - m.y; m.face = dx - dy > 0 ? 1 : -1;
+      if (m.path.length) cqModeStep(m, dt, 0.32); else m.walk = 0;
+      if (G.time > m.cE) { m.st = 'walk'; m.tgt = null; m.path = []; }
+    }
+    else if (m.st === 'rest') { m.walk = 0; m.need.e = Math.max(0, m.need.e - dt / 300); if (G.time > m.rsE || cyc(G) >= HOT1 + 6) { m.st = 'walk'; m.tgt = null; m.path = []; } }
     else if (m.st === 'drink') { m.walk = 0; m.need.w = Math.max(0, m.need.w - dt / 8); if (m.need.w <= 0.02) { m.mudT = G.time + 35; m.st = 'walk'; m.tgt = null; m.path = []; } }
     else if (m.st === 'rub') { m.walk = 0; if (G.time > m.rT) { m.st = 'walk'; m.tgt = null; m.path = []; } }
     else {   // walk
@@ -398,6 +424,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       else if (m.tgt && Math.hypot(m.tgt.x - m.x, m.tgt.y - m.y) <= 1.2) {
         const k = m.tgt.k; m.last = m.tgt;
         if (k === 'sleep') { m.st = 'sleep'; track(G, 'bed', m.x, m.y); if (!warm) say(G, 'sleep', {}); }
+        else if (k === 'rest') { m.st = 'rest'; m.restD = dayN(G); m.rsE = G.time + 18 + Math.random() * 8; track(G, 'nap', m.x, m.y); }
         else if (k === 'eat') { m.st = 'graze'; m.gT = 1; }
         else if (k === 'drink') m.st = 'drink';
         else if (k === 'rub') { m.st = 'rub'; m.rT = G.time + 6 + Math.random() * 6; const o = m.tgt.tr; if (o) track(G, 'bark', o.x + 0.5, o.y + 0.5); }
@@ -494,6 +521,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     if (!c.alive || c.dn || (c.shT || 0) > G.time) return;
     c.shT = G.time + SHOUT_CD; const q = P(c), m = G.mm;
     G.shouts.push([Math.round(q.x * 10) / 10, Math.round(q.y * 10) / 10, G.time, c.id]);
+    mmNoise(G, q.x, q.y, 'sh');
     if (m && m.st !== 'dead' && m.st !== 'trap' && m.st !== 'charge' && m.st !== 'wind' && Math.hypot(m.x - q.x, m.y - q.y) < SHOUT_R) { alarm(G, q.x, q.y); mmFleeFrom(G, q.x, q.y, 11); }
     for (const j of G.jk) if (Math.hypot(j.x - q.x, j.y - q.y) < SHOUT_R) { j.fear = G.time + 5; j.fx = q.x; j.fy = q.y; }
   }
@@ -596,6 +624,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       case 'dawn': T('🌅 È l\'alba del giorno ' + e.d + '.' + (e.last ? ' Ultimo giorno: stanotte il mammut migra!' : '')); break;
       case 'fire': T('🔥 Il fuoco si è spento! Serve legna, presto!'); beep(200, 0.3, 0.05); break;
       case 'smell': break;
+      case 'cur': break;
     }
   }
   function trumpetSnd(G, loud) { const v = loud ? 0.06 : 0.035; beep(150, 0.25, v); beep(196, 0.35, v, 0.18); beep(247, 0.5, v, 0.42); }
@@ -657,14 +686,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
 
   // ======================= IL GIOCO NEL MOTORE =======================
   function setup(G) {
-    G.tr = []; G.trN = 0; G.trD = new Map(); G.trC = null; G.sp = []; G.spN = 0; G.fly = []; G.shouts = []; G.digs = []; G.dgN = 0; G.traps = []; G.rab = []; G.rbN = 0; G.rabT = 2; G.jk = []; G.jkN = 0;
+    G.tr = []; G.trN = 0; G.mmN = []; G.trD = new Map(); G.trC = null; G.sp = []; G.spN = 0; G.fly = []; G.shouts = []; G.digs = []; G.dgN = 0; G.traps = []; G.rab = []; G.rbN = 0; G.rabT = 2; G.jk = []; G.jkN = 0;
     G.meat = []; G.home = 0; G.butch = 0; G.cut = {}; G.fall = []; G.lg = []; G.lgN = 0; G.trump = null; G.kn = null; G.ph = 0;
     G.fuel = 42; G.food = 0; G.wind = Math.random() * Math.PI * 2; G.windT = 70; G.windTo = G.wind;
     cq.mapDirty = true;
   }
   function mmStart(G) {
-    const C = MP().camp, L2 = placeList('eat').concat(placeList('drink')).filter(p => Math.hypot(p.x - C.x, p.y - C.y) > 32);
-    const p = L2.length ? L2[Math.floor(Math.random() * L2.length)] : placeList('eat')[0];
+    const C = MP().camp, all = placeList('eat').concat(placeList('drink')).sort((a, b) => Math.hypot(b.x - C.x, b.y - C.y) - Math.hypot(a.x - C.x, a.y - C.y)), L2 = all.filter(p => Math.hypot(p.x - C.x, p.y - C.y) > 55);
+    const p = L2.length ? L2[Math.floor(Math.random() * L2.length)] : all[Math.floor(Math.random() * Math.min(3, all.length))];   // nasce lontano dal campo
     G.mm = { x: p.x, y: p.y, face: 1, walk: 0, path: [], st: 'walk', tgt: null, hp: 0, max: 0, need: { e: Math.random(), w: Math.random() }, aw: 0, wary: 0, fear: [], mudT: 0, dT: 20, gT: 1, trT: 30, meat: MEAT_N, side: 1 };
     G.mm.max = G.mm.hp = 5 + Math.floor(G.chars.length / 2);
     // un paio di minuti di vita prima della partita: cosi' ci sono gia' tracce da seguire
@@ -761,7 +790,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       for (const c of active(G)) {
         if (!c.op) continue; const q = P(c);
         if (Math.hypot(q.x - c.op.x, q.y - c.op.y) > 0.6) { c.op = null; continue; }
-        if (c.op.k === 'chop' && G.time - c.op.t0 >= CHOP_T) { const i = c.op.i; c.op = null; if (!G.cut[i] && (c.logs || 0) < LOGS_MAX) { G.cut[i] = G.time + REGROW; c.logs = (c.logs || 0) + 1; c.lgK = (c.lgK || 0) + 1; } }
+        if (c.op.k === 'chop' && G.time - c.op.t0 >= CHOP_T) { const i = c.op.i; c.op = null; if (!G.cut[i] && (c.logs || 0) < LOGS_MAX) { G.cut[i] = G.time + REGROW; c.logs = (c.logs || 0) + 1; c.lgK = (c.lgK || 0) + 1;  mmNoise(G, c.op && c.op.x || P(c).x, P(c).y, 'ax'); } }
         else if (c.op.k === 'butch' && G.time - c.op.t0 >= BUTCH_T) {
           c.op = null; if (!G.butch && m.st === 'dead') { G.butch = 1; const n = Math.max(0, m.meat); for (let i = 0; i < n; i++) { const a = i / Math.max(1, n) * Math.PI * 2, x = Math.floor(m.x + Math.cos(a) * 1.2), y = Math.floor(m.y + Math.sin(a) * 1.2), s = cqCellFree(x, y) ? { x: x + 0.5, y: y + 0.5 } : cqSpot(Math.floor(m.x), Math.floor(m.y)); G.meat.push({ id: i, st: 0, c: -1, x: s.x, y: s.y }); } say(G, 'butch', { v: n }); }
         }
@@ -919,7 +948,8 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       // freccia verso il fuoco: quando porto qualcosa, al tramonto e di notte se sono lontano
       { const F = fireC(), me = G.me, t = cyc(G); if (me.alive && !me.dn && (me.mt >= 0 || me.logs || me.rab || (t > DUSK - 25 && t < DAWN)) && !atCamp(cq.x, cq.y, 6)) edge(g, sx(F.x, F.y), sy(F.x, F.y), W, H, '🔥', '#ff9a40'); }
       // rosa del vento in alto a destra
-      { const X = W - 34, Y = 150, a = G.wind, sxv = Math.cos(a) - Math.sin(a), syv = (Math.cos(a) + Math.sin(a)) / 2, an = Math.atan2(syv, sxv);
+      if (G.me.alive || true) minimap(g, G);
+      if (!G.big) { const X = W - RADAR - 8 - RADAR + 22, Y = 122 + RADAR * 2 + 44, a = G.wind, sxv = Math.cos(a) - Math.sin(a), syv = (Math.cos(a) + Math.sin(a)) / 2, an = Math.atan2(syv, sxv);
         g.fillStyle = 'rgba(20,22,28,.6)'; g.beginPath(); g.arc(X, Y, 22, 0, 7); g.fill(); g.save(); g.translate(X, Y); g.rotate(an); g.strokeStyle = '#e8f4ff'; g.lineWidth = 3; g.beginPath(); g.moveTo(-12, 0); g.lineTo(11, 0); g.stroke(); g.fillStyle = '#e8f4ff'; g.beginPath(); g.moveTo(14, 0); g.lineTo(5, -6); g.lineTo(5, 6); g.fill(); g.restore(); font(11); g.fillStyle = '#fff'; g.fillText('💨', X, Y + 32); }
     }
   };
@@ -932,6 +962,45 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     g.fillStyle = 'rgba(20,22,28,.85)'; g.beginPath(); g.arc(ex, ey, 13, 0, 7); g.fill();
     g.font = '14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(icon, ex, ey + 1);
   }
+  // ======================= MAPPA (radar in alto a destra, grande toccandola): il terreno, il campo, i compagni; il mammut no =======================
+  const MCOL = { 1: [130, 160, 78], 2: [104, 150, 62], 3: [70, 104, 50], 4: [130, 110, 80], 5: [120, 200, 225], 6: [60, 140, 210], 7: [176, 150, 106] };
+  const RADAR = 62;
+  function mapImg() {
+    const M = MP(); if (M.mimg) return M.mimg;
+    const W = CQ_W, H = CQ_H, c = document.createElement('canvas'); c.width = W; c.height = H; const sg = c.getContext('2d', CQ_CPU), im = sg.createImageData(W, H), d = im.data;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, o = cqSolid[y] && cqSolid[y][x], t = M.ter[y][x]; let col = MCOL[t] || [90, 120, 60];
+      if (o && (o.prop === 'tree' || o.prop === 'stump')) col = [40, 78, 38]; else if (o && o.prop === 'boulder') col = [150, 146, 136]; else if (o && o.prop === 'thick') col = [34, 56, 30];
+      const z = M.hz[y][x]; if (z && t <= 3) col = col.map(v => Math.min(255, v + z * 16));
+      d[i * 4] = col[0]; d[i * 4 + 1] = col[1]; d[i * 4 + 2] = col[2]; d[i * 4 + 3] = 255;
+    }
+    sg.putImageData(im, 0, 0); return (M.mimg = c);
+  }
+  function mapDraw(g, G, X, Y, R, s, cx, cy, big) {
+    const me = G.me, M = MP(), img = mapImg(), now = performance.now();
+    const P2 = (x, y) => [X + (x - cx - (y - cy)) * s * 0.7071, Y + (x - cx + (y - cy)) * s * 0.7071];
+    g.save();
+    g.fillStyle = 'rgba(14,18,12,.9)'; g.strokeStyle = '#c8a060'; g.lineWidth = 2.5; g.beginPath(); if (big) cqRR(g, X - R, Y - R, R * 2, R * 2, 16); else g.arc(X, Y, R, 0, 7); g.fill(); g.stroke();
+    g.beginPath(); if (big) cqRR(g, X - R + 3, Y - R + 3, R * 2 - 6, R * 2 - 6, 14); else g.arc(X, Y, R - 2, 0, 7); g.clip();
+    g.translate(X, Y); g.rotate(Math.PI / 4); g.scale(s, s); g.translate(-cx, -cy); g.imageSmoothingEnabled = false; g.drawImage(img, 0, 0); g.setTransform(cq.dpr || 1, 0, 0, cq.dpr || 1, 0, 0);
+    const ico = (x, y, t, sz) => { const [a, b] = P2(x, y); g.font = sz + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(t, a, b); };
+    const sz = big ? 16 : 12, F = fireC();
+    if (big) { for (const p of placeList('eat')) ico(p.x, p.y, '🌾', 11); for (const p of G.traps) ico(p.x, p.y, '🕳️', 11); }
+    { const [a, b] = P2(F.x, F.y); g.fillStyle = 'rgba(255,150,60,' + (0.3 + 0.15 * Math.sin(now / 250)) + ')'; g.beginPath(); g.arc(a, b, sz * 0.9, 0, 7); g.fill(); ico(F.x, F.y, '🔥', sz); }
+    for (const c of G.chars) if (c !== me && c.alive) { const [a, b] = P2(c.x, c.y); g.fillStyle = c.dn ? '#ff6a4a' : '#ffe9a0'; g.strokeStyle = '#000'; g.lineWidth = 1.5; g.beginPath(); g.arc(a, b, c.dn ? 4.5 : 3.5, 0, 7); g.fill(); g.stroke(); }
+    if (G.mm && G.mm.st === 'dead') ico(G.mm.x, G.mm.y, '🍖', sz);   // abbattuto: si sa dove sta la carcassa
+    const [mx, my] = P2(cq.x, cq.y), wx = cq.wdx || 1, wy = cq.wdy || 0, ang = Math.atan2((wx + wy) * 0.7071, (wx - wy) * 0.7071);
+    g.translate(mx, my); g.rotate(ang); g.fillStyle = '#ffffff'; g.strokeStyle = '#000'; g.lineWidth = 1.5;
+    g.beginPath(); g.moveTo(8, 0); g.lineTo(-5, -5.5); g.lineTo(-2.5, 0); g.lineTo(-5, 5.5); g.closePath(); g.fill(); g.stroke();
+    g.restore();
+    if (big) { g.font = '600 12px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(240,230,200,.9)'; g.fillText('🔥 campo · 🌾 pascoli · azzurro: acqua · verde scuro: boschi', X, Y + R + 16); g.fillText('tocca per chiudere', X, Y + R + 32); }
+  }
+  function minimap(g, G) {
+    const W2 = cq.w, H2 = cq.h;
+    if (G.big) { const R = Math.min(W2 - 24, H2 - 300, 460) / 2, cy = Math.max(130 + R, H2 / 2 - 40); mapDraw(g, G, W2 / 2, cy, R, (R * 2 - 10) / (CQ_W * 1.4142), CQ_W / 2, CQ_H / 2, true); return; }
+    mapDraw(g, G, W2 - RADAR - 8, 122 + RADAR, RADAR, 1.6, cq.x, cq.y, false);
+    g.font = '600 10px system-ui,sans-serif'; g.textAlign = 'center'; g.fillStyle = 'rgba(240,236,220,.85)'; g.fillText('🗺️ tocca', W2 - RADAR - 8, 122 + RADAR * 2 + 12);
+  }
   function syncTrees(G) {
     MP().trees.forEach((t, i) => {
       const want = G.cut[i] ? 1 : 0; if ((t.cut ? 1 : 0) === want) return;
@@ -942,18 +1011,16 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   }
 
   // ======================= PERSONAGGI DISEGNATI =======================
-  // la tribu': pelliccia sulle spalle e una grande MASCHERA TRIBALE decorata sul viso (6 modelli, uno per personaggio). A terra: sdraiato
+  // la tribu': una grande MASCHERA TRIBALE decorata sul viso, sugli occhi del personaggio (6 modelli, uno per personaggio). A terra: sdraiato
   function tribal(g, X, Y, TW, L2, w, f, c) {
     const u = TW / 34;
     if (c.dn) { g.save(); g.translate(X, Y - 4 * u); g.rotate(f > 0 ? -1.35 : 1.35); g.translate(0, 6 * u); cqPlayer(g, 0, 0, TW, L2, 0, f); g.restore(); return; }
     if (!c.alive) g.globalAlpha = 0.45;
     cqPlayer(g, X, Y, TW, L2, w, f);
-    const top = cqTop(L2) * TW, sh = Y - top * 0.5, ey = Y - top * 0.7;
-    // pelliccia: mantella arruffata sulle spalle, con un dente d'osso
-    g.fillStyle = '#7a5434'; g.beginPath(); g.moveTo(X - 12 * u, sh); g.quadraticCurveTo(X, sh - 7 * u, X + 12 * u, sh);
-    for (let i = 0; i <= 8; i++) g.lineTo(X + 12 * u - i * 3 * u, sh + (i % 2 ? 6 : 2.5) * u); g.closePath(); g.fill();
-    g.strokeStyle = '#a07650'; g.lineWidth = 1.2 * u; g.beginPath(); for (let i = 0; i < 6; i++) { const x0 = X - 9 * u + i * 3.6 * u; g.moveTo(x0, sh - 2 * u); g.lineTo(x0 + 1 * u, sh + 2.5 * u); } g.stroke();
-    mask(g, X + f * 2.5 * u, ey + 1 * u, u * 1.05, c.mk != null ? c.mk : (c.id * 5 + 3) % 6);
+    // la maschera va dove il personaggio ha gli occhi (CQ_EYES del motore), grande: copre tutta la faccia
+    const E = (typeof CQ_EYES !== 'undefined' && (CQ_EYES[L2.skin] || CQ_EYES.omino)) || [[[0.8, -28.3], [7.2, -28.3]]];
+    const ex = E[0].reduce((a, e) => a + e[0], 0) / E[0].length, eyy = E[0].reduce((a, e) => a + e[1], 0) / E[0].length, bob = Math.abs(Math.sin(w)) * 4 * u, k = 1.45;
+    mask(g, X + f * ex * u, Y - bob + eyy * u + 2.2 * k * u, u * k, c.mk != null ? c.mk : (c.id * 5 + 3) % 6);
     g.globalAlpha = 1;
   }
   // maschere (coordinate della maschera: alta da -12 a +12, larga +-8)
@@ -1012,7 +1079,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // Dorme sdraiato, prima della carica alza la proboscide e trema, abbattuto giace su un fianco; nella fossa se ne vede solo la parte alta
   function drawMammoth(g, X, Y, TW, mm) {
     const u = TW / 34 * 0.86, f = mm.face || 1, st = mm.st, t = performance.now() / 1000, w = mm.walkA || 0;
-    const sleep = st === 'sleep', dead = st === 'dead', trap = st === 'trap', wind = st === 'wind';
+    const sleep = st === 'sleep' || st === 'rest', dead = st === 'dead', trap = st === 'trap', wind = st === 'wind', cur = st === 'cur';
     g.save();
     if (trap) { g.fillStyle = '#2a1e14'; g.beginPath(); g.ellipse(X, Y, 50 * u, 22 * u, 0, 0, 7); g.fill(); g.fillStyle = '#4a3622'; g.beginPath(); g.ellipse(X, Y - 3 * u, 50 * u, 10 * u, 0, Math.PI, 0); g.fill(); g.beginPath(); g.rect(X - 90 * u, Y - 120 * u, 180 * u, 118 * u); g.clip(); }
     g.translate(X + (wind ? Math.sin(t * 40) * 1.4 * u : 0), Y + (trap ? 24 * u : 0) + (sleep ? 12 * u : 0) + (dead ? 16 * u : 0)); g.scale(f * u, u);
@@ -1052,7 +1119,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     // Ondeggia sempre un po' (di piu' camminando), si alza arricciata prima della carica, a terra arrotolata se dorme o e' morto
     const walking = !sleep && !dead && !wind && (mm.walk || 0) !== (mm.wPrev || 0); mm.wPrev = mm.walk || 0;
     const sw = Math.sin(t * 1.3) * 2.2 + (walking ? Math.sin(w * 0.9) * 2.4 : 0), tc = Math.sin(t * 2.1 + 1) * 0.5 + 0.5;
-    const pts = wind ? [[37, -44], [54, -56], [56, -82], [44, -92]] : sleep || dead ? [[37, -42], [50, -32], [54, -14], [44, -10]] : [[37, -44], [47 + sw * 0.3, -32], [43 + sw, -14], [47 + sw * 1.4 + tc * 2, -4 - tc * 2]];
+    const pts = wind ? [[37, -44], [54, -56], [56, -82], [44, -92]] : cur ? [[37, -44], [50, -48], [58, -62], [56 + Math.sin(t * 3) * 2, -72]] : sleep || dead ? [[37, -42], [50, -32], [54, -14], [44, -10]] : [[37, -44], [47 + sw * 0.3, -32], [43 + sw, -14], [47 + sw * 1.4 + tc * 2, -4 - tc * 2]];
     const bz = (k, i) => { const q = 1 - k; return q * q * q * pts[0][i] + 3 * q * q * k * pts[1][i] + 3 * q * k * k * pts[2][i] + k * k * k * pts[3][i]; };
     const N2 = 22, L = [], R = [], C2 = [];
     for (let i = 0; i <= N2; i++) {
@@ -1129,6 +1196,12 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const host = document.getElementById('ciack');
     const mk = (id, fn) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.hidden = true; b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); }); if (host) host.appendChild(b); return b; };
     const tb = mk('mmThrow', throwBtn), sb = mk('mmShout', shoutBtn);
+    const mb = document.createElement('button'); mb.id = 'mmMap'; mb.type = 'button'; mb.hidden = true; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent';
+    mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'mammut') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } }; if (host) host.appendChild(mb);
+    window.addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'm' && cq.g && cq.g.mode === 'mammut' && cq.on) cq.g.big = !cq.g.big; });
+    setInterval(() => { const G = cq.g, on = !!(G && G.mode === 'mammut' && G.phase === 'play' && G.tr && $('#cqTask').hidden && !$('#ciack').hidden); if (mb.hidden === on) mb.hidden = !on; if (!on) return;
+      const W2 = cq.w, H2 = cq.h; let css; if (G.big) { const R = Math.min(W2 - 24, H2 - 300, 460) / 2, cy = Math.max(130 + R, H2 / 2 - 40); css = 'left:' + (W2 / 2 - R) + 'px;top:' + (cy - R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px'; } else css = 'left:' + (W2 - 2 * RADAR - 8) + 'px;top:122px;width:' + 2 * RADAR + 'px;height:' + 2 * RADAR + 'px';
+      if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.left = mb.style.top = ''; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;border-radius:50%;' + css; } }, 250);
     window.addEventListener('keydown', e => { const k = e.key && e.key.toLowerCase(); if (!cq.g || cq.g.mode !== 'mammut' || !cq.on) return; if (k === 'q') throwBtn(); else if (k === 'r') shoutBtn(); });
     setInterval(() => { const G = cq.g, live = !!(G && G.mode === 'mammut' && G.phase === 'play' && G.tr && G.pre <= 0 && G.me.alive && $('#cqTask').hidden && !$('#ciack').hidden); if (tb.hidden === live) { tb.hidden = !live; sb.hidden = !live; } }, 300);
   }
