@@ -11,7 +11,7 @@
 // Abbattuto il mammut, si macella: 6 pezzi di carne, uno a testa (pesanti), da portare al fuoco: ne bastano 4. Gli sciacalli li sentono.
 CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   const MG = L.mappe, IZ = L.indizi;
-  const N = 88;
+  const N = 140;   // la mappa piu' grande finora (140x140)
   // giro di un giorno: giorno, tramonto, notte, alba (secondi)
   const DAY = 180, DUSK = 105, NIGHT = 120, DAWN = 170;
   const DOWN_T = 30, REV_T = 3, CHOP_T = 2, DIG_T = 8, BUTCH_T = 4, REGROW = 150, TRAP_T = 15, TORCH_T = 70, SHOUT_CD = 6;
@@ -47,24 +47,24 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const rnd = MG.rnd(seed), W = N, H = N;
     const ter = [], hz = []; for (let y = 0; y < H; y++) { ter.push(new Uint8Array(W).fill(1)); hz.push(new Uint8Array(W)); }
     const inside = (x, y, m = 0) => x >= m && y >= m && x < W - m && y < H - m;
-    const camp = { x: Math.floor(W / 2 + (rnd() - 0.5) * 18), y: Math.floor(H / 2 + (rnd() - 0.5) * 18) };
+    const camp = { x: Math.floor(W / 2 + (rnd() - 0.5) * 30), y: Math.floor(H / 2 + (rnd() - 0.5) * 30) };
     const dC = (x, y) => Math.hypot(x - camp.x, y - camp.y);
     // ---- fiume che serpeggia da bordo a bordo, lontano dal campo; tre guadi ----
     const vert = rnd() < 0.5, side = rnd() < 0.5 ? -1 : 1, cc = vert ? camp.x : camp.y;
-    let base = cc + side * (15 + Math.floor(rnd() * 8)); if (base < 9 || base > N - 10) base = cc - side * (15 + Math.floor(rnd() * 8));
-    base = Math.max(9, Math.min(N - 10, base));
-    const ph1 = rnd() * 7, ph2 = rnd() * 7, A1 = 3 + rnd() * 3, A2 = 1 + rnd() * 2;
+    let base = cc + side * (22 + Math.floor(rnd() * 12)); if (base < 12 || base > N - 13) base = cc - side * (22 + Math.floor(rnd() * 12));
+    base = Math.max(12, Math.min(N - 13, base));
+    const ph1 = rnd() * 7, ph2 = rnd() * 7, A1 = 4 + rnd() * 4, A2 = 1.5 + rnd() * 2;
     const riv = [];
-    for (let v = 0; v < N; v++) { const u = Math.round(base + A1 * Math.sin(v * 0.11 + ph1) + A2 * Math.sin(v * 0.27 + ph2)), w = 2 + (Math.sin(v * 0.2 + ph2) > 0.6 ? 1 : 0); riv.push([u, w]); }
+    for (let v = 0; v < N; v++) { const u = Math.round(base + A1 * Math.sin(v * 0.08 + ph1) + A2 * Math.sin(v * 0.27 + ph2)), w = 2 + (Math.sin(v * 0.2 + ph2) > 0.6 ? 1 : 0); riv.push([u, w]); }
     const setT = (x, y, t) => { if (inside(x, y)) ter[y][x] = t; };
     riv.forEach(([u, w], v) => { for (let i = 0; i < w; i++) vert ? setT(u + i, v, 6) : setT(v, u + i, 6); });
     riv.forEach(([u, w], v) => { for (const i of [-1, w]) { const x = vert ? u + i : v, y = vert ? v : u + i; if (inside(x, y) && ter[y][x] !== 6) ter[y][x] = 4; } });
-    const fords = []; for (const f of [0.2, 0.5, 0.8]) { const v = Math.floor(N * f + (rnd() - 0.5) * 8); fords.push(v); for (const vv of [v, v + 1]) { const [u, w] = riv[vv]; for (let i = -1; i <= w; i++) { const x = vert ? u + i : vv, y = vert ? vv : u + i; if (inside(x, y)) ter[y][x] = i < 0 || i >= w ? 4 : 5; } } }
+    const fords = []; for (const f of [0.14, 0.38, 0.62, 0.86]) { const v = Math.floor(N * f + (rnd() - 0.5) * 8); fords.push(v); for (const vv of [v, v + 1]) { const [u, w] = riv[vv]; for (let i = -1; i <= w; i++) { const x = vert ? u + i : vv, y = vert ? vv : u + i; if (inside(x, y)) ter[y][x] = i < 0 || i >= w ? 4 : 5; } } }
     // ---- stagni ----
     const ponds = [];
-    for (let i = 0; i < 300 && ponds.length < 3; i++) {
+    for (let i = 0; i < 600 && ponds.length < 6; i++) {
       const x = 8 + Math.floor(rnd() * (N - 16)), y = 8 + Math.floor(rnd() * (N - 16)), r = 1.6 + rnd() * 1.1;
-      if (dC(x, y) < 12 || ponds.some(p => Math.hypot(p.x - x, p.y - y) < 18)) continue;
+      if (dC(x, y) < 14 || ponds.some(p => Math.hypot(p.x - x, p.y - y) < 22)) continue;
       let near = false; for (let yy = y - 6; yy <= y + 6 && !near; yy++) for (let xx = x - 6; xx <= x + 6; xx++) if (inside(xx, yy) && ter[yy][xx] >= 4) { near = true; break; }
       if (near) continue;
       const wb = MG.wobble(rnd, 2, 0.18);
@@ -73,9 +73,9 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
     // ---- colline leggere (al massimo 2 gradini) ----
     const hills = [];
-    for (let i = 0; i < 200 && hills.length < 4; i++) {
+    for (let i = 0; i < 400 && hills.length < 8; i++) {
       const x = 6 + Math.floor(rnd() * (N - 12)), y = 6 + Math.floor(rnd() * (N - 12)), R = 5 + rnd() * 4;
-      if (dC(x, y) < 11 + R || hills.some(h => Math.hypot(h.x - x, h.y - y) < 16)) continue;
+      if (dC(x, y) < 11 + R || hills.some(h => Math.hypot(h.x - x, h.y - y) < 20)) continue;
       hills.push({ x, y, R });
       for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) { const d = Math.hypot(xx - x, yy - y); if (d > R * 1.7) continue; const L2 = Math.round(2.4 * Math.exp(-Math.pow(d / R, 2)) - 0.25); if (L2 > hz[yy][xx]) hz[yy][xx] = L2; }
     }
@@ -83,13 +83,13 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     for (let k = 0; k < 3; k++) for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { let m = 9; for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) if (inside(x + dx, y + dy)) m = Math.min(m, hz[y + dy][x + dx]); if (hz[y][x] > m + 1) hz[y][x] = m + 1; }
     // ---- pascoli (erba alta) e boschetti ----
     const meadows = [], groves = [];
-    for (let i = 0; i < 400 && meadows.length < 7; i++) {
+    for (let i = 0; i < 900 && meadows.length < 16; i++) {
       const x = 5 + Math.floor(rnd() * (N - 10)), y = 5 + Math.floor(rnd() * (N - 10)), r = 3.5 + rnd() * 2.5;
       if (dC(x, y) < 10 || ter[y][x] !== 1 || meadows.some(m => Math.hypot(m.x - x, m.y - y) < 15)) continue;
       const wb = MG.wobble(rnd, 3, 0.2); meadows.push({ x, y, r });
       for (let yy = y - 8; yy <= y + 8; yy++) for (let xx = x - 8; xx <= x + 8; xx++) if (inside(xx, yy) && ter[yy][xx] === 1 && Math.hypot(xx - x, yy - y) < r * wb(Math.atan2(yy - y, xx - x))) ter[yy][xx] = 2;
     }
-    for (let i = 0; i < 400 && groves.length < 7; i++) {
+    for (let i = 0; i < 900 && groves.length < 13; i++) {
       const x = 5 + Math.floor(rnd() * (N - 10)), y = 5 + Math.floor(rnd() * (N - 10)), r = 3.5 + rnd() * 3;
       if (dC(x, y) < 9 || ter[y][x] !== 1 || groves.some(m => Math.hypot(m.x - x, m.y - y) < 14) || meadows.some(m => Math.hypot(m.x - x, m.y - y) < 10)) continue;
       const wb = MG.wobble(rnd, 3, 0.22); groves.push({ x, y, r });
@@ -106,7 +106,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if ((x === 0 || y === 0 || x === W - 1 || y === H - 1) && !taken.has(K(x, y))) pp('thick', x, y);
     const C2 = camp;
     pp('mfire', C2.x, C2.y);
-    const campP = [['hide', -3, -2, 0], ['hide', 2, -3, 1], ['hide', -3, 2, 2], ['rack', 3, 1], ['dry', 1, 3], ['skull', -1, -4], ['stash', 3, -1]];
+    const campP = [['hide', -3, -2, 0], ['hide', 2, -3, 1], ['hide', -3, 2, 2], ['sprack', 3, 1], ['mdry', 1, 3], ['skull', -1, -4], ['stash', 3, -1]];
     for (const [t, dx, dy, v] of campP) pp(t, C2.x + dx, C2.y + dy, { v });
     // ---- alberi (boschetti fitti, qualcuno isolato nella prateria), rocce, cespugli ----
     const decals = [], deco = [], trees = [];
@@ -115,14 +115,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
       if (!free(x, y) || dC(x, y) < 6) continue;
       const t = ter[y][x], r = rnd();
-      if (t === 3) { if (r < 0.3 && !nearT(x, y, 2.1)) { tree(x, y, rnd() < 0.7 ? 'oak' : 'pine'); continue; } if (r < 0.36) deco.push([x, y, 'fern']); else if (r < 0.45) deco.push([x, y, 'mush']); continue; }
-      if (t === 1) { if (r < 0.008 && !nearT(x, y, 6)) { tree(x, y, 'oak'); continue; } if (r < 0.06) deco.push([x, y, 'flower']); else if (r < 0.2) deco.push([x, y, 'tuft']); else if (r < 0.215) deco.push([x, y, 'pebble']); continue; }
+      if (t === 3) { if (r < 0.17 && !nearT(x, y, 2.6)) { tree(x, y, rnd() < 0.7 ? 'oak' : 'pine'); continue; } if (r < 0.36) deco.push([x, y, 'fern']); else if (r < 0.45) deco.push([x, y, 'mush']); continue; }
+      if (t === 1) { if (r < 0.0035 && !nearT(x, y, 8)) { tree(x, y, 'oak'); continue; } if (r < 0.06) deco.push([x, y, 'flower']); else if (r < 0.2) deco.push([x, y, 'tuft']); else if (r < 0.215) deco.push([x, y, 'pebble']); continue; }
       if (t === 2) { if (r < 0.55) deco.push([x, y, 'tgrass']); else if (r < 0.62) deco.push([x, y, 'flower']); continue; }
       if (t === 4) { if (r < 0.28) deco.push([x, y, 'reed']); continue; }
     }
     // rocce: gruppi di massi (posti riparati per dormire, anche per il mammut)
     const rocks = [];
-    for (let i = 0; i < 300 && rocks.length < 5; i++) {
+    for (let i = 0; i < 600 && rocks.length < 11; i++) {
       const x = 4 + Math.floor(rnd() * (N - 8)), y = 4 + Math.floor(rnd() * (N - 8));
       if (dC(x, y) < 10 || ter[y][x] !== 1 || rocks.some(r => Math.hypot(r.x - x, r.y - y) < 16)) continue;
       const cells = [[0, 0], [1, 0], [0, 1], [2, 1], [1, 2], [-1, 1]].filter(() => rnd() < 0.75);
@@ -131,7 +131,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
     // tane dei conigli
     const burrows = [];
-    for (let i = 0; i < 500 && burrows.length < 9; i++) {
+    for (let i = 0; i < 900 && burrows.length < 16; i++) {
       const x = 3 + Math.floor(rnd() * (N - 6)), y = 3 + Math.floor(rnd() * (N - 6));
       if (!free(x, y) || dC(x, y) < 8 || (ter[y][x] !== 1 && ter[y][x] !== 2) || burrows.some(b => Math.hypot(b.x - x, b.y - y) < 10)) continue;
       burrows.push({ x: x + 0.5, y: y + 0.5 }); deco.push([x, y, 'burrow']);
@@ -142,13 +142,13 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     // posti del mammut: dove mangia (pascoli), beve (riva o guado accanto all'acqua), dorme (bordo dei boschetti, tra le rocce)
     const eat = meadows.map(m => [Math.floor(m.x), Math.floor(m.y)]).filter(([x, y]) => ok(x, y));
     const wetN = (x, y) => [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => inside(x + dx, y + dy) && ter[y + dy][x + dx] >= 5);
-    const drink = MG.scatter(rnd, 9, 3000, r => { const x = 2 + Math.floor(r() * (N - 4)), y = 2 + Math.floor(r() * (N - 4)); return free(x, y) && ok(x, y) && (ter[y][x] === 4 || ter[y][x] === 5) && wetN(x, y) && dC(x, y) > 9 ? [x, y] : null; }, 11);
-    const sleep = MG.scatter(rnd, 7, 4000, r => {
+    const drink = MG.scatter(rnd, 15, 5000, r => { const x = 2 + Math.floor(r() * (N - 4)), y = 2 + Math.floor(r() * (N - 4)); return free(x, y) && ok(x, y) && (ter[y][x] === 4 || ter[y][x] === 5) && wetN(x, y) && dC(x, y) > 9 ? [x, y] : null; }, 11);
+    const sleep = MG.scatter(rnd, 12, 6000, r => {
       const x = 3 + Math.floor(r() * (N - 6)), y = 3 + Math.floor(r() * (N - 6)); if (!free(x, y) || !ok(x, y) || dC(x, y) < 12 || ter[y][x] > 3) return null;
       let tr = 0; for (let yy = y - 2; yy <= y + 2; yy++) for (let xx = x - 2; xx <= x + 2; xx++) { const o = taken.has(K(xx, yy)) && props.find(p => p[1] === xx && p[2] === yy); if (o && (o[0] === 'tree' || o[0] === 'boulder')) tr++; }
       return tr >= 2 ? [x, y] : null;
     }, 12);
-    const okAll = eat.length >= 4 && drink.length >= 4 && sleep.length >= 3 && burrows.filter(b => ok(Math.floor(b.x), Math.floor(b.y))).length >= 4 && trees.length >= 40;
+    const okAll = eat.length >= 4 && drink.length >= 4 && sleep.length >= 3 && burrows.filter(b => ok(Math.floor(b.x), Math.floor(b.y))).length >= 4 && trees.length >= 50;
     const deco2 = deco.filter(([x, y]) => !taken.has(K(x, y)));
     const ring = []; for (let i = 0; i < 12; i++) { const a = i / 12 * Math.PI * 2, x = Math.round(C2.x + Math.cos(a) * 2.2), y = Math.round(C2.y + Math.sin(a) * 2.2); if (free(x, y) && !ring.some(r => r[0] === x && r[1] === y)) ring.push([x, y]); }
     const rooms = [{ n: 'Prateria', x: 0, y: 0, w: W, h: H, c: ['#7fa54a', '#7aa046'], wc: 'none', k: 'prat', nl: 1, nm: 1 }];
@@ -175,7 +175,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // le tracce stanno nel disegno del terreno (sotto alberi, mammut e persone): ogni cella disegna le sue, col loro stato (fresca, tiepida, vecchia)
   const FLOOR0 = FLOOR.prat;
   // in pianura si disegnano tutte insieme dopo i pavimenti (ground); sulle colline con la loro casella (che si alza)
-  const groundTr = (K, t, x, y) => { const G = cq.g, sg = stageOf(G, t); if (sg < 0) return; const [X, Y] = K.S(t.x, t.y, 0); drawTrack(K.g, t, X, Y, K.TW, STAGE_AGE[sg] * (TR_LIFE[t.k] || 200) / 200, 0, true); G.trD.set(t.id, [sg, x, y]); };
+  const groundTr = (K, t, x, y) => { const G = cq.g, sg = stageOf(G, t); if (sg < 0) return; drawTrack(K, t, [0.95, 0.75, 0.45, 0.22][sg]); G.trD.set(t.id, [sg, x, y]); };
   const trOn = () => { const G = cq.g; if (!G || G.mode !== 'mammut' || !G.tr) return null; if (!G.trD) G.trD = new Map(); return G; };
   FLOOR.prat = (K, x, y) => {
     FLOOR0(K, x, y);
@@ -213,10 +213,10 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         poly([S(x + 0.35, y + 0.95, 0), S(x + 0.62, y + 0.95, 0), S(x + 0.5, y + 0.95, 0.7)], '#2a1e14');
         for (const [u, v] of [[0.3, 0.3], [0.7, 0.3], [0.5, 0.75]]) line(top, S(x + 0.5 + (u - 0.5) * 0.4, y + 0.5 + (v - 0.5) * 0.4, 2.35), '#6b4a2e', Math.max(2, K.TW / 18));
         K.strokes([[S(x + 0.2, y + 0.95, 0.4), S(x + 0.8, y + 0.95, 0.4)], [S(x + 0.95, y + 0.2, 0.4), S(x + 0.95, y + 0.8, 0.4)]], '#e8d0a0', 2); break; }
-      case 'rack': {   // rastrelliera delle lance
+      case 'sprack': {   // rastrelliera delle lance
         bx(x + 0.1, y + 0.4, x + 0.9, y + 0.5, 0.6, 0.7, '#6b4a2e'); bx(x + 0.12, y + 0.42, x + 0.2, y + 0.5, 0, 0.75, '#5a3e26'); bx(x + 0.8, y + 0.42, x + 0.88, y + 0.5, 0, 0.75, '#5a3e26');
         for (let i = 0; i < 4; i++) { const u = 0.22 + i * 0.18; line(S(x + u, y + 0.6, 0), S(x + u + 0.05, y + 0.45, 1.6), '#8a6a42', Math.max(2, K.TW / 20)); poly([S(x + u + 0.05, y + 0.45, 1.6), S(x + u + 0.02, y + 0.45, 1.75), S(x + u + 0.08, y + 0.45, 1.75)], '#d8d0c0'); } break; }
-      case 'dry': {   // telaio per seccare la carne e le pelli
+      case 'mdry': {   // telaio per seccare la carne e le pelli
         for (const u of [0.1, 0.9]) line(S(x + u, y + 0.5, 0), S(x + u, y + 0.5, 1.2), '#6b4a2e', Math.max(2, K.TW / 18));
         line(S(x + 0.1, y + 0.5, 1.15), S(x + 0.9, y + 0.5, 1.15), '#6b4a2e', Math.max(2, K.TW / 18));
         poly([S(x + 0.2, y + 0.5, 1.1), S(x + 0.45, y + 0.5, 1.1), S(x + 0.45, y + 0.5, 0.55), S(x + 0.2, y + 0.5, 0.6)], '#b88a5a'); poly([S(x + 0.55, y + 0.5, 1.1), S(x + 0.8, y + 0.5, 1.1), S(x + 0.78, y + 0.5, 0.7), S(x + 0.55, y + 0.5, 0.65)], '#a85a3a'); break; }
@@ -233,7 +233,6 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // ======================= TRACCE =======================
   // { id, k: passo/fango/sterco/erba/ramo/corteccia/buca/sangue, x, y, t: quando, dx, dy: direzione, ct: creata (per mandarla agli amici) }
   const TR_LIFE = { foot: 210, mud: 230, dung: 400, graze: 260, branch: 320, bark: 400, bed: 520, blood: 220 };
-  const STAGE_AGE = [12, 60, 150, 190];   // eta' rappresentativa di ogni stato (per 200 s di vita)
   // stato di una traccia: 0 freschissima, 1 fresca, 2 di qualche minuto, 3 vecchia, -1 sparita
   function stageOf(G, t) { const a = G.time - t.t, L2 = TR_LIFE[t.k] || 200; return a > L2 ? -1 : a < L2 * 0.12 ? 0 : a < L2 * 0.4 ? 1 : a < L2 * 0.75 ? 2 : 3; }
   function cellTracks(G) {
@@ -271,33 +270,40 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
     return '';
   }
-  function drawTrack(g, t, X, Y, TW, a, now, baked) {
-    const u = TW / 34, life = TR_LIFE[t.k] || 200, al = Math.max(0.12, 1 - a / life);
-    const ang = Math.atan2((t.dx + t.dy) / 2, t.dx - t.dy);
+  // tracce disegnate nel terreno in prospettiva (cerchi del mondo proiettati sulle caselle): erba schiacciata, fango, sterco...
+  function drawTrack(K, t, al) {
+    const { S, g, hsh } = K, x = t.x, y = t.y, a = (n, r, cx, cy, sx = 1) => { const p = []; for (let i = 0; i < n; i++) { const q = i / n * Math.PI * 2; p.push(S(cx + Math.cos(q) * r * sx, cy + Math.sin(q) * r, 0)); } return p; };
+    const fill = (pts, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(...pts[0]); for (let i = 1; i < pts.length; i++) g.lineTo(...pts[i]); g.closePath(); g.fill(); };
+    const rgba = (c, k) => 'rgba(' + c + ',' + Math.max(0, Math.min(1, k)).toFixed(3) + ')';
+    const dl = Math.hypot(t.dx, t.dy) || 1, ux = (t.dx || 1) / dl, uy = (t.dy || 0) / dl;
     switch (t.k) {
-      case 'foot': case 'mud': {
-        g.save(); g.translate(X, Y); g.rotate(ang); g.scale(1, 0.55);
-        g.fillStyle = t.k === 'mud' ? 'rgba(52,38,26,' + (0.85 * al) + ')' : 'rgba(70,52,30,' + (0.7 * al) + ')';
-        g.beginPath(); g.arc(0, 0, 7.5 * u, 0, 7); g.fill();
-        g.fillStyle = t.k === 'mud' ? 'rgba(40,28,18,' + (0.9 * al) + ')' : 'rgba(55,40,24,' + (0.75 * al) + ')';
-        for (const k of [-1.5, -0.5, 0.5, 1.5]) { g.beginPath(); g.arc(7.6 * u * Math.cos(k * 0.38), 7.6 * u * Math.sin(k * 0.38), 1.9 * u, 0, 7); g.fill(); }
-        if (t.k === 'mud' && a < 60) { g.fillStyle = 'rgba(160,200,230,' + (0.35 * al) + ')'; g.beginPath(); g.ellipse(-2 * u, -2 * u, 3 * u, 1.6 * u, 0, 0, 7); g.fill(); }
-        g.restore(); break; }
-      case 'dung': {
-        g.fillStyle = 'rgba(92,64,34,' + Math.min(1, 0.3 + al) + ')';
-        for (const [dx, dy, r] of [[-4, 0, 5], [3, -1, 4.5], [0, -4, 4]]) { g.beginPath(); g.ellipse(X + dx * u, Y + dy * u, r * u, r * 0.65 * u, 0, 0, 7); g.fill(); }
-        if (a < 60 && !baked) { g.strokeStyle = 'rgba(235,235,235,' + (0.55 * (1 - a / 60)) + ')'; g.lineWidth = 1.6; for (let i = 0; i < 2; i++) { const p = ((now * 0.6 + i * 0.5) % 1), x0 = X + (i ? 3 : -3) * u, y0 = Y - 6 * u - p * 16 * u; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + 3 * u * Math.sin(now * 3 + i), y0 - 4 * u, x0, y0 - 8 * u); g.stroke(); } }
+      case 'foot': case 'mud': {   // impronta rotonda e larga: bordo d'erba sollevata, fondo schiacciato, 4 unghie davanti
+        const mud = t.k === 'mud';
+        fill(a(16, 0.27, x, y), rgba(mud ? '120,96,60' : '168,186,96', al * 0.55));
+        fill(a(16, 0.22, x, y), rgba(mud ? '74,54,34' : '86,104,46', al * 0.62));
+        fill(a(14, 0.15, x - ux * 0.02, y - uy * 0.02), rgba(mud ? '58,42,26' : '70,88,38', al * 0.55));
+        if (mud) fill(a(10, 0.06, x - ux * 0.06 - uy * 0.05, y - uy * 0.06 + ux * 0.05), rgba('170,200,220', al * 0.4));
+        for (const k of [-1.5, -0.5, 0.5, 1.5]) { const q = Math.atan2(uy, ux) + k * 0.42, cx = x + Math.cos(q) * 0.2, cy = y + Math.sin(q) * 0.2; fill(a(8, 0.04, cx, cy), rgba(mud ? '44,30,18' : '52,66,28', al * 0.7)); }
         break; }
-      case 'graze': g.fillStyle = 'rgba(190,190,90,' + (0.5 * al) + ')'; g.beginPath(); g.ellipse(X, Y, 14 * u, 7 * u, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(120,140,50,' + (0.7 * al) + ')'; g.lineWidth = 1.5; for (let i = -2; i <= 2; i++) { g.beginPath(); g.moveTo(X + i * 5 * u, Y + 3 * u); g.lineTo(X + i * 5 * u + 3 * u, Y - 1 * u); g.stroke(); } break;
-      case 'branch': g.strokeStyle = 'rgba(110,80,46,' + Math.min(1, 0.3 + al) + ')'; g.lineWidth = 2.4; g.beginPath(); g.moveTo(X - 9 * u, Y + 2 * u); g.lineTo(X + 1 * u, Y - 1 * u); g.lineTo(X + 8 * u, Y + 3 * u); g.moveTo(X + 1 * u, Y - 1 * u); g.lineTo(X + 4 * u, Y - 6 * u); g.stroke(); g.fillStyle = 'rgba(80,130,50,' + al + ')'; g.beginPath(); g.ellipse(X + 5 * u, Y - 6 * u, 3 * u, 1.8 * u, 0.5, 0, 7); g.fill(); break;
-      case 'bark': g.fillStyle = 'rgba(232,204,150,' + Math.min(1, 0.3 + al) + ')'; for (const [dx, dy, r] of [[-7, 3, 2.6], [-2, 6, 2], [4, 4, 2.4], [8, 7, 1.8], [1, 9, 1.6]]) { g.beginPath(); g.ellipse(X + dx * u, Y + dy * u, r * u, r * 0.55 * u, 0.4, 0, 7); g.fill(); } break;   // schegge di corteccia ai piedi dell'albero
-      case 'bed': {
-        const warm = a < 90;
-        g.fillStyle = 'rgba(70,52,30,' + Math.min(1, 0.4 + al) + ')'; g.beginPath(); g.ellipse(X, Y, 24 * u, 11 * u, 0, 0, 7); g.fill();
-        g.fillStyle = 'rgba(45,32,18,' + Math.min(1, 0.4 + al) + ')'; g.beginPath(); g.ellipse(X, Y + 1 * u, 17 * u, 7 * u, 0, 0, 7); g.fill();
-        if (warm && !baked) { g.strokeStyle = 'rgba(240,240,240,.4)'; g.lineWidth = 1.6; for (let i = 0; i < 3; i++) { const p = ((now * 0.5 + i * 0.33) % 1), x0 = X + (i - 1) * 10 * u, y0 = Y - 2 * u - p * 18 * u; g.beginPath(); g.moveTo(x0, y0); g.quadraticCurveTo(x0 + 3 * u * Math.sin(now * 3 + i), y0 - 4 * u, x0, y0 - 8 * u); g.stroke(); } }
+      case 'dung': {   // tre mucchietti con la luce sopra
+        for (const [dx, dy, r] of [[-0.09, 0.02, 0.1], [0.08, -0.03, 0.09], [0, -0.1, 0.075]]) { fill(a(12, r, x + dx, y + dy), rgba('70,48,26', 0.4 + al * 0.6)); const p = S(x + dx, y + dy, r * 0.9); g.fillStyle = rgba('116,82,46', 0.4 + al * 0.6); g.beginPath(); g.ellipse(p[0], p[1], r * K.TW * 0.55, r * K.TW * 0.32, 0, 0, 7); g.fill(); }
         break; }
-      case 'blood': g.fillStyle = a < 40 ? 'rgba(200,20,30,' + Math.min(1, 0.4 + al) + ')' : 'rgba(110,20,20,' + Math.min(1, 0.3 + al) + ')'; for (const [dx, dy, r] of [[0, 0, 3.2], [5, 2, 2], [-4, 3, 1.6]]) { g.beginPath(); g.ellipse(X + dx * u, Y + dy * u, r * u, r * 0.6 * u, 0, 0, 7); g.fill(); } break;
+      case 'graze': {   // erba strappata: chiazza piu' chiara con fili sdraiati
+        fill(a(16, 0.38, x, y, 1.15), rgba('196,190,104', al * 0.45));
+        const L = []; for (let i = 0; i < 7; i++) { const u = (hsh(Math.floor(x * 9), Math.floor(y * 9), i) - 0.5) * 0.6, v = (hsh(Math.floor(x * 7), Math.floor(y * 7), i + 9) - 0.5) * 0.5; L.push([S(x + u, y + v, 0), S(x + u + 0.14, y + v + 0.05, 0)]); }
+        K.strokes(L, rgba('128,146,56', al * 0.8), Math.max(1, K.TW / 32)); break; }
+      case 'branch': {   // ramo spezzato a terra con due foglie
+        const p0 = S(x - 0.28, y + 0.08, 0.02), p1 = S(x + 0.02, y - 0.02, 0.02), p2 = S(x + 0.26, y + 0.1, 0.02), p3 = S(x + 0.1, y - 0.2, 0.02);
+        g.strokeStyle = rgba('104,74,42', 0.35 + al * 0.65); g.lineWidth = Math.max(1.5, K.TW / 22); g.lineCap = 'round'; g.beginPath(); g.moveTo(...p0); g.lineTo(...p1); g.lineTo(...p2); g.moveTo(...p1); g.lineTo(...p3); g.stroke();
+        for (const [u, v] of [[0.12, -0.24], [0.28, 0.06]]) fill(a(8, 0.05, x + u, y + v, 1.6), rgba('92,140,56', 0.35 + al * 0.65));
+        break; }
+      case 'bark': for (const [u, v, r] of [[-0.18, 0.1, 0.06], [-0.04, 0.2, 0.045], [0.12, 0.14, 0.055], [0.22, 0.26, 0.04], [0.02, 0.3, 0.035]]) fill(a(8, r, x + u, y + v, 1.5), rgba('228,200,148', 0.35 + al * 0.65)); break;   // schegge di corteccia ai piedi dell'albero
+      case 'bed': {   // buca larga dove si e' sdraiato: bordo di terra smossa e fondo scuro
+        fill(a(20, 0.62, x, y, 1.35), rgba('128,104,66', 0.35 + al * 0.55));
+        fill(a(20, 0.52, x, y, 1.35), rgba('82,62,38', 0.4 + al * 0.55));
+        fill(a(18, 0.38, x + 0.03, y + 0.03, 1.35), rgba('62,46,28', 0.4 + al * 0.5));
+        break; }
+      case 'blood': for (const [u, v, r] of [[0, 0, 0.06], [0.1, 0.05, 0.04], [-0.07, 0.08, 0.03]]) fill(a(10, r, x + u, y + v, 1.3), al > 0.6 ? 'rgba(196,22,30,.95)' : rgba('112,20,20', 0.4 + al * 0.6)); break;
     }
   }
 
@@ -401,11 +407,11 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     // ---- impronte lungo la strada, rami spezzati tra gli alberi, sangue se e' ferito, sterco ogni tanto ----
     if (m.lx == null) { m.lx = m.x; m.ly = m.y; }
     const mv = Math.hypot(m.x - m.lx, m.y - m.ly);
-    if (mv > 1.25) {
-      const dx = (m.x - m.lx) / mv, dy = (m.y - m.ly) / mv, side = (m.side = -(m.side || 1)) * 0.28;
+    if (mv > 3.2) {   // un'impronta ogni 3 caselle circa (alternando i lati)
+      const dx = (m.x - m.lx) / mv, dy = (m.y - m.ly) / mv, side = (m.side = -(m.side || 1)) * 0.22;
       track(G, m.mudT > G.time ? 'mud' : 'foot', m.x - dy * side, m.y + dx * side, dx, dy);
-      if (m.hp < m.max && Math.random() < 0.8) track(G, 'blood', m.x + (Math.random() - 0.5) * 0.6, m.y + (Math.random() - 0.5) * 0.6, dx, dy);
-      if (MP().trees.some(o => !o.cut && Math.abs(o.x + 0.5 - m.x) < 1.6 && Math.abs(o.y + 0.5 - m.y) < 1.6) && Math.random() < 0.35) track(G, 'branch', m.x + dx * 0.5, m.y + dy * 0.5, dx, dy);
+      if (m.hp < m.max) track(G, 'blood', m.x + (Math.random() - 0.5) * 0.6, m.y + (Math.random() - 0.5) * 0.6, dx, dy);
+      if (MP().trees.some(o => !o.cut && Math.abs(o.x + 0.5 - m.x) < 1.6 && Math.abs(o.y + 0.5 - m.y) < 1.6) && Math.random() < 0.5) track(G, 'branch', m.x + dx * 0.5, m.y + dy * 0.5, dx, dy);
       if ((m.dT -= mv) <= 0) { m.dT = 30 + Math.random() * 30; track(G, 'dung', m.x - dx * 0.8, m.y - dy * 0.8); }
       m.lx = m.x; m.ly = m.y;
     }
@@ -657,7 +663,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     cq.mapDirty = true;
   }
   function mmStart(G) {
-    const C = MP().camp, L2 = placeList('eat').concat(placeList('drink')).filter(p => Math.hypot(p.x - C.x, p.y - C.y) > 22);
+    const C = MP().camp, L2 = placeList('eat').concat(placeList('drink')).filter(p => Math.hypot(p.x - C.x, p.y - C.y) > 32);
     const p = L2.length ? L2[Math.floor(Math.random() * L2.length)] : placeList('eat')[0];
     G.mm = { x: p.x, y: p.y, face: 1, walk: 0, path: [], st: 'walk', tgt: null, hp: 0, max: 0, need: { e: Math.random(), w: Math.random() }, aw: 0, wary: 0, fear: [], mudT: 0, dT: 20, gT: 1, trT: 30, meat: MEAT_N, side: 1 };
     G.mm.max = G.mm.hp = 5 + Math.floor(G.chars.length / 2);
@@ -936,66 +942,131 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   }
 
   // ======================= PERSONAGGI DISEGNATI =======================
-  // la tribu': pelliccia sulle spalle e maschera dipinta sul viso (sopra al personaggio di ognuno). A terra: sdraiato
+  // la tribu': pelliccia sulle spalle e una grande MASCHERA TRIBALE decorata sul viso (6 modelli, uno per personaggio). A terra: sdraiato
   function tribal(g, X, Y, TW, L2, w, f, c) {
     const u = TW / 34;
     if (c.dn) { g.save(); g.translate(X, Y - 4 * u); g.rotate(f > 0 ? -1.35 : 1.35); g.translate(0, 6 * u); cqPlayer(g, 0, 0, TW, L2, 0, f); g.restore(); return; }
     if (!c.alive) g.globalAlpha = 0.45;
     cqPlayer(g, X, Y, TW, L2, w, f);
-    const top = cqTop(L2) * TW, sh = Y - top * 0.5, ey = Y - top * 0.72;
-    // pelliccia: mantella arruffata sulle spalle
-    g.fillStyle = '#7a5434'; g.beginPath(); g.ellipse(X, sh, 13 * u, 6 * u, 0, Math.PI, 0); g.lineTo(X + 13 * u, sh);
-    for (let i = 0; i <= 8; i++) { const x = X + 13 * u - i * 26 * u / 8, y = sh + (i % 2 ? 7 : 3) * u; g.lineTo(x, y); } g.closePath(); g.fill();
-    g.fillStyle = '#9a7048'; g.beginPath(); g.ellipse(X - 3 * u, sh - 1 * u, 7 * u, 2.5 * u, 0, 0, 7); g.fill();
-    g.fillStyle = '#e8dcc0'; g.beginPath(); g.arc(X + 5 * u, sh + 1 * u, 1.6 * u, 0, 7); g.fill();   // dente d'osso
-    // maschera: osso dipinto con due righe e una piuma
-    const mx = X + f * 4 * u; g.fillStyle = '#ece2c8'; g.beginPath(); g.ellipse(mx, ey + 1 * u, 7.5 * u, 6 * u, 0, 0, 7); g.fill();
-    g.fillStyle = '#c0392b'; g.fillRect(mx - 6 * u, ey - 1.5 * u, 12 * u, 1.6 * u); g.fillStyle = '#2a2018'; g.fillRect(mx - 5 * u, ey + 2.8 * u, 10 * u, 1.2 * u);
-    g.fillStyle = '#1a140e'; for (const dx of [-2.6, 2.6]) { g.beginPath(); g.ellipse(mx + dx * u, ey + 0.6 * u, 1.5 * u, 1.2 * u, 0, 0, 7); g.fill(); }
-    g.strokeStyle = '#d8402a'; g.lineWidth = 2.2 * u; g.beginPath(); g.moveTo(mx - f * 5 * u, ey - 4 * u); g.quadraticCurveTo(mx - f * 9 * u, ey - 11 * u, mx - f * 6 * u, ey - 15 * u); g.stroke();
+    const top = cqTop(L2) * TW, sh = Y - top * 0.5, ey = Y - top * 0.7;
+    // pelliccia: mantella arruffata sulle spalle, con un dente d'osso
+    g.fillStyle = '#7a5434'; g.beginPath(); g.moveTo(X - 12 * u, sh); g.quadraticCurveTo(X, sh - 7 * u, X + 12 * u, sh);
+    for (let i = 0; i <= 8; i++) g.lineTo(X + 12 * u - i * 3 * u, sh + (i % 2 ? 6 : 2.5) * u); g.closePath(); g.fill();
+    g.strokeStyle = '#a07650'; g.lineWidth = 1.2 * u; g.beginPath(); for (let i = 0; i < 6; i++) { const x0 = X - 9 * u + i * 3.6 * u; g.moveTo(x0, sh - 2 * u); g.lineTo(x0 + 1 * u, sh + 2.5 * u); } g.stroke();
+    mask(g, X + f * 2.5 * u, ey + 1 * u, u * 1.05, c.mk != null ? c.mk : (c.id * 5 + 3) % 6);
     g.globalAlpha = 1;
   }
-  // il mammut: grande, peloso, con le zanne; dorme sdraiato, cade su un fianco, nella fossa si vede solo meta'
+  // maschere (coordinate della maschera: alta da -12 a +12, larga +-8)
+  function mask(g, cx, cy, s, v) {
+    g.save(); g.translate(cx, cy); g.scale(s, s); g.lineJoin = 'round'; g.lineCap = 'round';
+    const P = (pts, col) => { g.fillStyle = col; g.beginPath(); g.moveTo(pts[0], pts[1]); for (let i = 2; i < pts.length; i += 2) g.lineTo(pts[i], pts[i + 1]); g.closePath(); g.fill(); };
+    const E = (x, y, rx, ry, col, r = 0) => { g.fillStyle = col; g.beginPath(); g.ellipse(x, y, rx, ry, r, 0, 7); g.fill(); };
+    const Lw = (col, w) => { g.strokeStyle = col; g.lineWidth = w; };
+    const oval = (col, w = 7.5, h = 11.5) => { g.fillStyle = col; g.beginPath(); g.moveTo(0, -h); g.bezierCurveTo(w, -h, w + 0.6, -2, w * 0.8, 4); g.bezierCurveTo(w * 0.6, 9, 3, h, 0, h); g.bezierCurveTo(-3, h, -w * 0.6, 9, -w * 0.8, 4); g.bezierCurveTo(-w - 0.6, -2, -w, -h, 0, -h); g.fill(); };
+    const eyes = (y, col, slit) => { for (const sx of [-1, 1]) { E(sx * 3.4, y, 2.5, 1.3, col, sx * 0.25); E(sx * 3.4, y + 0.1, 1.5, 0.45, slit || '#111'); } };
+    const out = col => { Lw(col, 0.8); g.beginPath(); g.moveTo(0, -11.5); g.bezierCurveTo(7.5, -11.5, 8.1, -2, 6, 4); g.bezierCurveTo(4.5, 9, 3, 11.5, 0, 11.5); g.bezierCurveTo(-3, 11.5, -4.5, 9, -6, 4); g.bezierCurveTo(-8.1, -2, -7.5, -11.5, 0, -11.5); g.stroke(); };
+    if (v === 0) {   // nera con le ossa in testa e i denti a griglia
+      for (const [x, y] of [[-6.5, -10], [-3.2, -13.5], [3.2, -13.5], [6.5, -10], [0, -15]]) { Lw('#555', 1.6); g.beginPath(); g.moveTo(x * 0.6, y * 0.75); g.lineTo(x, y); g.stroke(); E(x - 0.9, y, 1.2, 1.2, '#6a6a6a'); E(x + 0.9, y, 1.2, 1.2, '#6a6a6a'); }
+      oval('#2e2e30'); E(0, -1, 5.5, 8, '#454548');
+      Lw('#f2efe6', 0.6); g.beginPath(); for (let i = -2; i <= 2; i++) { g.moveTo(i * 1.4, -9.5); g.lineTo(i * 1.9, -6.8); } g.stroke();
+      eyes(-2.5, '#f2efe6', '#111'); P([0, -6, 1.4, 1.5, -1.4, 1.5], '#f2efe6');
+      E(0, 6.2, 4.6, 2.6, '#f2efe6'); Lw('#111', 0.45); g.beginPath(); for (let i = -3; i <= 3; i++) { g.moveTo(i * 1.2, 4); g.lineTo(i * 1.2, 8.4); } g.moveTo(-4.4, 6.2); g.lineTo(4.4, 6.2); g.stroke();
+      out('#111');
+    } else if (v === 1) {   // terracotta allungata con la corona nera e la punta
+      oval('#b0522e', 7, 12.5);
+      P([0, -17, 1.4, -11, -1.4, -11], '#1e1a18'); for (let i = 0; i < 3; i++) E(0, -15 + i * 1.6, 0.45, 0.45, '#f2efe6');
+      P([-7.4, -7.5, 7.4, -7.5, 7.4, -4.6, -7.4, -4.6], '#1e1a18'); for (let i = -3; i <= 3; i++) P([i * 2 - 0.6, -7.5, i * 2 + 0.6, -7.5, i * 2, -9.2], '#1e1a18');
+      Lw('#f2efe6', 0.55); g.beginPath(); for (let i = 0; i < 3; i++) { g.moveTo(-5, -10.5 + i * 0.9); g.lineTo(5, -10.5 + i * 0.9); } g.stroke();
+      eyes(-2, '#f2efe6', '#1e1a18'); P([0, -4.5, 1.3, 2.5, -1.3, 2.5], '#8a3a1e');
+      for (const sx of [-1, 1]) { Lw('#f2efe6', 0.6); g.beginPath(); for (let i = 0; i < 3; i++) { g.moveTo(sx * 4, 0.5 + i * 1.3); g.lineTo(sx * 6.4, 0.2 + i * 1.3); } g.stroke(); }
+      E(0, 7, 2.8, 2.4, '#f2efe6'); E(0, 7.2, 2, 1.7, '#1e1a18'); out('#5a2412');
+    } else if (v === 2) {   // oro con la corona ricamata e i tappi alle orecchie
+      for (const sx of [-1, 1]) { P([sx * 7, -2.5, sx * 10.5, -3.5, sx * 10.5, -0.5, sx * 7, 0.5], '#1e1a18'); E(sx * 10.6, -2, 0.7, 1.6, '#c89a3a'); }
+      oval('#c89a3a');
+      P([-8.5, -9, -7, -15, -3.5, -12.5, 0, -16.5, 3.5, -12.5, 7, -15, 8.5, -9], '#1e1a18');
+      Lw('#d8b050', 0.5); g.beginPath(); for (const x of [-5, 0, 5]) { g.moveTo(x - 1.5, -10); g.quadraticCurveTo(x, -14, x + 1.5, -10); } g.stroke(); for (let i = -3; i <= 3; i++) E(i * 2.2, -8.6, 0.5, 0.5, '#d8b050');
+      eyes(-3, '#f8f2e2', '#1e1a18'); Lw('#7a5a1a', 0.6); g.beginPath(); g.moveTo(0, -5); g.lineTo(0, 1.5); g.stroke();
+      E(0, 6, 5.2, 2.7, '#1e1a18'); g.fillStyle = '#f8f2e2'; for (let i = -3; i <= 3; i++) g.fillRect(i * 1.3 - 0.5, 4.4, 1, 3); out('#5a4010');
+    } else if (v === 3) {   // rossa con le corna nere e il disco in fronte
+      for (const sx of [-1, 1]) { g.fillStyle = '#1e1a18'; g.beginPath(); g.moveTo(sx * 4, -10); g.quadraticCurveTo(sx * 13, -12, sx * 14, -18); g.quadraticCurveTo(sx * 11, -12, sx * 3, -7.5); g.fill(); }
+      oval('#b8322a'); E(0, -7, 2.4, 2.4, '#1e1a18');
+      Lw('#f2efe6', 0.6); g.beginPath(); g.moveTo(-6.4, -3.6); g.lineTo(6.4, -3.6); g.moveTo(-6, 2.6); g.lineTo(6, 2.6); g.moveTo(-4.5, 9); g.lineTo(4.5, 9); for (let i = -2; i <= 2; i++) { if (i) { g.moveTo(i * 1.2, -11); g.lineTo(i * 1.4, -9.6); } } g.stroke();
+      eyes(-0.8, '#f2efe6', '#1e1a18'); E(0, 6, 3.2, 1.9, '#1e1a18'); g.fillStyle = '#f2efe6'; g.fillRect(-2, 5.2, 4, 0.7); out('#5a1410');
+    } else if (v === 4) {   // bruna con le corna ricce e i puntini bianchi
+      for (const sx of [-1, 1]) { Lw('#3a2414', 2.4); g.beginPath(); g.moveTo(sx * 5, -9); g.bezierCurveTo(sx * 14, -15, sx * 14, -2, sx * 9.5, -4); g.stroke(); Lw('#8a5a32', 1.2); g.beginPath(); g.moveTo(sx * 5, -9); g.bezierCurveTo(sx * 14, -15, sx * 14, -2, sx * 9.5, -4); g.stroke(); }
+      oval('#7a4a2a'); P([-6.5, -3.5, 6.5, -3.5, 5.5, -0.8, -5.5, -0.8], '#1e1a18');
+      eyes(-2.1, '#f2efe6', '#1e1a18'); Lw('#f2efe6', 0.55); g.beginPath(); g.moveTo(0, -10.5); g.quadraticCurveTo(1.6, -7, 0, -4); g.moveTo(0, -1); g.lineTo(0, 3); g.stroke();
+      for (const sx of [-1, 1]) for (let i = 0; i < 4; i++) E(sx * (3.2 + i * 0.85), 1.5 + i * 0.9, 0.42, 0.42, '#f2efe6');
+      P([-2.8, 8, 2.8, 8, 1.6, 6.3, -1.6, 6.3], '#f2efe6'); out('#2a1608');
+    } else {   // blu con la cresta bianca, le lacrime e gli orecchini
+      for (const a of [-1.1, -0.55, 0, 0.55, 1.1]) { const r = a === 0 ? 17 : 14.5; P([Math.sin(a) * 6, -Math.cos(a) * 8 - 2, Math.sin(a) * r, -Math.cos(a) * r, Math.sin(a + 0.18) * 7, -Math.cos(a + 0.18) * 8 - 2], '#f2efe6'); }
+      for (const sx of [-1, 1]) { Lw('#e8e2d0', 0.9); g.beginPath(); g.ellipse(sx * 8.6, 4, 1.6, 2.6, 0, 0, 7); g.stroke(); }
+      oval('#4a5a78'); E(0, -1, 5, 7.5, '#5a6c8c');
+      for (let i = -3; i <= 3; i++) E(i * 1.7, -8.2, 0.45, 0.45, '#f2efe6');
+      eyes(-2.6, '#f2efe6', '#1e2230'); Lw('#f2efe6', 0.55); g.beginPath(); for (const sx of [-1, 1]) { g.moveTo(sx * 3.4, -1); g.quadraticCurveTo(sx * 4, 2.5, sx * 3, 5); } g.moveTo(0, -5); g.lineTo(0, 1.5); g.stroke();
+      E(0, 7.2, 2.8, 1.6, '#f2efe6'); E(0, 7.4, 2, 0.8, '#1e2230'); out('#1a2030');
+    }
+    g.restore();
+  }
+  // il mammut, disegnato di profilo: cupola della testa alta, dorso che scende, pelo lungo che pende, zanne ricurve e proboscide.
+  // Dorme sdraiato, prima della carica alza la proboscide e trema, abbattuto giace su un fianco; nella fossa se ne vede solo la parte alta
   function drawMammoth(g, X, Y, TW, mm) {
-    const u = TW / 34, f = mm.face || 1, st = mm.st, t = performance.now() / 1000, w = mm.walkA || 0;
+    const u = TW / 34 * 0.86, f = mm.face || 1, st = mm.st, t = performance.now() / 1000, w = mm.walkA || 0;
     const sleep = st === 'sleep', dead = st === 'dead', trap = st === 'trap', wind = st === 'wind';
     g.save();
-    if (trap) { g.fillStyle = '#2a1e14'; g.beginPath(); g.ellipse(X, Y, 44 * u, 20 * u, 0, 0, 7); g.fill(); g.beginPath(); g.rect(X - 60 * u, Y - 90 * u, 120 * u, 92 * u); g.clip(); g.translate(0, 26 * u); }
-    if (wind) g.translate(Math.sin(t * 40) * 1.5 * u, 0);
-    // ombra
-    g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 42 * u, 13 * u, 0, 0, 7); g.fill();
-    if (dead) {
-      g.fillStyle = '#5a3a22'; g.beginPath(); g.ellipse(X, Y - 14 * u, 40 * u, 17 * u, 0, 0, 7); g.fill();
-      g.fillStyle = '#6b4628'; g.beginPath(); g.ellipse(X - 4 * u, Y - 20 * u, 30 * u, 9 * u, 0, 0, 7); g.fill();
-      g.strokeStyle = '#f2ead8'; g.lineWidth = 5 * u; g.lineCap = 'round'; g.beginPath(); g.moveTo(X + f * 30 * u, Y - 10 * u); g.quadraticCurveTo(X + f * 52 * u, Y - 4 * u, X + f * 50 * u, Y - 22 * u); g.stroke();
-      if (mm.meat <= 0 || (cq.g && cq.g.butch)) { g.strokeStyle = '#e8e0cc'; g.lineWidth = 3 * u; for (let i = 0; i < 5; i++) { g.beginPath(); g.moveTo(X - 24 * u + i * 11 * u, Y - 12 * u); g.quadraticCurveTo(X - 20 * u + i * 11 * u, Y - 34 * u, X - 14 * u + i * 11 * u, Y - 12 * u); g.stroke(); } }
-      g.restore(); return;
-    }
-    const body = '#6e4628', dark2 = '#55341c', hair = '#7e5432';
-    const lift = sleep ? 14 * u : 0;
-    // zampe (si muovono camminando)
-    if (!sleep) for (const [dx, ph] of [[-22, 0], [-10, Math.PI], [12, Math.PI], [24, 0]]) { const s = Math.sin(w + ph) * 4 * u; g.fillStyle = ph ? dark2 : body; g.fillRect(X + dx * u * f - 6 * u + s * f, Y - 24 * u, 12 * u, 24 * u - Math.max(0, -s)); g.fillStyle = '#3a2614'; g.fillRect(X + dx * u * f - 6 * u + s * f, Y - 3 * u, 12 * u, 3 * u); }
-    // corpo con il pelo lungo che pende
-    g.fillStyle = body; g.beginPath(); g.ellipse(X - f * 4 * u, Y - 40 * u + lift, 36 * u, 24 * u, 0, 0, 7); g.fill();
-    g.fillStyle = hair; for (let i = 0; i < 10; i++) { const x = X - f * 4 * u - 32 * u + i * 7 * u; g.beginPath(); g.moveTo(x, Y - 30 * u + lift); g.lineTo(x + 3.5 * u, Y - (18 + (i % 3) * 3) * u + lift); g.lineTo(x + 7 * u, Y - 30 * u + lift); g.fill(); }
-    g.fillStyle = '#8a5e38'; g.beginPath(); g.ellipse(X - f * 10 * u, Y - 54 * u + lift, 22 * u, 9 * u, 0, 0, 7); g.fill();   // dorso piu' chiaro
-    // gobba e testa
-    g.fillStyle = body; g.beginPath(); g.ellipse(X + f * 22 * u, Y - 52 * u + lift, 15 * u, 16 * u, 0, 0, 7); g.fill();
-    g.beginPath(); g.ellipse(X + f * 30 * u, Y - 40 * u + lift, 14 * u, 15 * u, 0, 0, 7); g.fill();
-    g.fillStyle = dark2; g.beginPath(); g.ellipse(X + f * 21 * u, Y - 42 * u + lift, 7 * u, 9 * u, 0, 0, 7); g.fill();   // orecchio
-    // proboscide (si alza prima della carica, ondeggia camminando)
-    const tr = wind ? -1 : Math.sin(t * 1.6) * 0.25;
-    g.strokeStyle = body; g.lineWidth = 9 * u; g.lineCap = 'round'; g.beginPath(); g.moveTo(X + f * 38 * u, Y - 36 * u + lift);
-    if (wind) g.quadraticCurveTo(X + f * 58 * u, Y - 50 * u, X + f * 52 * u, Y - 70 * u); else g.quadraticCurveTo(X + f * (46 + tr * 6) * u, Y - 20 * u + lift, X + f * (42 + tr * 10) * u, Y - (sleep ? 12 : 4) * u + lift * 0.3);
-    g.stroke(); g.strokeStyle = dark2; g.lineWidth = 1.5 * u; for (let i = 0; i < 4; i++) { const k = 0.3 + i * 0.15; g.beginPath(); g.moveTo(X + f * (40 + k * 6) * u - 4 * u, Y - (36 - k * 26) * u + lift); g.lineTo(X + f * (40 + k * 6) * u + 4 * u, Y - (36 - k * 26) * u + lift); g.stroke(); }
-    // zanne
-    g.strokeStyle = '#f2ead8'; g.lineWidth = 4.5 * u; g.beginPath(); g.moveTo(X + f * 36 * u, Y - 32 * u + lift); g.quadraticCurveTo(X + f * 56 * u, Y - 24 * u + lift, X + f * 54 * u, Y - 44 * u + lift); g.stroke();
-    g.strokeStyle = '#ded4bc'; g.lineWidth = 3.5 * u; g.beginPath(); g.moveTo(X + f * 32 * u, Y - 31 * u + lift); g.quadraticCurveTo(X + f * 48 * u, Y - 20 * u + lift, X + f * 47 * u, Y - 38 * u + lift); g.stroke();
-    // occhio (chiuso se dorme)
-    if (sleep) { g.strokeStyle = '#1a120a'; g.lineWidth = 1.5 * u; g.beginPath(); g.moveTo(X + f * 30 * u - 2.5 * u, Y - 45 * u + lift); g.lineTo(X + f * 30 * u + 2.5 * u, Y - 45 * u + lift); g.stroke(); }
-    else { g.fillStyle = wind ? '#ff3a2a' : '#1a120a'; g.beginPath(); g.arc(X + f * 31 * u, Y - 46 * u + lift, 2 * u, 0, 7); g.fill(); }
-    // ferite: lance piantate nel fianco
-    const hurt = mm.max - mm.hp; g.strokeStyle = '#8a6a42'; g.lineWidth = 2.5 * u; for (let i = 0; i < Math.min(4, hurt); i++) { const x0 = X - f * (16 - i * 9) * u, y0 = Y - (44 + (i % 2) * 6) * u + lift; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 - f * 10 * u, y0 - 16 * u); g.stroke(); }
+    if (trap) { g.fillStyle = '#2a1e14'; g.beginPath(); g.ellipse(X, Y, 50 * u, 22 * u, 0, 0, 7); g.fill(); g.fillStyle = '#4a3622'; g.beginPath(); g.ellipse(X, Y - 3 * u, 50 * u, 10 * u, 0, Math.PI, 0); g.fill(); g.beginPath(); g.rect(X - 90 * u, Y - 120 * u, 180 * u, 118 * u); g.clip(); }
+    g.translate(X + (wind ? Math.sin(t * 40) * 1.4 * u : 0), Y + (trap ? 24 * u : 0) + (sleep ? 12 * u : 0) + (dead ? 16 * u : 0)); g.scale(f * u, u);
+    if (!trap) { g.fillStyle = 'rgba(0,0,0,.26)'; g.beginPath(); g.ellipse(0, -(sleep ? 12 : dead ? 16 : 0), 48, 13, 0, 0, 7); g.fill(); }
+    if (dead) g.rotate(-0.12);
+    const furD = '#4a2e18', fur = '#6e4526', furL = '#93643a', ivory = '#f6eedb';
+    // zampe: dietro (piu' scure) e davanti; camminando si alternano
+    const leg = (x, ph, col) => { const s = Math.sin(w + ph) * 3.5, lx = x + s; g.fillStyle = col; g.beginPath(); g.moveTo(lx - 6.5, -30); g.lineTo(lx + 6.5, -30); g.lineTo(lx + 6, -3); g.quadraticCurveTo(lx, 0, lx - 6, -3); g.closePath(); g.fill(); g.fillStyle = '#c9b89a'; g.beginPath(); g.ellipse(lx, -2, 6.4, 2.6, 0, 0, 7); g.fill(); g.fillStyle = '#e8dcc4'; for (const k of [-3.5, 0, 3.5]) { g.beginPath(); g.ellipse(lx + k, -1.6, 1.2, 0.9, 0, 0, 7); g.fill(); } g.fillStyle = col; for (let i = 0; i < 4; i++) { g.beginPath(); g.moveTo(lx - 7 + i * 3.5, -30); g.lineTo(lx - 5.5 + i * 3.5, -20 - (i % 2) * 3); g.lineTo(lx - 4 + i * 3.5, -30); g.fill(); } };
+    if (!sleep && !dead) { leg(-24, 0, furD); leg(16, Math.PI, furD); }
+    if (dead) for (const [x, a] of [[-22, 0.2], [-10, 0.35], [12, 0.25], [24, 0.4]]) { g.save(); g.translate(x, -20); g.rotate(a); g.fillStyle = furD; g.fillRect(-5, 0, 10, 26); g.fillStyle = '#c9b89a'; g.beginPath(); g.ellipse(0, 26, 5.5, 2.5, 0, 0, 7); g.fill(); g.restore(); }
+    // zanna lontana (dietro la proboscide)
+    const tusk = (dx, dy, k, col) => { g.save(); g.translate(dx, dy); g.scale(k, k); g.fillStyle = col; g.beginPath(); g.moveTo(34, -36); g.bezierCurveTo(52, -32, 70, -22, 66, -48); g.bezierCurveTo(64, -40, 60, -30, 52, -30); g.bezierCurveTo(44, -30, 38, -31, 34, -30); g.closePath(); g.fill(); g.strokeStyle = 'rgba(120,100,70,.55)'; g.lineWidth = 0.8; g.stroke(); g.restore(); };
+    tusk(-3, -2, 0.92, '#d8cdb4');
+    // corpo
+    const grd = g.createLinearGradient(0, -78, 0, -14); grd.addColorStop(0, furL); grd.addColorStop(0.45, fur); grd.addColorStop(1, furD);
+    g.fillStyle = grd; g.beginPath();
+    g.moveTo(-34, -22); g.bezierCurveTo(-46, -30, -44, -52, -32, -58); g.bezierCurveTo(-18, -64, -2, -63, 8, -67);
+    g.bezierCurveTo(16, -79, 34, -76, 39, -60); g.bezierCurveTo(42, -52, 43, -45, 40, -38); g.lineTo(34, -30);
+    g.bezierCurveTo(30, -24, 24, -21, 18, -21); g.bezierCurveTo(8, -15, -20, -15, -34, -22); g.closePath(); g.fill();
+    // pelo lungo che pende dal ventre e dai fianchi
+    g.fillStyle = furD; g.beginPath(); g.moveTo(-38, -26); for (let i = 0; i <= 14; i++) { const x = -38 + i * 4.2; g.lineTo(x + 2.1, -10 - (i % 3) * 2.5 - (i > 9 ? 3 : 0)); g.lineTo(x + 4.2, -22 + (i > 11 ? -2 : 0)); } g.lineTo(22, -26); g.closePath(); g.fill();
+    g.fillStyle = fur; g.beginPath(); g.moveTo(-36, -30); for (let i = 0; i <= 13; i++) { const x = -36 + i * 4.3; g.lineTo(x + 2.1, -17 - (i % 2) * 3); g.lineTo(x + 4.3, -28); } g.closePath(); g.fill();
+    // pelo a ciocche sovrapposte (come tegole), piu' chiare in alto, e qualche ciocca lunga di luce sul dorso
+    const rows = [[-58, -26, 12, 'rgba(150,104,62,.55)'], [-49, -36, 18, 'rgba(120,80,46,.5)'], [-40, -38, 26, 'rgba(96,62,34,.5)'], [-31, -36, 24, 'rgba(76,48,26,.55)']];
+    g.lineWidth = 1.2;
+    rows.forEach(([y, x0, x1, col], r) => { g.strokeStyle = col; g.beginPath(); for (let x = x0 + (r % 2) * 3; x < x1; x += 6) { const j = Math.sin(x * 1.7 + r * 3) * 1.3, yy = y + j + (x > 6 && r === 0 ? -4 - (x - 6) * 0.25 : 0); g.moveTo(x - 3.5, yy - 1); g.quadraticCurveTo(x, yy + 3.5, x + 3.5, yy - 1); } g.stroke(); });
+    g.strokeStyle = 'rgba(196,150,100,.45)'; g.lineWidth = 1.1; g.beginPath();
+    for (const [x, y, l] of [[-30, -57, 9], [-20, -60, 11], [-9, -61, 8], [2, -64, 10], [12, -70, 7], [-38, -44, 8]]) { g.moveTo(x, y); g.bezierCurveTo(x - 2, y + l * 0.4, x + 1, y + l * 0.7, x - 1, y + l); }
+    g.stroke();
+    // cupola e ciuffo in testa, orecchio piccolo e peloso
+    g.fillStyle = 'rgba(170,122,74,.5)'; g.beginPath(); g.ellipse(22, -66, 11, 6, -0.3, 0, 7); g.fill();
+    g.strokeStyle = furL; g.lineWidth = 1.5; g.beginPath(); for (const x of [18, 22, 26, 30]) { g.moveTo(x, -72); g.quadraticCurveTo(x - 3, -80, x - 1, -83); } g.stroke();
+    g.fillStyle = furD; g.beginPath(); g.ellipse(22, -49, 5.5, 7.5, -0.2, 0, 7); g.fill(); g.fillStyle = '#5a3a20'; g.beginPath(); g.ellipse(22.5, -49, 3.2, 5, -0.2, 0, 7); g.fill();
+    // zampe davanti a noi
+    if (!sleep && !dead) { leg(-12, Math.PI, fur); leg(26, 0, fur); }
+    // proboscide: si alza prima della carica, ondeggia piano, a terra arrotolata se dorme
+    const sw = Math.sin(t * 1.4) * 2.5;
+    g.fillStyle = fur; g.beginPath();
+    if (wind) { g.moveTo(36, -44); g.bezierCurveTo(48, -60, 54, -78, 46, -90); g.bezierCurveTo(44, -94, 40, -92, 41, -88); g.bezierCurveTo(46, -78, 40, -62, 30, -36); }
+    else if (sleep || dead) { g.moveTo(37, -40); g.bezierCurveTo(46, -30, 50, -16, 44, -12); g.bezierCurveTo(38, -10, 36, -16, 40, -17); g.bezierCurveTo(42, -22, 36, -30, 30, -34); }
+    else { g.moveTo(37, -42); g.bezierCurveTo(48, -30 + sw * 0.3, 46 + sw, -10, 44 + sw, -2); g.bezierCurveTo(44 + sw, 1, 49 + sw, 1, 50 + sw, -3); g.bezierCurveTo(47 + sw, -4, 40 + sw * 0.6, -14, 40, -26); g.lineTo(32, -34); }
+    g.closePath(); g.fill();
+    g.strokeStyle = 'rgba(40,24,12,.4)'; g.lineWidth = 0.9; g.beginPath(); for (let i = 0; i < 6; i++) { const yy = -36 + i * 5.5; if (wind) { g.moveTo(38 + i * 1.6, -48 - i * 7); g.lineTo(46 + i * 1.2, -50 - i * 7); } else if (!sleep && !dead) { g.moveTo(39 + i * 0.6 + sw * i / 6, yy); g.lineTo(45 + i * 0.4 + sw * i / 6, yy - 0.5); } } g.stroke();
+    // zanna vicina
+    tusk(0, 0, 1, ivory);
+    // occhio con la palpebra pesante (chiuso se dorme, a X se e' morto, rosso prima della carica)
+    if (dead) { g.strokeStyle = '#1a120a'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(29, -54); g.lineTo(33, -50); g.moveTo(33, -54); g.lineTo(29, -50); g.stroke(); }
+    else if (sleep) { g.strokeStyle = '#1a120a'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(28.5, -52); g.quadraticCurveTo(31, -50.5, 33.5, -52); g.stroke(); }
+    else { g.fillStyle = '#1a120a'; g.beginPath(); g.ellipse(31, -52, 2, 1.7, 0, 0, 7); g.fill(); g.fillStyle = wind ? '#ff5030' : '#fff'; g.beginPath(); g.arc(31.6, -52.6, 0.6, 0, 7); g.fill(); g.strokeStyle = '#3a2412'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(28, -54.2); g.quadraticCurveTo(31, -56, 34, -54); g.stroke(); }
+    // lance piantate nel fianco (una per ferita)
+    const hurt = Math.max(0, (mm.max || 0) - (mm.hp || 0)); g.lineWidth = 1.8;
+    for (let i = 0; i < Math.min(5, hurt); i++) { const x0 = -24 + i * 9, y0 = -50 + (i % 2) * 6; g.strokeStyle = '#8a6a42'; g.beginPath(); g.moveTo(x0, y0); g.lineTo(x0 - 12, y0 - 18); g.stroke(); g.fillStyle = 'rgba(150,20,20,.8)'; g.beginPath(); g.ellipse(x0, y0 + 1.5, 2, 3, 0, 0, 7); g.fill(); }
+    // macellato: ossa a vista
+    if (dead && (mm.meat <= 0 || (cq.g && cq.g.butch))) { g.strokeStyle = '#ece4d0'; g.lineWidth = 2.5; for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(-26 + i * 9, -24); g.quadraticCurveTo(-24 + i * 9, -50, -18 + i * 9, -26); g.stroke(); } }
     g.restore();
   }
   function drawRabbit(g, X, Y, TW, r) {
