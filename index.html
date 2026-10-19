@@ -3180,7 +3180,8 @@ const CQ_GAMES = [
   ['naufraghi', 'Naufraghi', '🏝️', '#2f8a7a', 'Due squadre su un\'isola misteriosa: costruite la zattera, rubate i pezzi agli altri e salpate per primi.'],
   ['minotauro', 'Il Minotauro', '🐂', '#7a4a2e', 'Labirinto al buio con i muri che si spostano: copiate i frammenti di mappa e scappate prima che il Minotauro vi prenda.'],
   ['misterx', 'Mister X', '🎩', '#2a3a5a', 'Città di notte: Mister X fa 3 colpi e scappa, travestito tra la folla. I detective lo vedono solo quando lampeggia… e lo ammanettano a colpi di dita.'],
-  ['colpo', 'Colpo all\'hotel', '💎', '#5a3a6a', 'Tutti ladri insieme: rubate il diamante del Grand Hotel senza farvi vedere dalle guardie. Il colpo cambia ogni volta.']];
+  ['colpo', 'Colpo all\'hotel', '💎', '#5a3a6a', 'Tutti ladri insieme: rubate il diamante del Grand Hotel senza farvi vedere dalle guardie. Il colpo cambia ogni volta.'],
+  ['mammut', 'Caccia al mammut', '🦣', '#7a5a2e', 'Una tribù contro un mammut furbo: seguite le tracce, cacciatelo con lance e fosse, sopravvivete alle notti e portate la carne al fuoco.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
@@ -5027,6 +5028,7 @@ function cqTools(g, TW) {
     },
     decals() {
       for (const [x, y, w, h, col] of CQ_DECALS) poly([S(x, y, 0), S(x + w, y, 0), S(x + w, y + h, 0), S(x, y + h, 0)], col);
+      if (CQ_MAP.ground) CQ_MAP.ground(K);   // ground: segni a terra di un gioco (tracce del mammut), dopo i pavimenti e prima degli oggetti
       g.font = '700 ' + Math.round(TW / 3.6) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = 'rgba(255,255,255,.2)';
       CQ_ROOMS.forEach(r => { if (r.nl) return; const [X, Y] = S(r.lx != null ? r.lx : r.x + r.w / 2, r.ly != null ? r.ly : r.y + r.h - 1.4, 0); g.fillText(r.n.toUpperCase(), X, Y); });
     },
