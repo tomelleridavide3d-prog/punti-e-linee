@@ -999,7 +999,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     maps: [['prateria', 'Prateria']],
     def: { nights: 2, map: 'prateria', n: 6, fill: true },
     ns: [[2, '2'], [4, '4'], [6, '6'], [8, '8']],
-    opts: o => `<div class="row"><div class="lbl">Notti prima che il mammut migri</div>${seg('nights', [[2, '2'], [3, '3'], [4, '4']], o.nights || 2)}</div>`,
+    opts: o => `<details class="row mmHow"><summary><b>📖 Come si gioca</b> (tocca per leggere)</summary>${helpHtml()}</details><div class="row"><div class="lbl">Notti prima che il mammut migri</div>${seg('nights', [[2, '2'], [3, '3'], [4, '4']], o.nights || 2)}</div>`,
     read: d => ({ nights: +d.get('nights') || 2 }),
     start(G) {
       setup(G);
@@ -1196,7 +1196,9 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (L.glade && Math.hypot(L.glade.x - cq.x, L.glade.y - cq.y) < 30) { lights.push([L.glade.x, L.glade.y, 5.9 + Math.sin(performance.now() / 700) * 0.25, 0.6]); src.push([L.glade.x, L.glade.y, 5.4]); }
       if (L.spring && Math.hypot(L.spring.x - cq.x, L.spring.y - cq.y) < 30) { lights.push([L.spring.x, L.spring.y, 3.7, 0.5]); src.push([L.spring.x, L.spring.y, 3.2]); }
       for (const c of G.chars) { if (c === me || !c.alive) continue; if (Math.hypot(c.x - cq.x, c.y - cq.y) > 24) continue; const r = torchOn(G, c) ? TORCH_L : 2.2; lights.push([c.x, c.y, r + 0.4, torchOn(G, c) ? 0.9 : 0.6]); src.push([c.x, c.y, r * 0.9]); }
-      return { a: 0.96 * dk, r: mine, lights, see: (x, y) => dk < 0.5 || src.some(([sx, sy, r]) => Math.hypot(x - sx, y - sy) < r) };
+      // lit: quanta luce c'e' in un punto (0 buio, 1 pieno), sfumata sul bordo: serve agli occhi degli sciacalli che svaniscono entrando nella luce
+      const lit = (x, y) => { let v = 0; for (const [sx, sy, r] of src) v = Math.max(v, Math.min(1, Math.max(0, (r + 0.6 - Math.hypot(x - sx, y - sy)) / 1.8))); return v; };
+      return { a: 0.96 * dk, r: mine, lights, lit, see: (x, y) => dk < 0.5 || src.some(([sx, sy, r]) => Math.hypot(x - sx, y - sy) < r) };
     },
     deco(g, c, X, Y, TW, G) {
       if (c.op) { const T2 = { chop: CHOP_T, dig: DIG_T, butch: BUTCH_T, look: LOOK_T }[c.op.k] || 3, k = c.op.k === 'dig' ? ((G.digs.find(d => d.id === c.op.i) || {}).p || 0) : Math.min(1, (G.time - c.op.t0) / T2); g.strokeStyle = { chop: '#c8a070', dig: '#a88a5a', butch: '#e05050', look: '#a8d0ff' }[c.op.k]; g.lineWidth = 4; g.beginPath(); g.arc(X, Y - TW * 2.05, 10, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); }
@@ -1253,11 +1255,13 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
           else if ((m.aw || 0) > 0.25 && m.st !== 'flee' && m.st !== 'trap') { const k = Math.min(1, m.aw); g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.arc(X, Y, 11, 0, 7); g.fill(); g.strokeStyle = k > 0.75 ? '#ff6a4a' : '#ffd060'; g.lineWidth = 3; g.beginPath(); g.arc(X, Y, 11, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); font(13); g.fillStyle = '#fff'; g.fillText('?', X, Y + 1); }
         }
       }
-      // occhi rossi degli sciacalli nel buio (quelli che non si vedono ancora)
-      if (MN && dark(G) > 0.5) for (const j of G.jk) {
-        if (see(j.x, j.y) || Math.hypot(j.x - cq.x, j.y - cq.y) > 13) continue;
+      // occhi rossi degli sciacalli nel buio: fissi (niente lampeggi), svaniscono piano entrando nella luce (li' si vede il corpo),
+      // e da lontano compaiono sfumando (13-17 caselle) invece di accendersi di colpo
+      if (MN && MN.lit && dark(G) > 0.3) for (const j of G.jk) {
+        const d = Math.hypot(j.x - cq.x, j.y - cq.y); if (d > 17) continue;
+        const al = 0.9 * Math.min(1, (dark(G) - 0.3) / 0.4) * (1 - MN.lit(j.x, j.y)) * (d < 13 ? 1 : (17 - d) / 4); if (al < 0.03) continue;
         const X = sx(j.x, j.y), Y = sy(j.x, j.y) - TW * 0.55; if (!on(X, Y)) continue;
-        const blink = Math.sin(now * 2.3 + j.id * 1.7) > 0.93 ? 0.15 : 1; g.fillStyle = 'rgba(255,40,30,' + (0.85 * blink) + ')';
+        g.fillStyle = 'rgba(255,40,30,' + al.toFixed(3) + ')';
         for (const dx of [-3.5, 3.5]) { g.beginPath(); g.ellipse(X + dx * (j.face || 1), Y, 2.6, 1.8, 0, 0, 7); g.fill(); }
       }
       // ululato: freccia sul bordo verso lo sciacallo che ulula
@@ -1523,7 +1527,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const md = (g, X, Y, TW) => drawMammoth(g, X, Y, TW, m); md.big = 1;
     if (!G.me.alive || mmShown(G, cq.x, cq.y)) out.push({ x: m.x, y: m.y, dr: md, name: null, mam: 1 });   // di giorno nella foschia si vede solo da vicino
     for (const r of G.rab) { lerp(r); if (G.guest) r.walk = (r.walk || 0) + 0.3; out.push({ x: r.x, y: r.y, dr: (g, X, Y, TW) => drawRabbit(g, X, Y, TW, r), name: null }); }
-    for (const j of G.jk) { lerp(j); if (G.guest) j.walk = (j.walk || 0) + 0.3; out.push({ x: j.x, y: j.y, dr: (g, X, Y, TW) => drawJackal(g, X, Y, TW, j), name: null }); }
+    for (const j of G.jk) { lerp(j); if (G.guest) j.walk = (j.walk || 0) + 0.3; out.push({ x: j.x, y: j.y, dr: (g, X, Y, TW) => drawJackal(g, X, Y, TW, j), name: null, all: 1 }); }   // all: sempre disegnati, li copre il buio (niente comparse a scatti al bordo della luce)
     return out;
   }
   // le pitture rupestri: cosa raccontano di QUESTO mammut (direzioni viste da qui, come sullo schermo); sulla mappa grande compaiono le ⭐
@@ -1538,6 +1542,18 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       + '<p class="n">Sulla mappa grande ora vedi ⭐ questi posti. Dopo aver mangiato ha sete; nelle ore calde cerca ombra; al tramonto va a dormire.</p><div class="c">Tocca per chiudere</div>';
     G.fav = 1; const el = document.getElementById('mmPaint'); if (!el) return; el.innerHTML = h; el.hidden = false; beep(520, 0.1, 0.03); beep(660, 0.14, 0.03, 0.1);
   }
+  // COME SI GIOCA: riassunto completo ma corto (nelle impostazioni, da solo all'inizio delle prime partite, e col pulsante ❓ in partita)
+  const HELP = [
+    ['🎯', 'Lo scopo', 'Abbattete il mammut e portate al fuoco del campo <b>4 pezzi di carne</b> prima che migri (alla fine dell\'ultima notte).'],
+    ['🔍', 'Trovarlo', 'Nella foschia si vede solo da vicino. Seguite le <b>tracce</b>: passateci sopra e leggete cosa dicono (fresche o vecchie, dove va, cosa farà dopo). Aiutano anche i <b>barriti</b>, la vedetta 🗿 e le pitture 🎨 (le sue abitudini). Col vento 💨 alle spalle vi fiuta.'],
+    ['🦣', 'Abbatterlo', 'Le <b>lance</b> 🎯 lo feriscono solo fino allo scudo 🛡️. Per finirlo: scavate una <b>fossa</b> ⛏️ in due, poi spingetelo dentro con le <b>urla</b> 📣 dalla parte opposta; oppure <b>circondatelo</b> (4 da lati diversi, meno se ha l\'acqua alle spalle). Quando si libera carica: ❗ = spostati di lato!'],
+    ['🐇', 'Cibo', 'I <b>conigli</b> stanno vicino alle tane: <b>corrigli addosso</b> per prenderli (scappano verso la tana: arriva dalla parte della tana). Massimo 2, portali al fuoco. Ogni notte ne serve <b>uno a testa</b>, se no il giorno dopo si è più lenti.'],
+    ['🔥', 'La notte', 'Il fuoco brucia tanta legna: <b>tagliate alberi</b> 🪓 (3 tronchi in mano; se il fuoco è pieno li tenete per dopo). Gli <b>sciacalli</b> (occhi rossi) attaccano chi è al buio o al bordo della luce: sicuri <b>vicino alle fiamme</b>, con la torcia o nei rifugi ✨♨️🪨.'],
+    ['🤕', 'A terra', 'Chi viene travolto o azzannato resta a terra 30 s: un compagno <b>vicino</b> lo rialza.'],
+    ['🍖', 'La carne', 'Abbattuto il mammut: 🔪 macellatelo, poi un pezzo a testa (si va piano) fino al fuoco. Gli sciacalli la sentono!']
+  ];
+  const helpHtml = () => HELP.map(([i, t, d]) => '<p><b>' + i + ' ' + t + '</b><br>' + d + '</p>').join('') + '<p class="n">Tasti sul PC: Q lancia · R urla · M mappa · E azione</p>';
+  function helpUI(on) { const el = document.getElementById('mmHelp'); if (!el) return; if (on) { el.innerHTML = '<div class="t">📖 Caccia al mammut: come si gioca</div>' + helpHtml() + '<div class="c">Tocca per chiudere</div>'; el.scrollTop = 0; } el.hidden = !on; }
   // pulsanti a sinistra: 🎯 lancia (Q) e 📣 urla (R)
   function sideHud(G) {
     const b = document.getElementById('mmThrow'), s = document.getElementById('mmShout'); if (!b || !s) return;
@@ -1549,12 +1565,30 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   function shoutBtn() { const G = cq.g; if (!G || G.mode !== 'mammut' || G.phase !== 'play' || G.pre > 0) return; const me = G.me; if ((me.shT || 0) > G.time || !me.alive || me.dn) return; [300, 260, 330].forEach((f, i) => beep(f, 0.12, 0.05, i * 0.08)); if (G.guest) { cqNetSend({ k: 'sh' }); me.shT = G.time + SHOUT_CD; G.shouts.push([cq.x, cq.y, G.time, me.id]); } else doShout(G, me); }
   if (!document.getElementById('mmCss')) {
     const st = document.createElement('style'); st.id = 'mmCss';
-    st.textContent = '#mmThrow,#mmShout{position:absolute;border-radius:50%;border:0;font:inherit;font-weight:800;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#mmThrow{left:18px;bottom:142px;width:86px;height:86px;font-size:24px}#mmShout{left:112px;bottom:150px;width:62px;height:62px;font-size:19px}#mmThrow.on{background:#b8662a;color:#fff}#mmShout.on{background:#8a6a2a;color:#fff}#mmPaint{position:absolute;left:14px;right:14px;top:150px;max-width:460px;margin:0 auto;background:rgba(36,26,16,.95);border:2px solid #c8a060;border-radius:16px;padding:14px 16px;color:#f4e8cc;font-size:15px;line-height:1.45;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.5)}#mmPaint .t{font-weight:800;font-size:17px;color:#ffd88a;margin-bottom:4px}#mmPaint p{margin:6px 0}#mmPaint .n{font-size:13px;color:#d8c8a4}#mmPaint .c{text-align:center;font-size:12px;color:#b8a882;margin-top:8px}';
+    st.textContent = '#mmThrow,#mmShout{position:absolute;border-radius:50%;border:0;font:inherit;font-weight:800;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#mmThrow{left:18px;bottom:142px;width:86px;height:86px;font-size:24px}#mmShout{left:112px;bottom:150px;width:62px;height:62px;font-size:19px}#mmThrow.on{background:#b8662a;color:#fff}#mmShout.on{background:#8a6a2a;color:#fff}#mmPaint{position:absolute;left:14px;right:14px;top:150px;max-width:460px;margin:0 auto;background:rgba(36,26,16,.95);border:2px solid #c8a060;border-radius:16px;padding:14px 16px;color:#f4e8cc;font-size:15px;line-height:1.45;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.5)}#mmPaint .t{font-weight:800;font-size:17px;color:#ffd88a;margin-bottom:4px}#mmPaint p{margin:6px 0}#mmPaint .n{font-size:13px;color:#d8c8a4}#mmPaint .c{text-align:center;font-size:12px;color:#b8a882;margin-top:8px}'
+      + '#mmHelp{position:absolute;left:12px;right:12px;top:118px;bottom:150px;max-width:480px;margin:0 auto;overflow-y:auto;background:rgba(36,26,16,.96);border:2px solid #c8a060;border-radius:16px;padding:12px 16px;color:#f4e8cc;font-size:14px;line-height:1.4;z-index:31;box-shadow:0 8px 30px rgba(0,0,0,.5)}#mmHelp .t{font-weight:800;font-size:17px;color:#ffd88a;margin-bottom:4px}#mmHelp p{margin:7px 0}#mmHelp b{color:#ffe0a0}#mmHelp .n{font-size:12px;color:#c8b894}#mmHelp .c{text-align:center;font-size:13px;color:#ffd88a;font-weight:700;margin-top:10px}'
+      + '#mmHelpB{position:absolute;left:14px;top:244px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(36,26,16,.85);color:#ffd88a;font-size:20px;font-weight:800;box-shadow:0 3px 10px rgba(0,0,0,.35)}'
+      + '.mmHow summary{cursor:pointer}.mmHow p{margin:8px 0;font-size:14px;line-height:1.4}.mmHow .n{font-size:12px;opacity:.75}';
     document.head.appendChild(st);
     const host = document.getElementById('ciack');
     const mk = (id, fn) => { const b = document.createElement('button'); b.id = id; b.type = 'button'; b.hidden = true; b.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); fn(); }); if (host) host.appendChild(b); return b; };
     const tb = mk('mmThrow', throwBtn), sb = mk('mmShout', shoutBtn);
     const pp = document.createElement('div'); pp.id = 'mmPaint'; pp.hidden = true; pp.addEventListener('pointerdown', e => { e.stopPropagation(); pp.hidden = true; }); if (host) host.appendChild(pp);
+    // spiegazione: si chiude toccandola (ma si puo' scorrere col dito); pulsante ❓ per riaprirla
+    const hp = document.createElement('div'); hp.id = 'mmHelp'; hp.hidden = true; let hy = 0;
+    hp.addEventListener('pointerdown', e => { e.stopPropagation(); hy = e.clientY; });
+    hp.addEventListener('pointerup', e => { e.stopPropagation(); if (Math.abs(e.clientY - hy) < 8) helpUI(false); });
+    hp.addEventListener('touchmove', e => e.stopPropagation(), { passive: true }); if (host) host.appendChild(hp);
+    const hb = document.createElement('button'); hb.id = 'mmHelpB'; hb.type = 'button'; hb.hidden = true; hb.textContent = '❓';
+    hb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); helpUI(hp.hidden); }); if (host) host.appendChild(hb);
+    // all'inizio delle prime 3 partite (su questo telefono) la spiegazione si apre da sola; giocando da soli la partita aspetta che la chiudi
+    setInterval(() => {
+      const G = cq.g, on = !!(G && G.mode === 'mammut' && G.phase === 'play' && G.tr && $('#cqTask').hidden && !$('#ciack').hidden);
+      if (hb.hidden === on) hb.hidden = !on;
+      if (!on) { if (!hp.hidden) hp.hidden = true; return; }
+      if (!G.helpAuto) { G.helpAuto = 1; let n = 0; try { n = +localStorage.getItem('mmHelpN') || 0; localStorage.setItem('mmHelpN', n + 1); } catch {} if (n < 3) { helpUI(true); G.helpHold = !cq.net; } }
+      if (G.helpHold) { if (hp.hidden) G.helpHold = 0; else G.pre = Math.max(G.pre || 0, 1); }
+    }, 200);
     const mb = document.createElement('button'); mb.id = 'mmMap'; mb.type = 'button'; mb.hidden = true; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent';
     mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'mammut') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } }; if (host) host.appendChild(mb);
     window.addEventListener('keydown', e => { if (e.key && e.key.toLowerCase() === 'm' && cq.g && cq.g.mode === 'mammut' && cq.on) cq.g.big = !cq.g.big; });
