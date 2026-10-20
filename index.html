@@ -1664,6 +1664,52 @@ function devLog(e, g, s) {
   if (g) o.g = String(g).slice(0, 16); if (s) o.s = String(s).slice(0, 10);
   hubLoad().then(F => { const r = F.push(F.ref(F.db, 'dl/' + DL_K), o); if (e === 'sito') dlStay(F, r); }).catch(() => {});
 }
+// ---- avvisi sul telefono (postino su Cloudflare: postino/worker.js; aiutante: sw.js) ----
+// 🔔 campanella silenziosa quando un amico apre un set (sparisce quando si chiude) + avvisi dello sviluppatore dal pannello 🛠️ Accessi
+const PUSH_W = 'https://hotel-postino.tomelleri-giochi.workers.dev', PUSH_K = 'BE6wUmeLgbXUiBTKfacmmP9Im9bjfXdrfSgCPvOBAc9xjeR3PJfh9IkuiZmqm-niMpJtgswxMuMYUbHwATP7MYY';
+const pushOk = () => WEB && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+const pushIOS = () => /iPhone|iPad/.test(navigator.userAgent) && !(navigator.standalone === true || (() => { try { return matchMedia('(display-mode: standalone)').matches; } catch { return false; } })());
+const pushOn = () => !!store.settings.pushId && pushOk() && Notification.permission === 'granted';
+const pushPost = (p, o) => fetch(PUSH_W + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(o), keepalive: true }).then(r => r.json()).catch(() => null);
+const pushKick = () => { if (WEB) pushPost('/kick', {}); };   // un set e' stato aperto o chiuso: il postino controlla subito
+const pushKey = k => Uint8Array.from(atob(k.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - k.length % 4) % 4)), c => c.charCodeAt(0));
+// iscrive questo telefono al postino (ask = l'utente ha premuto il pulsante); all'avvio rimanda nome e indirizzo solo se sono cambiati
+async function pushSub(ask) {
+  const reg = await navigator.serviceWorker.register('sw.js'); await navigator.serviceWorker.ready;
+  let sub = await reg.pushManager.getSubscription();
+  if (!sub) { if (!ask) return false; sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: pushKey(PUSH_K) }); }
+  const id = store.settings.pushId || randCode(16); store.settings.pushId = id; saveStore();
+  try { await (await caches.open('cq-push')).put('id', new Response(id)); } catch {}   // l'aiutante lo legge per chiedere al postino
+  const name = (store.settings.myName || '').trim().slice(0, 14), sig = sub.endpoint + '|' + name;
+  if (ask || store.settings.pushSig !== sig) { const r = await pushPost('/sub', { id, name, sub: sub.toJSON() }); if (!r || !r.ok) return false; store.settings.pushSig = sig; saveStore(); }
+  return true;
+}
+async function pushToggle() {
+  if (pushOn()) {
+    pushPost('/unsub', { id: store.settings.pushId }); store.settings.pushId = ''; store.settings.pushSig = ''; saveStore();
+    // il telefono a volte ci mette tanto a cancellare l'iscrizione: non si aspetta piu' di 3 s (il postino l'ha gia' tolta)
+    try { await Promise.race([(async () => { const reg = await navigator.serviceWorker.getRegistration(); const sb = reg && await reg.pushManager.getSubscription(); if (sb) await sb.unsubscribe(); })(), new Promise(r => setTimeout(r, 3000))]); } catch {}
+    cqToast('🔕 Avvisi spenti su questo telefono.'); cqNetBox(); return;
+  }
+  if (pushIOS()) { cqToast("📱 Su iPhone gli avvisi arrivano solo all'app: premi Condividi → <b>Aggiungi alla schermata Home</b>, poi apri il gioco dall'icona e premi di nuovo 🔔."); return; }
+  if (!pushOk()) { cqToast('🔕 Questo browser non può ricevere gli avvisi.'); return; }
+  let p = Notification.permission; if (p !== 'granted') p = await Notification.requestPermission();
+  if (p !== 'granted') { cqToast('🔕 Permesso negato. Si può dare dalle impostazioni del browser: Notifiche → Consenti.'); return; }
+  let ok = false; try { ok = await pushSub(true); } catch (e) { console.warn('avvisi:', e); }
+  cqToast(ok ? '🔔 Fatto! Quando un amico apre un set compare la campanella.' : '🔕 Non riesco ad attivare gli avvisi: riprova tra poco.');
+  cqNetBox();
+}
+// avviso dello sviluppatore a tutti gli iscritti ({nome} = nome di chi lo riceve)
+async function pushSend() {
+  const title = prompt("Titolo dell'avviso ({nome} = nome dell'amico)", '🎮 Hey {nome}!'); if (!title) return;
+  const body = prompt("Testo dell'avviso", "Sono arrivati nuovi minigiochi nell'Hotel dei Giochi!"); if (body == null) return;
+  const loud = confirm('Con il suono? (OK = suona, Annulla = silenzioso)');
+  const pass = prompt('Codice sviluppatore'); if (!pass) return;
+  const r = await pushPost('/msg', { pass: pass.trim(), title, body, loud });
+  alert(!r ? 'Il postino non risponde: riprova.' : r.ok ? 'Mandato a ' + r.mandati + ' telefoni su ' + r.iscritti + ' iscritti.' : r.codice ? 'Codice sbagliato.' : 'Non è andato: riprova.');
+}
+if (pushOn()) setTimeout(() => pushSub(false).catch(() => {}), 4000);
+
 // quanto resta sul sito: la visita (voce 'sito') ha u = ultima volta che c'era (ogni minuto mentre la pagina si vede) e x = ora di USCITA
 // (pagina in sottofondo o chiusa; se cade la connessione la scrive il server). x c'e' = uscito; tornando entro 3 minuti x si toglie
 // (stessa visita), dopo 3 minuti = visita nuova. Senza x ma con u vecchio di 2,5 min = telefono spento di colpo: uscito all'ora di u
@@ -1731,9 +1777,10 @@ async function dlShow() {
     const stay = r.e !== 'sito' ? '' : !r.u ? '<div class="hint" style="font-size:12px">uscita non registrata</div>' : `<div style="font-size:13px;margin-top:2px">🕐 entrata ${hm(r.t)} · ${live ? '<b style="color:#3fb96b">ancora dentro</b>' : 'uscita ' + hm(out)} · <b>${dlDur((live ? Date.now() : out) - r.t)}</b></div>`;
     h += `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${hm(r.t)}</b> &nbsp;<b>${esc(r.n)}</b> — ${DL_EV[r.e] || esc(r.e)}${gm}${st}${stay}<div class="hint" style="font-size:12px">${esc(r.d || '')}</div></div>`;
   }
-  h += '<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="dlDel" style="color:#ff8a7a">🗑️ Cancella tutta la lista</button><button class="btn" type="button" id="dlOff">Nascondi il pulsante su questo telefono</button></div>';
+  h += '<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="dlPush">📣 Manda un avviso a tutti</button><button class="btn" type="button" id="dlDel" style="color:#ff8a7a">🗑️ Cancella tutta la lista</button><button class="btn" type="button" id="dlOff">Nascondi il pulsante su questo telefono</button></div>';
   $('#dlBody').innerHTML = h;
   $('#dlDel').onclick = async () => { if (!confirm('Cancellare tutta la lista degli accessi?')) return; try { const F = await hubLoad(); await F.remove(F.ref(F.db, 'dl/' + DL_K)); } catch {} dlShow(); };
+  $('#dlPush').onclick = pushSend;
   $('#dlOff').onclick = () => { try { localStorage.removeItem('devOn'); } catch {} dlBtn(); w.hidden = true; };
 }
 function hubLive() {
@@ -2869,6 +2916,7 @@ function cqNetKill(code) {
   F.set(ref('cqlist/' + code), { h: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', ts: Date.now(), o: -1 }).catch(() => {});
   F.remove(ref('cq/' + code)).catch(() => {});
   setTimeout(() => F.remove(ref('cqlist/' + code)).catch(() => {}), 2500);
+  setTimeout(pushKick, 3500);
   store.settings.mySets = (store.settings.mySets || []).filter(k => k !== code); saveStore();
   if (cq.sets) delete cq.sets[code];
 }
@@ -2897,9 +2945,11 @@ function cqNetBox() {
   const old = Object.keys(cq.sets || {}).filter(k => mine.includes(k) && !sets.some(([x]) => x === k));   // set miei rimasti aperti
   for (const [k] of sets) if (mine.includes(k)) old.push(k);
   box.innerHTML = `<div class="netBox"><b>🎬 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">Crea un set</button>`
+    + (pushOk() || pushIOS() ? `<button class="btn" id="netBell" type="button" style="font-size:13px">${pushOn() ? '🔔 Avvisi accesi (tocca per spegnere)' : '🔕 Avvisami quando un amico apre un set'}</button>` : '')
     + (sets.length ? '<div class="hint">Set aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>Set di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun set aperto dagli amici in questo momento.</div>')
     + (old.length ? `<div class="hint">Set creati da te e rimasti aperti:</div>` + [...new Set(old)].map(k => `<div class="netRow"><span>Il tuo set (${esc(k)})</span><button class="btn" type="button" data-kill="${esc(k)}">🗑️ Elimina</button></div>`).join('') : '') + '</div>';
-  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); devLog('set', '', code); cqToast('🏨 Set aperto! Scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
+  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); devLog('set', '', code); setTimeout(pushKick, 1500); cqToast('🏨 Set aperto! Scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
+  if ($('#netBell')) $('#netBell').onclick = pushToggle;
   box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => cqNetJoin(b.dataset.join); });
   box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Set eliminato.'); }; });
 }

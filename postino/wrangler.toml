@@ -1,0 +1,17 @@
+name = "hotel-postino"
+main = "worker.js"
+compatibility_date = "2025-01-01"
+workers_dev = true
+
+[triggers]
+crons = ["* * * * *"]
+
+[[kv_namespaces]]
+binding = "KV"
+id = "a6c7523ea47e464a90cf903ddac8ea8e"
+
+[vars]
+VAPID_PUB = "BE6wUmeLgbXUiBTKfacmmP9Im9bjfXdrfSgCPvOBAc9xjeR3PJfh9IkuiZmqm-niMpJtgswxMuMYUbHwATP7MYY"
+DEV_H = "c62109b74535df315edfe9f5d190eee2ba6171fd42773eab4feedcd34797e5c8"
+FB = "https://linee-quadrettini-rh-f9552-default-rtdb.europe-west1.firebasedatabase.app"
+SITE = "https://tomelleridavide3d-prog.github.io/punti-e-linee/"

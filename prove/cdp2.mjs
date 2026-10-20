@@ -13,8 +13,10 @@ let id = 0; const pend = {}; ws.onmessage = e => { const m = JSON.parse(e.data);
 const send = (method, params = {}, sessionId) => new Promise(r => { pend[++id] = r; ws.send(JSON.stringify({ id, method, params, sessionId })); });
 const pages = [];
 for (let i = 0; i < NP; i++) {
-  const ctx = (await send('Target.createBrowserContext')).result.browserContextId;
-  const tid = (await send('Target.createTarget', { url: 'about:blank', browserContextId: ctx })).result.targetId;
+  // MOD.plain0: la pagina 0 nel profilo normale (in incognito gli avvisi push non si possono attivare)
+  const ctx = i === 0 && MOD.plain0 ? undefined : (await send('Target.createBrowserContext')).result.browserContextId;
+  await send('Browser.grantPermissions', Object.assign({ permissions: ['notifications'] }, ctx ? { browserContextId: ctx } : {}));
+  const tid = (await send('Target.createTarget', Object.assign({ url: 'about:blank' }, ctx ? { browserContextId: ctx } : {}))).result.targetId;
   const sid = (await send('Target.attachToTarget', { targetId: tid, flatten: true })).result.sessionId;
   await send('Emulation.setDeviceMetricsOverride', { width: 412, height: 860, deviceScaleFactor: 2, mobile: true }, sid);
   await send('Page.enable', {}, sid); await send('Page.navigate', { url: `http://127.0.0.1:${port}/` }, sid);
