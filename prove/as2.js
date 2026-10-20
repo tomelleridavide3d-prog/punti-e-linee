@@ -1,4 +1,4 @@
-// Assedio: una sola foto con piu' inquadrature del castello (giorno, tramonto, notte, scala appoggiata, mira). uso: node prove/cdpimg.mjs . prove/as2.js foto.jpg
+// Assedio: una sola foto con piu' inquadrature (borgo, ariete al portone con l'olio, cortile conteso, sala del trono, case, accampamento, notte). uso: node prove/cdpimg.mjs . prove/as2.js foto.jpg
 (async () => {
   const w = ms => new Promise(r => setTimeout(r, ms));
   store.settings.myName = 'zzAsProva'; saveStore();
@@ -9,24 +9,35 @@
   await w(300); openCiack(); $('#pkGo').click(); await w(500);
   document.querySelector('#tkBody [data-g=assedio]').click(); await w(2500);
   $('#lbGo').click(); await w(2500);
-  const G = cq.g; G.pre = 0; cq.on = false; cancelAnimationFrame(cq.raf); await w(100);
-  // una scala appoggiata al muro est, un attaccante che sale, uno sul camminamento, un difensore che tira
-  const A = G.chars.filter(c => c.t === G.a0), D = G.chars.filter(c => c.t !== G.a0);
-  const M = CQ_MAP, si = M.spots.findIndex(S => S.w === 'E' && S.fy === 20); G.ld[0].st = 2; G.ld[0].s = si; G.ld[0].pt = 0;
-  const S = M.spots[si]; Object.assign(A[1], { x: S.ax, y: S.ay, cl: { s: si, d: 1, t0: G.time - 0.9, T: 1.5 }, path: [] });
-  Object.assign(A[2], { x: 34.5, y: 23.5, path: [] }); Object.assign(D[0], { x: 33.5, y: 18.5, path: [], hp: 2 }); Object.assign(D[1], { x: 22.5, y: 33.6, path: [], hp: 1 });
-  Object.assign(A[3], { x: 41.5, y: 21.5, path: [] }); G.ld[1].st = 1; G.ld[1].c = A[3].id;
+  const G = cq.g, AS = window.__as; G.pre = 0; cq.on = false; cancelAnimationFrame(cq.raf); await w(100);
   for (const c of G.chars) if (c !== G.me) c.bot = true;
-  window.__as.syncLd(G);
-  const V = window.__V || [[38, 22, 'd'], [22, 40, 'd'], [53, 52, 'd'], [18, 22, 'd'], [28, 28, 'd'], [38, 22, 's'], [22, 40, 'n'], [34.5, 21.5, 'n'], [53, 52, 'n']];
-  const cv = document.getElementById('cqCanvas') || document.querySelector('#ciack canvas'), cw = 412, ch = 860, cols = 3, rows = Math.ceil(V.length / cols);
-  const out = document.createElement('canvas'); out.width = cw * cols; out.height = ch * rows; const o = out.getContext('2d');
+  const A = G.chars.filter(c => c.t === G.a0 && c !== G.me), D = G.chars.filter(c => c.t !== G.a0 && c !== G.me);
+  const put = (c, x, y, o) => Object.assign(c, { x, y, path: [], cl: null, pu: null }, o || {});
+  const cv = document.getElementById('cqCanvas') || document.querySelector('#ciack canvas'), cw = 412, ch = 860, cols = 3;
+  const V = [];
+  // 1) borgo: l'ariete sulla strada, attaccanti dietro, difensori sulle mura
+  V.push(() => { G.lit = 'd'; G.ph = 1; G.rm.y = 62; G.rm.n = 2; put(A[0], 29, 64); put(A[1], 30.2, 64.2); put(A[2], 24.5, 57.5); put(D[0], 20.5, 49.5); put(D[1], 37.5, 50.5); return [29.5, 60]; });
+  // 2) portone: ariete che colpisce, olio bollente
+  V.push(() => { G.rm.y = 53.4; G.rm.hit = G.time - 0.05; G.gh = 50; G.burn = { t0: G.time - 0.3, e: G.time + 2, hit: [] }; put(A[0], 29, 55); put(A[1], 30.3, 55.2); put(D[0], 26.5, 51.5); return [29.5, 51]; });
+  // 3) case del borgo e piazza del mercato
+  V.push(() => { G.burn = null; G.gh = 130; G.rm.y = 78.5; return [14, 63]; });
+  // 4) accampamento
+  V.push(() => [30, 78]);
+  // 5) cortile conteso
+  V.push(() => { G.ph = 2; G.gopen = true; G.zp = 0.45; G.za = 2; G.zd = 1; put(A[0], 28.5, 34.5); put(A[1], 31, 31); put(D[0], 30.5, 35.5); put(D[1], 26, 36); G.annQ = [{ t: '⚔️ IL CORTILE È CONTESO!', sub: 'Cacciateli dalla zona!', col: '#6a2a6a', t0: performance.now() - 500 }]; return [29.5, 34]; });
+  // 6) stalle e forgia
+  V.push(() => { G.annQ = []; return [14, 26]; });
+  // 7) sala del trono
+  V.push(() => { G.ph = 3; G.zp = 0.3; G.za = 1; G.zd = 0; put(A[0], 29.5, 9); put(D[0], 25, 12); return [29.5, 11]; });
+  // 8) notte: il portone con le torce
+  V.push(() => { G.lit = 'n'; G.ph = 1; G.gopen = false; G.gh = 130; G.rm.y = 56; put(A[0], 29, 58); put(D[0], 20.5, 49.5); return [29.5, 54]; });
+  // 9) notte nel borgo
+  V.push(() => [22, 66]);
+  const out = document.createElement('canvas'); out.width = cw * cols; out.height = ch * Math.ceil(V.length / cols); const o = out.getContext('2d');
   for (let i = 0; i < V.length; i++) {
-    const [x, y, lit] = V[i]; G.lit = lit; cq.x = x; cq.y = y; G.me.x = x; G.me.y = y; G.me.t = i === 4 ? G.a0 : G.me.t; G.M.local(G, 0.016); G.zn = null;
-    G.aim = i === 0 ? { ok: true, x: 33.5, y: 18.5, d: 6, tg: true } : null;
-    if (i === 0) window.__as.mkArrow(G, A[3], 34.5, 16.5); G.time += 0.25;
+    const [x, y] = V[i](); cq.x = x; cq.y = y; G.me.x = x; G.me.y = y; AS.syncMap(G); G.M.local(G, 0.016); G.zn = null; G.time += 0.02;
     cqHudFast(); cqDraw(); o.drawImage(cv, (i % cols) * cw, Math.floor(i / cols) * ch, cw, ch);
-    o.fillStyle = '#ff0'; o.font = '700 16px system-ui'; o.fillText((i + 1) + ') ' + x + ',' + y + ' ' + lit, (i % cols) * cw + 8, Math.floor(i / cols) * ch + 20);
+    o.fillStyle = '#ff0'; o.font = '700 16px system-ui'; o.fillText((i + 1) + ') ' + x + ',' + y + ' ' + G.lit, (i % cols) * cw + 8, Math.floor(i / cols) * ch + 20);
   }
   return { img: out.toDataURL('image/jpeg', 0.8), out: 'ok ' + V.length + ' errori: ' + (localStorage.getItem('errLog') || '').slice(0, 400) };
 })()

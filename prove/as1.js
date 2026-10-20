@@ -1,4 +1,4 @@
-// Assedio al castello: 1) mappa fissa (fuori e dentro raggiungibili, scale, posti delle scale), 2) partite simulate col computer (anche "io").
+// Assedio al castello: 1) mappa a zone (tutto raggiungibile a porte aperte, scale, argano, olio, zone, strada dell'ariete), 2) partite simulate col computer.
 // uso: node prove/cdp.mjs . prove/as1.js   (window.__N = quante partite, default 3; window.__NC = personaggi)
 (async () => {
   const w = ms => new Promise(r => setTimeout(r, ms)), out = [];
@@ -9,43 +9,45 @@
   await w(300); openCiack(); $('#pkGo').click(); await w(500);
   const card = document.querySelector('#tkBody [data-g=assedio]'); if (!card) return 'manca la carta del gioco';
   card.click(); await w(2500);
-  out.push('impostazioni: ' + $('#tkBody').textContent.includes('Durata di un tempo') + ' / come si gioca: ' + $('#tkBody').textContent.includes('Come si gioca'));
+  out.push('impostazioni: ' + $('#tkBody').textContent.includes('Tempo dell') + ' / come si gioca: ' + $('#tkBody').textContent.includes('Come si gioca'));
   cq.mapDirty = true; cqUseMap('castello'); const M = CQ_MAP, W = M.w, H = M.h, A = window.__as;
-  const flood = (sx, sy) => { const seen = new Uint8Array(W * H), q = [[sx, sy]]; seen[sy * W + sx] = 1; while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (cqCellFree(nx, ny) && !seen[ny * W + nx] && Math.abs(cqHc(nx, ny) - cqHc(x, y)) <= 1) { seen[ny * W + nx] = 1; q.push([nx, ny]); } } } return seen; };
-  const out0 = flood(53, 53), in0 = flood(23, 23);
-  let fo = 0, fi = 0, isl = [];
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (cqCellFree(x, y)) { const o = out0[y * W + x], i = in0[y * W + x]; if (o) fo++; if (i) fi++; if (o && i) isl.push('fuori e dentro insieme ' + x + ',' + y); if (!o && !i) isl.push(x + ',' + y); }
-  out.push('caselle fuori ' + fo + ', dentro ' + fi + (isl.length ? ' | NON RAGGIUNGIBILI: ' + isl.slice(0, 30).join(' ') + (isl.length > 30 ? ' …' + isl.length : '') : ' | tutto raggiungibile'));
-  const bad = [];
-  M.spots.forEach((S, i) => { const ok = cqCellFree(S.fx, S.fy) && cqCellFree(Math.floor(S.ax), Math.floor(S.ay)); if (!ok) return; if (!out0[Math.floor(S.ay) * W + Math.floor(S.ax)]) bad.push('piede scala ' + i); if (!in0[Math.floor(S.ty) * W + Math.floor(S.tx)]) bad.push('cima scala ' + i); });
-  out.push('posti per le scale: ' + M.spots.filter(S => cqCellFree(S.fx, S.fy) && cqCellFree(Math.floor(S.ax), Math.floor(S.ay))).length + '/' + M.spots.length);
-  if (!in0[18 * W + 16]) bad.push('bandiera non raggiungibile'); if (!out0[50 * W + 51]) bad.push('rastrelliera'); if (!out0[53 * W + 53]) bad.push('accampamento');
+  const free = (x, y) => { const s = cqSolid[y] && cqSolid[y][x]; return !!(cqFloor[y] && cqFloor[y][x]) && (!s || ['aGate', 'aKdoor', 'aIdoor'].includes(s.prop)); };
+  const flood = (sx, sy) => { const seen = new Uint8Array(W * H), q = [[sx, sy]]; seen[sy * W + sx] = 1; while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (nx >= 0 && ny >= 0 && nx < W && ny < H && free(nx, ny) && !seen[ny * W + nx] && Math.abs(cqHc(nx, ny) - cqHc(x, y)) <= 1) { seen[ny * W + nx] = 1; q.push([nx, ny]); } } } return seen; };
+  const all = flood(29, 80);
+  let n = 0, isl = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (free(x, y)) { n++; if (!all[y * W + x]) isl.push(x + ',' + y); }
+  out.push('caselle libere ' + n + (isl.length ? ' | NON RAGGIUNGIBILI: ' + isl.slice(0, 40).join(' ') + (isl.length > 40 ? ' …' + isl.length : '') : ' | tutto raggiungibile (a porte aperte)'));
+  const bad = [], ok = (x, y, k) => { if (!all[Math.floor(y) * W + Math.floor(x)] || !cqCellFree(Math.floor(x), Math.floor(y))) bad.push(k + ' ' + x + ',' + y); };
+  M.spots.forEach((S, i) => { if (!cqCellFree(S.fx, S.fy)) bad.push('piede scala ' + i); ok(S.ax, S.ay, 'partenza scala'); ok(S.tx, S.ty, 'cima scala'); });
+  ok(A.RK.x + 0.5, A.RK.y + 1.5, 'rastrelliera'); ok(A.LEV.x - 0.5, A.LEV.y + 0.5, 'argano'); ok(26.5, 51.5, 'olio ovest'); ok(33.5, 51.5, 'olio est');
+  ok(A.Z2.x, A.Z2.y + 1.5, 'zona cortile'); ok(A.Z3.x, A.Z3.y + 1, 'zona trono');
+  for (const [x, y] of [[29.5, 80.5], [29.5, 59.5], [29.5, 44.5], [29.5, 42.5], [13.5, 13.5], [45.5, 13.5]]) ok(x, y, 'ricomparsa');
+  for (let y = 52; y <= 80; y++) for (const x of [28, 29, 30, 31]) if (!cqCellFree(x, y)) bad.push('strada ariete ' + x + ',' + y);
   out.push('problemi mappa: ' + (bad.length ? bad.join(' | ') : 'nessuno'));
   { const t0 = performance.now(); cq.bg = null; cqBuildBg(); out.push('mappa pronta in ' + Math.round(performance.now() - t0) + ' ms, tessere ' + cq.bg.tiles.length); }
   // ---- partite col computer ----
   const N = +(window.__N || 4);
-  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.assedio = Object.assign({}, store.settings.cqModeOpt.assedio || {}, { n: +(window.__NC || 8), time: +(window.__T || 240), lit: window.__LIT || 'r' }); saveStore();
+  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.assedio = Object.assign({}, store.settings.cqModeOpt.assedio || {}, { n: +(window.__NC || 8), time: +(window.__T || 240), lit: window.__LIT || 'r', map: 'castello' }); saveStore();
   $('#cqTask').hidden = true; cqLobby(); await w(500);
   for (let k = 0; k < N; k++) {
     if (k) { $('#enNew').click(); await w(300); }
     $('#lbGo').click(); await w(1800);
     const G = cq.g;
     if (k === 0) out.push('partita: ' + G.chars.map(c => c.name + '(' + c.t + (c.role ? ' ' + c.role : '') + ')').join(' ') + ' | luce ' + G.lit + ' | ' + $('#cqCount').textContent + ' | barra: ' + $('#cqModeBar').textContent);
-    G.me.bot = true; G.me.think = 0; G.me.path = []; G.me.look = cqLook(); G.me.role = G.me.t === G.a0 ? 'run' : 'wal';
+    G.me.bot = true; G.me.think = 0; G.me.path = []; G.me.look = cqLook(); G.me.role = G.me.t === G.a0 ? 'ram' : 'wal';
     cq.on = false; cancelAnimationFrame(cq.raf);
-    const ev = {}; window.cqToast = h => { h = String(h); for (const [k2, re] of [['scale', /Scala appoggiata|scala sulle mura/], ['rovesciate', /rovesciat/], ['bandiera presa', /preso la bandiera|Hai la bandiera|rubato la bandiera/], ['conquista', /conquistato/], ['mura', /sulle mura!/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
-    let t1 = performance.now(), wallHit = 0, maxAr = 0, half2 = 0, stuck = 0;
-    const last = {};
-    for (let i = 0; i < 20 * 700 && G.phase === 'play'; i++) {
+    const ev = {}, tl = []; window.cqToast = () => {};
+    let t1 = performance.now(), wallHit = 0, stuck = 0, lastPh = 1, lastH = 1; const last = {};
+    for (let i = 0; i < 20 * 900 && G.phase === 'play'; i++) {
       cqModeTick(0.05); cq.x = G.me.x; cq.y = G.me.y; G.M.local(G, 0.05);
-      if (G.me.bot && G.me.path && G.me.path.length) { }
-      maxAr = Math.max(maxAr, G.ar.length); if (G.half === 2) half2++;
+      if (G.ph !== lastPh || G.half !== lastH) { tl.push('t' + G.half + ' ' + Math.round(G.time - G.hs) + 's→fase ' + G.ph); lastPh = G.ph; lastH = G.half; }
+      for (const e of G.lg) if (!e.seenT) { e.seenT = 1; ev[e.k] = (ev[e.k] || 0) + 1; }
       if (i % 100 === 0) { for (const c of G.chars) { if (!cqFree(c.x, c.y) && !c.cl) { wallHit++; (window.__WH = window.__WH || []).push(c.name + '@' + c.x.toFixed(1) + ',' + c.y.toFixed(1)); }
         const key = c.x.toFixed(1) + ',' + c.y.toFixed(1); if (last[c.id] === key && c.path && c.path.length && !c.cl && !c.pu && !(c.dn > G.time)) stuck++; last[c.id] = key; } }
       if (i % 400 === 0) { cqHudFast(); cqDraw(); }
     }
-    const res = G.endInfo ? G.endInfo.t + ' — ' + G.endInfo.why.replace(/<[^>]+>/g, '').slice(0, 220) : 'NON FINITA (tempo ' + Math.round(G.time) + ', tempo n. ' + G.half + ')';
-    out.push('partita ' + (k + 1) + ': ' + res + ' | durata ' + Math.round(G.time) + ' s | eventi ' + JSON.stringify(ev) + ' | abbattuti ' + G.chars.reduce((s, c) => s + (c.k || 0), 0) + ', frecce ' + G.chars.reduce((s, c) => s + (c.sh || 0), 0) + ', salite ' + G.chars.reduce((s, c) => s + (c.up || 0), 0) + ' | nei muri ' + wallHit + ', fermi ' + stuck + ' | frecce max ' + maxAr + ' | bandiera piu vicina ' + JSON.stringify(G.fBest.map(v => Math.round(v))) + ' salti ' + G.chars.reduce((s, c) => s + (c.jN || 0), 0) + ' | ' + Math.round((performance.now() - t1) / Math.max(1, G.time * 20) * 100) / 100 + ' ms a giro');
+    const res = G.endInfo ? G.endInfo.t + ' — ' + G.endInfo.why.replace(/<[^>]+>/g, '').replace(/😂.*/, '').slice(0, 200) : 'NON FINITA (tempo ' + Math.round(G.time) + ')';
+    out.push('partita ' + (k + 1) + ': ' + res + ' | durata ' + Math.round(G.time) + ' s | ' + tl.join(', ') + ' | eventi ' + JSON.stringify(Object.fromEntries(Object.entries(ev).filter(([k2]) => k2 !== 'ram'))) + ' colpi ariete ' + (ev.ram || 0) + ' | frecce att ' + G.chars.filter(c => c.t === G.a0).reduce((s, c) => s + (c.sh || 0), 0) + ' dif ' + G.chars.filter(c => c.t !== G.a0).reduce((s, c) => s + (c.sh || 0), 0) + ' abbattuti ' + G.chars.reduce((s, c) => s + (c.k || 0), 0) + ' | nei muri ' + wallHit + ', fermi ' + stuck + ' | ' + Math.round((performance.now() - t1) / Math.max(1, G.time * 20) * 100) / 100 + ' ms a giro');
   }
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   if (window.__WH) out.push('nei muri: ' + window.__WH.slice(0, 10).join(' '));
