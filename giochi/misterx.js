@@ -437,7 +437,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   CQ_MAPS.citta = { n: 'Città di notte', make: mapCity, seeded: true, only: 'misterx' };
 
   // ======================= MISTER X (personaggio disegnato apposta) =======================
-  // cappello nero a tesa larga, impermeabile lungo con il bavero alzato e la cintura, sciarpa rossa, maschera nera sugli occhi, guanti; sacco del bottino
+  // cappello nero a tesa larga, impermeabile lungo con il bavero alzato e la cintura, sciarpa rossa tirata sul naso, occhi sospettosi sotto la tesa, guanti; sacco del bottino
   function mrx(g, X, Y, TW, walk, f, bag) {
     const u = TW / 34 * 1.05, bob = Math.abs(Math.sin(walk)) * 2.2 * u, sw = Math.sin(walk) * 4;
     g.fillStyle = 'rgba(0,0,0,.32)'; g.beginPath(); g.ellipse(X, Y, 13 * u, 5.5 * u, 0, 0, 7); g.fill();
@@ -459,15 +459,19 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
     // bavero alzato e sciarpa rossa
     g.fillStyle = COAT2; g.beginPath(); g.moveTo(-9, -44); g.lineTo(-6, -53); g.lineTo(-2, -44); g.fill(); g.beginPath(); g.moveTo(9, -44); g.lineTo(6, -53); g.lineTo(2, -44); g.fill();
     ell(0, -45, 6.5, 2.6, '#b02a2a'); ln(f * -3, -45, f * -5, -36, '#b02a2a', 3);
-    // testa con la maschera
-    ell(f * 0.8, -51, 6, 6.5, '#e2c2a0');
-    g.fillStyle = '#111'; g.beginPath(); g.moveTo(-6.5 + f * 0.8, -53.5); g.quadraticCurveTo(f * 0.8, -56, 6.5 + f * 0.8, -53.5); g.lineTo(6.2 + f * 0.8, -50); g.quadraticCurveTo(f * 0.8, -48.5, -6.2 + f * 0.8, -50); g.closePath(); g.fill();
-    ell(f * 0.8 - 2.6 + f * 1.2, -52, 1.5, 1.1, '#f4f4f4'); ell(f * 0.8 + 2.6 + f * 1.2, -52, 1.5, 1.1, '#f4f4f4');
-    ell(f * 0.8 - 2.6 + f * 1.6, -52, 0.6, 0.6, '#111'); ell(f * 0.8 + 2.6 + f * 1.6, -52, 0.6, 0.6, '#111');
-    g.strokeStyle = '#6a3a2a'; g.lineWidth = 1; g.beginPath(); g.moveTo(f * 0.8 - 2, -46.6); g.quadraticCurveTo(f * 0.8 + f * 1.5, -45.2, f * 0.8 + 2.5, -47); g.stroke();   // sorrisetto
-    // cappello: tesa larga e cupola con la fascia
-    ell(f * 0.8, -56.5, 12, 3.4, '#141416'); g.fillStyle = '#1c1c20'; g.beginPath(); g.moveTo(-6.5 + f * 0.8, -56.5); g.lineTo(-5.5 + f * 0.8, -65); g.quadraticCurveTo(f * 0.8, -67.5, 5.5 + f * 0.8, -65); g.lineTo(6.5 + f * 0.8, -56.5); g.closePath(); g.fill();
-    g.fillStyle = '#7a1e1e'; g.fillRect(-6.5 + f * 0.8, -59.5, 13, 2.6);
+    // testa: cappello calato sugli occhi, sopracciglia aggrottate, occhi a fessura che guardano di lato (ogni tanto si voltano indietro), sciarpa tirata sul naso
+    const hx = f * 0.8, gl = Math.sin(performance.now() / 650 + X * 0.07) > 0.45 ? -f : f;
+    ell(hx, -51, 6, 6.5, '#d8b694');
+    ell(hx, -53.6, 6, 2.4, 'rgba(20,14,10,.38)');
+    ell(hx - 2.4 + f * 1.2, -51.9, 1.75, 0.62, '#ece6d8'); ell(hx + 2.4 + f * 1.2, -51.9, 1.75, 0.62, '#ece6d8');
+    ell(hx - 2.4 + f * 1.2 + gl * 0.9, -51.9, 0.62, 0.55, '#111'); ell(hx + 2.4 + f * 1.2 + gl * 0.9, -51.9, 0.62, 0.55, '#111');
+    ln(hx - 4.6 + f * 1.2, -54.3, hx - 0.9 + f * 1.2, -53, '#2a1a12', 1.4); ln(hx + 0.9 + f * 1.2, -53, hx + 4.6 + f * 1.2, -54.3, '#2a1a12', 1.4);
+    ell(hx, -46.6, 6.6, 3.2, '#b02a2a'); ln(hx - 5, -47.6, hx + 5, -47.2, '#8a1e1e', 1);
+    // cappello: tesa larga calata e un po' storta, cupola con la fascia
+    g.save(); g.translate(hx, -55.6); g.rotate(f * 0.1);
+    ell(0, 0, 12.5, 3.4, '#141416'); g.fillStyle = '#1c1c20'; g.beginPath(); g.moveTo(-6.5, 0); g.lineTo(-5.5, -8.5); g.quadraticCurveTo(0, -11, 5.5, -8.5); g.lineTo(6.5, 0); g.closePath(); g.fill();
+    g.fillStyle = '#7a1e1e'; g.fillRect(-6.5, -3, 13, 2.6);
+    g.restore();
     g.restore();
   }
   const mrxTop = 2.15;
