@@ -62,7 +62,7 @@ export default {
         const state = (await env.KV.get('state', 'json')) || {}, name = sub ? sub.n : '';
         const sets = Object.keys(state).filter(k => lc(state[k]) !== lc(name)).map(k => ({ c: k, h: state[k] }));
         let msg = null; const m = await env.KV.get('msg', 'json');
-        if (m && sub && (sub.seen || 0) < m.id && Date.now() - m.t < 3 * 86400000) {
+        if (m && sub && (!m.zz || /^zz/i.test(sub.n)) && (sub.seen || 0) < m.id && Date.now() - m.t < 3 * 86400000) {
           msg = { id: m.id, title: m.title.split('{nome}').join(name || 'amico'), body: m.body.split('{nome}').join(name || 'amico'), loud: !!m.loud };
           sub.seen = m.id; await env.KV.put('sub:' + id, JSON.stringify(sub));
         }
@@ -85,9 +85,10 @@ export default {
       if (p === '/msg') {
         if ((await sha(clean(b.pass, 100))) !== env.DEV_H) return J({ ok: false, codice: 'sbagliato' }, 403);
         const title = clean(b.title, 80), body = clean(b.body, 300); if (!title) return J({ ok: false }, 400);
-        const m = { id: Date.now(), t: Date.now(), title, body, loud: !!b.loud }; await env.KV.put('msg', JSON.stringify(m));
+        // zz: avviso di PROVA, solo ai telefoni di prova (nome che inizia con zz): gli amici veri non lo ricevono mai
+        const zz = !!b.zz, m = { id: Date.now(), t: Date.now(), title, body, loud: !!b.loud, zz }; await env.KV.put('msg', JSON.stringify(m));
         const ids = await getIds(env); let ok = 0;
-        await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (sub && (await push(env, id, sub, 86400, true)) < 300) ok++; }));
+        await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (sub && (!zz || /^zz/i.test(sub.n)) && (await push(env, id, sub, 86400, true)) < 300) ok++; }));
         return J({ ok: true, mandati: ok, iscritti: ids.length });
       }
       return J({ ok: false }, 404);

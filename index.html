@@ -5927,10 +5927,10 @@ function instShow() {
   if (!WEB || instDone() || store.settings.instOk || (store.settings.instNo || 0) > Date.now() || (!instEv && !ios && !ff && !andr)) { b.hidden = true; return; }
   const txt = instEv ? "📲 <b>Metti il gioco sulla home</b>: avrai l'icona e si apre con un tocco, come un'app."
     : ios ? '📲 <b>Metti il gioco sulla home</b>: tocca <b>Condividi</b> (il quadrato con la freccia ↑), poi <b>Aggiungi alla schermata Home</b>.'
-    : ff ? '📲 <b>Metti il gioco sulla home</b>: tocca il menu <b>⋮</b> del browser, poi <b>Installa</b> (o "Aggiungi a schermata Home").'
+    : ff ? '📲 <b>Metti il gioco sulla home</b>: in Firefox tocca il menu <b>⋮</b>, poi <b>Aggiungi app alla schermata Home</b> (o "Installa"). Oppure tocca <b>Apri in Chrome</b> qui sotto e lì premi <b>Installa</b>.'
     : '📲 <b>Metti il gioco sulla home</b>: se l’hai aperto da <b>WhatsApp</b>, tocca qui sotto <b>Apri in Chrome</b>. Poi in Chrome tocca il menu <b>⋮</b> → <b>Installa app</b> (o "Aggiungi a schermata Home").';
-  const chrome = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;end';
-  b.innerHTML = txt + '<div class="ib">' + (instEv ? '<button class="btn primary" type="button" id="instGo">📲 Installa</button>' : !ios && !ff ? '<a class="btn primary" id="instCh" href="' + chrome + '">🌐 Apri in Chrome</a>' : '') + '<button class="btn" type="button" id="instNo">' + (instEv ? 'Non ora' : 'Ok, chiudi') + '</button></div>';
+  const chrome = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(location.href) + ';end';
+  b.innerHTML = txt + '<div class="ib">' + (instEv ? '<button class="btn primary" type="button" id="instGo">📲 Installa</button>' : !ios ? '<a class="btn primary" id="instCh" href="' + chrome + '">🌐 Apri in Chrome</a>' : '') + '<button class="btn" type="button" id="instNo">' + (instEv ? 'Non ora' : 'Ok, chiudi') + '</button></div>';
   b.hidden = false;
   if ($('#instGo')) $('#instGo').onclick = async () => {
     const e = instEv; if (!e) return; instEv = null;
