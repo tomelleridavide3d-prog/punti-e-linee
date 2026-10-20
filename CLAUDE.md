@@ -306,6 +306,15 @@ Ordine: 1 centro giochi + motore; 2 Infezione + Bomba; 3 Mostro della notte; 4 R
   - PERQUISIZIONI: le guardie frugano le celle; la refurtiva nascosta male si perde.
   - SPIA facoltativa tra i detenuti (ruolo nascosto che avvisa le guardie) da decidere.
 - DOMANDE DA FARE (a scelta multipla): 1) durata e quante notti (una notte lunga ~6 min / 2 giorni ~8 min / 3); 2) vie di fuga (quali, una sola a partita o tutte aperte); 3) spia (no / opzione / sempre); 4) chi viene preso (isolamento a tempo / cella + compagni che liberano come nel Colpo / fuori); 5) mappa (fissa disegnata a mano o col seme); 6) solo cooperativo o anche "chi scappa per primo" (gara).
+- DECISIONI DELL'UTENTE (20-10-2026, apertura sessione "Minigioco Evasione", a scelta multipla). Cuore: IL SEGRETO IN TASCA (di giorno a vista si ruba, all'appello e nelle perquisizioni si rischia di perderlo; di notte si usa).
+  - DURATA: 2 giorni + 2 notti (~8 min); la seconda notte e' l'ultima occasione.
+  - VIE DI FUGA: TUTTE APERTE con rischi diversi: TUNNEL (lento, un pezzo per notte, terra da nascondere), DIVISA DA GUARDIA (veloce, rischiosa, una persona alla volta), CAMION DELLA LAVANDERIA (a orario preciso). La squadra sceglie, anche dividendosi.
+  - SPIA: opzione nelle impostazioni, SPENTA di base (segnala nascondigli/vie alle guardie).
+  - PRESI: ISOLAMENTO A TEMPO (40-60 s), perde cio' che ha in tasca, guardie piu' attente; poi torna in gioco.
+  - MAPPA: carcere FISSO disegnato bene (blocco celle, mensa, cortile con torrette e riflettori, lavanderia, officina, infermeria, ufficio del direttore, muro di cinta); a caso oggetti, ronde, orario del camion, celle.
+  - APPELLO: due al giorno (mattina e sera, campana, ~20 s per arrivare al posto in cortile; chi manca = allerta) + controllo notturno delle celle con la torcia: il FANTOCCIO nel letto inganna se il secondino non si avvicina troppo.
+  - REFURTIVA: in tasca 1-2 cose, il resto nei NASCONDIGLI (materasso, piastrella, poster, cortile); PERQUISIZIONI di 1-2 celle al giorno con breve avviso; trovato = perso + cella sorvegliata.
+  - VITTORIA: coop, DEVONO SCAPPARE TUTTI (vivi, non in isolamento alla fine) entro la seconda notte; frasi di fine partita con parolacce come Minotauro, classifica di chi e' scappato e come. Attenzione: con i posti riempiti dal computer anche i detenuti del computer devono scappare (devono essere bravi o seguire chi gioca).
 
 ## PROSSIMA SESSIONE (preparata il 17-10-2026, a fine sessione "Minigioco Naufraghi"; aggiornata il 18-10-2026 a fine "Minigioco Mister X": prossima "Minigioco Colpo all'hotel")
 - NOMI DELLE SESSIONI (titoli automatici dell'app): la sessione GENERALE (hotel, motore, voce, set, Ciack US) e' "Secondo minigioco di Punti e linee". Le piu' vecchie: "Gioco Punti e linee in Python" (nascita dei quadrettini) e "Linee e quadrettini birichini". I minigiochi: "Minigioco Ruba la bandiera", "Minigioco Nascondino sul set", "Minigioco La Cosa", "Minigioco Naufraghi", "Minigioco Minotauro", "Minigioco Mister X", "Minigioco Colpo all'hotel".
