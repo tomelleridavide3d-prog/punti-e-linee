@@ -321,6 +321,8 @@ details.gList[open] summary::after{content:' ▴'}
 .cv button.sel{border-color:var(--ink)}
 .cv button.ok{opacity:.3}
 .face.sella{background:#8a5a32;border-radius:48% 48% 30% 30%;box-shadow:inset -12px -12px 0 rgba(0,0,0,.15)}
+#instBox{border:2px solid #f2c230;border-radius:14px;padding:12px 14px;margin:0 0 12px;background:var(--card,rgba(242,194,48,.08));font-size:15px;line-height:1.4}
+#instBox .ib{display:flex;gap:8px;margin-top:10px}#instBox .ib .btn{flex:1;justify-content:center;padding:10px}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -348,6 +350,7 @@ details.gList[open] summary::after{content:' ▴'}
 <div id="home" hidden><div class="hw">
   <h1><span>Sviluppo software<small>di Tomelleri Davide</small></span></h1>
   <p class="you" id="homeYou"></p>
+  <div id="instBox" hidden></div>
   <button class="gcard" id="gDots"><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><rect x="4" y="7" width="18" height="17" rx="1.2" fill="#8a3a32"/><rect x="2.8" y="5.2" width="20.4" height="2.8" rx="1" fill="#e0b84a"/><g fill="#f2d98a"><rect x="6.5" y="10" width="3" height="3" rx=".5"/><rect x="11.5" y="10" width="3" height="3" rx=".5"/><rect x="16.5" y="10" width="3" height="3" rx=".5"/><rect x="6.5" y="15" width="3" height="3" rx=".5"/><rect x="16.5" y="15" width="3" height="3" rx=".5"/></g><path d="M10.6 24v-4.6q2.4-2.6 4.8 0V24z" fill="#2a1e14"/><path d="M13 5.2V1.2" stroke="#2a2e35" stroke-width="1"/><path d="M13 1.2h4.6l-1.3 1.3 1.3 1.3H13z" fill="#e2553a"/></svg></span>
@@ -5881,6 +5884,28 @@ async function checkUpdate() {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 setInterval(() => { if (document.visibilityState === 'visible') checkUpdate(); }, 60000);
 $('#appVer').onclick = dlUnlock; dlBtn();
+// ---- metti il gioco sulla home come un'app: Chrome/Edge/Samsung chiedono "Installa app?" con un tocco; iPhone e Firefox non lo permettono: spiegazione ----
+let instEv = null;
+const instDone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } };
+window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instEv = e; instShow(); });
+window.addEventListener('appinstalled', () => { instEv = null; store.settings.instOk = 1; saveStore(); instShow(); });
+function instShow() {
+  const b = $('#instBox'); if (!b) return;
+  const ua = navigator.userAgent, ios = /iPhone|iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), ff = /Android/.test(ua) && /Firefox/.test(ua);
+  if (!WEB || instDone() || store.settings.instOk || (store.settings.instNo || 0) > Date.now() || (!instEv && !ios && !ff)) { b.hidden = true; return; }
+  const txt = instEv ? "📲 <b>Metti il gioco sulla home</b>: avrai l'icona e si apre con un tocco, come un'app."
+    : ios ? '📲 <b>Metti il gioco sulla home</b>: tocca <b>Condividi</b> (il quadrato con la freccia ↑), poi <b>Aggiungi alla schermata Home</b>.'
+    : '📲 <b>Metti il gioco sulla home</b>: tocca il menu <b>⋮</b> del browser, poi <b>Installa</b> (o "Aggiungi a schermata Home").';
+  b.innerHTML = txt + '<div class="ib">' + (instEv ? '<button class="btn primary" type="button" id="instGo">📲 Installa</button>' : '') + '<button class="btn" type="button" id="instNo">' + (instEv ? 'Non ora' : 'Ok, chiudi') + '</button></div>';
+  b.hidden = false;
+  if ($('#instGo')) $('#instGo').onclick = async () => {
+    const e = instEv; if (!e) return; instEv = null;
+    try { e.prompt(); const r = await e.userChoice; if (r && r.outcome === 'accepted') { store.settings.instOk = 1; saveStore(); } } catch {}
+    instShow();
+  };
+  $('#instNo').onclick = () => { store.settings.instNo = Date.now() + 3 * 86400000; saveStore(); instShow(); };   // si ripropone tra 3 giorni
+}
+instShow();
 (() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + (CQ_GFX ? ' · grafica ' + CQ_GFX : ''); })();
 
 // ---- avvio ----
