@@ -2,10 +2,10 @@
 // Ogni cosa si dipinge pixel per pixel in una figurina piccola (32 pixel d'arte per casella, come Habbo ma a meta') e poi si incolla
 // ingrandita senza sfumare (pixel netti). Facce con "pennelli" (funzioni che danno il colore di ogni pixel), contorno scuro sugli oggetti,
 // luce a gradini con la retinatura (dithering): pozze calde delle lampade, luce fredda delle finestre.
-// Si aggancia alla mappa con CQ_MAP.pxFloor / pxProp / drawWall (vedi cqTools). ?pixel=0 = grafica di prima (resta ricordato).
+// Si aggancia alla mappa con CQ_MAP.pxFloor / pxProp / drawWall (vedi cqTools). Hall DEFINITIVA (20-10-2026): niente piu' scelta della grafica di prima.
 (() => {
-  const OFF = (() => { const q = new URLSearchParams(location.search).get('pixel'); try { if (q != null) localStorage.setItem('cqPx', q); return (q != null ? q : localStorage.getItem('cqPx')) === '0'; } catch { return q === '0'; } })();
-  if (OFF || typeof cqMapHotel !== 'function') return;
+  try { localStorage.removeItem('cqPx'); } catch {}   // chi aveva scelto la grafica di prima (?pixel=0) torna alla nuova
+  if (typeof cqMapHotel !== 'function') return;
   const UA = 9.2;   // altezza di un'unita' (U = TH * 1.15) in pixel d'arte
   const BY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], dith = (X, Y) => (BY[(Y & 3) * 4 + (X & 3)] + 0.5) / 16;
   const hx = s => { const n = parseInt(s.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
