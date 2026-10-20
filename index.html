@@ -1664,22 +1664,24 @@ function devLog(e, g, s) {
   if (g) o.g = String(g).slice(0, 16); if (s) o.s = String(s).slice(0, 10);
   hubLoad().then(F => { const r = F.push(F.ref(F.db, 'dl/' + DL_K), o); if (e === 'sito') dlStay(F, r); }).catch(() => {});
 }
-// quanto resta sul sito: la visita (voce 'sito') ha u = ultima volta che c'era. Si aggiorna ogni minuto mentre la pagina si vede,
-// quando la pagina va in sottofondo o si chiude (e alla caduta della connessione, dal server). Tornando dopo piu' di 3 minuti = visita nuova
+// quanto resta sul sito: la visita (voce 'sito') ha u = ultima volta che c'era (ogni minuto mentre la pagina si vede) e x = ora di USCITA
+// (pagina in sottofondo o chiusa; se cade la connessione la scrive il server). x c'e' = uscito; tornando entro 3 minuti x si toglie
+// (stessa visita), dopo 3 minuti = visita nuova. Senza x ma con u vecchio di 2,5 min = telefono spento di colpo: uscito all'ora di u
 let dlVis = null;
 function dlStay(F, r) {
-  const u = F.child(r, 'u'), od = F.onDisconnect(u);
-  dlVis = { F, u, od, hid: 0 };
+  const u = F.child(r, 'u'), x = F.child(r, 'x'), od = F.onDisconnect(x);
+  dlVis = { F, r, u, x, od, hid: 0 };
   F.set(u, Date.now()).catch(() => {}); od.set(F.serverTimestamp()).catch(() => {});
   if (dlStay.on) return; dlStay.on = 1;
-  setInterval(() => { const v = dlVis; if (v && !document.hidden) v.F.set(v.u, Date.now()).catch(() => {}); }, 60000);
-  const bye = () => { const v = dlVis; if (!v || v.hid) return; v.hid = Date.now(); v.F.set(v.u, v.hid).catch(() => {}); v.od.cancel().catch(() => {}); };
+  // ogni minuto: ci sono ancora (e se un buco di rete ha fatto scrivere l'uscita al server, la tolgo e riarmo l'avviso)
+  setInterval(() => { const v = dlVis; if (v && !document.hidden) { v.F.update(v.r, { u: Date.now(), x: null }).catch(() => {}); v.od.set(v.F.serverTimestamp()).catch(() => {}); } }, 60000);
+  const bye = () => { const v = dlVis; if (!v || v.hid) return; v.hid = Date.now(); v.F.update(v.r, { u: v.hid, x: v.hid }).catch(() => {}); v.od.cancel().catch(() => {}); };
   document.addEventListener('visibilitychange', () => {
     const v = dlVis; if (!v) return;
     if (document.hidden) { bye(); return; }
     if (!v.hid) return;
     if (Date.now() - v.hid > 180000) { dlVis = null; delete dlLast['sito||']; devLog('sito'); return; }
-    v.hid = 0; v.F.set(v.u, Date.now()).catch(() => {}); v.od.set(v.F.serverTimestamp()).catch(() => {});
+    v.hid = 0; v.F.update(v.r, { u: Date.now(), x: null }).catch(() => {}); v.od.set(v.F.serverTimestamp()).catch(() => {});
   });
   window.addEventListener('pagehide', bye);
 }
@@ -1725,8 +1727,8 @@ async function dlShow() {
     const d = new Date(r.t), dd = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
     if (dd !== day) { day = dd; h += `<div style="margin:12px 0 4px;font-weight:700;color:var(--muted)">${esc(dd)}</div>`; }
     const gm = r.g ? ' · ' + esc((CQ_GAMES.find(x => x[0] === r.g) || [])[1] || r.g) : '', st = r.s ? ' · set ' + esc(r.s) : '';
-    const hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }), live = r.u && Date.now() - r.u < 150000;
-    const stay = r.e !== 'sito' ? '' : !r.u ? '<div class="hint" style="font-size:12px">uscita non registrata</div>' : `<div style="font-size:13px;margin-top:2px">🕐 entrata ${hm(r.t)} · ${live ? '<b style="color:#3fb96b">ancora dentro</b>' : 'uscita ' + hm(r.u)} · <b>${dlDur((live ? Date.now() : r.u) - r.t)}</b></div>`;
+    const hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }), live = r.u && !r.x && Date.now() - r.u < 150000, out = r.x || r.u;
+    const stay = r.e !== 'sito' ? '' : !r.u ? '<div class="hint" style="font-size:12px">uscita non registrata</div>' : `<div style="font-size:13px;margin-top:2px">🕐 entrata ${hm(r.t)} · ${live ? '<b style="color:#3fb96b">ancora dentro</b>' : 'uscita ' + hm(out)} · <b>${dlDur((live ? Date.now() : out) - r.t)}</b></div>`;
     h += `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${hm(r.t)}</b> &nbsp;<b>${esc(r.n)}</b> — ${DL_EV[r.e] || esc(r.e)}${gm}${st}${stay}<div class="hint" style="font-size:12px">${esc(r.d || '')}</div></div>`;
   }
   h += '<div style="margin-top:18px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn" type="button" id="dlDel" style="color:#ff8a7a">🗑️ Cancella tutta la lista</button><button class="btn" type="button" id="dlOff">Nascondi il pulsante su questo telefono</button></div>';
