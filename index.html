@@ -3308,7 +3308,8 @@ const CQ_GAMES = [
   ['minotauro', 'Il Minotauro', '🐂', '#7a4a2e', 'Labirinto al buio con i muri che si spostano: copiate i frammenti di mappa e scappate prima che il Minotauro vi prenda.'],
   ['misterx', 'Mister X', '🎩', '#2a3a5a', 'Città di notte: Mister X fa 3 colpi e scappa, travestito tra la folla. I detective lo vedono solo quando lampeggia… e lo ammanettano a colpi di dita.'],
   ['colpo', 'Colpo all\'hotel', '💎', '#5a3a6a', 'Tutti ladri insieme: rubate il diamante del Grand Hotel senza farvi vedere dalle guardie. Il colpo cambia ogni volta.'],
-  ['mammut', 'Caccia al mammut', '🦣', '#7a5a2e', 'Una tribù contro un mammut furbo: seguite le tracce, cacciatelo con lance e fosse, sopravvivete alle notti e portate la carne al fuoco.']];
+  ['mammut', 'Caccia al mammut', '🦣', '#7a5a2e', 'Una tribù contro un mammut furbo: seguite le tracce, cacciatelo con lance e fosse, sopravvivete alle notti e portate la carne al fuoco.'],
+  ['evasione', 'Evasione', '🔒', '#a8642a', 'Detenuti a Rocca Nera: appelli, ronde e riflettori. Rubate, nascondete, preparate la fuga… e scappate tutti prima del trasferimento.']];
 const cqGame = id => CQ_GAMES.find(x => x[0] === id) || CQ_GAMES[0];
 const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.textContent = t; };
 // reception dell'hotel: giocare da soli (si sceglie il gioco) o con gli amici (set con la sua hall)
@@ -4886,6 +4887,7 @@ function cqTools(g, TW) {
   };
   // oggetti di scena
   const drawProp = (t, x, y, o) => {
+    if (CQ_MAP.pxProp && CQ_MAP.pxProp(K, t, x, y, o)) return;   // oggetti in pixel art della mappa (giochi/lib/pixel.js)
     switch (t) {
       case 'crate': bx(x + 0.08, y + 0.08, x + 0.92, y + 0.92, 0, 0.9, '#a8793c'); bx(x + 0.08, y + 0.44, x + 0.92, y + 0.56, 0.9, 0.93, '#7a5428'); bx(x + 0.44, y + 0.08, x + 0.56, y + 0.92, 0.9, 0.93, '#7a5428');
         for (const [a, b] of [[0.14, 0.14], [0.86, 0.14], [0.14, 0.86], [0.86, 0.86]]) dot(x + a, y + b, 0.93, 0.018, '#3a2810'); qL(x + 0.1, x + 0.9, y + 0.92, 0.3, 0.34, '#7a5428'); qL(x + 0.1, x + 0.9, y + 0.92, 0.62, 0.66, '#7a5428'); break;
@@ -5138,6 +5140,7 @@ function cqTools(g, TW) {
     },
     floor(x, y) {
       const col = cqFloor[y] && cqFloor[y][x]; if (!col) return;
+      if (CQ_MAP.pxFloor) { CQ_MAP.pxFloor(K, x, y); return; }   // pavimento in pixel art (giochi/lib/pixel.js)
       const q = [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)]; poly(q, col);
       if (TW < 40) return;
       floorTex(x, y);
@@ -5962,5 +5965,6 @@ applyPrefs(); render();
   else openSetup();
 })();
 </script>
+<script src="giochi/lib/pixel.js"></script>
 </body>
 </html>
