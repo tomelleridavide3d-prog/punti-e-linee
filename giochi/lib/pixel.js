@@ -6,7 +6,9 @@
 (() => {
   try { localStorage.removeItem('cqPx'); } catch {}   // chi aveva scelto la grafica di prima (?pixel=0) torna alla nuova
   if (typeof cqMapHotel !== 'function') return;
-  const UA = 9.2;   // altezza di un'unita' (U = TH * 1.15) in pixel d'arte
+  // UA = altezza di un'unita' del motore (U = TH * 1,15 = 18,4 pixel d'arte). ZS: un po' piu' alto, in proporzione ai personaggi (alti ~2,7 U):
+  // porte ~3,3 U, banco ~1,25 U, pareti ~3,7 U
+  const ZS = 1.12, UA = 18.4 * ZS;
   const BY = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5], dith = (X, Y) => (BY[(Y & 3) * 4 + (X & 3)] + 0.5) / 16;
   const hx = s => { const n = parseInt(s.slice(1), 16); return [n >> 16, (n >> 8) & 255, n & 255]; };
   // ombre e luci "colorate" (come nelle reference): scurendo il colore vira al viola-blu, schiarendo vira al caldo
@@ -237,7 +239,7 @@
   const WL = new Map();
   function wallSpr(x, y) {
     const k = x + ',' + y; if (WL.has(k)) return WL.get(k);
-    const R = ROOM.R, S = spr(40, 60, 20, 40), back = y === 0, left = x === 0, front = y === ROOM.H - 1, right = x === ROOM.W - 1;
+    const R = ROOM.R, S = spr(40, 100, 20, 80), back = y === 0, left = x === 0, front = y === ROOM.H - 1, right = x === ROOM.W - 1;
     const tex = side => (s, t, X, Y) => {
       const w = side === 'l' ? y + s * (S._y1 - S._y0) + S._y0 : x + S._x0 + s * (S._x1 - S._x0), z = t * WH;
       EM = 0; const c = wallTex(side, w, side === 'l' ? y : x, s, z, X, Y); if (EM) return c;
@@ -268,7 +270,7 @@
   const same = (x, y, ts) => { const o = cqSolid[y] && cqSolid[y][x]; return !!(o && o.prop && ts.includes(o.prop)); };
   function propSpr(t, x, y, o) {
     const k = t + ',' + x + ',' + y + ',' + (o && o.c || ''); if (PR.has(k)) return PR.get(k);
-    const S = spr(48, 76, 24, 54), glow = [];
+    const S = spr(48, 100, 24, 78), glow = [];
     let skip = null;
     const marble = (u, v, X, Y) => { const f = Math.sin((x + u) * 6 + Math.sin(v * 5) * 2); return Math.abs(f) < 0.12 ? C.cream2 : h2(X + x * 9, Y) > 0.96 ? sh(C.cream, 1.05) : C.cream; };
     switch (t) {
@@ -317,17 +319,17 @@
       }
       case 'lamp': {   // lampada a stelo d'ottone con il paralume acceso
         S.cyl(0.5, 0.5, 0.2, 0, 0.06, C.brassD, { top: C.brass });
-        S.box(0.46, 0.46, 0.54, 0.54, 0.06, 2.3, C.brass, { l: C.brass, r: C.brassD });
-        S.emit = 1; S.cyl(0.5, 0.5, 0.32, 2.1, 2.75, C.shade, { side: (dx, tt) => sh(C.shade, (dx < -0.3 ? 1.04 : dx < 0.4 ? 0.96 : 0.86) * (tt < 0.15 ? 0.9 : 1)), top: hx('#fff2c8') }); S.emit = 0;
-        glow.push([0.5, 0.5, 2.4, 2.1, 'rgba(255,196,110,.34)']);
+        S.box(0.46, 0.46, 0.54, 0.54, 0.06, 1.85, C.brass, { l: C.brass, r: C.brassD });
+        S.emit = 1; S.cyl(0.5, 0.5, 0.3, 1.75, 2.3, C.shade, { side: (dx, tt) => sh(C.shade, (dx < -0.3 ? 1.04 : dx < 0.4 ? 0.96 : 0.86) * (tt < 0.15 ? 0.9 : 1)), top: hx('#fff2c8') }); S.emit = 0;
+        glow.push([0.5, 0.5, 2.0, 2.1, 'rgba(255,196,110,.34)']);
         break;
       }
       case 'plant': {   // vaso di ceramica blu con il bordo bianco, pianta folta a ciuffi
-        S.cyl(0.5, 0.5, 0.27, 0, 0.55, C.pot, { side: (dx, tt) => { const b = Math.abs(tt - 0.75) < 0.08 ? hx('#e8ecf4') : Math.abs(tt - 0.3) < 0.05 ? hx('#c9a24a') : C.pot; return sh(b, dx < -0.5 ? 1.12 : dx < 0 ? 1 : dx < 0.5 ? 0.86 : 0.72); }, top: hx('#3a2a1a') });
-        const n = 14;
+        S.cyl(0.5, 0.5, 0.27, 0, 0.42, C.pot, { side: (dx, tt) => { const b = Math.abs(tt - 0.75) < 0.08 ? hx('#e8ecf4') : Math.abs(tt - 0.3) < 0.05 ? hx('#c9a24a') : C.pot; return sh(b, dx < -0.5 ? 1.12 : dx < 0 ? 1 : dx < 0.5 ? 0.86 : 0.72); }, top: hx('#3a2a1a') });
+        const n = 26;   // chioma folta e tonda: ciuffi dal basso (scuri) all'alto (chiari)
         for (let i = 0; i < n; i++) {
-          const a = i / n * Math.PI * 2 + h2(x, i) * 0.6, rr = 0.08 + 0.2 * h2(i, y), zz = 0.75 + 0.85 * h2(x + i, y + i) + (i % 3 === 0 ? 0.3 : 0);
-          const [cx, cy] = S.P(0.5 + Math.cos(a) * rr, 0.5 + Math.sin(a) * rr, zz), rx = 4 + 3 * h2(i, x), ry = 3 + 2 * h2(y, i), col = C.leaf[(i + x) % 3];
+          const q = i / n, a = i * 2.4 + h2(x, i) * 0.6, rr = (0.12 + 0.26 * h2(i, y)) * (1 - q * 0.55), zz = 0.55 + 1.05 * q + 0.15 * h2(x + i, y + i);
+          const [cx, cy] = S.P(0.5 + Math.cos(a) * rr, 0.5 + Math.sin(a) * rr, zz), rx = 6 + 4 * h2(i, x) - q * 2, ry = 4.5 + 2.5 * h2(y, i) - q, col = C.leaf[Math.min(2, Math.floor(q * 3 + h2(i, x) * 0.6))];
           S.ell(cx, cy, rx, ry, (dx, dy) => sh(col, dy < -0.3 && dx < 0.2 ? 1.18 : dy > 0.4 ? 0.78 : 1));
         }
         break;
@@ -390,13 +392,13 @@
   // ---- ganci verso il motore ----
   const pxFloor = (K, x, y) => {
     put(K, floorSpr(x, y), x, y);
-    if (x === 11 && y === 8) K.glow(11, 8, 3.6, 3.2, 'rgba(255,214,150,.16)');   // lampadario (solo luce)
+    if (x === 11 && y === 8) K.glow(11, 8, 3.6 * ZS, 3.2, 'rgba(255,214,150,.16)');   // lampadario (solo luce)
   };
-  const drawWall = (K, x, y) => { put(K, wallSpr(x, y), x, y); const back = y === 0, left = x === 0; if (back && SCONCE_B(ROOM.R).includes(x)) K.glow(x + 0.5, y + 0.95, 2.35, 1.1, 'rgba(255,200,120,.3)'); if (left && SCONCE_L.includes(y)) K.glow(x + 0.95, y + 0.5, 2.35, 1.1, 'rgba(255,200,120,.3)'); };
-  const pxProp = (K, t, x, y, o) => { const s = propSpr(t, x, y, o); if (!s) return false; put(K, s, x, y); for (const [a, b, z, r, col] of s.glow) K.glow(x + a, y + b, z, r, col); return true; };
+  const drawWall = (K, x, y) => { put(K, wallSpr(x, y), x, y); const back = y === 0, left = x === 0; if (back && SCONCE_B(ROOM.R).includes(x)) K.glow(x + 0.5, y + 0.95, 2.35 * ZS, 1.1, 'rgba(255,200,120,.3)'); if (left && SCONCE_L.includes(y)) K.glow(x + 0.95, y + 0.5, 2.35 * ZS, 1.1, 'rgba(255,200,120,.3)'); };
+  const pxProp = (K, t, x, y, o) => { const s = propSpr(t, x, y, o); if (!s) return false; put(K, s, x, y); for (const [a, b, z, r, col] of s.glow) K.glow(x + a, y + b, z * ZS, r, col); return true; };
 
   const mk = cqMapHotel;
-  CQ_MAPS.hotel.make = () => { const P = mk(); P.decals = []; P.pxFloor = pxFloor; P.pxProp = pxProp; P.drawWall = drawWall; setup(P); FL.clear(); WL.clear(); PR.clear(); return P; };
+  CQ_MAPS.hotel.make = () => { const P = mk(); P.decals = []; P.signY = 0.1; P.signUp = 2.45; P.pxFloor = pxFloor; P.pxProp = pxProp; P.drawWall = drawWall; setup(P); FL.clear(); WL.clear(); PR.clear(); return P; };
   delete CQ_MAPS.hotel.pack;
   if (cq.map === 'hotel') { cq.mapDirty = true; cqUseMap('hotel'); }
 })();

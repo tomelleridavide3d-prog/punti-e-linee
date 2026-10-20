@@ -3589,7 +3589,7 @@ function cqHallSigns(g, sx, sy, TW) {
   const cur = cqHallGame(), b = Math.sin(performance.now() / 250) * 3, Ls = cqHallLifts();
   let near = null, nd = 2.6; for (const L of Ls) { const d = Math.hypot(cq.x - L.x - 0.5, cq.y - L.y - 1.4); if (d < nd) { nd = d; near = L; } }
   for (const L of Ls) {
-    const X = sx(L.x + 0.5, L.y + 0.85), Y = sy(L.x + 0.5, L.y + 0.85) - TW * 1.85, on = !!(L.g && L.g[0] === cur), r = 13;
+    const sY = CQ_MAP.signY != null ? CQ_MAP.signY : 0.85, X = sx(L.x + 0.5, L.y + sY), Y = sy(L.x + 0.5, L.y + sY) - TW * (CQ_MAP.signUp || 1.85), on = !!(L.g && L.g[0] === cur), r = 13;
     g.fillStyle = on ? '#e0b84a' : 'rgba(20,22,28,.85)'; g.beginPath(); g.arc(X, Y, r, 0, 7); g.fill();
     g.strokeStyle = on ? '#fff3c4' : L.g ? L.g[3] : '#6b6f78'; g.lineWidth = 2; g.stroke();
     g.font = '15px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(L.g ? L.g[2] : '🔒', X, Y + 1);
