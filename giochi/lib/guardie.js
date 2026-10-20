@@ -265,13 +265,13 @@
       }
     },
     // FUMETTO sopra la testa (X, Y = piedi della guardia sullo schermo)
-    bubble(g, gd, X, Y, TW, top = 2.6) {
+    bubble(g, gd, X, Y, TW, top = 2.6, bg = 'rgba(250,248,240,.94)') {
       if (!gd.bub) return; const t = gd.bub.t; g.save(); g.font = '600 12px system-ui,sans-serif';
       const words = t.split(' '), lines = []; let cur = '';
       for (const w of words) { const s = cur ? cur + ' ' + w : w; if (g.measureText(s).width > 150 && cur) { lines.push(cur); cur = w; } else cur = s; } if (cur) lines.push(cur);
       const wd = Math.max(...lines.map(l => g.measureText(l).width)) + 16, ht = lines.length * 15 + 9, bx = X - wd / 2, by = Y - TW * top - ht;
-      g.fillStyle = 'rgba(250,248,240,.94)'; cqRR(g, bx, by, wd, ht, 9); g.fill(); g.strokeStyle = 'rgba(40,40,50,.5)'; g.lineWidth = 1; g.stroke();
-      g.fillStyle = 'rgba(250,248,240,.94)'; g.beginPath(); g.moveTo(X - 6, by + ht - 0.5); g.lineTo(X + 6, by + ht - 0.5); g.lineTo(X, by + ht + 7); g.closePath(); g.fill();
+      g.fillStyle = bg; cqRR(g, bx, by, wd, ht, 9); g.fill(); g.strokeStyle = 'rgba(40,40,50,.5)'; g.lineWidth = 1; g.stroke();
+      g.fillStyle = bg; g.beginPath(); g.moveTo(X - 6, by + ht - 0.5); g.lineTo(X + 6, by + ht - 0.5); g.lineTo(X, by + ht + 7); g.closePath(); g.fill();
       g.fillStyle = '#22242a'; g.textAlign = 'center'; g.textBaseline = 'middle'; lines.forEach((l, i) => g.fillText(l, X, by + 12 + i * 15)); g.restore();
     },
     // GUARDIA disegnata: divisa blu scuro, berretto con la visiera e lo stemma, cinturone, torcia in mano (verso dove guarda)

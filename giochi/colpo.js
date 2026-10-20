@@ -23,6 +23,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   const FLN = ['Piano terra', 'Primo piano', 'Interrato'];
   const SRCH_T = 2, ACC_T = 1.5, PRT_T = 1.5, KP_T = 3, TURN_T = 1.2, TURN_WIN = 1.8, SWAP_T = 3, TAKE_T = 2, CMB_T = 12, FREE_T = 4, CONF_T = 2, LSR_T = 1.5;
   const HIDE_R = 1.35, EV_WAIT = 60, ALERT_T = 60, DARK_T = 40, DARK_CD = 30, COINS = 3, COIN_R = 6.5, STUN_R = 1.25, OP_R = 1.5, VAN_R = 1.9, CELL_OPEN = 6;
+  const CHAT_MAX = 60, CHAT_T = 6000;   // chat scritta: lunghezza massima, quanto resta il fumetto (ms)
+  const CHAT_Q = ['⚠️ Guardia!', '✋ Aspetta', '👉 Vieni qui', '✅ Trovato!', '🏃 Scappa!', '🔓 Liberami!', '🆘 Aiuto!', '👍 Ok'];
   const HB_R = 5, DAY_R = 3.9, LIT_R = 6.4, DARK_R = 3.3, MY_R = 1.9, SEE_G = 22, WALK = 0.6, RUN_R = 4.5, LAMP_R = 2.0;
   const ALA = { T: 'Piano terra', S: 'Primo piano', I: 'Interrato' };
   // i 4 parcheggi da cui si puo' entrare (uno a caso a ogni partita): li' aspetta il furgone della fuga
@@ -688,6 +690,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   function doAct(G, c, a) {
     if (!c || !a || !c.alive || c.esc || G.phase !== 'play') return;
     if (a.k === 'ev') { tryEscape(G, c, a.ok); return; }
+    if (a.k === 'chat') { const t = String(a.v || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX); if (t && !(c.chT > G.time - 0.3)) { c.chT = G.time; say(G, 'chat', { a: c.id, t }); } return; }   // anche dalla cella
     if (c.jail) return;
     if (a.k === 'coin') { throwCoin(G, c, a.x, a.y); return; }
     if (a.k === 'quad') { quadro(G, c, a.o); return; }
@@ -787,6 +790,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     else if (e.k === 'evno') { t = '🚨 ' + an + ' ha provato a evadere ma ha fatto scattare l\'ALLERTA: guardie più attente per ' + ALERT_T + ' s!'; for (let i = 0; i < 4; i++) beep(i % 2 ? 950 : 750, 0.14, 0.035, i * 0.16, 'square'); }
     else if (e.k === 'conf') { t = '📦 ' + an + ' ha ripreso la refurtiva dall\'armadio delle confische!'; beep(660, 0.1, 0.04); }
     else if (e.k === 'esc') { t = '🚐 ' + an + ' è sul furgone col diamante: COLPO RIUSCITO!'; }
+    else if (e.k === 'chat') { if (A) A.cb = { t: e.t, u: performance.now() + CHAT_T }; if (!mine) { t = '💬 ' + an + ': ' + esc(e.t); beep(1046, 0.05, 0.03); beep(1318, 0.07, 0.03, 0.06); } }
     if (t) cqToast(t);
   }
   function foundTxt(G, e, mine, an) {
@@ -1141,6 +1145,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       // segni sopra le guardie (? ! …)
       for (const gd of G.gd) if (guardSeen(G, gd)) GD.mark(g, gd, sx(gd.x, gd.y), sy(gd.x, gd.y), TW, 1.75);
       for (const gd of G.gd) if (gd.bub && guardSeen(G, gd) && near(gd.x, gd.y, 12)) GD.bubble(g, gd, sx(gd.x, gd.y), sy(gd.x, gd.y), TW, 2.15);   // fumetti con le frasi delle guardie
+      for (const c of G.chars) if (c.cb && c.cb.u > now * 1000) { const p = P(c); if (near(p.x, p.y, 14)) GD.bubble(g, { bub: c.cb }, sx(p.x, p.y), sy(p.x, p.y), TW, 2.15, 'rgba(206,232,255,.96)'); }   // chat scritta: fumetto azzurro sopra il compagno
       // la guardia col badge: si vede la tessera alla cintura (da vicino)
       if (G.plan.gb >= 0 && G.it.some(i => i.s === 'guard' && i.st === 0)) { const gd = G.gd[G.plan.gb]; if (gd && guardSeen(G, gd) && Math.hypot(gd.x - cq.x, gd.y - cq.y) < 6) { g.font = Math.round(TW * 0.32) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('💳', sx(gd.x, gd.y) + TW * 0.3, sy(gd.x, gd.y) - TW * 0.9); } }
       // stelline sui posti da frugare
@@ -1425,7 +1430,12 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   if (!document.getElementById('hcCss')) {
     const st = document.createElement('style'); st.id = 'hcCss';
     st.textContent = '#hcCoin{position:absolute;left:18px;bottom:142px;width:78px;height:78px;border-radius:50%;border:0;font:inherit;font-weight:800;font-size:26px;background:#c8a040;color:#2a2010;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#hcCoin.off{background:#5a5a66;color:#ccc}#hcCoin small{display:block;font-size:12px;line-height:1}'
-      + '#hcRun{position:absolute;left:24px;bottom:232px;width:66px;height:66px;border-radius:50%;border:0;font:inherit;font-weight:800;font-size:24px;background:#3a4252;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#hcRun.on{background:#c0582a}#hcRun small{display:block;font-size:10px;line-height:1}';
+      + '#hcRun{position:absolute;left:24px;bottom:232px;width:66px;height:66px;border-radius:50%;border:0;font:inherit;font-weight:800;font-size:24px;background:#3a4252;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none}#hcRun.on{background:#c0582a}#hcRun small{display:block;font-size:10px;line-height:1}'
+      + '#hcChat{position:absolute;right:36px;bottom:242px;width:50px;height:50px;border-radius:50%;border:0;font-size:24px;background:#3a5a8a;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none;z-index:4}'
+      + '#hcChatP{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;width:min(520px,calc(100% - 20px));box-sizing:border-box;padding:10px;border-radius:16px;background:rgba(18,22,34,.94);box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:20;color:#fff}'
+      + '#hcChatLog{font-size:13px;line-height:1.35;opacity:.8;margin:0 4px 6px}#hcChatLog:empty{display:none}#hcChatLog b{color:#9cc8ff}'
+      + '#hcChatQ{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}#hcChatQ button{border:0;border-radius:18px;padding:8px 12px;font:inherit;font-size:15px;font-weight:700;background:#2e3a52;color:#fff;cursor:pointer}#hcChatQ button:active{background:#4a6aa0}'
+      + '#hcChatF{display:flex;gap:6px;margin:0}#hcChatI{flex:1;min-width:0;border:0;border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;background:#fff;color:#222}#hcChatF button{border:0;border-radius:12px;width:46px;font-size:20px;background:#3a8a5a;color:#fff;cursor:pointer}#hcChatF #hcChatX{background:#4a4f5c}';
     document.head.appendChild(st);
   }
   const host = document.getElementById('ciack') || document.body;
@@ -1445,7 +1455,34 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   coinB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); coinPress(); });
   mapB.onclick = e => { e.stopPropagation(); const G = live(); if (G) { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } };
   boardB.onclick = e => { e.stopPropagation(); const G = live(); if (G) planUI(G); };
-  if (!window.hcKeys) { window.hcKeys = 1; document.addEventListener('keydown', e => { if (e.repeat) return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = e.key.toLowerCase(); if (k === 'q') coinPress(); else if (k === 'r') runSet(!cq.hcRun); else if (k === 'm') G.big = !G.big; else if (k === 'l') planUI(G); }); }
+  // ---- CHAT SCRITTA (per chi non puo' usare la voce): 💬 o tasto Invio/T -> frasi rapide (un tocco e parte) o testo libero; fumetto sopra la testa + avviso ----
+  const chatB = mkBtn('hcChat', '💬');
+  let chatP = document.getElementById('hcChatP');
+  if (!chatP) {
+    chatP = document.createElement('div'); chatP.id = 'hcChatP'; chatP.hidden = true;
+    chatP.innerHTML = '<div id="hcChatLog"></div><div id="hcChatQ">' + CHAT_Q.map(q => '<button type="button">' + q + '</button>').join('') + '</div>'
+      + '<form id="hcChatF"><input id="hcChatI" maxlength="' + CHAT_MAX + '" autocomplete="off" enterkeyhint="send" placeholder="Scrivi ai compagni…"><button type="submit">➤</button><button type="button" id="hcChatX">✕</button></form>';
+    host.appendChild(chatP);
+  }
+  const chatI = document.getElementById('hcChatI');
+  const chatOpen = () => {
+    const G = live(); if (!G || !cq.net) return; cq.keys = {}; chatP.hidden = false; chatI.value = '';
+    const L = G.lg.filter(e => e.k === 'chat').slice(-4);
+    document.getElementById('hcChatLog').innerHTML = L.map(e => { const A = byId(G, e.a); return '<div><b>' + esc(A ? A.name : '?') + '</b> ' + esc(e.t) + '</div>'; }).join('');
+    if (matchMedia('(pointer:fine)').matches) setTimeout(() => chatI.focus(), 0);   // sul telefono niente tastiera subito: prima le frasi rapide
+  };
+  const chatClose = () => { chatP.hidden = true; chatI.blur(); cq.keys = {}; };
+  const chatSend = t => {
+    const G = live(); t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, CHAT_MAX); chatClose(); if (!G || !t) return;
+    if (G.guest) cqNetSend({ k: 'a', a: 'chat', v: t }); else doAct(G, G.me, { k: 'chat', v: t });
+  };
+  chatB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (chatP.hidden) chatOpen(); else chatClose(); });
+  chatP.addEventListener('pointerdown', e => e.stopPropagation());
+  document.getElementById('hcChatQ').onclick = e => { const b = e.target.closest('button'); if (b) chatSend(b.textContent); };
+  document.getElementById('hcChatF').onsubmit = e => { e.preventDefault(); chatSend(chatI.value); };
+  document.getElementById('hcChatX').onclick = chatClose;
+  for (const ev of ['keydown', 'keyup']) chatI.addEventListener(ev, e => { e.stopPropagation(); if (ev === 'keydown' && e.key === 'Escape') chatClose(); });   // i tasti scritti non muovono il personaggio
+  if (!window.hcKeys) { window.hcKeys = 1; document.addEventListener('keydown', e => { if (e.repeat) return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = e.key.toLowerCase(); if (k === 'q') coinPress(); else if (k === 'r') runSet(!cq.hcRun); else if (k === 'm') G.big = !G.big; else if (k === 'l') planUI(G); else if ((k === 'enter' || k === 't') && cq.net && chatP.hidden) { e.preventDefault(); chatOpen(); } }); }
   (function loop() {
     requestAnimationFrame(loop);
     const G = live(), panel = !$('#cqTask').hidden, me = G && G.me;
@@ -1453,6 +1490,8 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
     if (coinB.hidden === cOn) coinB.hidden = !cOn; if (runB.hidden === cOn) runB.hidden = !cOn;
     if (cOn) { const t = cq.hcRun ? '🏃<small>corri</small>' : '🐾<small>piano</small>'; if (runB.dataset.t !== t) { runB.dataset.t = t; runB.innerHTML = t; runB.classList.toggle('on', !!cq.hcRun); } }
     if (cOn) { const t = '🪙<small>' + (me.coins || 0) + '</small>'; if (coinB.dataset.t !== t) { coinB.dataset.t = t; coinB.innerHTML = t; } coinB.classList.toggle('off', !(me.coins > 0)); }
+    const chOn = !!(G && cq.net && !panel && !G.big);
+    if (chatB.hidden === chOn) chatB.hidden = !chOn; if (!chOn && !chatP.hidden) chatClose();
     const mo = !!(G && !panel);
     if (mapB.hidden === mo) mapB.hidden = !mo; if (boardB.hidden === (mo && !G.big)) boardB.hidden = !(mo && !G.big);
     if (mo) { const W2 = cq.w, H2 = cq.h; let css;

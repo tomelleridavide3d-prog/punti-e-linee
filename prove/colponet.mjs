@@ -22,6 +22,13 @@ export default [
     G.gd.forEach((g, i) => { g.x = 30.5 + i * 2; g.y = 16.5; g.st = 'ko'; g.ko = 1e9; g.found = 1; g.path = []; });
     for (const c of G.chars) if (c.bot) { c.think = 1e9; c.path = []; c.x = 64.5; c.y = 30.5; } return 'host: partita ' + G.mode + ', mappa ' + cq.map + ', guardie ' + G.gd.length; })()`, 2500],
   [1, `(() => { const G = cq.g; return 'amico: partita ' + (G && G.mode) + ' piano ' + (G.plan && G.plan.a) + ' | lavagna visibile ' + !$('#hcBoard').hidden + ' monetina ' + !$('#hcCoin').hidden + ' | guardie ' + G.gd.length + ' | ' + $('#cqModeBar').textContent; })()`, 0],
+  // CHAT SCRITTA: l'amico usa una frase rapida e poi scrive (Invio); l'host apre col tasto Invio e risponde
+  [1, `(async () => { cqCloseTask(); await new Promise(r => setTimeout(r, 100)); const b = $('#hcChat'); const vis = !b.hidden; b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await new Promise(r => setTimeout(r, 200)); const op = !$('#hcChatP').hidden; $('#hcChatQ button').click(); await new Promise(r => setTimeout(r, 800));
+    b.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); const i = $('#hcChatI'); i.value = 'vado io alla reception'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'w', bubbles: true })); const mv = !!cq.keys.w; $('#hcChatF').requestSubmit(); return 'amico: pulsante chat visibile ' + vis + ', pannello aperto ' + op + ', tasti scritti muovono ' + mv + ', pannello chiuso dopo invio ' + $('#hcChatP').hidden; })()`, 1500],
+  [0, `(async () => { cqCloseTask(); await new Promise(r => setTimeout(r, 100)); const G = cq.g; const L = G.lg.filter(e => e.k === 'chat').map(e => e.t); const a = G.chars.find(c => c.name === 'zzAmico');
+    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); await new Promise(r => setTimeout(r, 100)); const op = !$('#hcChatP').hidden; $('#hcChatI').value = 'ok, ti copro io'; $('#hcChatF').requestSubmit();
+    return 'host: chat ricevute ' + JSON.stringify(L) + ' | fumetto sopra amico ' + !!(a.cb && a.cb.t) + ' | avviso ' + __T.slice(-1)[0] + ' | Invio apre la chat ' + op; })()`, 1500],
+  [1, `(() => { const G = cq.g, h = G.chars.find(c => c.name === 'zzHost'); return 'amico: avviso ' + __T.slice(-1)[0] + ' | fumetto sopra host ' + (h.cb && h.cb.t) + ' | registro ' + $('#hcChatLog').textContent; })()`, 0],
   // chiave nel cassetto della reception
   [1, goSp('recep', 'amico'), 700], [1, btn('amico'), 2800], [0, last('host'), 0], [1, last('amico'), 0],
   // monetina
