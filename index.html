@@ -1702,14 +1702,31 @@ async function pushToggle() {
   cqToast(ok ? '🔔 Fatto! Quando un amico apre un set compare la campanella.' : '🔕 Non riesco ad attivare gli avvisi: riprova tra poco.');
   cqNetBox();
 }
-// avviso dello sviluppatore a tutti gli iscritti ({nome} = nome di chi lo riceve)
-async function pushSend() {
-  const title = prompt("Titolo dell'avviso ({nome} = nome dell'amico)", '🎮 Hey {nome}!'); if (!title) return;
-  const body = prompt("Testo dell'avviso", "Sono arrivati nuovi minigiochi nell'Hotel dei Giochi!"); if (body == null) return;
-  const loud = confirm('Con il suono? (OK = suona, Annulla = silenzioso)');
-  const pass = prompt('Codice sviluppatore'); if (!pass) return;
-  const r = await pushPost('/msg', { pass: pass.trim(), title, body, loud });
-  alert(!r ? 'Il postino non risponde: riprova.' : r.ok ? 'Mandato a ' + r.mandati + ' telefoni su ' + r.iscritti + ' iscritti.' : r.codice ? 'Codice sbagliato.' : 'Non è andato: riprova.');
+// avviso dello sviluppatore a tutti gli iscritti: un riquadro solo (testo + codice), arriva SILENZIOSO come "🎮 Hey <nome>!" con sotto il testo
+let pushPass = '';   // il codice resta ricordato finche' la pagina e' aperta
+function pushSend() {
+  const old = $('#psWin'); if (old) old.remove();
+  const w = document.createElement('div'); w.id = 'psWin';
+  w.style.cssText = 'position:fixed;inset:0;z-index:100000;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px';
+  w.innerHTML = '<div style="background:var(--bg);color:var(--ink);border-radius:14px;padding:16px;width:100%;max-width:420px;box-sizing:border-box">'
+    + '<b style="font-size:17px">📣 Avviso a tutti</b><div class="hint" style="margin:6px 0 10px">Arriva senza suono, come <b>🎮 Hey Marco!</b> con sotto il tuo testo.</div>'
+    + '<textarea id="psTxt" class="field" rows="3" maxlength="300" style="width:100%;box-sizing:border-box;font-size:16px" placeholder="Es. Sono arrivati nuovi minigiochi!"></textarea>'
+    + '<input id="psCode" class="field" type="password" placeholder="Codice sviluppatore" style="width:100%;box-sizing:border-box;margin-top:8px;font-size:16px">'
+    + '<div id="psRes" style="margin-top:8px;min-height:1.2em"></div>'
+    + '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn primary" id="psGo" type="button" style="flex:1;justify-content:center">📣 Manda</button><button class="btn" id="psX" type="button">Chiudi</button></div></div>';
+  document.body.appendChild(w);
+  $('#psCode').value = pushPass; $('#psTxt').focus();
+  $('#psX').onclick = () => w.remove();
+  $('#psGo').onclick = async () => {
+    const body = $('#psTxt').value.trim(), pass = $('#psCode').value.trim(), res = $('#psRes');
+    if (!body) { res.textContent = '✏️ Scrivi prima il testo.'; return; }
+    if (!pass) { res.textContent = '🔑 Scrivi il codice sviluppatore.'; return; }
+    $('#psGo').disabled = true; res.textContent = 'Mando…';
+    const r = await pushPost('/msg', { pass, title: '🎮 Hey {nome}!', body, loud: false });
+    $('#psGo').disabled = false;
+    if (r && r.ok) { pushPass = pass; $('#psTxt').value = ''; res.textContent = '✅ Mandato a ' + r.mandati + ' telefoni (iscritti: ' + r.iscritti + ').'; }
+    else res.textContent = !r ? '📡 Il postino non risponde: riprova.' : r.codice ? '🔑 Codice sbagliato.' : '❌ Non è andato: riprova.';
+  };
 }
 if (pushOn()) setTimeout(() => pushSub(false).catch(() => {}), 4000);
 
@@ -5887,16 +5904,19 @@ $('#appVer').onclick = dlUnlock; dlBtn();
 // ---- metti il gioco sulla home come un'app: Chrome/Edge/Samsung chiedono "Installa app?" con un tocco; iPhone e Firefox non lo permettono: spiegazione ----
 let instEv = null;
 const instDone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } };
+let instLate = false; setTimeout(() => { instLate = true; instShow(); }, 5000);   // Android senza "Installa" dopo 5 s: aperto da WhatsApp o gia' rifiutato
 window.addEventListener('beforeinstallprompt', e => { e.preventDefault(); instEv = e; instShow(); });
 window.addEventListener('appinstalled', () => { instEv = null; store.settings.instOk = 1; saveStore(); instShow(); });
 function instShow() {
   const b = $('#instBox'); if (!b) return;
-  const ua = navigator.userAgent, ios = /iPhone|iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), ff = /Android/.test(ua) && /Firefox/.test(ua);
-  if (!WEB || instDone() || store.settings.instOk || (store.settings.instNo || 0) > Date.now() || (!instEv && !ios && !ff)) { b.hidden = true; return; }
+  const ua = navigator.userAgent, ios = /iPhone|iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1), ff = /Android/.test(ua) && /Firefox/.test(ua), andr = /Android/.test(ua) && !ff && instLate;
+  if (!WEB || instDone() || store.settings.instOk || (store.settings.instNo || 0) > Date.now() || (!instEv && !ios && !ff && !andr)) { b.hidden = true; return; }
   const txt = instEv ? "📲 <b>Metti il gioco sulla home</b>: avrai l'icona e si apre con un tocco, come un'app."
     : ios ? '📲 <b>Metti il gioco sulla home</b>: tocca <b>Condividi</b> (il quadrato con la freccia ↑), poi <b>Aggiungi alla schermata Home</b>.'
-    : '📲 <b>Metti il gioco sulla home</b>: tocca il menu <b>⋮</b> del browser, poi <b>Installa</b> (o "Aggiungi a schermata Home").';
-  b.innerHTML = txt + '<div class="ib">' + (instEv ? '<button class="btn primary" type="button" id="instGo">📲 Installa</button>' : '') + '<button class="btn" type="button" id="instNo">' + (instEv ? 'Non ora' : 'Ok, chiudi') + '</button></div>';
+    : ff ? '📲 <b>Metti il gioco sulla home</b>: tocca il menu <b>⋮</b> del browser, poi <b>Installa</b> (o "Aggiungi a schermata Home").'
+    : '📲 <b>Metti il gioco sulla home</b>: se l’hai aperto da <b>WhatsApp</b>, tocca qui sotto <b>Apri in Chrome</b>. Poi in Chrome tocca il menu <b>⋮</b> → <b>Installa app</b> (o "Aggiungi a schermata Home").';
+  const chrome = 'intent://' + location.host + location.pathname + '#Intent;scheme=https;package=com.android.chrome;end';
+  b.innerHTML = txt + '<div class="ib">' + (instEv ? '<button class="btn primary" type="button" id="instGo">📲 Installa</button>' : !ios && !ff ? '<a class="btn primary" id="instCh" href="' + chrome + '">🌐 Apri in Chrome</a>' : '') + '<button class="btn" type="button" id="instNo">' + (instEv ? 'Non ora' : 'Ok, chiudi') + '</button></div>';
   b.hidden = false;
   if ($('#instGo')) $('#instGo').onclick = async () => {
     const e = instEv; if (!e) return; instEv = null;
