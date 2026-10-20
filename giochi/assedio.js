@@ -27,7 +27,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const maxHp = c => CL[clsOf(c)].hp;
   const Z2 = { x: 29.5, y: 33.5, r: 4.3, t: 18 }, Z3 = { x: 29.5, y: 8.2, r: 3.9, t: 24 };
   const RK = { x: 25, y: 77 }, LEV = { x: 24, y: 49 }, OILC = [{ x: 27, y: 51, sx: 26.5, sy: 51.5 }, { x: 32, y: 51, sx: 33.5, sy: 51.5 }];
-  const SPAWN_A = [null, { x: 26.5, y: 81.5 }, { x: 29.5, y: 59.5 }, { x: 29.5, y: 44.5 }], SPAWN_D = [null, [{ x: 29.5, y: 42.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }]];
+  const SPAWN_A = [null, { x: 25.5, y: 81.5 }, { x: 29.5, y: 59.5 }, { x: 29.5, y: 44.5 }], SPAWN_D = [null, [{ x: 29.5, y: 42.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }]];
   const PHN = [null, '🚪 Il portone', '⚔️ Il cortile', '👑 La sala del trono'];
   const mmss = t => Math.floor(Math.max(0, t) / 60) + ':' + String(Math.floor(Math.max(0, t) % 60)).padStart(2, '0');
   const MP = () => CQ_MAP;
@@ -428,10 +428,24 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const xyOf = (G, c) => { if (c.cl) { const q = clXY(G, c); return { x: q[0], y: q[1] }; } return P(c); };
   // lo scudo alzato ferma le frecce che arrivano dal davanti (sdA = dove guarda lo scudo, sulla mappa)
   const shieldBlocks = (c, a) => { if (!c.sd || c.sdA == null || c.cl || c.pu) return false; const vx = a.x1 - a.x0, vy = a.y1 - a.y0, m = Math.hypot(vx, vy) || 1; return -(vx * Math.cos(c.sdA) + vy * Math.sin(c.sdA)) / m > 0.2; };
+  // PARABOLA AUTOMATICA: la freccia sale quanto basta per scavalcare merli, muretti e barricate lungo il tiro (non si incastra nel bordo del muro).
+  // Il punto d'arrivo resta quello mirato: cambia solo l'altezza (al massimo ARC_UP in piu'). I muri veri (case, mastio, torri: alti 9) non si scavalcano.
+  const ARC_UP = 3, ARC_M = 0.18;
+  function arcPk(x0, y0, z0, x1, y1, z1) {
+    const d0 = Math.hypot(x1 - x0, y1 - y0), base = 0.45 + 0.13 * d0; if (d0 < 0.8) return base;
+    const n = Math.max(2, Math.ceil(d0 / 0.2)), u0 = Math.min(0.3, 0.3 / d0), u1 = 1 - Math.min(0.3, 0.6 / d0); let pk = base;
+    for (let i = 1; i < n; i++) {
+      const u = i / n; if (u < u0 || u > u1) continue;
+      const top = topAt(Math.floor(x0 + (x1 - x0) * u), Math.floor(y0 + (y1 - y0) * u)); if (top >= 8) continue;
+      const need = (top + ARC_M - z0 - (z1 - z0) * u) / (4 * u * (1 - u)); if (need > pk) pk = need;
+    }
+    return Math.min(pk, base + ARC_UP);
+  }
   function mkArrow(G, c, x1, y1, q) {
     const p = P(c), z0 = bodyZ(G, c) + 1.25, d0 = Math.hypot(x1 - p.x, y1 - p.y), z1 = zAt(x1, y1) + 0.45;
     const a = { id: ++G.arN, o: c.id, t: c.t, q: q || 0, x0: p.x, y0: p.y, z0, x1, y1, z1, t0: G.time, d: 0.16 + d0 / 15, pk: 0.45 + 0.13 * d0, te: 0, hit: -1 };
     if (c.cl) { const [cx, cy] = clXY(G, c); a.x0 = cx; a.y0 = cy; }
+    const pk = arcPk(a.x0, a.y0, z0, x1, y1, z1); a.d += 0.05 * (pk - a.pk); a.pk = pk;   // un tiro piu' alto ci mette un attimo in piu'
     G.ar.push(a); c.rl = G.time + RELOAD * (c.bot ? 1.5 : 1); c.sh = (c.sh || 0) + 1;
     return a;
   }
@@ -818,7 +832,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   function go(c, x, y) { if (c.goal && Math.hypot(c.goal[0] - x, c.goal[1] - y) < 0.3 && c.path && c.path.length) return; c.path = cqPath(c.x, c.y, x, y); if (!c.path.length && Math.hypot(c.x - x, c.y - y) < 1.2) c.path = [[x, y]]; c.goal = [x, y]; }
   const enemies = (G, c) => G.chars.filter(e => e.alive && e.t !== c.t && !dead(G, e));
   function clear(G, x0, y0, z0, x1, y1, z1) {
-    const d0 = Math.hypot(x1 - x0, y1 - y0), pk = 0.45 + 0.13 * d0, n = Math.max(2, Math.ceil(d0 / 0.3));
+    const d0 = Math.hypot(x1 - x0, y1 - y0), pk = arcPk(x0, y0, z0, x1, y1, z1), n = Math.max(2, Math.ceil(d0 / 0.3));
     for (let i = 1; i < n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, z = z0 + (z1 - z0) * u + 4 * pk * u * (1 - u); if (u > 0.06 && z < topAt(Math.floor(x), Math.floor(y))) return false; }
     return true;
   }
@@ -1174,7 +1188,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (G.hm && performance.now() - G.hm.t < 380) { const k = (performance.now() - G.hm.t) / 380, X = SX(G.hm.x, G.hm.y), Y = SY(G.hm.x, G.hm.y, G.hm.z), s = 7 + 5 * k; g.globalAlpha = 1 - k; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(X - s, Y - s); g.lineTo(X - s / 3, Y - s / 3); g.moveTo(X + s, Y - s); g.lineTo(X + s / 3, Y - s / 3); g.moveTo(X - s, Y + s); g.lineTo(X - s / 3, Y + s / 3); g.moveTo(X + s, Y + s); g.lineTo(X + s / 3, Y + s / 3); g.stroke(); g.globalAlpha = 1; }
       // MIRA (io): traiettoria tratteggiata e cerchio d'arrivo
       if (G.aim && G.aim.ok) {
-        const A = G.aim, p = { x: cq.x, y: cq.y }, z0 = (me.cl ? clZ(G, me) : zAt(p.x, p.y)) + 1.25, z1 = zAt(A.x, A.y) + 0.45, d0 = Math.hypot(A.x - p.x, A.y - p.y), pk = 0.45 + 0.13 * d0;
+        const A = G.aim, p = { x: cq.x, y: cq.y }, z0 = (me.cl ? clZ(G, me) : zAt(p.x, p.y)) + 1.25, z1 = zAt(A.x, A.y) + 0.45, d0 = Math.hypot(A.x - p.x, A.y - p.y), pk = arcPk(p.x, p.y, z0, A.x, A.y, z1);   // la mira mostra gia' la parabola corretta
         g.save(); g.setLineDash([6, 6]); g.lineDashOffset = -now * 30; g.strokeStyle = 'rgba(255,240,200,.9)'; g.lineWidth = 2.5; g.beginPath();
         for (let i = 0; i <= 18; i++) { const u = i / 18, x = p.x + (A.x - p.x) * u, y = p.y + (A.y - p.y) * u, z = z0 + (z1 - z0) * u + 4 * pk * u * (1 - u); i ? g.lineTo(SX(x, y), SY(x, y, z)) : g.moveTo(SX(x, y), SY(x, y, z)); }
         g.stroke(); g.restore();
@@ -1550,5 +1564,5 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; }
     }, 200);
   }
-  window.__as = { action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, viewTick, ramLet, ramCharge, ramRelease, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
+  window.__as = { arcPk, action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, viewTick, ramLet, ramCharge, ramRelease, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
 });

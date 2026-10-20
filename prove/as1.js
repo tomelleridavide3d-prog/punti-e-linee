@@ -21,7 +21,7 @@
   M.spots.forEach((S, i) => { if (!cqCellFree(S.fx, S.fy)) bad.push('piede scala ' + i); ok(S.ax, S.ay, 'partenza scala'); ok(S.tx, S.ty, 'cima scala'); });
   ok(A.RK.x + 0.5, A.RK.y + 1.5, 'rastrelliera'); ok(A.LEV.x - 0.5, A.LEV.y + 0.5, 'argano'); ok(26.5, 51.5, 'olio ovest'); ok(33.5, 51.5, 'olio est');
   ok(A.Z2.x, A.Z2.y + 1.5, 'zona cortile'); ok(A.Z3.x, A.Z3.y + 1, 'zona trono');
-  for (const [x, y] of [[26.5, 81.5], [29.5, 59.5], [29.5, 44.5], [29.5, 42.5], [13.5, 13.5], [45.5, 13.5]]) ok(x, y, 'ricomparsa');
+  for (const [x, y] of [[25.5, 81.5], [29.5, 59.5], [29.5, 44.5], [29.5, 42.5], [13.5, 13.5], [45.5, 13.5]]) ok(x, y, 'ricomparsa');
   for (let y = 52; y <= 80; y++) for (const x of [28, 29, 30, 31]) if (!cqCellFree(x, y)) bad.push('strada ariete ' + x + ',' + y);
   out.push('problemi mappa: ' + (bad.length ? bad.join(' | ') : 'nessuno'));
   { const t0 = performance.now(); cq.bg = null; cqBuildBg(); out.push('mappa pronta in ' + Math.round(performance.now() - t0) + ' ms, tessere ' + cq.bg.tiles.length); }
