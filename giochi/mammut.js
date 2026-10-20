@@ -1283,7 +1283,8 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   function haze(g, G, sx, sy, TW) {
     const day = 1 - Math.min(1, dark(G) * 2); if (day <= 0.02 || !G.me.alive) return;
     const W = cq.w, H = cq.h, k = 3, X = sx(cq.x, cq.y), Y = sy(cq.x, cq.y) - TW * 0.3;
-    const ux = Math.abs(sx(cq.x + 0.7071, cq.y - 0.7071) - sx(cq.x, cq.y)), uy = Math.abs(sy(cq.x + 0.7071, cq.y + 0.7071) - sy(cq.x, cq.y));
+    // una casella sullo schermo: in larghezza TW x 0,707, in altezza la meta' (misure fisse: le colline non devono cambiare la forma della foschia)
+    const ux = TW * 0.7071, uy = TW * 0.3536;
     const key = [W, H, Math.round(X / k), Math.round(Y / k), Math.round(ux), Math.round(uy)].join(',');
     let c = haze.c; if (!c) c = haze.c = document.createElement('canvas');
     if (haze.k !== key) {
