@@ -10,11 +10,21 @@
 CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const SQ = L.squadre, TEAMS = SQ.TEAMS;
   const W = 60, H = 84, HB = 0.8, WZ = 4, TZ = 5;   // altezza di un livello (U), camminamento, torri
-  const HP = 3, SAFE = 2.5, RELOAD = 1.0, RMAX = 12, RMIN = 1.6, CLIMB = 1.5, DOWN = 1.0, PUSH = 1.5, LEVER = 5, CARRY_L = 0.78;
+  const HP = 3, SAFE = 2.5, RELOAD = 0.85, RMAX = 12, RMIN = 1.6, CLIMB = 1.5, DOWN = 1.0, PUSH = 1.5, LEVER = 5, CARRY_L = 0.78;
   const NLAD = 3, IV = 7, RESP_A = 4, WAVE = 8;
   const GATE_HP = 130, RAM_Y0 = 78.5, RAM_Y1 = 53.4, RAM_X = 29.5, RAM_R = 2.3, HIT_T = 1.6, OIL_T = 15, BURN = 2.4;
   const BONUS = [0, 60, 45];   // secondi in piu' a fase conquistata
-  const Z2 = { x: 29.5, y: 33.5, r: 4.3, t: 15 }, Z3 = { x: 29.5, y: 8.2, r: 3.9, t: 18 };
+  // LE CLASSI (passo B): si sceglie prima di tornare in battaglia (pannello in basso quando sei a terra, o il pulsante a sinistra)
+  const CL = {
+    g: { n: 'Guerriero', i: '🗡️', hp: 4, d: 'Spada e scudo · 4 ❤', w: 'TIENI = SCUDO' },
+    a: { n: 'Arciere', i: '🏹', hp: 3, d: 'Arco · tiro lungo', w: 'TIRA INDIETRO' },
+    n: { n: 'Genio', i: '🔨', hp: 3, d: 'Martello · barricate · ripara', w: 'COLPISCI' } };
+  const CLK = ['g', 'a', 'n'];
+  const SW_R = 1.55, SW_CD = 0.55, HM_R = 1.35, HM_CD = 0.8, SHIELD_SP = 0.55, SHIELD_HOLD = 220, KNOCK = 0.55;   // spada, martello, scudo (ms da tenere premuto), spinta del colpo
+  const BAR_HP = 4, BAR_CD = 8, BAR_N = 2, FIX = 2.2, FIX2 = 1.0, OIL_TG = 9;   // barricate del genio, riparazione del portone (punti al secondo), olio piu' veloce
+  const clsOf = c => CL[c.cls] ? c.cls : 'a';
+  const maxHp = c => CL[clsOf(c)].hp;
+  const Z2 = { x: 29.5, y: 33.5, r: 4.3, t: 18 }, Z3 = { x: 29.5, y: 8.2, r: 3.9, t: 24 };
   const RK = { x: 25, y: 77 }, LEV = { x: 24, y: 49 }, OILC = [{ x: 27, y: 51, sx: 26.5, sy: 51.5 }, { x: 32, y: 51, sx: 33.5, sy: 51.5 }];
   const SPAWN_A = [null, { x: 29.5, y: 80.5 }, { x: 29.5, y: 59.5 }, { x: 29.5, y: 44.5 }], SPAWN_D = [null, [{ x: 29.5, y: 42.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }]];
   const PHN = [null, '🚪 Il portone', '⚔️ Il cortile', '👑 La sala del trono'];
@@ -358,6 +368,19 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       case 'aBarr': {   // BARRICATA: cavalli di frisia con i pali appuntiti
         for (const u of [0.2, 0.8]) { line(S(x + u - 0.2, y + 0.2, 0), S(x + u + 0.2, y + 0.8, 1.0), '#6a4a2a', Math.max(3, TW / 12)); line(S(x + u + 0.2, y + 0.2, 0), S(x + u - 0.2, y + 0.8, 1.0), '#7a5432', Math.max(3, TW / 12)); }
         line(S(x - 0.05, y + 0.5, 0.5), S(x + 1.05, y + 0.5, 0.5), '#5a3a20', Math.max(3, TW / 11)); for (const u of [0.1, 0.5, 0.9]) dot(x + u, y + 0.5, 0.95, 0.04, '#c8b07a'); break; }
+      case 'aPal': {   // BARRICATA DEL GENIO: palizzata di pali appuntiti con due traverse e la bandierina della squadra (rotta: due pali spezzati)
+        const col = TEAMS[o.t || 0].c, dm = o.d;
+        bx(x + 0.02, y + 0.36, x + 0.98, y + 0.64, 0, 0.08, '#5a4228');
+        for (let i = 0; i < 5; i++) {
+          const u = 0.1 + i * 0.2, br = dm && (i === 1 || i === 3), h = br ? 0.55 : 1.22 + (i % 2) * 0.14, c1 = i % 2 ? '#8a6038' : '#a87a4a';
+          bx(x + u - 0.08, y + 0.43, x + u + 0.08, y + 0.57, 0, h, c1);
+          if (!br) poly([S(x + u - 0.08, y + 0.57, h), S(x + u + 0.08, y + 0.57, h), S(x + u + 0.08, y + 0.43, h), S(x + u, y + 0.5, h + 0.3)], cqShade(c1, 1.12));
+          else poly([S(x + u - 0.08, y + 0.57, h), S(x + u + 0.08, y + 0.57, h + 0.12), S(x + u, y + 0.57, h - 0.05)], '#c8a070');
+        }
+        for (const z of [0.32, 0.86]) bx(x - 0.02, y + 0.57, x + 1.02, y + 0.64, z, z + 0.11, '#5a3a1e');
+        bx(x + 0.47, y + 0.47, x + 0.53, y + 0.53, 1.3, 2.05, '#3a2412');
+        poly([S(x + 0.5, y + 0.5, 2.02), S(x + 0.5 - 0.46, y + 0.5 + 0.12, 1.86), S(x + 0.5, y + 0.5, 1.66)], col);
+        break; }
       case 'aLamp': cyl(x + 0.5, y + 0.5, 0.06, 0, 2.3, '#3a3030'); bx(x + 0.5, y + 0.47, x + 0.85, y + 0.53, 2.2, 2.26, '#3a3030'); bx(x + 0.75, y + 0.42, x + 0.92, y + 0.58, 1.75, 2.05, '#f6d890'); glow(x + 0.83, y + 0.5, 1.9, 1.8, 'rgba(255,210,130,.42)'); break;
       case 'aTent': {
         if (o.part) break; const x0 = x - 1, y0 = y - 1, c = o.c || '#c8b48a';
@@ -387,7 +410,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   CQ_MAPS.castello = { n: 'Castello di Roccaforte', make: mapCastle, only: 'assedio' };
   // altezza (in U) di quello che c'e' in una casella, per le frecce: muro/oggetto alto = la freccia si pianta
   const PH = { aMerl: 0, aGate: 3.3, aKdoor: 1.6, aIdoor: 1.3, aWinch: 1.1, aOil: 1.05, aThrone: 2.4, aCol: 3.25, aBench2: 0.5, aTable: 0.8, aArmor: 2.1, aChest: 0.6, aAltar: 1.1, aPew: 0.95, aCandle: 1.6, aWell: 2.2, aLowW: 1.05, aStallW: 1.15, aHorse: 1.6, aTrough: 0.5, aGrind: 1.0, aScare: 1.9,
-    aForge: 2.6, aAnvil: 0.8, aDummy: 1.8, aTarget: 1.6, aRackW: 1.7, aCart: 1.1, aBraz: 1.4, aBann: 3.2, aHearth: 1.9, aBed: 0.7, aStool: 0.45, aShelf: 1.6, aFount: 1.5, aStall: 1.75, aBarr: 1.0, aLamp: 2.3, aTent: 1.9, aFire: 0.3, aRack: 2.6, aLad: 0.3, aBench: 0.8, pine: 4, oak: 4, rock: 0.8, bush: 0.7, hay: 1.0, barrel: 0.9, crate: 0.8, crate2: 1.2, logpile: 0.8 };
+    aForge: 2.6, aAnvil: 0.8, aDummy: 1.8, aTarget: 1.6, aRackW: 1.7, aCart: 1.1, aBraz: 1.4, aBann: 3.2, aHearth: 1.9, aBed: 0.7, aStool: 0.45, aShelf: 1.6, aFount: 1.5, aStall: 1.75, aBarr: 1.0, aPal: 1.3, aLamp: 2.3, aTent: 1.9, aFire: 0.3, aRack: 2.6, aLad: 0.3, aBench: 0.8, pine: 4, oak: 4, rock: 0.8, bush: 0.7, hay: 1.0, barrel: 0.9, crate: 0.8, crate2: 1.2, logpile: 0.8 };
   function topAt(xi, yi) {
     if (!cqFloor[yi] || !cqFloor[yi][xi]) { const k = WK && WK[yi] ? WK[yi][xi] : 'lake'; return k === 'lake' || k === 'pool' ? -0.1 : k === 'house' ? 1.5 : k === 'keep' ? 1.4 : 9; }
     const base = cqHc(xi, yi) * HB, s = cqSolid[yi][xi]; if (!s) return base;
@@ -401,6 +424,9 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const clZ = (G, c) => clU(G, c) * WZ * HB;
   const clXY = (G, c) => { const S = MP().spots[c.cl.s], u = clU(G, c); return [S.ax + (S.tx - S.ax) * u * 0.55, S.ay + (S.ty - S.ay) * u * 0.55]; };
   const bodyZ = (G, c) => { const p = P(c); return c.cl ? clZ(G, c) : zAt(p.x, p.y); };
+  const xyOf = (G, c) => { if (c.cl) { const q = clXY(G, c); return { x: q[0], y: q[1] }; } return P(c); };
+  // lo scudo alzato ferma le frecce che arrivano dal davanti (sdA = dove guarda lo scudo, sulla mappa)
+  const shieldBlocks = (c, a) => { if (!c.sd || c.sdA == null || c.cl || c.pu) return false; const vx = a.x1 - a.x0, vy = a.y1 - a.y0, m = Math.hypot(vx, vy) || 1; return -(vx * Math.cos(c.sdA) + vy * Math.sin(c.sdA)) / m > 0.2; };
   function mkArrow(G, c, x1, y1, q) {
     const p = P(c), z0 = bodyZ(G, c) + 1.25, d0 = Math.hypot(x1 - p.x, y1 - p.y), z1 = zAt(x1, y1) + 0.45;
     const a = { id: ++G.arN, o: c.id, t: c.t, q: q || 0, x0: p.x, y0: p.y, z0, x1, y1, z1, t0: G.time, d: 0.16 + d0 / 15, pk: 0.45 + 0.13 * d0, te: 0, hit: -1 };
@@ -424,7 +450,12 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
           const p = c.cl ? (() => { const q = clXY(G, c); return { x: q[0], y: q[1] }; })() : P(c), cz = bodyZ(G, c);
           if (Math.hypot(p.x - x, p.y - y) < 0.44 && z > cz - 0.1 && z < cz + 2.35) { hit = c; break; }
         }
-        if (hit) { a.te = tt; a.hx = x; a.hy = y; a.hz = z; a.hit = hit.id; if (!safe(G, hit)) hurt(G, hit, 1, byId(G, a.o), 'ar'); break; }
+        if (hit) {
+          a.te = tt; a.hx = x; a.hy = y; a.hz = z;
+          if (shieldBlocks(hit, a)) { a.hit = -2; hit.blk = (hit.blk || 0) + 1; }   // lo scudo del guerriero (davanti) la ferma
+          else { a.hit = hit.id; if (!safe(G, hit)) hurt(G, hit, 1, byId(G, a.o), 'ar'); }
+          break;
+        }
         if (u > 0.06 && z < topAt(Math.floor(x), Math.floor(y))) { a.te = tt; a.hx = x; a.hy = y; a.hz = z; break; }
         if (u >= 1) { a.te = tt; a.hx = x; a.hy = y; a.hz = Math.max(z - 0.4, zAt(x, y)); break; }
       }
@@ -433,7 +464,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   }
   function hurt(G, c, n, by, why) {
     if (dead(G, c)) return;
-    c.hp = Math.max(0, (c.hp == null ? HP : c.hp) - n); c.hitT = G.time;
+    c.hp = Math.max(0, (c.hp == null ? maxHp(c) : c.hp) - n); c.hitT = G.time;
     if (by) by.hi = (by.hi || 0) + 1;
     if (c.pu) c.pu = null;
     if (c.hp <= 0) down(G, c, by, why);
@@ -442,16 +473,84 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   function down(G, c, by, why) {
     const p = c.cl ? (() => { const q = clXY(G, c); return { x: q[0], y: q[1] }; })() : P(c);
     c.dn = isAtk(G, c) ? G.time + RESP_A : G.hs + Math.ceil((G.time - G.hs + 3) / WAVE) * WAVE;
-    c.d = (c.d || 0) + 1; c.path = []; c.walk = 0; c.pu = null; c.cl = null;
+    c.d = (c.d || 0) + 1; c.path = []; c.walk = 0; c.pu = null; c.cl = null; c.sd = 0;
     if (by && by.t !== c.t) by.k = (by.k || 0) + 1;
     const lc = G.ld.find(l => l.st === 1 && l.c === c.id); if (lc) dropLad(G, lc, p.x, p.y);
     G.bodies = G.bodies.filter(b => b.id !== c.id);
     G.bodies.push({ id: c.id, x: p.x, y: p.y, face: c === G.me ? cq.face : c.face, look: cqLookOf(c), name: c.name, t: G.time, nk: 1 });
     say(G, 'down', { a: c.id, b: by ? by.id : -1, w: why || '', x: r1(p.x), y: r1(p.y) });
   }
-  function revive(G, c) { c.dn = 0; c.hp = HP; c.sf = G.time + SAFE; c.angel = G.time; G.bodies = G.bodies.filter(b => b.id !== c.id); const p = baseSpawn(G, c); tp(G, c, p.x, p.y); }
+  function revive(G, c) { if (CL[c.ncls]) c.cls = c.ncls; c.dn = 0; c.hp = maxHp(c); c.sf = G.time + SAFE; c.angel = G.time; G.bodies = G.bodies.filter(b => b.id !== c.id); const p = baseSpawn(G, c); tp(G, c, p.x, p.y); }
   function tp(G, c, x, y) { c.x = x; c.y = y; c.path = []; c.cl = null; if (c === G.me) { cq.x = x; cq.y = y; } c.tpN = (c.tpN || 0) + 1; c.tp = [r2(x), r2(y)]; }
   const baseSpawn = (G, c) => { const ph = Math.min(3, G.ph); if (isAtk(G, c)) return SQ.spawn(SPAWN_A[ph], 5); const L2 = SPAWN_D[ph]; return SQ.spawn(L2[(c.id + (c.d || 0)) % L2.length], 4); };
+  const atSpawn = (G, c) => { const p = P(c), ph = Math.min(3, G.ph || 1), L2 = isAtk(G, c) ? [SPAWN_A[ph]] : SPAWN_D[ph]; return L2.some(s => Math.hypot(s.x - p.x, s.y - p.y) < 4.5); };
+
+  // ======================= LE CLASSI: cambio, spada e martello, scudo, barricate =======================
+  // si cambia subito se sei a terra, all'intervallo, al conto alla rovescia o vicino al punto di partenza; se no al prossimo ritorno
+  const clsNow = (G, c) => dead(G, c) || inIv(G) || (G.pre || 0) > 0 || atSpawn(G, c) || safe(G, c);
+  function setCls(G, c, k) {
+    if (!CL[k]) return; c.ncls = k;
+    if (!dead(G, c) && clsNow(G, c) && c.cls !== k) { c.cls = k; c.hp = maxHp(c); c.sd = 0; c.rl = 0; }
+  }
+  const canHit = (G, c) => c.alive && !dead(G, c) && !c.pu && !c.cl && !inIv(G) && !G.ld.some(l => l.st === 1 && l.c === c.id);
+  // verso il nemico piu' vicino (gli arcieri contano di piu': lo scudo si gira verso chi tira)
+  function aimDir(G, c, R, arcFirst) { const p = P(c); let b = null, bd = 1e9; for (const e of enemies(G, c)) { const q = xyOf(G, e), d = Math.hypot(q.x - p.x, q.y - p.y); if (d > R) continue; const s = d - (arcFirst && clsOf(e) === 'a' ? 4 : 0); if (s < bd) { bd = s; b = q; } } return b ? Math.atan2(b.y - p.y, b.x - p.x) : null; }
+  function melee(G, c) {
+    const k = clsOf(c); if (k === 'a' || !canHit(G, c) || (c.rl || 0) > G.time + 0.05) return;
+    const R = k === 'g' ? SW_R : HM_R, p = P(c), z = bodyZ(G, c);
+    c.rl = G.time + (k === 'g' ? SW_CD : HM_CD) * (c.bot ? 1.35 : 1); c.sw = G.time; c.sd = 0; c.swN = (c.swN || 0) + 1;
+    let best = null, bd = R;
+    for (const e of enemies(G, c)) { const q = xyOf(G, e), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd && Math.abs(bodyZ(G, e) - z) < 1.4) { bd = d; best = [e, q]; } }
+    if (best) {
+      const [e, q] = best, ax = q.x - p.x, ay = q.y - p.y, m = Math.hypot(ax, ay) || 1; c.swA = Math.atan2(ay, ax);
+      if (!safe(G, e)) {
+        if (e.cl) { const S = MP().spots[e.cl.s]; e.cl = null; tp(G, e, S.ax, S.ay); e.fallN = (e.fallN || 0) + 1; hurt(G, e, 1, c, 'fall'); }   // chi sale la scala cade giu'
+        else { hurt(G, e, 1, c, k === 'g' ? 'sw' : 'hm'); if (!dead(G, e)) { const nx = q.x + ax / m * KNOCK, ny = q.y + ay / m * KNOCK; if (cqFree(nx, ny) && hzAt(nx, ny) === hzAt(q.x, q.y)) tp(G, e, nx, ny); } }
+        c.mh = (c.mh || 0) + 1;
+      }
+      say(G, 'mel', { a: c.id, b: e.id, x: r1(q.x), y: r1(q.y), w: k });
+      return;
+    }
+    const a = aimDir(G, c, 6); c.swA = a != null ? a : c.swA || 0;
+    // nessun nemico a portata: colpisce la barricata nemica li' davanti
+    const b = G.bw.find(b => b.t !== c.t && Math.hypot(b.x + 0.5 - p.x, b.y + 0.5 - p.y) < 1.45);
+    if (b) { b.hp -= k === 'n' ? 2 : 1; c.swA = Math.atan2(b.y + 0.5 - p.y, b.x + 0.5 - p.x); say(G, 'bhit', { a: c.id, x: b.x + 0.5, y: b.y + 0.5, d: b.hp <= 0 ? 1 : 0 }); if (b.hp <= 0) { G.bw = G.bw.filter(o => o !== b); c.bk = (c.bk || 0) + 1; } }
+  }
+  function shieldTick(G) {
+    for (const c of G.chars) {
+      if (!c.sd) continue;
+      if (clsOf(c) !== 'g' || dead(G, c) || inIv(G)) { c.sd = 0; continue; }
+      const a = aimDir(G, c, 14, true); if (a != null) c.sdA = a; else if (c === G.me && (cq.wdx || cq.wdy)) c.sdA = Math.atan2(cq.wdy, cq.wdx); else if (c.sdA == null) c.sdA = -Math.PI / 2;
+    }
+  }
+  // BARRICATA: il genio pianta un muretto di assi nella casella davanti (max BAR_N a testa, la piu' vecchia sparisce); mai dove chiude un passaggio
+  function keepsWay(x, y) {
+    const D4 = [[1, 0], [-1, 0], [0, 1], [0, -1]], z = cqHc(x, y);
+    const N = D4.map(([dx, dy]) => [x + dx, y + dy]).filter(([a, b]) => cqCellFree(a, b) && Math.abs(cqHc(a, b) - z) <= 1);
+    if (N.length < 2) return true;
+    const R = 8, seen = new Set([x + ',' + y, N[0].join(',')]), q = [N[0]];
+    while (q.length) { const [a, b] = q.pop(); for (const [dx, dy] of D4) { const nx = a + dx, ny = b + dy, k = nx + ',' + ny; if (Math.abs(nx - x) > R || Math.abs(ny - y) > R || seen.has(k) || !cqCellFree(nx, ny) || Math.abs(cqHc(nx, ny) - cqHc(a, b)) > 1) continue; seen.add(k); q.push([nx, ny]); } }
+    return N.every(n => seen.has(n.join(',')));
+  }
+  function buildOk(G, c, x, y) {
+    if (clsOf(c) !== 'n' || !canHit(G, c) || (c.bwT || 0) > G.time || G.phase !== 'play') return false;
+    const p = P(c); if (Math.hypot(x + 0.5 - p.x, y + 0.5 - p.y) > 1.75) return false;
+    if (x < 1 || y < 1 || x >= W - 1 || y >= H - 1 || !cqCellFree(x, y) || cqHc(x, y) !== hzAt(p.x, p.y)) return false;
+    if (inPass(x, y) || (x >= 26 && x <= 33 && (y >= 52 || (y >= 19 && y <= 23)))) return false;   // il portone, la strada dell'ariete, la porta del mastio
+    if (MP().spots.some(S => (S.fx === x && S.fy === y) || (Math.floor(S.ax) === x && Math.floor(S.ay) === y) || (Math.floor(S.tx) === x && Math.floor(S.ty) === y))) return false;
+    const pts = [[LEV.x - 0.5, LEV.y + 0.5], [RK.x + 0.5, RK.y + 1.5], ...OILC.map(o => [o.sx, o.sy]), ...SPAWN_A.filter(Boolean).map(s => [s.x, s.y]), ...SPAWN_D.filter(Boolean).flat().map(s => [s.x, s.y])];
+    if (pts.some(([a, b]) => Math.hypot(a - x - 0.5, b - y - 0.5) < 2.2)) return false;
+    if (G.chars.some(o => { if (!o.alive || dead(G, o)) return false; const q = xyOf(G, o); return Math.abs(q.x - x - 0.5) < 0.95 && Math.abs(q.y - y - 0.5) < 0.95; })) return false;   // nessuno dentro o a cavallo della casella
+    return keepsWay(x, y);
+  }
+  function doBuild(G, c, x, y) {
+    x = Math.floor(x); y = Math.floor(y); if (!buildOk(G, c, x, y)) return false;
+    const own = G.bw.filter(b => b.o === c.id); if (own.length >= BAR_N) G.bw = G.bw.filter(b => b !== own[0]);
+    G.bw.push({ id: ++G.bwN, x, y, t: c.t, o: c.id, hp: BAR_HP }); c.bwT = G.time + BAR_CD; c.bN = (c.bN || 0) + 1;
+    say(G, 'build', { a: c.id, x: x + 0.5, y: y + 0.5 }); return true;
+  }
+  // la casella davanti a me (dove guardo camminando)
+  const frontCell = () => { let dx = cq.wdx || 0, dy = cq.wdy || 0; if (!dx && !dy) dy = -1; const m = Math.hypot(dx, dy); return [Math.floor(cq.x + dx / m * 1.1), Math.floor(cq.y + dy / m * 1.1)]; };
 
   // ======================= LE SCALE =======================
   function dropLad(G, l, x, y) {
@@ -496,6 +595,15 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (rk && rk.prop === 'aRack' && rk.o.n !== n) { cqSolid[RK.y][RK.x] = { prop: 'aRack', o: { n } }; cqBgCell(RK.x, RK.y); }
       G.ldOld = { p: want, d: wantD };
     }
+    // barricate del genio (rotte = un'asse in meno); chi del computer aveva una strada che ci passa la ricalcola
+    const bs = (G.bw || []).map(b => b.x + ',' + b.y + ',' + b.t + ',' + (b.hp <= BAR_HP / 2 ? 1 : 0)).join('|');
+    if (bs !== G.bwSig) {
+      G.bwSig = bs; const want = new Map(); for (const b of G.bw || []) want.set(b.x + ',' + b.y, b);
+      for (const k of G.bwOld || []) if (!want.has(k)) { const [x, y] = k.split(',').map(Number); if (cqSolid[y][x] && cqSolid[y][x].prop === 'aPal') { cqSolid[y][x] = null; cqBgCell(x, y); } }
+      for (const [k, b] of want) { const s = cqSolid[b.y][b.x], d = b.hp <= BAR_HP / 2 ? 1 : 0; if (!s || s.prop !== 'aPal' || s.o.t !== b.t || s.o.d !== d) { if (!s || s.prop === 'aPal') { cqSolid[b.y][b.x] = { prop: 'aPal', o: { t: b.t, d } }; cqBgCell(b.x, b.y); } } }
+      G.bwOld = [...want.keys()];
+      for (const c of G.chars) if (c.bot && c.path && c.path.length) { c.path = []; c.goal = null; }
+    }
     // portone: crepe secondo i colpi, sfondato = macerie (si passa)
     const gs = G.gopen ? 3 : G.gh > GATE_HP * 0.66 ? 0 : G.gh > GATE_HP * 0.33 ? 1 : 2;
     if (gs !== G.gsS) { G.gsS = gs; for (let i = 0; i < 4; i++) { const x = 28 + i, y = 50; if (gs === 3) { cqSolid[y][x] = null; if (cqDeco) cqDeco[y][x] = 'aRubble'; } else { cqSolid[y][x] = { prop: 'aGate', o: { i, d: gs } }; if (cqDeco) cqDeco[y][x] = null; } cqBgCell(x, y); } }
@@ -513,7 +621,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     const me = G.me, A = byId(G, e.a), B = byId(G, e.b), an = A ? '<b>' + esc(A.name) + '</b>' : '', bn = B ? '<b>' + esc(B.name) + '</b>' : '', atk = isAtk(G, me), d = e.x != null ? Math.hypot(e.x - cq.x, e.y - cq.y) : 99;
     let t = '';
     if (e.k === 'down') {
-      if (A === me) { t = e.w === 'fall' ? '💥 Sei caduto dalla scala!' : e.w === 'oil' ? '🔥 Olio bollente!' : e.w === 'jump' ? '💥 Atterraggio storto!' : B ? '💀 ' + bn + ' ti ha colpito!' : '💀 Sei caduto!'; shake(G, 12); }
+      if (A === me) { t = e.w === 'fall' ? '💥 Sei caduto dalla scala!' : e.w === 'oil' ? '🔥 Olio bollente!' : e.w === 'jump' ? '💥 Atterraggio storto!' : B ? (e.w === 'sw' ? '🗡️ ' : e.w === 'hm' ? '🔨 ' : '💀 ') + bn + ' ti ha abbattuto!' : '💀 Sei caduto!'; shake(G, 12); }
       else if (B === me) { t = '🎯 Hai abbattuto ' + an + '!'; beep(880, 0.08, 0.04); beep(1175, 0.12, 0.04, 0.08); }
       if (d < 14 && A !== me) { const v = 0.05 * (1 - d / 14); beep(420 + (e.a * 37) % 120, 0.25, v, 0, 'sawtooth'); beep(260, 0.3, v, 0.12, 'sawtooth'); }
     }
@@ -530,12 +638,23 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     else if (e.k === 'zone') { ann(G, '⚔️ IL CORTILE È CADUTO!', atk ? 'Alla sala del trono! (+' + BONUS[2] + ' s)' : 'Ultima difesa: il trono!', atk ? '#2a6a2a' : '#8a1a1a'); shake(G, 10); bell(); }
     else if (e.k === 'win') { ann(G, '👑 IL CASTELLO È CADUTO!', (A ? A.name : 'Gli attaccanti') + ' sul trono', '#a8801a'); fanfare(atk); shake(G, 10); }
     else if (e.k === 'half') { horn(); }
+    else if (e.k === 'mel') {   // colpo di spada o martello andato a segno
+      fxAdd(G, 'hit', e.x, e.y);
+      if (A === me) { G.hm = { x: e.x, y: e.y, z: zAt(e.x, e.y) + 1, t: performance.now() }; beep(1500, 0.04, 0.03); }
+      if (d < 12) { const v = 1 - d / 12; clang(0.6 * v, e.w === 'n'); }
+    }
+    else if (e.k === 'bhit') { fxAdd(G, e.d ? 'wreck' : 'wood', e.x, e.y); if (d < 12) thud(0.5 * (1 - d / 12), e.d ? 90 : 180); if (e.d && A === me) t = '🪓 Barricata distrutta!'; }
+    else if (e.k === 'build') { fxAdd(G, 'dust', e.x, e.y); if (d < 12) { thud(0.4 * (1 - d / 12), 200); beep(330, 0.05, 0.03, 0.08, 'square'); } if (A === me) t = '🪵 Barricata piantata!'; }
     if (t) cqToast(t);
   }
   function horn() { beep(196, 0.6, 0.06, 0, 'sawtooth'); beep(262, 0.8, 0.05, 0.5, 'sawtooth'); }
   function bell() { for (let i = 0; i < 4; i++) { beep(660, 0.4, 0.04, i * 0.35, 'triangle'); beep(990, 0.25, 0.02, i * 0.35 + 0.02, 'sine'); } }
   function fanfare(ok) { const f = ok ? [523, 659, 784, 1047] : [392, 330, 294, 262]; f.forEach((v, i) => beep(v, 0.18, 0.05, i * 0.15, 'triangle')); }
   const twang = () => { beep(220, 0.06, 0.04, 0, 'triangle'); beep(140, 0.08, 0.03, 0.02, 'sine'); };
+  const swish = () => { beep(900, 0.05, 0.015, 0, 'sawtooth'); beep(500, 0.07, 0.015, 0.03, 'sawtooth'); };
+  const clang = (v, wood) => { if (wood) { thud(v, 150); beep(240, 0.06, 0.03 * v, 0, 'square'); } else { beep(1250, 0.09, 0.04 * v, 0, 'square'); beep(1870, 0.12, 0.025 * v, 0.01, 'triangle'); } };
+  // piccoli effetti sulla mappa (colpi, schegge, polvere): solo da disegnare, su ogni telefono
+  function fxAdd(G, k, x, y) { (G.fx = G.fx || []).push({ k, x, y, t0: performance.now() }); if (G.fx.length > 24) G.fx.shift(); }
 
   // ======================= AZIONI (pulsante grande) =======================
   const nearLever = (x, y) => Math.hypot(x - LEV.x - 0.5, y - LEV.y - 0.5) < 1.45;
@@ -543,7 +662,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   function action(G, c) {
     if (!c.alive || dead(G, c) || inIv(G) || c.cl) return null;
     const p = P(c), atk = isAtk(G, c), carry = G.ld.find(l => l.st === 1 && l.c === c.id), z = zoneAt(p.x, p.y);
-    if (c.pu) return { k: c.pu.k, t: c.pu.k === 'lever' ? '⚙️ Giro l\'argano…' : '🤚 Rovescio…', on: false };
+    if (c.pu) return { k: c.pu.k, t: c.pu.k === 'lever' ? '⚙️ Giro l\'argano…' : c.pu.k === 'fix' ? '🔧 Riparo…' : '🤚 Rovescio…', on: false };
     if (atk) {
       if (carry) { const s = nearSpot(G, p.x, p.y); return s >= 0 ? { k: 'place', s, t: '🪜 Appoggia la scala', on: true } : { k: 'ldrop', t: '🪜 Lascia la scala', on: true }; }
       if (G.ph === 1 && !G.gopen && z === 'wall' && nearLever(p.x, p.y)) return { k: 'lever', t: '⚙️ Apri il portone!', on: true };
@@ -552,13 +671,22 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       const foot = nearLadFoot(G, p.x, p.y); if (foot && z === 'out') return { k: 'climb', l: foot, t: '🧗 Sali!', on: true };
       if (G.ph === 1 && nearRack(p.x, p.y)) { const n = G.ld.filter(l => l.st === 0).length; return { k: 'take', t: n ? '🪜 Prendi una scala (' + n + ')' : '🪜 Scale finite', on: n > 0 }; }
       const gl = G.ph === 1 ? nearGroundLad(G, p.x, p.y) : null; if (gl) return { k: 'take', g: gl, t: '🪜 Raccogli la scala', on: true };
-      return null;
+      return buildAct(G, c);
     }
     if (G.ph === 1 && z === 'wall') { const o = nearOil(p.x, p.y); if (o >= 0) { const w = (G.oil[o] || 0) - G.time; return { k: 'oil', o, t: w > 0 ? '🔥 Olio tra ' + Math.ceil(w) + ' s' : '🔥 Versa l\'olio!', on: w <= 0 }; } }
     const top = nearLadTop(G, p.x, p.y, 1.45); if (top && z === 'wall') return { k: 'push', l: top, t: '🤚 Rovescia la scala!', on: true };
-    return null;
+    if (G.ph === 1 && !G.gopen && clsOf(c) === 'n' && nearFix(p.x, p.y)) return { k: 'fix', t: G.gh >= GATE_HP ? '🔧 Portone intatto' : '🔧 Ripara il portone', on: G.gh < GATE_HP };
+    return buildAct(G, c);
   }
+  // il genio (solo io: la casella davanti la so solo io) pianta una barricata
+  function buildAct(G, c) {
+    if (clsOf(c) !== 'n' || c !== G.me || G.ld.some(l => l.st === 1 && l.c === c.id)) return null;
+    const [x, y] = frontCell(), w = (c.bwT || 0) - G.time;
+    return { k: 'build', x, y, t: w > 0 ? '🪵 Barricata tra ' + Math.ceil(w) + ' s' : '🪵 Barricata', on: w <= 0 && buildOk(G, c, x, y) };
+  }
+  const nearFix = (x, y) => x > 27.3 && x < 32.7 && y > 46 && y < 50;   // dentro al portone, dalla parte del cortile
   function doAct(G, c, a) {
+    if (a.k === 'build') { if (a.x != null) doBuild(G, c, a.x, a.y); return; }
     const p = P(c), x = action(G, c); if (!x || x.k !== a.k || !x.on) return;
     if (x.k === 'take') { const l = x.g || G.ld.find(l => l.st === 0); if (!l) return; l.st = 1; l.c = c.id; return; }
     if (x.k === 'ldrop') { const l = G.ld.find(l => l.st === 1 && l.c === c.id); if (l) dropLad(G, l, p.x, p.y); return; }
@@ -568,7 +696,8 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     if (x.k === 'jump') { const S = MP().spots[x.s]; tp(G, c, S.ax, S.ay); say(G, 'jump', { a: c.id, x: S.ax, y: S.ay }); hurt(G, c, 1, null, 'jump'); return; }
     if (x.k === 'push') { c.pu = { k: 'push', l: G.ld.indexOf(x.l), e: G.time + PUSH, x: p.x, y: p.y }; c.path = []; return; }
     if (x.k === 'lever') { c.pu = { k: 'lever', e: G.time + LEVER, x: p.x, y: p.y }; c.path = []; say(G, 'lever', { a: c.id }); return; }
-    if (x.k === 'oil') { G.oil[x.o] = G.time + OIL_T; G.burn = { t0: G.time, e: G.time + BURN, hit: [] }; c.oN = (c.oN || 0) + 1; say(G, 'oil', { a: c.id, x: 29.5, y: 53 }); return; }
+    if (x.k === 'fix') { c.pu = { k: 'fix', e: G.time + 999, x: p.x, y: p.y }; c.path = []; return; }
+    if (x.k === 'oil') { G.oil[x.o] = G.time + (clsOf(c) === 'n' ? OIL_TG : OIL_T); G.burn = { t0: G.time, e: G.time + BURN, hit: [] }; c.oN = (c.oN || 0) + 1; say(G, 'oil', { a: c.id, x: 29.5, y: 53 }); return; }
   }
   function holdTick(G) {
     for (const c of G.chars) {
@@ -579,6 +708,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
         if (Math.hypot(p.x - c.pu.x, p.y - c.pu.y) > 0.35 || dead(G, c)) { c.pu = null; continue; }
         if (c.pu.k === 'push') { const l = G.ld[c.pu.l]; if (!l || l.st !== 2) { c.pu = null; continue; } if (G.time >= c.pu.e) { c.pu = null; fall(G, l, c); } }
         else if (c.pu.k === 'lever') { if (G.gopen) { c.pu = null; continue; } if (G.time >= c.pu.e) { c.pu = null; c.lvN = (c.lvN || 0) + 1; openGate(G, c); } }
+        else if (c.pu.k === 'fix') { if (G.gopen || G.gh >= GATE_HP || G.ph !== 1) c.pu = null; }
       }
     }
   }
@@ -592,7 +722,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   function ramTick(G, dt) {
     if (G.ph !== 1 || G.gopen) return;
     const R = G.rm, push = G.chars.filter(c => { if (!c.alive || dead(G, c) || !isAtk(G, c) || c.cl) return false; const p = P(c); return Math.abs(p.x - RAM_X) < 1.9 && p.y > R.y - 1.2 && p.y < R.y + RAM_R; });
-    R.n = push.length; for (const c of push) c.rmT = (c.rmT || 0) + dt;
+    R.n = push.reduce((s, c) => s + (clsOf(c) === 'n' ? 2 : 1), 0); for (const c of push) c.rmT = (c.rmT || 0) + dt;   // il genio spinge per due
     if (!R.n) return;
     if (R.y > RAM_Y1) { R.y = Math.max(RAM_Y1, R.y - (0.35 + 0.2 * Math.min(3, R.n)) * dt); if (R.y === RAM_Y1) say(G, 'ramgate', {}); return; }
     if (G.time >= R.nx) {
@@ -602,6 +732,12 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (before > GATE_HP / 2 && G.gh <= GATE_HP / 2) say(G, 'gate50', {});
       if (G.gh <= 0) openGate(G, push[0]);
     }
+  }
+  // il genio ripara il portone da dentro mentre l'ariete lo colpisce (piu' genii, un po' piu' veloce)
+  function fixTick(G, dt) {
+    if (G.ph !== 1 || G.gopen) return;
+    const F = G.chars.filter(c => c.pu && c.pu.k === 'fix' && !dead(G, c)); if (!F.length) return;
+    G.gh = Math.min(GATE_HP, G.gh + (FIX + FIX2 * (F.length - 1)) * dt); for (const c of F) c.fxT = (c.fxT || 0) + dt;
   }
   const inBurn = (x, y) => x > 27.2 && x < 32.8 && y > 51.6 && y < 56.2;
   function oilTick(G) {
@@ -630,10 +766,13 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     G.hs = G.time; G.ar = []; G.bodies = []; G.ph = 1; G.lim = G.opt.time || 240; G.gh = GATE_HP; G.gopen = false; G.zp = 0; G.zc = 0; G.za = G.zd = 0;
     G.rm = { y: RAM_Y0, n: 0, nx: 0, hit: -9 }; G.oil = [0, 0]; G.burn = null; G.best = G.best || [0, 0];
     G.ld = []; for (let i = 0; i < NLAD; i++) G.ld.push({ st: 0, c: -1, s: -1, x: 0, y: 0 });
-    for (const c of G.chars) { c.hp = HP; c.dn = 0; c.sf = 0; c.cl = null; c.pu = null; c.rl = 0; c.post = null; c.sp = null; const p = baseSpawn(G, c); tp(G, c, p.x, p.y); }
+    G.bw = []; G.bwN = G.bwN || 0;
+    // i personaggi del computer: compito e classe (chi attacca: guerriero e genio all'ariete, guerriero con la scala, arcieri; chi difende: genio all'olio, arcieri, genio al portone, guerriero)
     const A = G.chars.filter(c => isAtk(G, c) && c.bot), D = G.chars.filter(c => !isAtk(G, c) && c.bot);
-    A.forEach((c, i) => { c.role = i < 2 ? 'ram' : i === 2 ? 'lad' : 'arc'; });
-    D.forEach((c, i) => { c.role = i === 0 ? 'oil' : 'wal'; });
+    const RA = [['ram', 'g'], ['ram', 'n'], ['lad', 'g'], ['arc', 'a'], ['arc', 'a'], ['ram', 'g'], ['arc', 'a'], ['lad', 'n']], RD = [['oil', 'n'], ['wal', 'a'], ['wal', 'a'], ['fix', 'n'], ['wal', 'g'], ['wal', 'a'], ['wal', 'g'], ['wal', 'a']];
+    A.forEach((c, i) => { [c.role, c.cls] = RA[i % RA.length]; c.ncls = null; });
+    D.forEach((c, i) => { [c.role, c.cls] = RD[i % RD.length]; c.ncls = null; });
+    for (const c of G.chars) { if (CL[c.ncls]) c.cls = c.ncls; c.hp = maxHp(c); c.dn = 0; c.sf = 0; c.cl = null; c.pu = null; c.sd = 0; c.rl = 0; c.bwT = 0; c.post = null; c.sp = null; const p = baseSpawn(G, c); tp(G, c, p.x, p.y); }
   }
   function endHalf(G, done) {
     const t = atkT(G); G.res[G.half - 1] = { done: !!done, t: hT(G), s: score(G) }; G.best[t] = score(G);
@@ -649,7 +788,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     for (let i = 1; i < n; i++) { const u = i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, z = z0 + (z1 - z0) * u + 4 * pk * u * (1 - u); if (u > 0.06 && z < topAt(Math.floor(x), Math.floor(y))) return false; }
     return true;
   }
-  const canShoot = (G, c) => !dead(G, c) && !c.pu && !inIv(G) && !G.ld.some(l => l.st === 1 && l.c === c.id);
+  const canShoot = (G, c) => clsOf(c) === 'a' && !dead(G, c) && !c.pu && !inIv(G) && !G.ld.some(l => l.st === 1 && l.c === c.id);
   function botShoot(G, c) {
     if ((c.rl || 0) > G.time || c.cl || !canShoot(G, c)) return;
     const p = P(c), z0 = bodyZ(G, c) + 1.25; let best = null, bs = 1e9;
@@ -664,6 +803,26 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     const tx = q.x + vx * tf * 0.8, ty = q.y + vy * tf * 0.8, [x1, y1] = aimEnd(p.x, p.y, tx - p.x, ty - p.y, Math.hypot(tx - p.x, ty - p.y), 1.3);
     mkArrow(G, c, x1, y1);
   }
+  // guerriero e genio del computer: colpiscono chi e' a portata; il guerriero alza lo scudo se un arciere lo tiene sotto tiro
+  function botMelee(G, c) {
+    if (!canHit(G, c)) { if (c.sd && c.pu) c.sd = 0; return; }
+    const k = clsOf(c), p = P(c), z = bodyZ(G, c), R = (k === 'g' ? SW_R : HM_R) * 0.92;
+    const tgt = enemies(G, c).some(e => { const q = xyOf(G, e); return !safe(G, e) && Math.hypot(q.x - p.x, q.y - p.y) < R && Math.abs(bodyZ(G, e) - z) < 1.4; });
+    if (tgt) { if ((c.rl || 0) <= G.time) melee(G, c); return; }
+    if (k === 'n') { const b = G.bw.find(b => b.t !== c.t && Math.hypot(b.x + 0.5 - p.x, b.y + 0.5 - p.y) < 1.3); if (b && (c.rl || 0) <= G.time) melee(G, c); return; }
+    const th = enemies(G, c).some(e => clsOf(e) === 'a' && Math.hypot(P(e).x - p.x, P(e).y - p.y) < 12.5 && !dead(G, e));
+    const busy = c.role === 'ram' && G.ph === 1 && Math.abs(p.x - RAM_X) < 1.9 && p.y > G.rm.y - 1.2 && p.y < G.rm.y + RAM_R;
+    c.sd = th && (busy || Math.random() < 0.45) ? 1 : 0;
+  }
+  // il genio del computer pianta una barricata verso i nemici, se ha la carica e la casella va bene
+  function botBuild(G, c, dy) {
+    if (clsOf(c) !== 'n' || (c.bwT || 0) > G.time || Math.random() > 0.25) return false;
+    const p = P(c), xi = Math.floor(p.x), yi = Math.floor(p.y);
+    for (const [ax, ay] of [[0, dy], [1, dy], [-1, dy], [1, 0], [-1, 0]]) if (doBuild(G, c, xi + ax, yi + ay)) return true;
+    return false;
+  }
+  // il nemico piu' vicino sullo stesso piano (per chi combatte da vicino)
+  function nearFoe(G, c, R) { const p = P(c), z = bodyZ(G, c); let b = null, bd = R; for (const e of enemies(G, c)) { if (e.cl) continue; const q = P(e), d = Math.hypot(q.x - p.x, q.y - p.y); if (d < bd && Math.abs(bodyZ(G, e) - z) < 1.4) { bd = d; b = q; } } return b; }
   const zoneP = (Z, k) => { for (let i = 0; i < 12; i++) { const a = Math.random() * 7, r = Math.random() * Z.r * (k || 0.85), x = Z.x + Math.cos(a) * r, y = Z.y + Math.sin(a) * r; if (cqCellFree(Math.floor(x), Math.floor(y))) return [Math.floor(x) + 0.5, Math.floor(y) + 0.5]; } return [Z.x, Z.y + 1]; };
   const ARC1 = [[25.5, 57.5], [34.5, 57.5], [15.5, 63.5], [44.5, 63.5], [27.5, 63.5], [32.5, 63.5], [10.5, 55.5], [49.5, 55.5], [24.5, 66.5], [35.5, 66.5]];
   const WAL1 = [[20.5, 49.5], [21.5, 50.5], [38.5, 49.5], [37.5, 50.5], [25.5, 51.5], [34.5, 51.5], [12.5, 50.5], [47.5, 50.5], [16.5, 50.5], [43.5, 50.5]];
@@ -677,7 +836,8 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (G.ph >= 2) {   // all'assalto della zona
         const Z = G.ph === 2 ? Z2 : Z3;
         if (zn === 'wall') { if (act('down') || act('jump')) return; }
-        if (c.role === 'arc' && G.zd > 0 && Math.hypot(c.x - Z.x, c.y - Z.y) < Z.r + 6 && Math.random() < 0.5) { c.path = []; return; }
+        if (clsOf(c) !== 'a' && Math.hypot(c.x - Z.x, c.y - Z.y) < Z.r + 7) { const f = nearFoe(G, c, 5.5); if (f) { go(c, f.x, f.y); return; } if (botBuild(G, c, -1)) return; }
+        if (c.role === 'arc' && clsOf(c) === 'a' && G.zd > 0 && Math.hypot(c.x - Z.x, c.y - Z.y) < Z.r + 6 && Math.random() < 0.5) { c.path = []; return; }
         if (!c.post || Math.hypot(c.post[0] - Z.x, c.post[1] - Z.y) > Z.r || Math.random() < 0.08) c.post = zoneP(Z);
         go(c, c.post[0], c.post[1]); return;
       }
@@ -703,12 +863,17 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     // DIFENSORI
     if (G.ph >= 2) {
       const Z = G.ph === 2 ? Z2 : Z3;
+      if (clsOf(c) !== 'a' && Math.hypot(c.x - Z.x, c.y - Z.y) < Z.r + 6) { const f = nearFoe(G, c, 5); if (f) { go(c, f.x, f.y); return; } if (!G.za && botBuild(G, c, 1)) return; }
       if (!c.post || Math.hypot(c.post[0] - Z.x, c.post[1] - Z.y) > Z.r || Math.random() < 0.06) c.post = zoneP(Z, G.za ? 0.7 : 1);
       go(c, c.post[0], c.post[1]); return;
     }
     // chi e' all'argano: tutti addosso
     const lv = G.chars.find(e => e.pu && e.pu.k === 'lever' && !dead(G, e)); if (lv && Math.random() < 0.8) { go(c, LEV.x - 0.5, LEV.y + 1.5); return; }
     const intr = enemies(G, c).filter(e => zoneAt(P(e).x, P(e).y) !== 'out'); if (intr.length && Math.random() < 0.5) { const q = P(intr[0]); go(c, q.x, q.y); return; }
+    if (c.role === 'fix' && clsOf(c) === 'n' && !G.gopen) {   // il genio dietro al portone: ripara quando l'ariete colpisce
+      if (G.gh < GATE_HP - 0.5 && act('fix')) return;
+      go(c, 28.5 + (c.id % 3), 48.5); return;
+    }
     if (c.role === 'oil') { const o = OILC[c.id % 2]; const n = G.chars.filter(e => isAtk(G, e) && !dead(G, e) && inBurn(P(e).x, P(e).y)).length; if (n && act('oil')) return; go(c, o.sx, o.sy); return; }
     if (placed.length) {
       let tgt = null, bd = 1e9; for (const l of placed) { if (G.time - (l.pt || 0) < 1.0) continue; const S = M.spots[l.s], taken = G.chars.some(o => o !== c && o.bot && o.t === c.t && o.lt2 === l); if (taken) continue; const d = Math.hypot(S.tx - c.x, S.ty - c.y); if (d < bd) { bd = d; tgt = l; } }
@@ -723,7 +888,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const litFor = (G, x, y) => G.lit !== 'n' || MP().lamps.some(([lx, ly, r]) => Math.abs(lx - x) < r && Math.abs(ly - y) < r && Math.hypot(lx - x, ly - y) < r * 0.9);
   const MODE = CQ_MODES.assedio = {
     n: 'Assedio al castello',
-    desc: '🏰 Due squadre: una assalta il castello di Roccaforte (ariete, scale, cortile, trono), l\'altra lo difende. Poi si cambia. Vince chi arriva più lontano, o prima.',
+    desc: '🏰 Due squadre: una assalta il castello di Roccaforte (ariete, scale, cortile, trono), l\'altra lo difende. Tre classi: 🗡️ guerriero, 🏹 arciere, 🔨 genio. Poi si cambia. Vince chi arriva più lontano, o prima.',
     maps: [['castello', 'Castello di Roccaforte']],
     def: { map: 'castello', n: 8, fill: true, time: 240, lit: 'r' },
     ns: [[2, '2'], [4, '4'], [6, '6'], [8, '8']],
@@ -737,13 +902,14 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       G.lit = G.opt.lit && G.opt.lit !== 'r' ? G.opt.lit : rnd(['d', 'd', 's', 'n']);
       G.lg = []; G.lgN = 0; G.ar = []; G.arN = 0; G.res = [null, null]; G.half = 1; G.iv = 0; G.best = [0, 0];
       SQ.split(G); G.a0 = Math.random() < 0.5 ? 0 : 1;
-      for (const c of G.chars) Object.assign(c, { k: 0, d: 0, hi: 0, lp: 0, pn: 0, cap: 0, sh: 0, up: 0, rmT: 0, zt: 0, oN: 0, lvN: 0 });
-      setupHalf(G); G.ldSig = null; G.ldOld = null; G.gsS = null; G.koS = null;
+      for (const c of G.chars) Object.assign(c, { k: 0, d: 0, hi: 0, lp: 0, pn: 0, cap: 0, sh: 0, up: 0, rmT: 0, zt: 0, oN: 0, lvN: 0, mh: 0, blk: 0, bN: 0, bk: 0, fxT: 0 });
+      for (const c of G.chars) if (!c.bot) { c.cls = c === G.me ? myCls() : c.cls || 'a'; c.ncls = null; }
+      setupHalf(G); G.ldSig = null; G.ldOld = null; G.gsS = null; G.koS = null; G.bwSig = null; G.bwOld = null;
       cq.x = G.me.x; cq.y = G.me.y;
     },
-    gstart(G) { cq.mapDirty = true; cqUseMap('castello'); G.lg = []; G.lgN = 0; G.ar = []; G.arN = 0; G.best = [0, 0]; G.ld = []; for (let i = 0; i < NLAD; i++) G.ld.push({ st: 0, c: -1, s: -1 }); G.res = [null, null]; G.half = 1; G.hs = 0; G.iv = 0; G.a0 = 0; G.lit = 'd'; G.ph = 1; G.lim = 240; G.gh = GATE_HP; G.gopen = false; G.zp = 0; G.rm = { y: RAM_Y0, n: 0, hit: -9 }; G.oil = [0, 0]; G.ready = 0; G.ldSig = null; G.ldOld = null; G.gsS = null; G.koS = null; },
+    gstart(G) { cq.mapDirty = true; cqUseMap('castello'); G.lg = []; G.lgN = 0; G.ar = []; G.arN = 0; G.best = [0, 0]; G.ld = []; for (let i = 0; i < NLAD; i++) G.ld.push({ st: 0, c: -1, s: -1 }); G.res = [null, null]; G.half = 1; G.hs = 0; G.iv = 0; G.a0 = 0; G.lit = 'd'; G.ph = 1; G.lim = 240; G.gh = GATE_HP; G.gopen = false; G.zp = 0; G.rm = { y: RAM_Y0, n: 0, hit: -9 }; G.oil = [0, 0]; G.ready = 0; G.ldSig = null; G.ldOld = null; G.gsS = null; G.koS = null; G.bw = []; G.bwSig = null; G.bwOld = null; if (G.me) G.me.cls = myCls(); },
     intro: G => isAtk(G, G.me) ? '⚔️ All\'attacco! Spingete l\'ariete fino al portone' : '🛡️ Difendete il portone dalle mura!',
-    speed(c) { const G = cq.g; if (!G || dead(G, c) || c.cl || c.pu || inIv(G)) return 0; if (G.ld.some(l => l.st === 1 && l.c === c.id)) return CARRY_L; return 1; },
+    speed(c) { const G = cq.g; if (!G || dead(G, c) || c.cl || c.pu || inIv(G)) return 0; if (G.ld.some(l => l.st === 1 && l.c === c.id)) return clsOf(c) === 'n' ? 0.92 : CARRY_L; return c.sd ? SHIELD_SP : 1; },
     big(G) {
       const me = G.me; if (G.guest && !G.ready) return '';
       if (inIv(G)) { const r = G.res[0]; return (r && r.done ? '🏆 Castello conquistato in ' + mmss(r.t) + '!' : '🛡️ Il castello ha resistito: ' + scoreTxt(r ? r.s : 0)) + '\n🔁 Si cambia: ora attaccano i ' + TEAMS[1 - G.a0].e + ' ' + TEAMS[1 - G.a0].n + ' · ' + Math.ceil(G.iv - G.time); }
@@ -762,10 +928,13 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     nameCol: c => c.t != null ? TEAMS[c.t].l : null,
     voice: SQ.voice,
     btn(G) { if (G.guest && !G.ready) return null; const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
-    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; beep(520, 0.04, 0.02); if (G.guest) { cqNetSend({ k: 'a', a: a.k }); if (a.k === 'climb') { const S = MP().spots[a.l.s]; cq.x = S.ax; cq.y = S.ay; } } else doAct(G, me, { k: a.k }); },
+    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; beep(520, 0.04, 0.02); if (G.guest) { cqNetSend({ k: 'a', a: a.k, x: a.x, y: a.y }); if (a.k === 'climb') { const S = MP().spots[a.l.s]; cq.x = S.ax; cq.y = S.ay; } } else doAct(G, me, { k: a.k, x: a.x, y: a.y }); },
     ev(G, c, o) {
       if (!o) return;
-      if (o.k === 'a') doAct(G, c, { k: o.a });
+      if (o.k === 'a') doAct(G, c, { k: o.a, x: o.x, y: o.y });
+      if (o.k === 'ml') melee(G, c);
+      if (o.k === 'sd') c.sd = o.on && clsOf(c) === 'g' && canHit(G, c) ? 1 : 0;
+      if (o.k === 'cls') setCls(G, c, o.c);
       if (o.k === 'sh' && !dead(G, c) && (c.rl || 0) <= G.time + 0.25 && canShoot(G, c)) mkArrow(G, c, o.x, o.y, o.q);
     },
     draw(c) {   // chi sale o scende la scala: disegnato lungo la scala
@@ -781,7 +950,17 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       // nome del posto quando ci entro (zone e case)
       { const z = zoneAt(cq.x, cq.y), r = roomAt(cq.x, cq.y), R = r >= 0 ? MP().rooms[r] : null, n = z === 'wall' ? (R && R.ala === 'T' ? 'Torre' : 'Mura') : R ? R.n : '';
         if (n && n !== G.myZn) { if (G.myZn != null && n !== 'Borgo' && n !== 'Strada maestra' && n !== 'Portone') G.zn = { n, t: performance.now() }; G.myZn = n; } }
-      bowUI(G);
+      bowUI(G); clsUI(G);
+      // l'amico dice all'host che classe ha scelto (una volta, appena entra)
+      if (G.guest && G.ready && G.clsSent !== myCls()) { G.clsSent = myCls(); cqNetSend({ k: 'cls', c: myCls() }); }
+      // guerriero: tenendo premuto il pulsante si alza lo scudo
+      if (G.hold && clsOf(me) === 'g' && !G.sdOn && performance.now() - G.hold > SHIELD_HOLD) setShield(G, 1);
+      if (G.sdOn && (clsOf(me) !== 'g' || dead(G, me))) setShield(G, 0);
+      if (G.sdOn && !G.guest && !me.sd && canHit(G, me)) me.sd = 1;   // dopo un colpo o una scala lo scudo torna su se tengo ancora premuto
+      // frecce parate dagli scudi qui vicino: clang
+      for (const a of G.ar) if (a.hit === -2 && a.te && !a.blS && G.time >= a.te) { a.blS = 1; const d = Math.hypot(a.hx - cq.x, a.hy - cq.y); if (d < 12) clang(0.8 * (1 - d / 12)); }
+      // il martello del genio che ripara il portone
+      if (!G.hmT || G.time - G.hmT > 0.38) { const F = G.chars.find(c => c.pu && c.pu.k === 'fix' && Math.hypot(P(c).x - cq.x, P(c).y - cq.y) < 12); if (F) { G.hmT = G.time; clang(0.35, true); } }
       if (G.myHp != null && me.hp < G.myHp && !dead(G, me)) { G.myHurt = performance.now(); thud(0.4, 160); shake(G, 8); }
       G.myHp = me.hp;
       // colpi andati a segno (le mie frecce): crocetta e "tic"
@@ -792,13 +971,13 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     },
     tick(G, dt) {
       if (inIv(G)) { if (G.time + dt >= G.iv) { G.iv = 0; setupHalf(G); } G.ar = []; return; }
-      arTick(G); holdTick(G); ramTick(G, dt); oilTick(G); zoneTick(G, dt);
+      arTick(G); holdTick(G); shieldTick(G); ramTick(G, dt); fixTick(G, dt); oilTick(G); zoneTick(G, dt);
       if (G.phase !== 'play' || inIv(G)) return;
       for (const c of G.chars) if (c.dn && c.dn <= G.time) revive(G, c);
       G.best[atkT(G)] = Math.max(G.best[atkT(G)], score(G));
       for (const c of G.chars) {
         if (!c.bot || !c.alive) continue;
-        if ((c.think -= dt) <= 0) { c.think = 0.35 + Math.random() * 0.2; botT(G, c); if (Math.random() < 0.55) botShoot(G, c); }
+        if ((c.think -= dt) <= 0) { c.think = 0.35 + Math.random() * 0.2; botT(G, c); if (clsOf(c) === 'a') { if (Math.random() < 0.55) botShoot(G, c); } else botMelee(G, c); }
         if (!dead(G, c) && !c.cl && !c.pu) cqModeStep(c, dt, 0.9 * (MODE.speed(c) || 0));
       }
       const r0 = G.half === 2 ? G.res[0] : null, lim = r0 && r0.done ? Math.min(G.lim, r0.t) : G.lim;
@@ -811,23 +990,26 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (a && b) { if (a.done && b.done) w = a.t < b.t ? A : b.t < a.t ? B : -1; else if (a.done) w = A; else if (b.done) w = B; else w = a.s > b.s ? A : b.s > a.s ? B : -1; }
       const why = txt(A, a) + ' · ' + txt(B, b) + '.';
       const name = c => c.name + (c === G.me ? ' (tu)' : '');
-      const line = c => [name(c), '— ' + TEAMS[c.t].e + [c.cap ? '👑 sul trono' : '', '🎯 ' + (c.k || 0) + ' abbattuti', c.rmT > 8 ? '🐏 ariete ' + Math.round(c.rmT) + ' s' : '', c.lvN ? '⚙️ argano' : '', c.pn ? '🤚 ' + c.pn + ' scale' : '', c.oN ? '🔥 ' + c.oN + ' olio' : '', c.zt > 5 ? '⚔️ zona ' + Math.round(c.zt) + ' s' : ''].filter(Boolean).join(' · ')];
-      const sc = c => (c.cap || 0) * 20 + (c.k || 0) * 3 + (c.pn || 0) * 3 + (c.lvN || 0) * 8 + (c.rmT || 0) * 0.2 + (c.zt || 0) * 0.3 + (c.oN || 0) * 2;
+      const line = c => [name(c), '— ' + TEAMS[c.t].e + CL[clsOf(c)].i + ' ' + [c.cap ? '👑 sul trono' : '', '🎯 ' + (c.k || 0) + ' abbattuti', c.rmT > 8 ? '🐏 ariete ' + Math.round(c.rmT) + ' s' : '', c.lvN ? '⚙️ argano' : '', c.pn ? '🤚 ' + c.pn + ' scale' : '', c.oN ? '🔥 ' + c.oN + ' olio' : '', c.zt > 5 ? '⚔️ zona ' + Math.round(c.zt) + ' s' : '', c.blk >= 3 ? '🛡️ ' + c.blk + ' parate' : '', c.fxT > 5 ? '🔧 portone ' + Math.round(c.fxT) + ' s' : '', c.bN ? '🪵 ' + c.bN : ''].filter(Boolean).join(' · ')];
+      const sc = c => (c.cap || 0) * 20 + (c.k || 0) * 3 + (c.pn || 0) * 3 + (c.lvN || 0) * 8 + (c.rmT || 0) * 0.2 + (c.zt || 0) * 0.3 + (c.oN || 0) * 2 + (c.blk || 0) * 0.5 + (c.fxT || 0) * 0.3 + (c.bN || 0) + (c.bk || 0) * 2;
       SQ.end(G, w, why + funny(G, w), line, sc);
     },
-    csnap: c => { const G = cq.g; return [c.t, c.hp == null ? HP : c.hp, r1(Math.max(0, (c.dn || 0) - G.time)), r1(Math.max(0, (c.sf || 0) - G.time)), c.cl ? [c.cl.s, c.cl.d, r2(c.cl.t0 - G.time), c.cl.T] : 0, c.pu ? [c.pu.k === 'lever' ? 1 : 0, r1(c.pu.e - G.time)] : 0, c.tpN || 0, c.tp || 0, r1(Math.max(0, (c.rl || 0) - G.time)), [c.k || 0, c.d || 0, c.lp || 0, c.pn || 0, c.cap || 0, Math.round(c.rmT || 0), Math.round(c.zt || 0), c.oN || 0, c.lvN || 0]]; },
+    csnap: c => { const G = cq.g; return [c.t, c.hp == null ? maxHp(c) : c.hp, r1(Math.max(0, (c.dn || 0) - G.time)), r1(Math.max(0, (c.sf || 0) - G.time)), c.cl ? [c.cl.s, c.cl.d, r2(c.cl.t0 - G.time), c.cl.T] : 0, c.pu ? [['push', 'lever', 'fix'].indexOf(c.pu.k), r1(c.pu.e - G.time)] : 0, c.tpN || 0, c.tp || 0, r1(Math.max(0, (c.rl || 0) - G.time)), [c.k || 0, c.d || 0, c.lp || 0, c.pn || 0, c.cap || 0, Math.round(c.rmT || 0), Math.round(c.zt || 0), c.oN || 0, c.lvN || 0],
+      [clsOf(c), c.ncls || 0, c.sd ? 1 : 0, r1(c.sdA || 0), c.sw ? r2(Math.min(9, G.time - c.sw)) : 9, r1(c.swA || 0), r1(Math.max(0, (c.bwT || 0) - G.time))], [c.mh || 0, c.blk || 0, c.bN || 0, c.bk || 0, Math.round(c.fxT || 0)]]; },
     capply(G, c, a) {
       c.t = a[0]; c.hp = a[1]; const was = !!c.dn && c.dn > G.time; c.dn = a[2] > 0 ? G.time + a[2] : 0; c.sf = a[3] > 0 ? G.time + a[3] : 0;
       if (was && !c.dn) c.angel = G.time;
-      c.cl = a[4] ? { s: a[4][0], d: a[4][1], t0: G.time + a[4][2], T: a[4][3] } : null; c.pu = a[5] ? { k: a[5][0] ? 'lever' : 'push', e: G.time + a[5][1] } : null;
+      c.cl = a[4] ? { s: a[4][0], d: a[4][1], t0: G.time + a[4][2], T: a[4][3] } : null; c.pu = a[5] ? { k: ['push', 'lever', 'fix'][a[5][0]] || 'push', e: G.time + a[5][1] } : null;
       c.tpN = a[6]; c.tp = a[7] || null; if (c !== G.me || !G.shotT || performance.now() - G.shotT > 600) c.rl = G.time + a[8];
       [c.k, c.d, c.lp, c.pn, c.cap, c.rmT, c.zt, c.oN, c.lvN] = a[9];
+      if (a[10]) { const v = a[10]; c.cls = v[0]; if (c !== G.me || !G.clsT || performance.now() - G.clsT > 1500) c.ncls = v[1] || null; if (c !== G.me || !G.sdT || performance.now() - G.sdT > 500) { c.sd = v[2]; } c.sdA = v[3]; if (v[4] < 9 && (c !== G.me || !G.shotT || performance.now() - G.shotT > 600)) c.sw = G.time - v[4]; c.swA = v[5]; c.bwT = G.time + v[6]; }
+      if (a[11]) [c.mh, c.blk, c.bN, c.bk, c.fxT] = a[11];
       if (c === G.me) { if (!G.ready) { G.ready = 1; G.myTp = c.tpN; } else if (c.tpN !== G.myTp) { G.myTp = c.tpN; if (c.tp) { cq.x = c.tp[0]; cq.y = c.tp[1]; } } }
     },
     snap(G) {
       return { lg: G.lg, h: G.half, hs: r1(G.time - G.hs), iv: r1(Math.max(0, G.iv - G.time)), res: G.res, a0: G.a0, li: G.lit, bs: G.best,
         ph: G.ph, lim: G.lim, gh: Math.round(G.gh), go: G.gopen ? 1 : 0, zp: r2(G.zp), za: G.za || 0, zd: G.zd || 0, rm: [r2(G.rm.y), G.rm.n, r1(G.rm.hit - G.time)], oil: G.oil.map(t => r1(t - G.time)), bu: G.burn ? [r1(G.burn.t0 - G.time), r1(G.burn.e - G.time)] : 0,
-        ld: G.ld.map(l => [l.st, l.c, l.s, l.x || 0, l.y || 0]),
+        ld: G.ld.map(l => [l.st, l.c, l.s, l.x || 0, l.y || 0]), bw: (G.bw || []).map(b => [b.x, b.y, b.t, b.hp, b.o]),
         ar: G.ar.filter(a => G.time - a.t0 < 3).map(a => [a.id, a.o, a.q, r2(a.x0), r2(a.y0), r2(a.z0), r2(a.x1), r2(a.y1), r2(a.z1), r2(a.t0 - G.time), r2(a.d), r2(a.pk), a.te ? r2(a.te - G.time) : 0, a.hit, a.te ? [r2(a.hx), r2(a.hy), r2(a.hz)] : 0, a.t]),
         bd: G.bodies.map(b => [b.id, r2(b.x), r2(b.y), b.face, r1(b.t - G.time)]) };
     },
@@ -835,6 +1017,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       G.half = x.h; G.hs = G.time - x.hs; G.iv = x.iv > 0 ? G.time + x.iv : 0; G.res = x.res; G.a0 = x.a0; G.lit = x.li; G.best = x.bs;
       G.ph = x.ph; G.lim = x.lim; G.gh = x.gh; G.gopen = !!x.go; G.zp = x.zp; G.za = x.za; G.zd = x.zd; G.rm = { y: x.rm[0], n: x.rm[1], hit: G.time + x.rm[2] }; G.oil = x.oil.map(v => G.time + v); G.burn = x.bu ? { t0: G.time + x.bu[0], e: G.time + x.bu[1], hit: [] } : null;
       G.ld = x.ld.map(a => ({ st: a[0], c: a[1], s: a[2], x: a[3], y: a[4] }));
+      G.bw = (x.bw || []).map(a => ({ x: a[0], y: a[1], t: a[2], hp: a[3], o: a[4] }));
       for (const v of x.ar) { const o = { id: v[0], o: v[1], q: v[2], x0: v[3], y0: v[4], z0: v[5], x1: v[6], y1: v[7], z1: v[8], t0: G.time + v[9], d: v[10], pk: v[11], te: v[12] ? G.time + v[12] : 0, hit: v[13], t: v[15] }; if (v[14]) [o.hx, o.hy, o.hz] = v[14]; const old = G.ar.find(a => a.id === o.id); if (old) Object.assign(old, { te: o.te, hit: o.hit, hx: o.hx, hy: o.hy, hz: o.hz }); else G.ar.push(o); }
       G.ar = G.ar.filter(a => a.id < 0 ? G.time - a.t0 < a.d + 0.2 && !G.ar.some(b => b.o === G.me.id && b.q === a.q && b.id > 0) : G.time - a.t0 < 4 + a.d);
       if (x.bd) G.bodies = x.bd.map(a => { const c = byId(G, a[0]); return c ? { id: a[0], x: a[1], y: a[2], face: a[3], t: G.time + a[4], look: cqLookOf(c), name: c.name, nk: 1 } : null; }).filter(Boolean);
@@ -853,11 +1036,11 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       SQ.ring(g, c, X, Y, TW);
       if (dead(G, c)) return;
       const lad = G.ld && G.ld.some(l => l.st === 1 && l.c === c.id), f = c === G.me ? cq.face : c.face || 1;
-      if (!c.cl && !lad) bow(g, X + f * TW * 0.26, Y - TW * 0.72, TW, f);
+      if (!c.cl && !lad) weapon(g, c, X, Y, TW, f, G);
       if (lad) { g.save(); g.translate(X, Y - TW * 1.05); g.rotate(-0.38 * f); g.strokeStyle = '#8a5a2a'; g.lineWidth = Math.max(2.5, TW / 14); g.beginPath(); for (const s of [-0.12, 0.12]) { g.moveTo(-TW * 0.95, s * TW); g.lineTo(TW * 0.95, s * TW); } g.stroke(); g.strokeStyle = '#b07a40'; g.lineWidth = Math.max(2, TW / 20); g.beginPath(); for (let i = -4; i <= 4; i++) { g.moveTo(i * TW * 0.2, -0.12 * TW); g.lineTo(i * TW * 0.2, 0.12 * TW); } g.stroke(); g.restore(); }
-      const dr = c.cl ? MODE.draw(c) : null, top = Y - TW * (dr ? dr.top : cqTop(L)) - 15, hp = c.hp == null ? HP : c.hp, sh = c.hitT && G.time - c.hitT < 0.35 ? Math.sin((G.time - c.hitT) * 60) * 2 : 0;
-      hearts(g, X + sh, top, hp, safe(G, c));
-      if (c.pu) { const T = c.pu.k === 'lever' ? LEVER : PUSH, k = Math.max(0, Math.min(1, 1 - (c.pu.e - G.time) / T)), bw = 38; g.fillStyle = 'rgba(0,0,0,.6)'; cqRR(g, X - bw / 2 - 2, top - 14, bw + 4, 8, 4); g.fill(); g.fillStyle = c.pu.k === 'lever' ? '#e8c040' : '#ffb040'; cqRR(g, X - bw / 2, top - 12, bw * k, 4, 2); g.fill(); }
+      const dr = c.cl ? MODE.draw(c) : null, top = Y - TW * (dr ? dr.top : cqTop(L)) - 15, hp = c.hp == null ? maxHp(c) : c.hp, sh = c.hitT && G.time - c.hitT < 0.35 ? Math.sin((G.time - c.hitT) * 60) * 2 : 0;
+      hearts(g, X + sh, top, hp, safe(G, c), maxHp(c));
+      if (c.pu) { const T = c.pu.k === 'lever' ? LEVER : PUSH, k = c.pu.k === 'fix' ? G.gh / GATE_HP : Math.max(0, Math.min(1, 1 - (c.pu.e - G.time) / T)), bw = 38; g.fillStyle = 'rgba(0,0,0,.6)'; cqRR(g, X - bw / 2 - 2, top - 14, bw + 4, 8, 4); g.fill(); g.fillStyle = c.pu.k === 'lever' ? '#e8c040' : c.pu.k === 'fix' ? '#7ad070' : '#ffb040'; cqRR(g, X - bw / 2, top - 12, bw * k, 4, 2); g.fill(); }
     },
     extras(G) {
       const out = [];
@@ -905,6 +1088,10 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
           g.strokeStyle = '#5a3a1a'; g.lineWidth = Math.max(2, TW / 22); g.beginPath(); g.moveTo(X - dx * Lg, Y - dy * Lg); g.lineTo(X, Y); g.stroke();
           g.fillStyle = '#c8ccd2'; g.beginPath(); g.moveTo(X + dx * 6, Y + dy * 6); g.lineTo(X - dy * 3, Y + dx * 3); g.lineTo(X + dy * 3, Y - dx * 3); g.fill();
           g.strokeStyle = TEAMS[a.t != null ? a.t : 0].l; g.lineWidth = 2; g.beginPath(); g.moveTo(X - dx * Lg, Y - dy * Lg); g.lineTo(X - dx * Lg * 0.7 - dy * 3, Y - dy * Lg * 0.7 + dx * 3); g.moveTo(X - dx * Lg, Y - dy * Lg); g.lineTo(X - dx * Lg * 0.7 + dy * 3, Y - dy * Lg * 0.7 - dx * 3); g.stroke();
+        } else if (a.hit === -2 && a.hx != null) {   // parata dallo scudo: scintille d'oro
+          const k = (G.time - a.te) / 0.45; if (k >= 1) continue; const X = SX(a.hx, a.hy), Y = SY(a.hx, a.hy, a.hz);
+          g.globalAlpha = 1 - k; g.fillStyle = '#ffe070'; for (let i = 0; i < 8; i++) { const t = i / 8 * Math.PI * 2 + a.id; g.beginPath(); g.arc(X + Math.cos(t) * k * TW * 0.5, Y + Math.sin(t) * k * TW * 0.35 - k * TW * 0.2, 2.2, 0, 7); g.fill(); }
+          g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, TW * 0.2 * (0.5 + k), 0, 7); g.stroke(); g.globalAlpha = 1;
         } else if (a.hit < 0 && a.hx != null) {
           const k = 1 - (G.time - a.te) / 4; if (k <= 0) continue; g.globalAlpha = Math.min(1, k * 2);
           const X = SX(a.hx, a.hy), Y = SY(a.hx, a.hy, a.hz), ddx = sx(a.x1, a.y1) - sx(a.x0, a.y0), ddy = sy(a.x1, a.y1) - sy(a.x0, a.y0), m = Math.hypot(ddx, ddy) || 1, ux = ddx / m, uy = ddy / m * 0.5 + 0.5;
@@ -914,6 +1101,25 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
           g.globalAlpha = 1 - k; g.fillStyle = '#ff4a3a'; for (let i = 0; i < 7; i++) { const t = i / 7 * Math.PI * 2; g.beginPath(); g.arc(X + Math.cos(t) * k * TW * 0.45, Y + Math.sin(t) * k * TW * 0.32, 2.6, 0, 7); g.fill(); }
           g.font = '800 14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText('-1 ❤', X, Y - TW * (0.5 + k * 0.6)); g.fillStyle = '#ff6a5a'; g.fillText('-1 ❤', X, Y - TW * (0.5 + k * 0.6)); g.globalAlpha = 1;
         }
+      }
+      // colpi di spada e martello (-1 ❤), schegge delle barricate, polvere di quelle nuove
+      if (G.fx && G.fx.length) {
+        const t1 = performance.now();
+        for (const e of G.fx) {
+          const k = (t1 - e.t0) / (e.k === 'hit' ? 650 : 600); if (k >= 1 || !near(e.x, e.y, 24)) continue; const X = SX(e.x, e.y), Y = SY(e.x, e.y, zAt(e.x, e.y));
+          g.globalAlpha = 1 - k;
+          if (e.k === 'hit') { g.fillStyle = '#ff4a3a'; for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2; g.beginPath(); g.arc(X + Math.cos(t) * k * TW * 0.4, Y - TW * 0.8 + Math.sin(t) * k * TW * 0.3, 2.6, 0, 7); g.fill(); }
+            g.font = '800 14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText('-1 ❤', X, Y - TW * (1.2 + k * 0.6)); g.fillStyle = '#ff6a5a'; g.fillText('-1 ❤', X, Y - TW * (1.2 + k * 0.6)); }
+          else if (e.k === 'dust') { g.fillStyle = '#c8b898'; for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2; g.beginPath(); g.arc(X + Math.cos(t) * TW * (0.3 + k * 0.5), Y + Math.sin(t) * TW * (0.15 + k * 0.25), TW * (0.12 + k * 0.1), 0, 7); g.fill(); } }
+          else { g.fillStyle = '#9a6c40'; const n = e.k === 'wreck' ? 10 : 5; for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2 + 0.5, r = TW * (0.2 + k * 0.6); g.fillRect(X + Math.cos(t) * r - 2, Y - TW * 0.5 + Math.sin(t) * r * 0.6 + k * k * TW * 0.6, 5, 3); } }
+          g.globalAlpha = 1;
+        }
+      }
+      // anteprima della barricata (io genio, carica pronta): rombo verde dove la pianto, rosso se li' non si puo'
+      if (clsOf(me) === 'n' && !dead(G, me) && !inIv(G) && (me.bwT || 0) <= G.time && !me.pu && !me.cl && !G.ld.some(l => l.st === 1 && l.c === me.id)) {
+        const [bx2, by2] = frontCell(), ok = buildOk(G, me, bx2, by2), z = cqHc(bx2, by2) * HB;
+        if (cqFloor[by2] && cqFloor[by2][bx2]) { g.beginPath(); [[0, 0], [1, 0], [1, 1], [0, 1]].forEach(([u, v], i) => { const X = SX(bx2 + u, by2 + v), Y = SY(bx2 + u, by2 + v, z); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.closePath();
+          g.fillStyle = ok ? 'rgba(120,230,110,.22)' : 'rgba(230,80,60,.14)'; g.fill(); g.setLineDash([5, 4]); g.strokeStyle = ok ? 'rgba(150,255,140,.85)' : 'rgba(255,110,90,.6)'; g.lineWidth = 2; g.stroke(); g.setLineDash([]); }
       }
       // colpo andato a segno (la mia freccia): crocetta bianca
       if (G.hm && performance.now() - G.hm.t < 380) { const k = (performance.now() - G.hm.t) / 380, X = SX(G.hm.x, G.hm.y), Y = SY(G.hm.x, G.hm.y, G.hm.z), s = 7 + 5 * k; g.globalAlpha = 1 - k; g.strokeStyle = '#fff'; g.lineWidth = 3; g.beginPath(); g.moveTo(X - s, Y - s); g.lineTo(X - s / 3, Y - s / 3); g.moveTo(X + s, Y - s); g.lineTo(X + s / 3, Y - s / 3); g.moveTo(X - s, Y + s); g.lineTo(X - s / 3, Y + s / 3); g.moveTo(X + s, Y + s); g.lineTo(X + s / 3, Y + s / 3); g.stroke(); g.globalAlpha = 1; }
@@ -989,10 +1195,10 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     { const [a, b] = Pp(0, 1.5, 2.5), col = TEAMS[atkT(G)].c, fl = Math.sin(performance.now() / 300) * 3; g.strokeStyle = '#3a2a1a'; g.lineWidth = 2; g.beginPath(); g.moveTo(a, b); g.lineTo(a, b - TW * 0.9); g.stroke(); g.fillStyle = col; g.beginPath(); g.moveTo(a, b - TW * 0.9); g.lineTo(a + TW * 0.45, b - TW * 0.8 + fl); g.lineTo(a, b - TW * 0.62); g.fill(); }
   }
   function sign(g, X, Y, ic) { g.fillStyle = 'rgba(200,40,30,.92)'; g.beginPath(); g.arc(X, Y, 12, 0, 7); g.fill(); g.font = '13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText(ic, X, Y + 1); }
-  function hearts(g, X, Y, hp, sf) {
-    const s = 5.2, gap = 13, x0 = X - gap;
+  function hearts(g, X, Y, hp, sf, mx) {
+    mx = mx || HP; const s = 5.2, gap = 13, x0 = X - gap * (mx - 1) / 2;
     g.save(); if (sf) g.globalAlpha = 0.55 + 0.35 * Math.sin(performance.now() / 90);
-    for (let i = 0; i < HP; i++) {
+    for (let i = 0; i < mx; i++) {
       const cx = x0 + i * gap, on = i < hp;
       g.beginPath(); g.moveTo(cx, Y + s * 0.95); g.bezierCurveTo(cx - s * 1.5, Y - s * 0.1, cx - s * 0.8, Y - s * 1.25, cx, Y - s * 0.45); g.bezierCurveTo(cx + s * 0.8, Y - s * 1.25, cx + s * 1.5, Y - s * 0.1, cx, Y + s * 0.95); g.closePath();
       g.fillStyle = on ? '#ff3b4e' : 'rgba(30,20,24,.55)'; g.fill(); g.lineWidth = 1.5; g.strokeStyle = on ? '#7a0a18' : 'rgba(255,255,255,.45)'; g.stroke();
@@ -1004,6 +1210,56 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     const r = TW * 0.28, a = 1.0, cx = X - f * r * 0.5, ex = cx + f * Math.cos(a) * r;
     g.strokeStyle = '#6a3a18'; g.lineWidth = Math.max(2, TW / 20); g.beginPath(); if (f > 0) g.arc(cx, Y, r, -a, a); else g.arc(cx, Y, r, Math.PI - a, Math.PI + a); g.stroke();
     g.strokeStyle = 'rgba(240,230,210,.8)'; g.lineWidth = 1; g.beginPath(); g.moveTo(ex, Y - Math.sin(a) * r); g.lineTo(ex, Y + Math.sin(a) * r); g.stroke();
+  }
+  // ---- le armi delle classi (disegnate sopra al personaggio) ----
+  const scrDir = a => { const dx = Math.cos(a), dy = Math.sin(a), u = dx - dy, v = (dx + dy) / 2, m = Math.hypot(u, v) || 1; return [u / m, v / m]; };
+  function weapon(g, c, X, Y, TW, f, G) {
+    const k = clsOf(c), sw = c.sw != null ? G.time - c.sw : 9, col = TEAMS[c.t || 0].c;
+    if (k === 'a') { bow(g, X + f * TW * 0.26, Y - TW * 0.72, TW, f); return; }
+    if (k === 'g') {
+      if (c.sd) { const [u, v] = scrDir(c.sdA || 0); if (v < 0) shieldUp(g, X + u * TW * 0.3, Y - TW * 0.55 + v * TW * 0.2, TW, col, true); else shieldUp(g, X + u * TW * 0.3, Y - TW * 0.5 + v * TW * 0.2, TW, col, false); }
+      else roundShield(g, X - f * TW * 0.22, Y - TW * 0.6, TW * 0.17, col);
+      if (sw < 0.28) slash(g, X, Y, TW, c.swA || 0, sw / 0.28, '#ffffff');
+      else if (!c.sd) sword(g, X + f * TW * 0.27, Y - TW * 0.6, TW, f);
+      return;
+    }
+    const fixing = c.pu && c.pu.k === 'fix', ph = fixing ? (G.time * 2.6 + c.id * 0.3) % 1 : sw < 0.3 ? sw / 0.3 : -1;
+    hammer(g, X + f * TW * 0.26, Y - TW * 0.58, TW, f, ph);
+    if (sw < 0.3) slash(g, X, Y, TW, c.swA || 0, sw / 0.3, '#ffe2a8');
+    if (fixing && ph > 0.4 && ph < 0.55) { g.fillStyle = '#ffe080'; for (let i = 0; i < 5; i++) { const a = i * 1.3 + G.time * 7; g.beginPath(); g.arc(X + f * TW * 0.55 + Math.cos(a) * TW * 0.18, Y - TW * 0.42 + Math.sin(a) * TW * 0.1, 1.8, 0, 7); g.fill(); } }
+  }
+  function sword(g, x, y, TW, f) {
+    const L = TW * 0.64, ux = f * 0.33, uy = -0.94;
+    g.lineCap = 'round';
+    g.strokeStyle = '#4a3020'; g.lineWidth = Math.max(2, TW / 15); g.beginPath(); g.moveTo(x - ux * TW * 0.12, y - uy * TW * 0.12); g.lineTo(x, y); g.stroke();
+    g.strokeStyle = '#c8a040'; g.lineWidth = Math.max(2, TW / 18); g.beginPath(); g.moveTo(x + uy * TW * 0.12, y - ux * TW * 0.12); g.lineTo(x - uy * TW * 0.12, y + ux * TW * 0.12); g.stroke();
+    g.strokeStyle = '#e2e7ee'; g.lineWidth = Math.max(2.5, TW / 12); g.beginPath(); g.moveTo(x, y); g.lineTo(x + ux * L, y + uy * L); g.stroke();
+    g.strokeStyle = 'rgba(110,120,135,.9)'; g.lineWidth = 1; g.beginPath(); g.moveTo(x + ux * 2, y + uy * 2); g.lineTo(x + ux * L * 0.92, y + uy * L * 0.92); g.stroke();
+    g.lineCap = 'butt';
+  }
+  function roundShield(g, x, y, r, col) {
+    g.fillStyle = col; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.lineWidth = Math.max(1.5, r / 4); g.strokeStyle = '#9a9488'; g.stroke();
+    g.fillStyle = '#d8d0b8'; g.beginPath(); g.arc(x, y, r * 0.3, 0, 7); g.fill();
+  }
+  function shieldUp(g, x, y, TW, col, back) {   // scudo alzato a mandorla, girato verso il nemico
+    const w = TW * 0.24, h = TW * 0.34;
+    g.beginPath(); g.moveTo(x - w, y - h * 0.8); g.quadraticCurveTo(x, y - h * 1.05, x + w, y - h * 0.8); g.lineTo(x + w * 0.92, y); g.quadraticCurveTo(x + w * 0.5, y + h * 0.75, x, y + h); g.quadraticCurveTo(x - w * 0.5, y + h * 0.75, x - w * 0.92, y); g.closePath();
+    g.fillStyle = back ? '#5a4030' : col; g.fill(); g.lineWidth = Math.max(2, TW / 18); g.strokeStyle = '#d8d0bc'; g.stroke();
+    if (!back) { g.strokeStyle = 'rgba(255,240,200,.85)'; g.lineWidth = Math.max(1.5, TW / 26); g.beginPath(); g.moveTo(x, y - h * 0.85); g.lineTo(x, y + h * 0.8); g.moveTo(x - w * 0.8, y - h * 0.3); g.lineTo(x + w * 0.8, y - h * 0.3); g.stroke(); }
+  }
+  function hammer(g, x, y, TW, f, ph) {
+    const a = (-0.45 + (ph < 0 ? 0 : 1.8 * Math.sin(ph * Math.PI))) * f, L = TW * 0.48, ux = Math.sin(a), uy = -Math.cos(a), ex = x + ux * L, ey = y + uy * L;
+    g.lineCap = 'round'; g.strokeStyle = '#7a5230'; g.lineWidth = Math.max(2, TW / 15); g.beginPath(); g.moveTo(x - ux * TW * 0.08, y - uy * TW * 0.08); g.lineTo(ex, ey); g.stroke();
+    g.lineCap = 'butt'; g.strokeStyle = '#5a6068'; g.lineWidth = TW * 0.17; g.beginPath(); g.moveTo(ex - uy * TW * 0.14, ey + ux * TW * 0.14); g.lineTo(ex + uy * TW * 0.14, ey - ux * TW * 0.14); g.stroke();
+    g.strokeStyle = '#8a9098'; g.lineWidth = TW * 0.05; g.beginPath(); g.moveTo(ex - uy * TW * 0.13 - ux * TW * 0.05, ey + ux * TW * 0.13 - uy * TW * 0.05); g.lineTo(ex + uy * TW * 0.13 - ux * TW * 0.05, ey - ux * TW * 0.13 - uy * TW * 0.05); g.stroke();
+  }
+  function slash(g, X, Y, TW, a, u, col) {   // il fendente: mezzaluna che spazza davanti, verso il colpo
+    const [sx2, sy2] = scrDir(a), sa = Math.atan2(sy2, sx2), R = TW * 0.85, cy = Y - TW * 0.45, a0 = sa - 1.2, a1 = a0 + 2.4 * Math.min(1, u * 1.8);
+    g.save(); g.lineCap = 'round'; g.globalAlpha = Math.max(0, 1 - u * 0.7);
+    g.strokeStyle = 'rgba(0,0,0,.35)'; g.lineWidth = TW * 0.2; g.beginPath(); g.ellipse(X, cy + 2, R, R * 0.62, 0, a0, a1); g.stroke();
+    g.strokeStyle = col; g.lineWidth = TW * 0.16; g.beginPath(); g.ellipse(X, cy, R, R * 0.62, 0, a0, a1); g.stroke();
+    g.globalAlpha *= 0.5; g.lineWidth = TW * 0.36; g.beginPath(); g.ellipse(X, cy, R * 0.82, R * 0.5, 0, a0 + 0.25, a1); g.stroke();
+    g.restore();
   }
   function banner(g, X, Y, TW, col, t) {
     const u = TW / 34, h = 64 * u, sw = Math.sin(t * 2.5) * 1.8 * u;
@@ -1077,6 +1333,11 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if ((c.rmT || 0) >= 40) add(6, N(c) + ' ha spinto l\'ariete per ' + Math.round(c.rmT) + ' secondi. Ha le braccia di un mulo e la schiena di un ottantenne.');
       if ((c.oN || 0) >= 2) add(6, N(c) + ' ha versato l\'olio ' + c.oN + ' volte. Frittura di attaccanti, porca miseria.');
       if ((c.lvN || 0) >= 1) add(7, N(c) + ' ha girato l\'argano e aperto il portone da dentro. Furbo come una volpe, stronzo come un gatto.');
+      if ((c.blk || 0) >= 5) add(7, N(c) + ' ha parato ' + c.blk + ' frecce con lo scudo. Gli arcieri nemici hanno chiesto il rimborso, porca paletta.');
+      if ((c.fxT || 0) >= 20) add(6, N(c) + ' ha riparato il portone per ' + Math.round(c.fxT) + ' secondi. Martellate su martellate: il falegname più odiato del regno.');
+      if ((c.bN || 0) >= 3) add(5, N(c) + ' ha piantato ' + c.bN + ' barricate. Mezzo castello è fatto di assi storte, ma regge, cavolo.');
+      if ((c.bk || 0) >= 2) add(5, N(c) + ' ha fatto a pezzi ' + c.bk + ' barricate nemiche. Le termiti gli fanno un baffo.');
+      if ((c.mh || 0) >= 8) add(6, N(c) + ' ha menato ' + c.mh + ' colpi a segno. Più botte di una sagra di paese finita male.');
       if ((c.d || 0) >= 7) add(5, N(c) + ' è caduto ' + c.d + ' volte. Più frecce in corpo di un puntaspilli.');
     }
     if (w < 0) add(3, 'Pareggio: tutti a casa con le frecce nel sedere.');
@@ -1089,11 +1350,12 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     ['🐏', 'Il portone', 'Chi attacca <b>spinge l\'ariete</b> (stai vicino: più siete, più va veloce) fino al portone e lo sfonda a colpi. Oppure: prendi una <b>scala</b> 🪜 all\'accampamento, appoggiala alle mura, sali e gira l\'<b>argano</b> ⚙️ sulla torre del portone (resta fermo 5 secondi).'],
     ['🔥', 'Difendere il portone', 'Dalle mura tira frecce. Rovescia le scale 🤚 (chi sale cade). Sulle torri del portone c\'è l\'<b>olio bollente</b>: versalo quando l\'ariete è sotto (toglie 2 cuori, poi si ricarica).'],
     ['⚔️', 'Le zone', 'Cortile e trono si conquistano <b>stando nel cerchio</b>: se ci sono solo attaccanti avanza (più siete, più veloce), se ci sono anche difensori è <b>contesa</b> e si ferma. Cacciateli!'],
-    ['🏹', 'L\'arco', 'Tieni premuto <b>🏹</b>, <b>trascina indietro</b> come una fionda (vedi la traiettoria) e <b>lascia</b>. Più lontano = più storta. Merli, muretti e barricate fermano le frecce.'],
+    ['🎭', 'Le classi', 'Scegli prima di tornare in battaglia (pannello in basso, o il pulsante a sinistra): <b>🗡️ Guerriero</b> spada e 4 cuori, <b>tieni premuto</b> = scudo che para le frecce davanti; <b>🏹 Arciere</b> l\'unico con l\'arco; <b>🔨 Genio</b> martello, pianta <b>🪵 barricate</b>, spinge l\'ariete per due, <b>ripara il portone</b> da dentro e ricarica l\'olio prima.'],
+    ['🏹', 'Colpire', 'Arco: tieni premuto <b>🏹</b>, <b>trascina indietro</b> come una fionda e <b>lascia</b> (più lontano = più storta; merli e muretti fermano le frecce). Spada e martello: <b>tocca</b> il pulsante vicino al nemico. Chi sale una scala, colpito in cima, cade giù.'],
     ['❤️', 'I cuori', '<b>3 cuori</b> sopra la testa (anche dei nemici). A zero cadi: chi attacca torna dopo ' + RESP_A + ' secondi, chi difende arriva con l\'<b>ondata di rinforzi</b> (ogni ' + WAVE + ' secondi).'],
     ['⏱️', 'Chi vince', 'Vince chi arriva <b>più lontano</b>; se tutte e due conquistano il trono, chi ci mette <b>meno</b>. Nel secondo tempo vedi il risultato da battere 🎯.']
   ];
-  const helpHtml = () => HELP.map(([i, t, d]) => '<p><b>' + i + ' ' + t + '</b><br>' + d + '</p>').join('') + '<p class="n">Sul PC: frecce o WASD per muoverti · trascina il pulsante 🏹 col mouse · F tira al nemico più vicino · E azione · M mappa</p>';
+  const helpHtml = () => HELP.map(([i, t, d]) => '<p><b>' + i + ' ' + t + '</b><br>' + d + '</p>').join('') + '<p class="n">Sul PC: frecce o WASD per muoverti · trascina il pulsante 🏹 col mouse · F tira o colpisce · Q (tenuto) scudo · E azione · 1 2 3 classe · M mappa</p>';
   function helpUI(on) { const el = document.getElementById('asHelp'); if (!el) return; if (on) { el.innerHTML = '<div class="t">🏰 Assedio al castello: come si gioca</div>' + helpHtml() + '<div class="c">Tocca per chiudere</div>'; el.scrollTop = 0; } el.hidden = !on; }
 
   // ======================= IL PULSANTE DELL'ARCO (tira indietro come una fionda) =======================
@@ -1114,11 +1376,43 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     if (G.guest) { const q = (G.q = (G.q || 0) + 1); cqNetSend({ k: 'sh', x: r2(x1), y: r2(y1), q }); const a = mkArrow(G, me, x1, y1, q); a.id = -q; a.t = me.t; }
     else mkArrow(G, me, x1, y1);
   }
+  // ======================= LE CLASSI DEL GIOCATORE: scelta, colpo, scudo =======================
+  const myCls = () => { try { const k = localStorage.getItem('asCls'); if (CL[k]) return k; } catch {} return 'a'; };
+  function pickCls(G, k) {
+    if (!CL[k]) return; try { localStorage.setItem('asCls', k); } catch {}
+    const me = G.me, now = clsNow(G, me), was = clsOf(me); beep(660, 0.05, 0.03);
+    if (G.guest) { G.clsSent = k; G.clsT = performance.now(); cqNetSend({ k: 'cls', c: k }); me.ncls = k; if (now && !dead(G, me)) me.cls = k; }
+    else setCls(G, me, k);
+    if (!dead(G, me) && !inIv(G) && !((G.pre || 0) > 0) && k !== was) cqToast(now ? CL[k].i + ' Ora sei ' + CL[k].n + '!' : CL[k].i + ' ' + CL[k].n + ' al prossimo ritorno');
+    G.clsOpen = 0;
+  }
+  function setShield(G, on) {
+    const me = G.me; G.sdOn = on ? 1 : 0; G.sdT = performance.now();
+    if (G.guest) cqNetSend({ k: 'sd', on: G.sdOn });
+    me.sd = on && clsOf(me) === 'g' && canHit(G, me) ? 1 : 0;
+    if (me.sd) beep(300, 0.05, 0.03, 0, 'square');
+  }
+  function meleeMe(G) {
+    const me = G.me; if (!canHit(G, me) || (me.rl || 0) > G.time) return;
+    swish(); G.shotT = performance.now();
+    if (G.guest) { cqNetSend({ k: 'ml' }); me.sw = G.time; me.sd = 0; me.rl = G.time + (clsOf(me) === 'g' ? SW_CD : HM_CD); const a = aimDir(G, me, 6); if (a != null) me.swA = a; }
+    else melee(G, me);
+  }
+  function clsUI(G) {
+    const cp = document.getElementById('asCls'), cb = document.getElementById('asClsB'); if (!cp || !cb) return;
+    const me = G.me, ck = clsOf(me), sel = CL[me.ncls] ? me.ncls : ck, pend = sel !== ck && !dead(G, me);
+    const show = !(G.guest && !G.ready) && (dead(G, me) || inIv(G) || (G.pre || 0) > 0 || (G.clsOpen || 0) > performance.now());
+    if (cp.hidden === show) cp.hidden = !show;
+    const st = sel + (pend ? 1 : 0) + ck;
+    if (cp.dataset.s !== st) { cp.dataset.s = st; for (const b of cp.querySelectorAll('button')) { b.classList.toggle('on', b.dataset.k === sel); b.classList.toggle('pend', b.dataset.k === sel && pend); } cb.innerHTML = CL[ck].i + (pend ? '<i></i>' : ''); }
+  }
   function autoFire(G) { const me = G.me; let b = null, bd = RMAX; for (const e of enemies(G, me)) { const p = P(e), d = Math.hypot(p.x - cq.x, p.y - cq.y); if (d < bd && MODE.night(G).see(e.x, e.y)) { bd = d; b = p; } } if (b) fire(G, b.x, b.y); }
   function bowUI(G) {
     const el = document.getElementById('asBow'); if (!el) return;
-    const me = G.me, k = Math.max(0, Math.min(1, 1 - ((me.rl || 0) - G.time) / RELOAD)), ok = canShoot(G, me) && !me.cl, st = (ok ? 'o' : 'x') + Math.round(k * 20);
-    if (el.dataset.s !== st) { el.dataset.s = st; el.style.setProperty('--k', (k * 360).toFixed(0) + 'deg'); el.classList.toggle('off', !ok); el.classList.toggle('rdy', ok && k >= 1); }
+    const me = G.me, ck = clsOf(me);
+    if (el.dataset.c !== ck) { el.dataset.c = ck; el.innerHTML = '<span>' + CL[ck].i + '</span><i>' + CL[ck].w + '</i>'; el.dataset.s = ''; }
+    const cd = ck === 'a' ? RELOAD : ck === 'g' ? SW_CD : HM_CD, k = Math.max(0, Math.min(1, 1 - ((me.rl || 0) - G.time) / cd)), ok = (ck === 'a' ? canShoot(G, me) : canHit(G, me)) && !me.cl, st = (ok ? 'o' : 'x') + Math.round(k * 20) + (me.sd ? 's' : '');
+    if (el.dataset.s !== st) { el.dataset.s = st; el.style.setProperty('--k', (k * 360).toFixed(0) + 'deg'); el.classList.toggle('off', !ok); el.classList.toggle('rdy', ok && k >= 1); el.classList.toggle('sd', !!me.sd); }
   }
   if (!document.getElementById('asCss')) {
     const st = document.createElement('style'); st.id = 'asCss';
@@ -1127,6 +1421,15 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       + '#asBow{--k:360deg;touch-action:none;user-select:none;-webkit-user-select:none;position:absolute;right:16px;bottom:138px;width:94px;height:94px;border-radius:50%;border:0;padding:0;background:conic-gradient(#f2c860 var(--k),rgba(255,255,255,.12) 0);box-shadow:0 5px 16px rgba(0,0,0,.4);-webkit-tap-highlight-color:transparent}'
       + '#asBow::before{content:"";position:absolute;inset:5px;border-radius:50%;background:radial-gradient(circle at 40% 35%,#6a4a32,#3a2618)}#asBow span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:36px;pointer-events:none;transition:transform .05s}#asBow i{position:absolute;left:50%;bottom:9px;transform:translateX(-50%);font-style:normal;font-size:10px;font-weight:800;color:#f2dca0;letter-spacing:.04em;pointer-events:none;white-space:nowrap}'
       + '#asBow.off{opacity:.45}#asBow.rdy::before{background:radial-gradient(circle at 40% 35%,#7a5638,#3a2618)}#asBow.aim{background:conic-gradient(#ff7a50 360deg,#ff7a50 0)}'
+      + '#asBow.sd{background:conic-gradient(#7ab8ff 360deg,#7ab8ff 0)}#asBow.sd::before{background:radial-gradient(circle at 40% 35%,#3a5a7a,#1a2a3a)}'
+      + '#asCls{position:absolute;left:50%;bottom:22px;transform:translateX(-50%);width:min(370px,calc(100% - 24px));z-index:30;text-align:center;pointer-events:none}'
+      + '#asCls .h{display:inline-block;font-size:11px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:#f2dca0;background:rgba(20,16,14,.78);padding:4px 12px 3px;border-radius:9px 9px 0 0}'
+      + '#asCls .r{display:flex;gap:8px;pointer-events:auto}'
+      + '#asCls button{position:relative;flex:1;min-width:0;border:2px solid rgba(200,160,80,.3);background:rgba(28,24,30,.9);border-radius:14px;padding:8px 4px 7px;color:#f2ead8;display:flex;flex-direction:column;align-items:center;gap:1px;box-shadow:0 4px 12px rgba(0,0,0,.35);-webkit-tap-highlight-color:transparent;font:inherit;cursor:pointer;transition:transform .08s}'
+      + '#asCls button:active{transform:scale(.96)}#asCls button b{font-size:26px;line-height:1.15}#asCls button span{font-size:13px;font-weight:800}#asCls button small{font-size:10px;line-height:1.2;opacity:.72}'
+      + '#asCls button.on{border-color:#f2c860;background:rgba(74,54,30,.96);box-shadow:0 0 0 3px rgba(242,200,96,.25),0 4px 12px rgba(0,0,0,.4)}'
+      + '#asCls button em{display:none;position:absolute;top:-9px;left:50%;transform:translateX(-50%);font-style:normal;font-size:9px;font-weight:800;white-space:nowrap;background:#f2c860;color:#2a1e10;padding:1px 6px;border-radius:6px}#asCls button.pend em{display:block}'
+      + '#asClsB{position:absolute;left:12px;top:170px;width:40px;height:40px;border-radius:50%;border:2px solid rgba(200,160,80,.7);background:rgba(28,24,30,.82);font-size:19px;line-height:1;padding:0;box-shadow:0 3px 10px rgba(0,0,0,.35)}#asClsB i{position:absolute;right:-1px;top:-1px;width:11px;height:11px;border-radius:50%;background:#f2c860;border:2px solid #2a1e10}'
       + '#ciack.asMode #cqKill{bottom:244px;right:20px;width:82px;height:82px}'
       + '.asHow summary{cursor:pointer}.asHow p{margin:8px 0;font-size:14px;line-height:1.4}.asHow .n{font-size:12px;opacity:.75}';
     document.head.appendChild(st);
@@ -1141,24 +1444,38 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'assedio') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } }; if (host) host.appendChild(mb);
     const bw = document.createElement('button'); bw.id = 'asBow'; bw.type = 'button'; bw.hidden = true; bw.innerHTML = '<span>🏹</span><i>TIRA INDIETRO</i>';
     let ptr = null;
-    bw.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); const G = cq.g; if (!G || G.mode !== 'assedio') return; ptr = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { bw.setPointerCapture(e.pointerId); } catch {} bw.classList.add('aim'); G.aim = { ok: false }; });
-    bw.addEventListener('pointermove', e => { if (!ptr || ptr.id !== e.pointerId) return; const G = cq.g; if (!G) return; const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y; G.aim = aimFrom(G, dx, dy); const m = Math.min(1, Math.hypot(dx, dy) / PULL), sp = bw.querySelector('span'); if (sp) sp.style.transform = 'translate(' + (dx / (Math.hypot(dx, dy) || 1) * m * 22) + 'px,' + (dy / (Math.hypot(dx, dy) || 1) * m * 22) + 'px)'; });
-    const up = e => { if (!ptr || ptr.id !== e.pointerId) return; ptr = null; bw.classList.remove('aim'); const sp = bw.querySelector('span'); if (sp) sp.style.transform = ''; const G = cq.g; if (!G) return; const A = G.aim; G.aim = null; if (A && A.ok && e.type === 'pointerup') fire(G, A.x, A.y); };
+    // arciere: tira indietro e lascia; guerriero e genio: tocca = colpo (il guerriero tenendo premuto alza lo scudo)
+    bw.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); const G = cq.g; if (!G || G.mode !== 'assedio') return; const mel = clsOf(G.me) !== 'a'; ptr = { id: e.pointerId, x: e.clientX, y: e.clientY, mel }; try { bw.setPointerCapture(e.pointerId); } catch {}
+      if (mel) { G.hold = performance.now(); meleeMe(G); return; }
+      bw.classList.add('aim'); G.aim = { ok: false }; });
+    bw.addEventListener('pointermove', e => { if (!ptr || ptr.id !== e.pointerId || ptr.mel) return; const G = cq.g; if (!G) return; const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y; G.aim = aimFrom(G, dx, dy); const m = Math.min(1, Math.hypot(dx, dy) / PULL), sp = bw.querySelector('span'); if (sp) sp.style.transform = 'translate(' + (dx / (Math.hypot(dx, dy) || 1) * m * 22) + 'px,' + (dy / (Math.hypot(dx, dy) || 1) * m * 22) + 'px)'; });
+    const up = e => { if (!ptr || ptr.id !== e.pointerId) return; if (ptr.mel) { ptr = null; const G = cq.g; if (G) { G.hold = 0; if (G.sdOn) setShield(G, 0); } return; } ptr = null; bw.classList.remove('aim'); const sp = bw.querySelector('span'); if (sp) sp.style.transform = ''; const G = cq.g; if (!G) return; const A = G.aim; G.aim = null; if (A && A.ok && e.type === 'pointerup') fire(G, A.x, A.y); };
     bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', up); bw.oncontextmenu = e => e.preventDefault();
     if (host) host.appendChild(bw);
-    window.addEventListener('keydown', e => { const k = e.key && e.key.toLowerCase(), G = cq.g; if (!G || G.mode !== 'assedio' || !cq.on || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; if (k === 'm') G.big = !G.big; if (k === 'f') autoFire(G); });
+    window.addEventListener('keydown', e => { const k = e.key && e.key.toLowerCase(), G = cq.g; if (!G || G.mode !== 'assedio' || !cq.on || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; if (k === 'm') G.big = !G.big; if (k === 'f') { if (clsOf(G.me) === 'a') autoFire(G); else meleeMe(G); } if (k === 'q' && !e.repeat && clsOf(G.me) === 'g') setShield(G, 1); if (/^[123]$/.test(k)) pickCls(G, CLK[+k - 1]); });
+    window.addEventListener('keyup', e => { const G = cq.g; if (G && G.mode === 'assedio' && e.key && e.key.toLowerCase() === 'q' && G.sdOn) setShield(G, 0); });
+    // il pannello delle classi (in basso: compare da solo quando sei a terra, all'intervallo e al via) e il pulsante a sinistra per aprirlo
+    const cp = document.createElement('div'); cp.id = 'asCls'; cp.hidden = true;
+    cp.innerHTML = '<div class="h">Scegli la classe</div><div class="r">' + CLK.map(k => '<button type="button" data-k="' + k + '"><b>' + CL[k].i + '</b><span>' + CL[k].n + '</span><small>' + CL[k].d + '</small><em>al ritorno</em></button>').join('') + '</div>';
+    cp.addEventListener('pointerdown', e => { e.stopPropagation(); const b = e.target.closest && e.target.closest('button'); if (!b) return; e.preventDefault(); const G = cq.g; if (G && G.mode === 'assedio') pickCls(G, b.dataset.k); });
+    cp.addEventListener('pointerup', e => e.stopPropagation());
+    if (host) host.appendChild(cp);
+    const cb = document.createElement('button'); cb.id = 'asClsB'; cb.type = 'button'; cb.hidden = true; cb.textContent = '🏹';
+    cb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); const G = cq.g; if (!G || G.mode !== 'assedio') return; G.clsOpen = (G.clsOpen || 0) > performance.now() ? 0 : performance.now() + 7000; beep(560, 0.04, 0.02); });
+    if (host) host.appendChild(cb);
     setInterval(() => {
       const G = cq.g, on = !!(G && G.mode === 'assedio' && G.phase === 'play' && (!G.guest || G.ready) && $('#cqTask').hidden && !$('#ciack').hidden);
       if (host && host.classList.contains('asMode') !== on) host.classList.toggle('asMode', on);
-      if (hb.hidden === on) hb.hidden = !on; if (mb.hidden === on) mb.hidden = !on; if (bw.hidden === on) bw.hidden = !on;
-      if (!on) { if (!hp.hidden) hp.hidden = true; const cv = document.getElementById('cqCanvas') || document.querySelector('#ciack canvas'); if (cv && cv.style.transform) cv.style.transform = ''; return; }
+      if (hb.hidden === on) hb.hidden = !on; if (mb.hidden === on) mb.hidden = !on; if (bw.hidden === on) bw.hidden = !on; if (cb.hidden === on) cb.hidden = !on;
+      if (!on) { if (!hp.hidden) hp.hidden = true; if (!cp.hidden) cp.hidden = true; const cv = document.getElementById('cqCanvas') || document.querySelector('#ciack canvas'); if (cv && cv.style.transform) cv.style.transform = ''; return; }
       if (!G.helpAuto) { G.helpAuto = 1; let n = 0; try { n = +localStorage.getItem('asHelpN') || 0; localStorage.setItem('asHelpN', n + 1); } catch {} if (n < 3) { helpUI(true); G.helpHold = !cq.net; } }
       if (G.helpHold) { if (hp.hidden) G.helpHold = 0; else G.pre = Math.max(G.pre || 0, 1); }
+      bowUI(G); clsUI(G);   // anche durante il conto alla rovescia (li' il gioco non gira ancora): si sceglie la classe prima del via
       const W2 = cq.w, H2 = cq.h; let css;
       if (G.big) { const R = Math.min(W2 - 24, H2 - 300, 460) / 2, cy = Math.max(130 + R, H2 / 2 - 40); css = 'left:' + (W2 / 2 - R) + 'px;top:' + (cy - R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px;border-radius:16px'; }
       else css = 'left:' + (W2 - 2 * RADAR - 10) + 'px;top:122px;width:' + 2 * RADAR + 'px;height:' + 2 * RADAR + 'px;border-radius:50%';
       if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; }
     }, 200);
   }
-  window.__as = { action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase };
+  window.__as = { action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
 });
