@@ -253,9 +253,12 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       ROOM[y * W + x] = a;
     }
     const pcells = [2, 3, 4, 9], ring = pcells.map(k => cells[k]).flatMap(c => c.sp.map(([x, y]) => [Math.floor(x), Math.floor(y)]));
+    // NASCONDIGLI per la refurtiva [casella]: prima quelli comuni (le guardie a volte li controllano), poi la piastrella smossa di ogni cella dei giocatori
+    const stash = [{ x: 12, y: 60, n: 'l\'orto', i: '🌱' }, { x: 21, y: 64, n: 'la casetta degli attrezzi', i: '🏚️' }, { x: 10, y: 18, n: 'dietro la tv', i: '📺' }, { x: 67, y: 25, n: 'lo scarico della doccia', i: '🚿' }];
+    for (const k of pcells) { const c = cells[k]; c.st = stash.length; stash.push({ x: c.x0 + 3, y: c.y0 === 9 ? 10 : 29, n: 'la piastrella della cella ' + c.n, i: '🧱', cell: k, r: 0.8 }); }
     return { w: W, h: H, rooms, doors, decals, props, holes, deco, tasks: [], hall, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
       draw, floor: FLOOR, decoDraw, drawWall, ground, bg: () => '#07080b', bgSc: 1.5,
-      lamps, LITC, ROOM, cells, pcells, iso, spots, portals, PORT, spotl, routes, acts, gal, isoOut: [50.0, 59.5] };
+      lamps, LITC, ROOM, cells, pcells, iso, spots, portals, PORT, spotl, routes, acts, gal, stash, isoOut: [50.0, 59.5] };
   }
   const roomAt = (x, y) => { const M = MP(), xi = Math.floor(x), yi = Math.floor(y); return xi < 0 || yi < 0 || xi >= W || yi >= H ? -1 : M.ROOM[yi * W + xi]; };
   const roomN = (x, y) => { const r = roomAt(x, y); return r >= 0 ? MP().rooms[r] : null; };
@@ -432,6 +435,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
         bx(x + 0.08, y0 + 0.08, x + 0.92, y + 0.92, 1.25, 1.33, '#6a7078'); bx(x + 0.1, y0 + 0.1, x + 0.9, y + 0.9, 1.33, 1.5, '#d8d4c8');
         bx(x + 0.1, y0 + 0.65, x + 0.9, y + 0.9, 1.5, 1.56, cqShade(c, 1.15)); bx(x + 0.2, y0 + 0.15, x + 0.8, y0 + 0.5, 1.5, 1.62, '#efece4');
         for (let i = 0; i < 3; i++) bx(x + 0.86, y + 0.55, x + 0.94, y + 0.85, 0.5 + i * 0.3, 0.55 + i * 0.3, '#4a5058');
+        // FANTOCCIO (o.dm = [sotto, sopra]): una sagoma sotto la coperta e la "testa" di stracci sul cuscino
+        if (o.dm) for (const [k, z] of [[0, 0.6], [1, 1.56]]) if (o.dm[k]) { const cc = k ? cqShade(c, 1.15) : c; bx(x + 0.22, y0 + 0.62, x + 0.78, y + 0.8, z, z + 0.16, cqShade(cc, 0.9)); bx(x + 0.28, y0 + 0.7, x + 0.72, y + 0.55, z + 0.16, z + 0.22, cc); dot(x + 0.5, y0 + 0.38, z + 0.14, 0.14, '#6a4a2a'); dot(x + 0.44, y0 + 0.34, z + 0.2, 0.06, '#8a6a42'); }
         break; }
       case 'wc':   // lavandino e water d'acciaio tutto in uno
         bx(x + 0.15, y + 0.06, x + 0.85, y + 0.28, 0, 1.05, '#9aa0a6'); bx(x + 0.2, y + 0.1, x + 0.8, y + 0.28, 1.05, 1.1, '#b8bec4');
@@ -674,19 +679,127 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     else if (e.k === 'allok') { t = '✅ Appello: tutti presenti. Il capoguardia è soddisfatto (per ora).'; beep(660, 0.1, 0.03); beep(880, 0.14, 0.03, 0.1); }
     else if (e.k === 'night') { t = mine ? '🚨 Le sbarre si sono chiuse e tu non sei in cella: sei RICERCATO!' : '🚨 ' + an + ' non è rientrato in cella: lo cercano!'; for (let i = 0; i < 4; i++) beep(i % 2 ? 640 : 860, 0.18, 0.035, i * 0.22, 'square'); }
     else if (e.k === 'chase') { if (mine) { t = '❗ Ti hanno visto fuori posto! Scappa e fatti perdere di vista!'; cq.hurt = performance.now(); } beep(520, 0.1, 0.05, 0, 'square'); beep(780, 0.15, 0.05, 0.1, 'square'); }
-    else if (e.k === 'caught') { t = mine ? '⛓️ Preso! ' + ISO_T + ' secondi in isolamento. Le guardie ora sono più attente.' : '⛓️ ' + an + ' è finito in isolamento!'; for (let i = 0; i < 4; i++) beep(i % 2 ? 600 : 800, 0.16, 0.03, i * 0.2); }
+    else if (e.k === 'caught') { t = mine ? '⛓️ Preso! ' + ISO_T + ' secondi in isolamento' + (e.it ? ', sequestrati ' + icons(e.it) : '') + '. Le guardie ora sono più attente.' : '⛓️ ' + an + ' è finito in isolamento!' + (e.it ? ' Sequestrati ' + icons(e.it) + '.' : ''); for (let i = 0; i < 4; i++) beep(i % 2 ? 600 : 800, 0.16, 0.03, i * 0.2); }
+    else if (e.k === 'steal') { if (e.s) { t = mine ? '👀 Ti hanno visto rubare: sei RICERCATO! Scappa!' : '👀 ' + an + ' si è fatto vedere mentre rubava!'; beep(520, 0.1, 0.05, 0, 'square'); beep(780, 0.15, 0.05, 0.1, 'square'); } else if (mine) { t = '✋ Preso: <b>' + itx(e.it) + '</b> (' + IT[e.it][2] + '). Nascondilo prima dell\'appello!'; beep(990, 0.06, 0.03); beep(1320, 0.08, 0.03, 0.07); } }
+    else if (e.k === 'stseen') { if (mine) t = '👀 Una guardia ti ha visto al nascondiglio: andrà a controllare!'; }
+    else if (e.k === 'found') { const S = MP().stash[e.h]; t = '🔎 Le guardie hanno frugato ' + (S ? S.n : 'un nascondiglio') + ': sequestrati ' + icons(e.it) + '!'; beep(500, 0.15, 0.04); beep(380, 0.25, 0.04, 0.15); }
+    else if (e.k === 'frisk') { t = mine ? '🔎 Ti hanno perquisito: sequestrati ' + icons(e.it) + '!' : '🔎 Perquisito ' + an + ': sequestrati ' + icons(e.it) + '.'; beep(500, 0.15, 0.04); beep(380, 0.25, 0.04, 0.15); }
+    else if (e.k === 'ps') { const C = MP().cells[e.kc], my = me.cell === e.kc; t = my ? '🔎 PERQUISIZIONE nella <b>tua cella ' + C.n + '</b> tra ' + e.s + ' s! Porta via la refurtiva!' : '🔎 Perquisizione in arrivo nella cella ' + (C ? C.n : '?') + ' tra ' + e.s + ' s.'; for (let i = 0; i < 3; i++) beep(700, 0.12, 0.04, i * 0.25, 'square'); }
+    else if (e.k === 'psok') { const S = MP().stash[e.h]; t = '😎 Perquisizione finita' + (S && S.cell != null ? ' nella cella ' + MP().cells[S.cell].n : '') + ': non hanno trovato niente!'; }
+    else if (e.k === 'dummy') { if (mine) { t = '🧸 Fantoccio pronto! Al controllo notturno delle celle il secondino crederà che dormi (ma con l\'allerta guarda meglio).'; beep(660, 0.08, 0.03); beep(880, 0.1, 0.03, 0.09); } }
+    else if (e.k === 'nc') { t = '🔦 Il secondino passa a controllare le celle…'; }
+    else if (e.k === 'dmok') { t = mine ? '🧸 Il fantoccio ha funzionato: il secondino crede che dormi!' : '🧸 Il fantoccio di ' + an + ' ha ingannato il secondino!'; }
+    else if (e.k === 'dmbad' || e.k === 'ncmiss') { t = mine ? (e.k === 'dmbad' ? '🧸 Il secondino ha scoperto il fantoccio' : '🔦 Il secondino ha visto il tuo letto vuoto') + ': sei RICERCATO!' : '🔦 Al controllo delle celle manca ' + an + '!'; for (let i = 0; i < 4; i++) beep(i % 2 ? 640 : 860, 0.18, 0.035, i * 0.22, 'square'); }
     else if (e.k === 'free') { if (mine) t = '🔓 Fuori dall\'isolamento: ' + (e.n ? 'ti hanno riportato in cella.' : 'torna al tuo posto e non farti notare.'); }
     else if (e.k === 'spot') { t = mine ? '🔦 Il riflettore ti ha illuminato! Arriva una guardia…' : '🔦 Un riflettore ha illuminato ' + an + '!'; beep(1200, 0.06, 0.03); beep(1200, 0.06, 0.03, 0.12); }
     else if (e.k === 'notice') { if (e.x == null || floorOf(e.x) === floorOf(cq.x)) t = '👮 Una guardia ha notato qualcosa di strano: ora cerca nei dintorni…'; }
     if (t) cqToast(t);
   }
-  // presa: ISOLAMENTO a tempo; le guardie diventano piu' attente
+  // presa: ISOLAMENTO a tempo, la refurtiva in tasca e' persa; le guardie diventano piu' attente
   function catchT(G, gd, c) {
     if (isoOn(G, c) || !c.alive) return;
-    const M = MP(), n = G.chars.filter(o => isoOn(G, o)).length, s = M.iso[n % M.iso.length];
+    const M = MP(), n = G.chars.filter(o => isoOn(G, o)).length, s = M.iso[n % M.iso.length], lost = pk(c).splice(0);
     c.iso = G.time + ISO_T; c.ric = 0; c.isoN = (c.isoN || 0) + 1; c.path = []; c.isoC = n % M.iso.length;
     if (c.bot || c === G.me) { c.x = s.x; c.y = s.y; if (c === G.me) { cq.x = s.x; cq.y = s.y; G.myIso = c.isoN; } }
-    G.alE = Math.max(G.alE || 0, G.time + ALERT_T); say(G, 'caught', { a: c.id });
+    G.alE = Math.max(G.alE || 0, G.time + ALERT_T); say(G, 'caught', { a: c.id, it: lost.join(',') });
+  }
+
+  // ======================= REFURTIVA, NASCONDIGLI, PERQUISIZIONI, FANTOCCIO =======================
+  // gli attrezzi [icona, nome, a cosa serve] e dove si rubano (di giorno, se nessuna guardia ti vede); dopo un furto ne arriva un altro tra RESP_T s
+  const IT = { cu: ['🥄', 'Cucchiaio', 'per scavare'], ca: ['🪛', 'Cacciavite', 'per le serrature'], le: ['🧵', 'Lenzuolo', 'per fare la corda'], st: ['🧻', 'Stracci', 'per il fantoccio'], di: ['👔', 'Divisa', 'per travestirsi'], te: ['🪪', 'Tesserino', 'per i cancelli'] };
+  const SRC = [{ k: 'cu', x: 68.5, y: 12.5 }, { k: 'st', x: 78.5, y: 28.5 }, { k: 'le', x: 86.5, y: 28.5 }, { k: 'ca', x: 56.5, y: 35.5 }, { k: 'di', x: 72.5, y: 54.5 }, { k: 'te', x: 59.5, y: 53.5 }];
+  const POCK = 2, ST_N = 3, RESP_T = 45, PICK_R = 1.25, ST_R = 1.25, PS_W = 20, FR_P = 0.3, NCK = [190.5, 216];
+  const PHF = ['Guarda guarda cosa abbiamo qui…', 'Sequestrato!', 'Questo me lo tengo io, grazie', 'E questo da dove salta fuori?', 'Bravi furbacchioni…'];
+  const PHE = ['Tutto in ordine. Per ora.', 'Pulito. Strano…', 'Niente di niente', 'Solo un calzino puzzolente'];
+  // frasi da carcere nei fumetti delle guardie (le altre restano quelle del modulo)
+  const PHP = { idle: ['Che noia questo turno…', 'Il caffè della mensa fa schifo pure a me', 'Ancora tre ore e vado a casa', 'Chi ha lasciato le briciole sul tavolo?', '*sbadiglio*', 'Stasera c\'è la partita…', 'Il direttore mi ha sgridato di nuovo', 'Qui non succede mai niente. Speriamo.', 'Mi fanno male i piedi', 'Conto le sbarre per passare il tempo'], nerv: ['Qui c\'è qualcosa che non va…', 'Oggi i detenuti sono strani', 'Occhi aperti, ragazzi'] };
+  const pk = c => c.pk || (c.pk = []);
+  const itx = k => IT[k][0] + ' ' + IT[k][1];
+  const icons = s => (s ? s.split(',') : []).map(k => IT[k] ? IT[k][0] : '').join(' ');
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1);
+  const difK = G => G.opt.dif === 'f' ? 0.8 : G.opt.dif === 'd' ? 1.25 : 1;
+  const gsay = (G, gd, t) => { if (gd) { gd.bub = { t, e: G.time + 2.8 }; gd.bubT = G.time + 3; } };
+  const rnd = a => a[Math.floor(Math.random() * a.length)];
+  // chi mi vede ADESSO (per rubare e per i nascondigli): la prima guardia che mi ha nel cono
+  function seenBy(G, c) {
+    const p = P(c), Rk = (alertOn(G) ? 1.22 : 1) * (0.85 + 0.15 * difK(G));
+    for (const gd of G.gd) { if (gd.st === 'ko' || floorOf(gd.x) !== floorOf(p.x)) continue; if (GD.sees(gd, p.x, p.y, rangeAt(G, p.x, p.y) * Rk) > 0) return gd; }
+    return null;
+  }
+  const srcOn = (G, i) => (G.src[i] || 0) <= G.time;
+  const srcNear = c => { const p = P(c); let b = -1, bd = PICK_R; SRC.forEach((s, i) => { const d = Math.hypot(p.x - s.x, p.y - s.y); if (d < bd) { bd = d; b = i; } }); return b; };
+  const stNear = c => { const p = P(c); let b = -1, bd = 9; MP().stash.forEach((h, i) => { const d = Math.hypot(p.x - h.x - 0.5, p.y - h.y - 0.5); if (d < (h.r || ST_R) && d < bd) { bd = d; b = i; } }); return b; };
+  function nearGuard(G, x, y, free) { let b = null, bd = 1e9; for (const g of G.gd) { if (g.st === 'ko' || (free && (g.st === 'chase' || g.post))) continue; const d = Math.hypot(g.x - x, g.y - y) + (floorOf(g.x) !== floorOf(x) ? 40 : 0); if (d < bd) { bd = d; b = g; } } return b; }
+  // la guardia va a controllare un nascondiglio (h = indice in M.stash): arrivata, lo apre (env.hiddenAt -> stashChecked)
+  function sendCheck(G, gd, h, t) { const S = MP().stash[h]; gd.st = 'srch'; gd.sp = [{ x: S.x + 0.5, y: S.y + 0.5, h }]; gd.sEnd = G.time + (t || 30); gd.chk = 0; gd.lk = 0; gd.path = []; }
+  // visto rubare: ricercato e inseguito subito
+  function caughtAct(G, gd, c) {
+    const p = P(c); c.ric = Math.max(c.ric || 0, G.time + RIC_T); G.alE = Math.max(G.alE || 0, G.time + ALERT_T);
+    if (gd.st !== 'chase') { gd.st = 'chase'; gd.tgt = c.id; gd.lose = 0; gd.path = []; gd.sus = 1; gd.md = 1; gd.lx = p.x; gd.ly = p.y; GD.say(G, gd, 'chase'); GD.alarm(G, gd, env(G)); }
+  }
+  // nascondere / riprendere: se una guardia ti vede, andra' a controllare quel nascondiglio
+  function stashMove(G, c, a) {
+    const h = a.h, S = MP().stash[h]; if (!S || stNear(c) !== h || !IT[a.it]) return;
+    const L = G.st[h], Pk = pk(c);
+    if (a.k === 'put') { const j = Pk.indexOf(a.it); if (j < 0 || L.length >= ST_N) return; Pk.splice(j, 1); L.push(a.it); }
+    else { const j = L.indexOf(a.it); if (j < 0 || Pk.length >= POCK) return; L.splice(j, 1); Pk.push(a.it); }
+    const gd = seenBy(G, c);
+    if (gd && gd.st !== 'chase' && !G.stW[h]) { G.stW[h] = 1; sendCheck(G, gd, h, 30); gsay(G, gd, 'Ehi! Cosa nascondi lì?'); say(G, 'stseen', { a: c.id, h }); }
+  }
+  // una guardia ha aperto il nascondiglio h: la refurtiva e' persa; nella cella perquisisce anche le tasche di chi c'e'
+  function stashChecked(G, h) {
+    const S = MP().stash[h]; if (!S) return null;
+    const lost = G.st[h].splice(0), ps = G.ps && G.ps.h === h && G.ps.st === 1, gd = nearGuard(G, S.x + 0.5, S.y + 0.5); let fr = 0;
+    G.stW[h] = 0;
+    if (S.cell != null) for (const c of G.chars) if (c.alive && !isoOn(G, c) && inCell(c, S.cell) && pk(c).length) { fr = 1; say(G, 'frisk', { a: c.id, it: c.pk.splice(0).join(',') }); }
+    if (lost.length) say(G, 'found', { h, it: lost.join(',') }); else if (ps && !fr) say(G, 'psok', { h });
+    if (ps) { G.ps.st = 2; G.ps.e = G.time; }
+    gsay(G, gd, rnd(lost.length || fr ? PHF : PHE));
+    return null;
+  }
+  // PERQUISIZIONI: una cella al giorno (due il secondo giorno), annunciata PS_W secondi prima; di solito quella con piu' refurtiva nascosta
+  function psStart(G, T) {
+    const M = MP(), ks = [...new Set(G.chars.filter(c => c.alive).map(c => c.cell))];
+    let k = rnd(ks); if (Math.random() < 0.6) k = ks.slice().sort((a, b) => G.st[M.cells[b].st].length - G.st[M.cells[a].st].length)[0];
+    G.ps = { k, h: M.cells[k].st, t: T, st: 0, g: -1 }; say(G, 'ps', { kc: k, s: Math.round(T - G.time) });
+  }
+  function psTick(G) {
+    const ps = G.ps, M = MP();
+    if (phase(G) !== 'day' || G.time > ps.t + 60 || (ps.st === 2 && G.time > ps.e + 4)) { G.ps = null; return; }
+    if (ps.st === 0 && G.time >= ps.t) ps.st = 1;
+    if (ps.st !== 1) return;
+    let g = G.gd[ps.g];
+    const busy = g && g.st === 'srch' && g.sp[0] && g.sp[0].h === ps.h;
+    if (busy || (g && g.st === 'chase')) return;
+    // il secondino del braccio (o la guardia libera piu' vicina) va nella cella
+    const c = M.cells[ps.k]; g = G.gd.find(o => o.route === M.routes.braccio.route && o.st !== 'chase' && o.st !== 'ko') || nearGuard(G, c.x0 + 2, c.y0 + 2, true);
+    if (!g) return; ps.g = g.id; sendCheck(G, g, ps.h, 45); gsay(G, g, 'Perquisizione! Cella ' + c.n + ', vediamo un po\'…');
+  }
+  // CONTROLLO NOTTURNO delle celle (00:00 e 03:00): il secondino passa davanti alle sbarre; il letto vuoto = ricercato, il FANTOCCIO lo inganna (non con l'allerta)
+  function ncPts(G) { const M = MP(); return G.nc.k.filter(k => !G.nc.done.includes(k)).map(k => { const c = M.cells[k]; return { x: c.x0 + 2, y: c.y0 === 9 ? 14.6 : 25.4, h: -1, k }; }); }
+  function ncStart(G) {
+    const M = MP(), ks = [...new Set(G.chars.filter(c => c.alive).map(c => c.cell))].sort((a, b) => M.cells[a].x0 - M.cells[b].x0);
+    G.nc = { t: G.time, k: ks, done: [], g: -1 }; say(G, 'nc', {}); ncSend(G);
+  }
+  function ncSend(G) {
+    const M = MP(), g = G.gd.find(o => o.route === M.routes.braccio.route && o.st !== 'chase' && o.st !== 'ko') || nearGuard(G, 30, 20, true); if (!g) return;
+    G.nc.g = g.id; g.st = 'srch'; g.sp = ncPts(G); g.sEnd = G.time + 60; g.chk = 0; g.lk = 0; g.path = []; gsay(G, g, 'Controllo delle celle… tutti a nanna?');
+  }
+  function ncTick(G) {
+    const nc = G.nc, g = G.gd[nc.g];
+    if (G.time > nc.t + 70 || nc.done.length >= nc.k.length || !closed(G)) { G.nc = null; return; }
+    for (const p of ncPts(G)) if (g && Math.hypot(g.x - p.x, g.y - p.y) < 1.7) { nc.done.push(p.k); ncEval(G, p.k, g); }
+    if ((!g || (g.st !== 'srch' && g.st !== 'chase')) && G.time > (nc.sT || 0)) { nc.sT = G.time + 3; ncSend(G); }
+  }
+  function ncEval(G, k, g) {
+    let bad = 0;
+    for (const c of G.chars) {
+      if (c.cell !== k || !c.alive || isoOn(G, c) || inCell(c)) continue;
+      if (c.dm && !alertOn(G)) { say(G, 'dmok', { a: c.id }); continue; }
+      say(G, c.dm ? 'dmbad' : 'ncmiss', { a: c.id }); c.dm = 0; c.ric = G.time + RIC_T; c.miss = (c.miss || 0) + 1; bad = 1;
+    }
+    if (bad) { G.alE = Math.max(G.alE || 0, G.time + ALERT_T); gsay(G, g, 'Il letto è vuoto! ALLARME!'); g.md = 1; }
+    else gsay(G, g, rnd(['Dormono come angioletti', 'Russano… tutto ok', 'Che pace', 'Zitti e a nanna']));
   }
   // fine dell'isolamento: di notte in cella, di giorno nel corridoio centrale
   function release(G, c) {
@@ -699,14 +812,22 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   function action(G, c) {
     if (!c.alive) return null;
     if (isoOn(G, c)) return { k: 'wait', t: '⛓️ Isolamento: ' + Math.ceil(c.iso - G.time) + ' s', on: false };
+    // il rischio si legge sul pulsante: se una guardia ti vede adesso, lo dice
+    const seen = () => seenBy(G, c) ? ' · 👀 ti vedono!' : '';
+    const h = stNear(c); if (h >= 0) { const S = MP().stash[h], n = (G.st[h] || []).length; return { k: 'stash', h, t: S.i + ' Nascondiglio' + (n ? ' · ' + n + '/' + ST_N : '') + seen(), on: true }; }
+    const i = srcNear(c); if (i >= 0 && srcOn(G, i)) return pk(c).length >= POCK ? { k: 'full', t: '🎒 Tasche piene: nascondi qualcosa', on: false } : { k: 'steal', i, t: '✋ Ruba ' + itx(SRC[i].k) + seen(), on: true };
+    if (inCell(c) && !c.dm && pk(c).includes('st') && !ricOn(G, c)) return { k: 'dummy', t: '🧸 Fai il fantoccio nel letto (usa 🧻)', on: true };
     if (closed(G) && inCell(c) && !ricOn(G, c)) return c.zz ? { k: 'wake', t: '💤 Dormi… (tocca per svegliarti)', on: true } : { k: 'sleep', t: '💤 Dormi fino all\'alba', on: true };
     return null;
   }
   function doAct(G, c, a) {
-    if (!c || !a || G.phase !== 'play') return;
+    if (!c || !a || G.phase !== 'play' || !c.alive || isoOn(G, c)) return;
+    if (a.k === 'put' || a.k === 'take') { stashMove(G, c, a); return; }
     const cur = action(G, c); if (!cur || cur.k !== a.k || !cur.on) return;
     if (a.k === 'sleep') { c.zz = 1; c.zx = P(c).x; c.zy = P(c).y; }
     if (a.k === 'wake') c.zz = 0;
+    if (a.k === 'steal') { const s = SRC[cur.i], gd = seenBy(G, c); pk(c).push(s.k); G.src[cur.i] = G.time + RESP_T; c.stN = (c.stN || 0) + 1; say(G, 'steal', { a: c.id, it: s.k, s: gd ? 1 : 0 }); if (gd) caughtAct(G, gd, c); }
+    if (a.k === 'dummy') { c.pk.splice(c.pk.indexOf('st'), 1); c.dm = 1; say(G, 'dummy', { a: c.id }); }
   }
   // ---- DETENUTI DEL COMPUTER ----
   function go(G, c, x, y) {
@@ -732,7 +853,12 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     cqModeStep(c, dt, MODE.speed(c));
   }
   // ======================= IL GIOCO NEL MOTORE =======================
-  function setup(G) { G.lg = []; G.lgN = 0; G.alE = 0; G.pc = -1; G.spT = {}; G.ff = 0; G.myIso = 0; G.myRel = 0; G.cnt = null; }
+  function setup(G) {
+    G.lg = []; G.lgN = 0; G.alE = 0; G.pc = -1; G.spT = {}; G.ff = 0; G.myIso = 0; G.myRel = 0; G.cnt = null; G.PH = PHP;
+    G.src = SRC.map(() => 0); G.st = MP().stash.map(() => []); G.stW = {}; G.ps = null; G.nc = null; G.stO = null; G.dmK = '';
+    // perquisizioni: una il primo giorno, due il secondo (orari a caso durante l'ora d'aria)
+    const r = (a, b) => a + Math.random() * (b - a); G.psL = [r(52, 98), DAY + r(48, 70), DAY + r(86, 104)];
+  }
   // sbarre delle celle e cancello del cortile: chiusi di notte (su ogni telefono, dal tempo)
   function syncDoors(G) {
     const M = MP(), v = closed(G) ? 1 : 0;
@@ -755,7 +881,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   const scrA = a => { const c = Math.cos(a), s = Math.sin(a); return Math.atan2((c + s) / 2, c - s); };
   const env = G => { const E = { thieves: G.chars.filter(c => illegal(G, c)), pos: P, vis: c => c.bot ? 0.65 : 1,
     range: (x, y) => rangeAt(G, x, y), alert: alertOn(G), k: G.opt.dif === 'f' ? 0.8 : G.opt.dif === 'd' ? 1.25 : 1, speed: 1,
-    hides: [], hiddenAt: () => null, same: (x1, y1, x2, y2) => floorOf(x1) === floorOf(x2),
+    hides: MP().stash.filter(h => h.cell == null), hiddenAt: i => stashChecked(G, i), same: (x1, y1, x2, y2) => floorOf(x1) === floorOf(x2),
     chokes: (x, y) => chokes(G, x, y), onNotice: (gd, an) => say(G, 'notice', { x: an.x }),
     onCatch: (gd, c) => catchT(G, gd, c), onKo: () => {},
     onChase: (gd, c) => { GD.alarm(G, gd, E); say(G, 'chase', { a: c.id }); } };
@@ -784,7 +910,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       for (const c of G.chars) if (c.bot && c.look && c.look.skin === 'guardia') { const k = sk.shift(); c.look = k ? { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' } : { skin: 'omino', col: '#e8742a', hat: 'nessuno' }; }
       // celle a due a due, numeri di matricola = posto dell'appello
       const order = G.chars.slice().sort(() => Math.random() - 0.5);
-      order.forEach((c, i) => { const k = M.pcells[Math.floor(i / 2) % M.pcells.length], s = M.cells[k].sp[i % 2]; Object.assign(c, { cell: k, slot: i % 2, no: i + 1, x: s[0], y: s[1], iso: 0, ric: 0, isoN: 0, miss: 0, zz: 0, path: [], think: Math.random(), dname: 'N°' + (i + 1) + ' ' + c.name }); });
+      order.forEach((c, i) => { const k = M.pcells[Math.floor(i / 2) % M.pcells.length], s = M.cells[k].sp[i % 2]; Object.assign(c, { cell: k, slot: i % 2, no: i + 1, x: s[0], y: s[1], iso: 0, ric: 0, isoN: 0, miss: 0, zz: 0, pk: [], dm: 0, stN: 0, path: [], think: Math.random(), dname: 'N°' + (i + 1) + ' ' + c.name }); });
       cq.x = G.me.x; cq.y = G.me.y; G.myF = null;
     },
     gstart(G) { cq.mapDirty = true; cqUseMap('carcere'); GD.pathFn = route; setup(G); G.gd = []; G.ready = 0; },
@@ -798,6 +924,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (ph === 'ap') { const end = t < AP1 ? AP1 : AP2; return onSpot(me) ? '✅ Sei al posto N° ' + me.no + ' · conta tra ' + Math.ceil(end - t) + ' s' : '📣 APPELLO! Corri al posto N° ' + me.no + ' in cortile · ' + Math.ceil(end - t) + ' s'; }
       if (ph === 'rin') return inCell(me) ? '✅ Sei in cella ' + cellOf(me).n + ' · le sbarre si chiudono tra ' + Math.ceil(CLOSE - t) + ' s' : '🛏️ Tutti in cella! Vai nella cella ' + cellOf(me).n + ' · ' + Math.ceil(CLOSE - t) + ' s';
       if (ricOn(G, me)) return '🚨 Sei ricercato: stai alla larga dalle guardie (' + Math.ceil(me.ric - G.time) + ' s)';
+      if (G.ps && G.ps.st < 2 && G.ps.k === me.cell) return G.ps.st === 0 ? '🔎 Perquisizione nella tua cella tra ' + Math.max(0, Math.ceil(G.ps.t - G.time)) + ' s: svuota la piastrella!' : '🔎 Stanno perquisendo la tua cella!';
       if (G.ff) return '💤 Zzz… la notte passa';
       const p = P(me); if (!closed(G) && forbAt(p.x, p.y)) return '🚫 Zona vietata: se una guardia ti vede, ti insegue!';
       return '';
@@ -821,8 +948,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       return out;
     },
     btn(G) { if (G.guest && !G.ready) return null; const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
-    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; if (G.guest) { cqNetSend({ k: 'a', a: a.k }); if (a.k === 'sleep') me.zz = 1; if (a.k === 'wake') me.zz = 0; } else doAct(G, me, { k: a.k }); },
-    ev(G, c, o) { if (o && o.k === 'a') doAct(G, c, { k: o.a }); },
+    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; if (a.k === 'stash') { stUI(G, a.h); return; } if (G.guest) { cqNetSend({ k: 'a', a: a.k }); if (a.k === 'sleep') me.zz = 1; if (a.k === 'wake') me.zz = 0; } else doAct(G, me, { k: a.k }); },
+    ev(G, c, o) { if (o && o.k === 'a') doAct(G, c, { k: o.a, h: o.h, it: o.it }); },
     voice: (G, c) => null,   // voce di vicinanza (in cella si sente il compagno; urlare dall'altra parte del cortile no)
     local(G, dt) {
       const me = G.me; if (G.guest && !G.ready) return;
@@ -840,8 +967,12 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       // nome della stanza quando ci entro (le zone vietate in rosso)
       { const r = roomAt(cq.x, cq.y); if (r >= 0 && r !== G.myR) { const R = MP().rooms[r]; if (!R.nl || R.f) { if (G.myRn !== R.n) { G.zn = { n: R.n, f: !!R.f && !(R.ala === 'I' && isoOn(G, me)), t: performance.now() }; G.myRn = R.n; } } G.myR = r; } }
       // campane, fischi e cancelli: ogni telefono li sente dal tempo
-      { const t = cyc(G), pt = G.lt == null ? t : G.lt; G.lt = t; const cross = e => (pt < e && t >= e) || (t < pt && t >= e);
-        if (cross(0.05) || cross(AP2S)) bell(); if (cross(AP2)) whistle(); }
+      { const t = cyc(G), pt = G.lt == null ? t : G.lt; G.lt = t; const cross = e => (pt < e && t >= e) || (pt - t > DAY / 2 && t >= e);   // (all'indietro solo a mezzanotte: le piccole correzioni dell'orologio non contano)
+        if (cross(0.05) || cross(AP2S)) { bell(); if (pk(me).length && !isoOn(G, me)) setTimeout(() => cqToast("🎒 Hai roba in tasca: all'appello frugano a caso. Nascondila prima di andare al posto!"), 900); }
+        if (cross(AP2)) whistle(); }
+      // il pannello del nascondiglio si chiude se mi allontano; il fantoccio si vede nel letto
+      if (G.stO != null && (stNear(me) !== G.stO || isoOn(G, me))) G.stO = null;
+      stRender(G); syncDm(G);
       // battito del cuore: una guardia che mi sospetta o mi insegue, o vicina quando sono fuori posto
       G.hb = 0; const bad = illegal(G, me);
       for (const g of G.gd) { if (g.st === 'chase' && g.tgt === me.id) G.hb = 1; else if (g.st === 'sus' && Math.hypot(g.lx - cq.x, g.ly - cq.y) < 2.5) G.hb = Math.max(G.hb, 0.4 + 0.6 * g.sus); }
@@ -860,6 +991,10 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       // APPELLO: alla fine della finestra conta chi c'e'
       if (cross(AP1) || cross(AP2)) {
         const miss = G.chars.filter(c => c.alive && !isoOn(G, c) && !onSpot(c));
+        // PERQUISIZIONE A CAMPIONE: il capoguardia fruga le tasche di qualcuno dei presenti (di piu' con l'allerta)
+        { const cg = G.gd.find(g => g.route === M.routes.cortile.route); let any = 0;
+          for (const c of G.chars) if (c.alive && !isoOn(G, c) && onSpot(c) && pk(c).length && Math.random() < (alertOn(G) ? 0.5 : FR_P)) { any = 1; say(G, 'frisk', { a: c.id, it: c.pk.splice(0).join(',') }); }
+          if (any) gsay(G, cg, rnd(PHF)); }
         for (const c of miss) { c.ric = G.time + RIC_T; c.miss = (c.miss || 0) + 1; say(G, 'miss', { a: c.id }); const p = P(c); let b = null, bd = 1e9; for (const g of G.gd) { if (g.post || g.st === 'ko') continue; const d = Math.hypot(g.x - p.x, g.y - p.y) + (floorOf(g.x) !== floorOf(p.x) ? 30 : 0); if (d < bd) { bd = d; b = g; } } if (b) GD.investigate(b, p.x, p.y, 'see'); }
         if (miss.length) G.alE = Math.max(G.alE || 0, G.time + ALERT_T); else say(G, 'allok', {});
         G.cnt = { t: G.time, n: miss.length };
@@ -879,6 +1014,11 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       });
       // fine dell'isolamento
       for (const c of G.chars) if (c.iso && c.iso <= G.time) release(G, c);
+      // perquisizioni (annunciate prima) e controlli notturni delle celle
+      if (G.psL.length && !G.ps && G.time >= G.psL[0] - PS_W) psStart(G, G.psL.shift());
+      if (G.ps) psTick(G);
+      if (NCK.some(cross) && !G.nc) ncStart(G);
+      if (G.nc) ncTick(G);
       // computer
       for (const c of G.chars) { if (!c.bot || !c.alive) continue; botT(G, c, dt); npcTp(c); }
       // DORMIRE: se tutti i giocatori veri sono a letto (in cella, di notte) la notte passa piu' in fretta
@@ -889,20 +1029,22 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     },
     finish(G, why) {
       const name = c => c.name + (c === G.me ? ' (tu)' : '');
-      const line = c => [name(c), '— N°' + c.no + ' · ' + [c.isoN ? '⛓️ isolamento ' + c.isoN + (c.isoN > 1 ? ' volte' : ' volta') : '😇 mai in isolamento', c.miss ? '🚨 ' + c.miss + ' appelli saltati' : ''].filter(Boolean).join(' · ')];
+      const line = c => [name(c), '— N°' + c.no + ' · ' + [c.stN ? '✋ ' + c.stN + (c.stN > 1 ? ' furti' : ' furto') : '', c.isoN ? '⛓️ isolamento ' + c.isoN + (c.isoN > 1 ? ' volte' : ' volta') : '😇 mai in isolamento', c.miss ? '🚨 ' + c.miss + ' appelli saltati' : ''].filter(Boolean).join(' · ')];
       const rank = G.chars.slice().sort((a, b) => ((a.isoN || 0) + (a.miss || 0)) - ((b.isoN || 0) + (b.miss || 0))).map(line);
       cqModeEnd({ t: '🚌 Trasferiti!', why: 'All\'alba del terzo giorno arriva il furgone blindato: vi portano a Rocca Nera 2, massima sicurezza. Nessuno è evaso.' + funny(G, 0), win: [], rank });
     },
-    csnap: c => { const G = cq.g; return [Math.round(Math.max(0, (c.iso || 0) - G.time) * 10) / 10, Math.round(Math.max(0, (c.ric || 0) - G.time) * 10) / 10, c.cell, c.slot, c.no, c.zz ? 1 : 0, c.isoN || 0, c.isoC || 0, c.relN || 0, c.rel || 0, c.miss || 0]; },
+    csnap: c => { const G = cq.g; return [Math.round(Math.max(0, (c.iso || 0) - G.time) * 10) / 10, Math.round(Math.max(0, (c.ric || 0) - G.time) * 10) / 10, c.cell, c.slot, c.no, c.zz ? 1 : 0, c.isoN || 0, c.isoC || 0, c.relN || 0, c.rel || 0, c.miss || 0, pk(c).join(','), c.dm ? 1 : 0, c.stN || 0]; },
     capply(G, c, a) {
       c.iso = a[0] > 0 ? G.time + a[0] : 0; c.ric = a[1] > 0 ? G.time + a[1] : 0; c.cell = a[2]; c.slot = a[3]; c.no = a[4]; if (c !== G.me) c.zz = a[5];
-      c.isoN = a[6]; c.isoC = a[7]; c.relN = a[8]; c.rel = a[9] || null; c.miss = a[10]; c.dname = 'N°' + c.no + ' ' + c.name;
+      c.isoN = a[6]; c.isoC = a[7]; c.relN = a[8]; c.rel = a[9] || null; c.miss = a[10]; c.pk = a[11] ? a[11].split(',') : []; c.dm = a[12]; c.stN = a[13]; c.dname = 'N°' + c.no + ' ' + c.name;
       if (c === G.me && !G.ready) { G.ready = 1; G.myIso = c.isoN; G.myRel = c.relN; }
     },
-    snap(G) { const r = v => Math.round(v * 10) / 10; return { gd: GD.snap(G), lg: G.lg, al: r(Math.max(0, G.alE - G.time)), ff: G.ff, cnt: G.cnt ? [r(G.time - G.cnt.t), G.cnt.n] : null }; },
+    snap(G) { const r = v => Math.round(v * 10) / 10; return { gd: GD.snap(G), lg: G.lg, al: r(Math.max(0, G.alE - G.time)), ff: G.ff, cnt: G.cnt ? [r(G.time - G.cnt.t), G.cnt.n] : null,
+      src: G.src.map(t => r(Math.max(0, t - G.time))), st: G.st, ps: G.ps ? [G.ps.k, G.ps.h, r(G.ps.t - G.time), G.ps.st] : null }; },
     apply(G, x) {
       if (!G.gd.length) G.gd = x.gd.map((v, id) => ({ id, x: v[0], y: v[1], a: v[2], st: 'pat', sus: 0, walk: 0, route: [], path: [] }));
       GD.apply(G, x.gd); G.alE = x.al > 0 ? G.time + x.al : 0; G.ff = x.ff; G.cnt = x.cnt ? { t: G.time - x.cnt[0], n: x.cnt[1] } : null;
+      if (x.src) G.src = x.src.map(v => G.time + v); if (x.st) G.st = x.st; G.ps = x.ps ? { k: x.ps[0], h: x.ps[1], t: G.time + x.ps[2], st: x.ps[3] } : null;
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
     // NOTTE: lampade, torce delle guardie, riflettori; di giorno luce dappertutto (si vede solo il proprio livello)
@@ -930,6 +1072,25 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
         const dx = X1 - X0, dy = Y1 - Y0, m = Math.hypot(dx, dy) || 1, nx = -dy / m, ny = dx / m;
         g.fillStyle = 'rgba(255,250,215,' + (0.09 * a) + ')'; g.beginPath(); g.moveTo(X0 + nx * 3, Y0 + ny * 3); g.lineTo(X1 + nx * r, Y1 + ny * r * 0.5); g.lineTo(X1 - nx * r, Y1 - ny * r * 0.5); g.lineTo(X0 - nx * 3, Y0 - ny * 3); g.closePath(); g.fill();
         g.strokeStyle = 'rgba(255,250,215,' + (0.25 * a) + ')'; g.lineWidth = 1.5; g.beginPath(); g.ellipse(X1, Y1, TW * 1.65, TW * 0.82, 0, 0, 7); g.stroke();
+      }
+      // REFURTIVA da rubare (luccica), NASCONDIGLI (con quante cose ci sono dentro), la cella da PERQUISIRE
+      if (mf === 0 && !isoOn(G, me)) {
+        g.textAlign = 'center'; g.textBaseline = 'middle';
+        SRC.forEach((s, i) => {
+          if (!srcOn(G, i) || !near(s.x, s.y, 11)) return; const d = Math.hypot(s.x - cq.x, s.y - cq.y); if (dk > 0.5 && !litAt(s.x, s.y) && d > 3) return;
+          const X = sx(s.x, s.y), Y = sy(s.x, s.y) - TW * (0.9 + 0.07 * Math.sin(now * 3 + i)), k = (now * 0.8 + i * 0.3) % 1;
+          g.globalAlpha = dk > 0.5 ? 0.7 : 1; g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(sx(s.x, s.y), sy(s.x, s.y), TW * 0.16, TW * 0.08, 0, 0, 7); g.fill();
+          g.strokeStyle = 'rgba(255,236,150,' + (0.8 * (1 - k)) + ')'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, TW * (0.2 + 0.2 * k), 0, 7); g.stroke();
+          g.font = Math.round(TW * 0.5) + 'px system-ui,sans-serif'; g.fillStyle = '#fff'; g.fillText(IT[s.k][0], X, Y);
+          g.fillStyle = '#ffe9a0'; g.font = Math.round(TW * 0.17) + 'px system-ui'; g.fillText('✦', X + TW * 0.24 * Math.cos(now * 2 + i), Y - TW * 0.2 * Math.sin(now * 2 + i)); g.globalAlpha = 1;
+        });
+        M.stash.forEach((h, i) => {
+          const x = h.x + 0.5, y = h.y + 0.5; if (!near(x, y, 8)) return; const n = (G.st[i] || []).length, X = sx(x, y), Y = sy(x, y) - TW * 0.45;
+          g.globalAlpha = n ? 0.95 : 0.55; g.font = Math.round(TW * 0.3) + 'px system-ui,sans-serif'; g.fillText(h.i, X, Y);
+          if (n) { g.fillStyle = '#e8742a'; g.beginPath(); g.arc(X + TW * 0.2, Y - TW * 0.14, TW * 0.11, 0, 7); g.fill(); g.fillStyle = '#fff'; g.font = '800 ' + Math.round(TW * 0.15) + 'px system-ui,sans-serif'; g.fillText(n, X + TW * 0.2, Y - TW * 0.135); }
+          g.globalAlpha = 1;
+        });
+        if (G.ps && G.ps.st < 2) { const c = M.cells[G.ps.k], x = c.x0 + 2, y = c.y0 + 2; if (near(x, y, 24)) { const X = sx(x, y), Y = sy(x, y) - TW * (2.6 + 0.12 * Math.sin(now * 4)), tx = '🔎 PERQUISIZIONE' + (G.ps.st === 0 ? ' · ' + Math.max(0, Math.ceil(G.ps.t - G.time)) + ' s' : ''); g.font = '800 12px system-ui,sans-serif'; const w = g.measureText(tx).width + 18; g.fillStyle = 'rgba(150,30,30,.9)'; cqRR(g, X - w / 2, Y - 12, w, 24, 9); g.fill(); g.fillStyle = '#fff'; g.fillText(tx, X, Y); } }
       }
       // CONI DI VISTA delle guardie (fermati dai muri): di giorno uno solo, di notte torcia forte + alone "se sei in luce"
       for (const gd of G.gd) {
@@ -965,7 +1126,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (G.fade) { const t = performance.now() - G.fade;
         if (t < 520) { g.fillStyle = 'rgba(4,4,6,' + (1 - t / 520) + ')'; g.fillRect(0, 0, W2, H2); }
         if (t < 1700) { const a = Math.min(1, (1700 - t) / 400); g.globalAlpha = a; g.fillStyle = 'rgba(10,10,14,.7)'; cqRR(g, W2 / 2 - 90, H2 * 0.3 - 22, 180, 44, 12); g.fill(); g.fillStyle = '#f2dca0'; g.font = '800 20px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText((mf ? '⬆️ ' : '🏛️ ') + FLN[mf].toUpperCase(), W2 / 2, H2 * 0.3); g.globalAlpha = 1; } }
-      board(g, G); minimap(g, G, W2);
+      board(g, G); pocket(g, G); minimap(g, G, W2);
     }
   };
   // verso un punto, anche all'altro livello: la scala piu' vicina (p = passa da una scala)
@@ -985,6 +1146,46 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   // suoni della giornata
   function bell() { for (let i = 0; i < 6; i++) { beep(880, 0.35, 0.05, i * 0.42, 'triangle'); beep(1320, 0.2, 0.02, i * 0.42 + 0.02, 'sine'); } }
   function whistle() { beep(2100, 0.25, 0.04, 0, 'sine'); beep(2400, 0.4, 0.04, 0.3, 'sine'); }
+
+  // ---- LE TASCHE (sotto la giornata): due posti, piu' il fantoccio se e' pronto ----
+  function pocket(g, G) {
+    if (G.big) return;
+    const Pk = pk(G.me), dm = !!G.me.dm, x0 = 62, y0 = 252, h = 42, w = 112 + (dm ? 30 : 0);
+    g.save(); g.fillStyle = 'rgba(30,24,20,.84)'; cqRR(g, x0, y0, w, h, 10); g.fill(); g.strokeStyle = 'rgba(232,168,80,.4)'; g.lineWidth = 1.5; g.stroke();
+    g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '18px system-ui,sans-serif'; g.fillStyle = '#fff'; g.fillText('🎒', x0 + 18, y0 + h / 2);
+    for (let i = 0; i < POCK; i++) { const bx0 = x0 + 36 + i * 37; g.fillStyle = Pk[i] ? 'rgba(255,190,110,.2)' : 'rgba(255,255,255,.07)'; cqRR(g, bx0, y0 + 5, 32, 32, 8); g.fill(); if (Pk[i]) { g.font = '20px system-ui,sans-serif'; g.fillStyle = '#fff'; g.fillText(IT[Pk[i]][0], bx0 + 16, y0 + 22); } }
+    if (dm) { g.font = '16px system-ui,sans-serif'; g.fillText('🧸', x0 + w - 17, y0 + h / 2); }
+    g.restore();
+  }
+  // ---- IL PANNELLO DEL NASCONDIGLIO: cosa ho in tasca e cosa c'e' dentro; un tocco sposta la cosa ----
+  function stUI(G, h) { G.stO = h; G.stSig = ''; stRender(G); beep(420, 0.05, 0.02); }
+  function stRender(G) {
+    const el = document.getElementById('evSt'); if (!el) return;
+    const h = G.stO; if (h == null || G.phase !== 'play') { if (!el.hidden) el.hidden = true; return; }
+    const S = MP().stash[h], L = G.st[h] || [], Pk = pk(G.me), sig = h + '|' + L.join() + '|' + Pk.join();
+    if (sig === G.stSig && !el.hidden) return; G.stSig = sig;
+    const b = (a, k, dis) => '<button type="button" data-a="' + a + '" data-it="' + k + '"' + (dis ? ' disabled' : '') + '><i>' + IT[k][0] + '</i>' + IT[k][1] + '<span>' + (a === 'put' ? 'nascondi ⬇️' : 'prendi ⬆️') + '</span></button>';
+    el.innerHTML = '<div class="t">' + S.i + ' ' + cap(S.n) + '</div>'
+      + '<div class="s">🎒 In tasca · ' + Pk.length + '/' + POCK + '</div>' + (Pk.length ? Pk.map(k => b('put', k, L.length >= ST_N)).join('') : '<div class="e">Tasche vuote</div>')
+      + '<div class="s">' + S.i + ' Nascosto qui · ' + L.length + '/' + ST_N + '</div>' + (L.length ? L.map(k => b('take', k, Pk.length >= POCK)).join('') : '<div class="e">Vuoto</div>')
+      + '<div class="c">' + (S.cell != null ? 'Le perquisizioni lo trovano' : 'Le guardie a volte lo controllano') + ' · tocca qui per chiudere</div>';
+    el.hidden = false;
+  }
+  function stClick(a, it) {
+    const G = cq.g; if (!G || G.stO == null) return; const h = G.stO;
+    if (G.guest) cqNetSend({ k: 'a', a, h, it }); else doAct(G, G.me, { k: a, h, it });
+    beep(a === 'put' ? 520 : 760, 0.05, 0.025);
+  }
+  // il fantoccio nel letto: si ridisegna la branda quando cambia (su ogni telefono)
+  function syncDm(G) {
+    const M = MP(), key = G.chars.filter(c => c.dm).map(c => c.cell + ':' + c.slot).sort().join();
+    if (key === G.dmK) return; G.dmK = key;
+    for (const k of M.pcells) {
+      const c = M.cells[k], x = c.x0, y = c.y0 === 9 ? 10 : 30, s = cqSolid[y] && cqSolid[y][x]; if (!s || s.prop !== 'bunk') continue;
+      const dm = [0, 1].map(sl => G.chars.some(o => o.dm && o.cell === k && o.slot === sl) ? 1 : 0);
+      cqSolid[y][x] = { prop: 'bunk', o: Object.assign({}, s.o, { dm: dm[0] || dm[1] ? dm : null }) }; cqBgCell(x, y, 0);
+    }
+  }
 
   // ---- GLI ALTRI DETENUTI (comparse: non giocano, rendono vivo il carcere). Di giorno nel cortile, in mensa, in galleria; di notte nelle celle del primo piano ----
   const CL = ['#e8742a', '#d8682a', '#c87a3a', '#8a8f98', '#e8742a', '#6a5a4a'];
@@ -1076,6 +1277,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     const sz = big ? 13 : 10, ph = phase(G);
     if (ph === 'ap') { const s2 = mySpot(me); dot(s2[0], s2[1], big ? 5 : 4, 'rgba(255,210,70,' + (0.6 + 0.4 * Math.sin(now / 200)) + ')', '#000'); } else ico(28.5, 48.5, '📣', sz - 1);
     { const c = cellOf(me), q = c.sp[me.slot]; ico(q[0], q[1], '🛏️', sz - 1); }
+    if (big) { SRC.forEach((s, i) => { if (srcOn(G, i)) ico(s.x, s.y, IT[s.k][0], sz - 2); }); M.stash.forEach((h, i) => { if ((G.st[i] || []).length) ico(h.x + 0.5, h.y + 0.5, h.i, sz - 3); }); }
+    if (G.ps && G.ps.st < 2) { const c = M.cells[G.ps.k]; ico(c.x0 + 2, c.y0 + 2, '🔎', sz + 1); }
     for (const Pq of M.portals) if (Pq.f === mf) { const c = Pq.cells[Math.floor(Pq.cells.length / 2)]; ico(c[0] + 0.5, c[1] + 0.5, Pq.tf ? '⬆️' : '⬇️', sz - 2); }
     for (const gd of G.gd) dot(gd.x, gd.y, 3, gd.st === 'chase' ? '#ff3030' : gd.st === 'ko' ? '#888' : '#7aa8ff', '#000');
     for (const c of G.chars) if (c !== me && c.alive) dot(c.x, c.y, 3, isoOn(G, c) ? '#9aa0a8' : ricOn(G, c) ? '#ff6a5a' : TC, '#000');
@@ -1109,12 +1312,16 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   }
   // COME SI GIOCA: nelle impostazioni, da solo all'inizio delle prime partite, e col pulsante ❓
   const HELP = [
-    ['🎯', 'Lo scopo', 'Siete detenuti a <b>Rocca Nera</b>. Avete <b>due giorni e due notti</b> per scappare <b>tutti</b>: all\'alba del terzo giorno vi trasferiscono.'],
+    ['🎯', 'Lo scopo', 'Siete detenuti a <b>Rocca Nera</b>. Avete <b>due giorni e due notti</b> per scappare <b>tutti</b>: all\'alba del terzo giorno vi trasferiscono. (Le vie di fuga sono in arrivo: per ora preparate la refurtiva.)'],
     ['📣', 'L\'appello', 'Mattina e sera suona la <b>campana</b>: corri al <b>tuo posto numerato</b> davanti al palco, in cortile. Chi manca diventa <b>ricercato</b> e le guardie lo cercano.'],
     ['🛏️', 'In cella', 'Dopo l\'appello della sera tutti in cella: alle 21:00 le <b>sbarre si chiudono</b>. Chi resta fuori è ricercato. Di notte, a letto, puoi <b>dormire</b> 💤 per far passare il tempo.'],
     ['🚫', 'Zone vietate', 'Sala delle guardie, uffici, carico, ingresso, isolamento e la <b>fascia di ronda</b> lungo il muro (in rosso sulla mappa): se una guardia ti vede lì ti insegue. Di notte fuori dalla cella sei sempre fuori posto.'],
     ['👮', 'Le guardie', 'Vedono nel loro <b>cono</b>: ❓ = sospettano, ❗ = ti inseguono. Fatti perdere di vista e ti cercano nei dintorni. Di notte i <b>riflettori</b> 🔦 spazzano il cortile.'],
-    ['⛓️', 'Presi', 'Chi viene preso finisce <b>' + ISO_T + ' secondi in isolamento</b> e le guardie diventano più attente.'],
+    ['✋', 'La refurtiva', 'Per la fuga servono attrezzi: <b>rubali</b> dove luccicano ✨ (cucchiaio in mensa, stracci e lenzuola in lavanderia, cacciavite in officina, divisa e tesserino nelle zone vietate). Se una guardia ti <b>vede</b> rubare sei ricercato: il pulsante te lo dice (👀). In tasca ne porti <b>2</b>.'],
+    ['🧱', 'Nascondigli', 'Nascondi la refurtiva nella <b>piastrella</b> della tua cella o in un nascondiglio comune (orto, casetta, dietro la tv, scarico della doccia). All\'<b>appello</b> frugano le tasche a caso. Le guardie a volte controllano i nascondigli comuni, e se ti vedono nascondere vanno a guardare.'],
+    ['🔎', 'Perquisizioni', 'Ogni giorno una cella viene <b>perquisita</b> con un avviso di ' + PS_W + ' secondi: corri a svuotare la piastrella! Chi è dentro viene perquisito anche lui.'],
+    ['🧸', 'Il fantoccio', 'Con gli <b>stracci</b>, in cella, fai un fantoccio nel letto. Di notte, al <b>controllo delle celle</b> 🔦 (mezzanotte e le tre), il secondino crede che dormi. Con l\'allerta però guarda meglio.'],
+    ['⛓️', 'Presi', 'Chi viene preso finisce <b>' + ISO_T + ' secondi in isolamento</b>, perde quello che ha in tasca e le guardie diventano più attente.'],
     ['🗺️', 'Orientarsi', 'In alto a sinistra la <b>giornata</b> con gli orari; in alto a destra la <b>mappa</b> (toccala per ingrandirla). La scala del braccio porta al primo piano.']
   ];
   const helpHtml = () => HELP.map(([i, t, d]) => '<p><b>' + i + ' ' + t + '</b><br>' + d + '</p>').join('') + '<p class="n">Tasti sul PC: frecce o WASD per muoversi · M mappa · E azione</p>';
@@ -1123,6 +1330,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     const st = document.createElement('style'); st.id = 'evCss';
     st.textContent = '#evHelp{position:absolute;left:12px;right:12px;top:118px;bottom:150px;max-width:480px;margin:0 auto;overflow-y:auto;background:rgba(32,24,18,.96);border:2px solid #c8803a;border-radius:16px;padding:12px 16px;color:#f4e8d4;font-size:14px;line-height:1.4;z-index:31;box-shadow:0 8px 30px rgba(0,0,0,.5)}#evHelp .t{font-weight:800;font-size:17px;color:#ffb860;margin-bottom:4px}#evHelp p{margin:7px 0}#evHelp b{color:#ffd8a0}#evHelp .n{font-size:12px;color:#c8b498}#evHelp .c{text-align:center;font-size:13px;color:#ffb860;font-weight:700;margin-top:10px}'
       + '#evHelpB{position:absolute;left:14px;top:252px;width:42px;height:42px;border-radius:50%;border:0;background:rgba(32,24,18,.85);color:#ffb860;font-size:20px;font-weight:800;box-shadow:0 3px 10px rgba(0,0,0,.35)}'
+      + '#evSt{position:absolute;left:12px;right:12px;bottom:150px;max-width:360px;margin:0 auto;background:rgba(32,24,18,.96);border:2px solid #c8803a;border-radius:16px;padding:10px 14px;color:#f4e8d4;font-size:14px;z-index:30;box-shadow:0 8px 30px rgba(0,0,0,.5)}#evSt .t{font-weight:800;font-size:16px;color:#ffb860;margin-bottom:4px}#evSt .s{font-size:12px;font-weight:700;color:#c8b498;margin:8px 0 4px;text-transform:uppercase;letter-spacing:.04em}#evSt .e{font-size:13px;color:#8a7a68;padding:4px 2px}#evSt .c{text-align:center;font-size:12px;color:#ffb860;font-weight:700;margin-top:10px}'
+      + '#evSt button{display:flex;align-items:center;width:100%;gap:10px;margin:4px 0;padding:8px 12px;border:0;border-radius:11px;background:rgba(255,190,110,.16);color:#f4e8d4;font-size:15px;font-weight:700;text-align:left}#evSt button i{font-style:normal;font-size:20px}#evSt button span{margin-left:auto;font-size:12px;color:#ffb860}#evSt button:disabled{opacity:.4}'
       + '.evHow summary{cursor:pointer}.evHow p{margin:8px 0;font-size:14px;line-height:1.4}.evHow .n{font-size:12px;opacity:.75}';
     document.head.appendChild(st);
     const host = document.getElementById('ciack');
@@ -1132,6 +1341,10 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     hp.addEventListener('touchmove', e => e.stopPropagation(), { passive: true }); if (host) host.appendChild(hp);
     const hb = document.createElement('button'); hb.id = 'evHelpB'; hb.type = 'button'; hb.hidden = true; hb.textContent = '❓';
     hb.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); helpUI(hp.hidden); }); if (host) host.appendChild(hb);
+    const sp = document.createElement('div'); sp.id = 'evSt'; sp.hidden = true;
+    sp.addEventListener('pointerdown', e => e.stopPropagation());
+    sp.addEventListener('pointerup', e => { e.stopPropagation(); const b = e.target.closest('button'); if (b) { if (!b.disabled) stClick(b.dataset.a, b.dataset.it); return; } if (e.target.closest('.c') || e.target.closest('.t')) { const G = cq.g; if (G) G.stO = null; sp.hidden = true; } });
+    sp.addEventListener('touchmove', e => e.stopPropagation(), { passive: true }); if (host) host.appendChild(sp);
     const mb = document.createElement('button'); mb.id = 'evMap'; mb.type = 'button'; mb.hidden = true;
     mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'evasione') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } }; if (host) host.appendChild(mb);
     const bb = document.createElement('button'); bb.id = 'evBoard'; bb.type = 'button'; bb.hidden = true;
@@ -1141,7 +1354,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     setInterval(() => {
       const G = cq.g, on = !!(G && G.mode === 'evasione' && G.phase === 'play' && (!G.guest || G.ready) && $('#cqTask').hidden && !$('#ciack').hidden);
       if (hb.hidden === on) hb.hidden = !on; if (mb.hidden === on) mb.hidden = !on; if (bb.hidden === (on && !G.big)) bb.hidden = !(on && !G.big);
-      if (!on) { if (!hp.hidden) hp.hidden = true; return; }
+      if (!on) { if (!hp.hidden) hp.hidden = true; if (!sp.hidden) sp.hidden = true; return; }
       if (!G.helpAuto) { G.helpAuto = 1; let n = 0; try { n = +localStorage.getItem('evHelpN') || 0; localStorage.setItem('evHelpN', n + 1); } catch {} if (n < 3) { helpUI(true); G.helpHold = !cq.net; } }
       if (G.helpHold) { if (hp.hidden) G.helpHold = 0; else G.pre = Math.max(G.pre || 0, 1); }
       const W2 = cq.w, H2 = cq.h; let css;
@@ -1152,5 +1365,5 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (bb.dataset.k !== bc) { bb.dataset.k = bc; bb.style.cssText = bc; }
     }, 200);
   }
-  window.__ev = { route, floorOf, illegal, phase, cyc, clock, action, roomAt, forbAt };
+  window.__ev = { route, floorOf, illegal, phase, cyc, clock, action, roomAt, forbAt, SRC, IT, seenBy, doAct, psStart, ncStart, stashChecked, stNear, srcNear };
 });

@@ -91,10 +91,11 @@
     },
     turn(gd, t, dt, k = 5) { let da = t - gd.a; da = Math.atan2(Math.sin(da), Math.cos(da)); gd.a += da * Math.min(1, dt * k); },
     // FUMETTO: una frase buffa sopra la testa (k = tipo, an = cosa fuori posto); al massimo una ogni 3 s per guardia (tranne quelle importanti)
+    // G.PH (facoltativo) = frasi del gioco che sostituiscono quelle di base (es. Evasione: frasi da carcere)
     say(G, gd, k, an, other) {
       const imp = k === 'chase' || k === 'found' || k === 'ko' || k === 'an';
       if (!imp && G.time < gd.bubT) return;
-      const pool = k === 'an' ? PH.an[an] || PH.an.src : PH[k]; if (!pool) return;
+      const pool = k === 'an' ? PH.an[an] || PH.an.src : (G.PH && G.PH[k]) || PH[k]; if (!pool) return;
       gd.bub = { t: rnd(pool).replace(/%n/g, other || 'Marco'), e: G.time + (imp ? 2.6 : 3.2) }; gd.bubT = G.time + 3;
     },
     // un rumore in x, y: le guardie entro r (e non gia' all'inseguimento) vanno a vedere
