@@ -26,7 +26,7 @@
   out.push('praterie con problemi: ' + (bad.length ? bad.join(' | ') : 'nessuna'));
   // ---- partite ----
   const N = +(window.__N || 4);
-  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.mammut = Object.assign({}, store.settings.cqModeOpt.mammut || {}, { n: +(window.__NC || 6), nights: +(window.__NI || 3) }); saveStore();
+  store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.mammut = Object.assign({}, store.settings.cqModeOpt.mammut || {}, { n: +(window.__NC || 6), nights: +(window.__NI || 2) }); saveStore();
   for (let k = 0; k < N; k++) {
     if (k) { $('#enNew').click(); await w(300); }
     $('#lbGo').click(); await w(1800);
@@ -34,7 +34,7 @@
     if (k === 0) out.push('partita: ' + G.chars.map(c => c.name + ':' + (c.role || '-')).join(' ') + ' | mammut hp ' + G.mm.hp + ' tracce iniziali ' + G.tr.length + ' | ' + $('#cqCount').textContent + ' | barra: ' + $('#cqModeBar').textContent);
     G.me.bot = true; G.me.role = 'h'; G.me.look = cqLook(); G.me.think = 0; G.me.path = [];
     cq.on = false; cancelAnimationFrame(cq.raf);
-    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['colpi', /colpito il mammut/], ['mancati', /Mancato/], ['cariche', /CARICARTI|travolto/], ['aterra', /terra|travolto|azzannato/], ['rialzati', /rialzato|di nuovo in piedi/], ['fantasmi', /non ce l'ha fatta|guardi la caccia/], ['conigli', /coniglio/], ['notti', /Notte \d/], ['fossa', /FOSSA/], ['abbattuto', /abbattuto il MAMMUT/], ['carne', /portato la carne/], ['rubati', /sciacall.*(rubato|portato via|divorano)/], ['fuocospento', /fuoco si è spento/], ['barriti', /barrito/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
+    const ev = {}; const t0 = window.cqToast; window.cqToast = h => { h = String(h); for (const [k2, re] of [['colpi', /colpito il mammut/], ['mancati', /Mancato/], ['cariche', /CARICARTI|travolto/], ['aterra', /terra|travolto|azzannato/], ['rialzati', /rialzato|di nuovo in piedi/], ['fantasmi', /non ce l'ha fatta|guardi la caccia/], ['conigli', /coniglio/], ['notti', /Notte \d/], ['fossa', /FOSSA/], ['abbattuto', /abbattuto il MAMMUT/], ['carne', /portato la carne/], ['rubati', /sciacall.*(rubato|portato via|divorano)/], ['fuocospento', /fuoco si è spento/], ['barriti', /barrito/], ['circondato', /CIRCONDATO/], ['affamati', /senza coniglio/], ['sciacallo', /azzannato/], ['allostremo', /non bastano/]]) if (re.test(h)) ev[k2] = (ev[k2] || 0) + 1; };
     const st = {}; let t1 = performance.now(), minFuel = 999, maxTr = 0;
     for (let i = 0; i < 20 * 760 && G.phase === 'play'; i++) {
       cqModeTick(0.05); cq.x = G.me.x; cq.y = G.me.y; G.M.local(G, 0.05);

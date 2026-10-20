@@ -15,11 +15,16 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // giro di un giorno: giorno, tramonto, notte, alba (secondi)
   const DAY = 180, DUSK = 105, NIGHT = 120, DAWN = 170;
   const HOT0 = 50, HOT1 = 78;   // ore calde: riposa all'ombra
-  const DOWN_T = 30, REV_T = 3, CHOP_T = 2, DIG_T = 8, BUTCH_T = 4, REGROW = 150, TRAP_T = 15, TORCH_T = 70, SHOUT_CD = 6;
+  const DOWN_T = 30, REV_T = 3, CHOP_T = 2, DIG_T = 8, BUTCH_T = 4, REGROW = 150, TRAP_T = 12, TORCH_T = 70, SHOUT_CD = 6;
   const THROW_R = 5.5, SPEARS = 2, SPEAR_MAX = 3, LOGS_MAX = 3, LOG_FUEL = 22, MEAT_N = 6, MEAT_NEED = 4, RAB_MAX = 2;
   const VIS_D = 6.5, VIS_N = 4, VIS_S = 2.2, SMELL = 12, PUSH_R = 4, SHOUT_R = 7, CH_R = 2.8;
-  const SEE_N = 3.0, TORCH_L = 5.2;   // fin dove si vede di notte: da soli, con la torcia
-  const LOOK_T = 3, SPY_T = 12, SPY_CD = 75;   // vedetta del cerchio di pietre: 3 s a guardare, il mammut sulla mappa per 12 s, poi 75 s di riposo
+  const SEE_N = 3.0, TORCH_L = 5.2, HEAR_T = 48;   // HEAR_T: fin dove si sente un barrito   // fin dove si vede di notte: da soli, con la torcia
+  const LOOK_T = 3, SPY_T = 7, SPY_CD = 120;   // vedetta del cerchio di pietre: 3 s a guardare, il mammut sulla mappa per 7 s, poi 120 s di riposo
+  // CACCIA VERA (giro 5, 20-10-2026): di giorno c'e' foschia e il mammut si vede solo da vicino (VIEW_D); le lance lo feriscono ma non lo abbattono
+  // (non scende sotto FLOOR della vita): per finirlo serve la FOSSA o CIRCONDARLO (bloccato contro acqua, rocce o cacciatori: STUCK_T s fermo)
+  const VIEW_D = 8.5, HAZE0 = 6.2, STUCK_T = 7, FLOOR_K = 0.4;
+  // NOTTE DURA: il fuoco tiene poco (FUEL_MAX) e di notte brucia tanto; gli sciacalli entrano nella luce e attaccano chi non e' vicino alle fiamme
+  const FUEL_MAX = 70, BURN_D = 0.35, BURN_N = 2.0;   // la legna in piu' resta in mano (scorta per la notte)
   const mmss = t => Math.floor(Math.max(0, t) / 60) + ':' + String(Math.floor(Math.max(0, t) % 60)).padStart(2, '0');
   const MP = () => CQ_MAP;
   const P = c => cqModePos(c);
@@ -31,10 +36,17 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   const dayN = G => Math.floor(Math.max(0, G.time) / DAY) + 1;
   const dark = G => { const t = cyc(G); return t < DUSK ? 0 : t < NIGHT ? (t - DUSK) / (NIGHT - DUSK) : t < DAWN ? 1 : 1 - (t - DAWN) / (DAY - DAWN); };
   const isNight = G => { const t = cyc(G); return t >= NIGHT - 4 && t < DAWN + 3; };
-  const endT = G => ((G.opt.nights || 3) - 1) * DAY + DAWN;
+  const NN = G => G.opt.nights || 2;
+  const endT = G => (NN(G) - 1) * DAY + DAWN;
   const fireC = () => ({ x: MP().camp.x + 0.5, y: MP().camp.y + 0.5 });
   const fireR = G => G.fuel > 0 ? 3.2 + 2.8 * Math.min(1, G.fuel / 60) : 0;
   const inFire = (G, x, y) => G.fuel > 0 && Math.hypot(x - fireC().x, y - fireC().y) < fireR(G) * 0.92;
+  // vicino alle fiamme (li' gli sciacalli non osano): una parte della luce, piu' piccola quando il fuoco e' basso
+  const coreR = G => G.fuel > 0 ? fireR(G) * (G.fuel < 20 ? 0.45 : 0.56) : 0;
+  const inCore = (G, x, y) => G.fuel > 0 && Math.hypot(x - fireC().x, y - fireC().y) < coreR(G);
+  // fin dove si vede il mammut di giorno (foschia); al tramonto e di notte valgono le luci
+  const viewD = G => VIEW_D;
+  const mmShown = (G, x, y) => { const m = G.mm; return !!m && (dark(G) >= 0.5 || Math.hypot(m.x - x, m.y - y) < viewD(G)); };
   const atCamp = (x, y, r = 3) => Math.hypot(x - fireC().x, y - fireC().y) < r;
   const torchOn = (G, c) => (c.tor || 0) > G.time;
   const ARW = ['→', '↘', '↓', '↙', '←', '↖', '↑', '↗'];
@@ -60,7 +72,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // rifugi: li' gli sciacalli non entrano (cerchi [x, y, raggio])
   const refC = () => { const L = LM(), out = []; if (L.glade) out.push([L.glade.x, L.glade.y, 5.4, 'glade']); if (L.spring) out.push([L.spring.x, L.spring.y, 3.1, 'spring']); if (L.dolmen) out.push([L.dolmen.x, L.dolmen.y, 1.05, 'dolmen']); return out; };
   const refuge = (x, y) => { for (const r of refC()) if (Math.hypot(x - r[0], y - r[1]) < r[2]) return r[3]; return null; };
-  const safe = (G, x, y) => inFire(G, x, y) || !!refuge(x, y);
+  const safe = (G, x, y) => inCore(G, x, y) || !!refuge(x, y);
 
   // ======================= MAPPA: la prateria (col seme) =======================
   // ter[y][x]: 1 prato, 2 pascolo (erba alta, il mammut ci mangia), 3 sottobosco, 4 fango (riva), 5 guado (acqua bassa), 6 acqua, 7 campo
@@ -553,32 +565,46 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // se e' gia' sospettoso invece si allontana da quella parte
   function mmNoise(G, x, y, k) { G.mmN.push({ x, y, k, t: G.time }); if (G.mmN.length > 8) G.mmN.shift(); }
   function mmCurious(G, x, y) {
-    const m = G.mm; if (['trap', 'wind', 'charge', 'flee', 'sleep', 'cur', 'dead'].includes(m.st) || (m.curT || 0) > G.time) return;
+    const m = G.mm; if (['trap', 'stuck', 'wind', 'charge', 'flee', 'sleep', 'cur', 'dead'].includes(m.st) || (m.curT || 0) > G.time) return;
     m.curT = G.time + 25;
     if (m.wary > G.time) { alarm(G, x, y); mmFleeFrom(G, x, y, 9); return; }
     m.st = 'cur'; m.cx = x; m.cy = y; m.cE = G.time + 7; const d = Math.hypot(x - m.x, y - m.y) || 1, ax = m.x + (x - m.x) / d * Math.min(3, d - 5), ay = m.y + (y - m.y) / d * Math.min(3, d - 5);
     if (d > 7 && cqCellFree(Math.floor(ax), Math.floor(ay))) mmGo(G, ax, ay, 5); else m.path = [];
     say(G, 'cur', { x: Math.round(x), y: Math.round(y) });
   }
+  // scappa dalla parte opposta; le direzioni chiuse da un cacciatore vicino (entro 7 caselle, a meno di ~45 gradi) o da acqua e rocce non valgono:
+  // se non resta nessuna via d'uscita e' BLOCCATO (circondato): per qualche secondo non scappa e le lance fanno male davvero
   function mmFleeFrom(G, sx, sy, far) {
     const m = G.mm; let best = null, bs = -1e9;
-    const a0 = Math.atan2(m.y - sy, m.x - sx);
-    for (const da of [0, 0.4, -0.4, 0.8, -0.8, 1.3, -1.3, 2]) {
-      const a = a0 + da, d = far || 12, x = Math.floor(m.x + Math.cos(a) * d), y = Math.floor(m.y + Math.sin(a) * d);
+    const a0 = Math.atan2(m.y - sy, m.x - sx), hs = active(G).map(c => { const q = P(c); return [Math.atan2(q.y - m.y, q.x - m.x), Math.hypot(q.x - m.x, q.y - m.y)]; }).filter(h => h[1] < 7);
+    for (const da of [0, 0.4, -0.4, 0.8, -0.8, 1.3, -1.3, 2, -2]) {
+      const a = a0 + da, d = far || 12;
+      if (hs.some(([ha]) => Math.abs(Math.atan2(Math.sin(a - ha), Math.cos(a - ha))) < 0.8)) continue;
+      // i primi passi: se c'e' acqua o roccia subito davanti quella via e' chiusa
+      let open = true; for (let s = 1.2; s <= 4.2 && open; s += 1) if (!cqCellFree(Math.floor(m.x + Math.cos(a) * s), Math.floor(m.y + Math.sin(a) * s))) open = false;
+      if (!open) continue;
+      const x = Math.floor(m.x + Math.cos(a) * d), y = Math.floor(m.y + Math.sin(a) * d);
       const q = cqCellFree(x, y) ? { x: x + 0.5, y: y + 0.5 } : null; if (!q) continue;
-      const p = cqPath(m.x, m.y, q.x, q.y); if (!p.length) continue;
+      const p = cqPath(m.x, m.y, q.x, q.y); if (!p.length || p.length > d * 1.8) continue;
       const s = -Math.abs(da) * 3 - p.length * 0.15; if (s > bs) { bs = s; best = p; }
     }
+    if (!best && m.st !== 'stuck' && (m.stuckCd || 0) < G.time) { m.st = 'stuck'; m.stT = G.time + STUCK_T; m.stuckCd = G.time + STUCK_T + 12; m.path = []; m.walk = 0; m.aw = 1; trumpet(G, 1); say(G, 'stuck', {}); return; }
     m.path = best ? best.slice(0, 16) : []; m.st = 'flee'; m.fT = G.time; m.aw = 0.4;
   }
+  // il cacciatore piu' vicino entro r (contro di lui carica quando esce dalla fossa o rompe l'accerchiamento)
+  function nearestHunter(G, r) { const m = G.mm; let b = null, bd = r; for (const c of active(G)) { const d = dxy(c, m.x, m.y); if (d < bd && !torchOn(G, c)) { bd = d; b = c; } } return b; }
+  function mmCharge(G, c) { const m = G.mm; m.st = 'wind'; m.wT = G.time; m.chTgt = c.id; m.path = []; trumpet(G, 1); say(G, 'wind', { a: c.id }); }
   function alarm(G, x, y) { const m = G.mm; m.wary = G.time + 120; m.fear.push({ x, y, t: G.time }); if (m.fear.length > 6) m.fear.shift(); }
-  function trumpet(G, loud) { const m = G.mm; G.trump = { x: Math.round(m.x * 10) / 10, y: Math.round(m.y * 10) / 10, t: G.time, l: loud ? 1 : 0 }; m.trT = G.time + 45 + Math.random() * 35; G.kn = { x: m.x + (Math.random() - 0.5) * 8, y: m.y + (Math.random() - 0.5) * 8, t: G.time, fuzzy: 1 }; }
-  // reazione quando si accorge dei cacciatori: scappa, oppure carica (se ferito o se chi lo affronta e' solo e vicino)
-  function mmReact(G, th) {
+  // barrito: da solo ogni 75-130 s (e si sente solo entro HEAR_T caselle)
+  function trumpet(G, loud) { const m = G.mm; G.trump = { x: Math.round(m.x * 10) / 10, y: Math.round(m.y * 10) / 10, t: G.time, l: loud ? 1 : 0 }; m.trT = G.time + 75 + Math.random() * 55; G.kn = { x: m.x + (Math.random() - 0.5) * 8, y: m.y + (Math.random() - 0.5) * 8, t: G.time, fuzzy: 1 }; }
+  // reazione quando si accorge dei cacciatori: scappa, oppure carica (se ferito o se chi lo affronta e' solo e vicino);
+  // hit = colpito da una lancia: si rivolta anche contro chi tira da lontano, e piu' e' ferito piu' e' rabbioso
+  function mmReact(G, th, hit) {
     const m = G.mm, q = P(th), d = Math.hypot(q.x - m.x, q.y - m.y), alone = !active(G).some(o => o !== th && dist2(o, th) < 4);
     alarm(G, q.x, q.y);
-    if (!torchOn(G, th) && d < CH_R + 0.6 && Math.random() < (m.hp < m.max ? 0.55 : 0.28) + (alone ? 0.22 : 0)) { m.st = 'wind'; m.wT = G.time; m.chTgt = th.id; m.path = []; trumpet(G, 1); say(G, 'wind', { a: th.id }); return; }
-    mmFleeFrom(G, q.x, q.y); if (Math.random() < 0.5) trumpet(G, 1);
+    const p = (m.hp < m.max ? 0.4 + 0.3 * (1 - m.hp / m.max) : 0.3) + (alone ? 0.2 : 0);
+    if (!torchOn(G, th) && d < (hit ? 6.2 : CH_R + 0.8) && Math.random() < p) { mmCharge(G, th); return; }
+    mmFleeFrom(G, q.x, q.y); if (m.st === 'flee' && Math.random() < 0.5) trumpet(G, 1);
   }
   const dist2 = (a, b) => { const p = P(a), q = P(b); return Math.hypot(p.x - q.x, p.y - q.y); };
   function mmTick(G, dt, warm) {
@@ -586,7 +612,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const t = cyc(G), slow = 0.6 + 0.4 * m.hp / m.max;
     m.need.e = Math.min(1, m.need.e + dt / 110); m.need.w = Math.min(1, m.need.w + dt / (m.st === 'graze' ? 45 : 140));   // mangiare mette sete
     // ---- percezione: vista (meno di notte, poco mentre dorme) e fiuto col vento ----
-    if (!warm && m.st !== 'trap' && m.st !== 'wind' && m.st !== 'charge') {
+    if (!warm && m.st !== 'trap' && m.st !== 'stuck' && m.st !== 'wind' && m.st !== 'charge') {
       const sleeping = m.st === 'sleep', vis = sleeping ? VIS_S : dark(G) > 0.5 ? VIS_N : VIS_D, wx = Math.cos(G.wind), wy = Math.sin(G.wind);
       let gain = 0, who = null, wd = 99;
       for (const c of active(G)) {
@@ -602,7 +628,13 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (m.aw >= 1 && who && m.st !== 'flee') { if (sleeping) say(G, 'wake', {}); mmReact(G, who); }
     }
     // ---- stati ----
-    if (m.st === 'trap') { m.path = []; m.walk = 0; if (G.time >= m.trapT) { m.st = 'flee'; mmFleeFrom(G, m.x - 1, m.y - 1); say(G, 'out', {}); } }
+    // dalla fossa o dall'accerchiamento esce infuriato: carica il cacciatore piu' vicino, se no scappa
+    if (m.st === 'trap' || m.st === 'stuck') {
+      m.path = []; m.walk = 0;
+      const c = nearestHunter(G, 8);
+      if (c) { const q = P(c); m.face = (q.x - m.x) - (q.y - m.y) > 0 ? 1 : -1; }
+      if (G.time >= (m.st === 'trap' ? m.trapT : m.stT)) { say(G, m.st === 'trap' ? 'out' : 'free', {}); m.st = 'walk'; if (c) mmCharge(G, c); else { m.stuckCd = G.time + 10; mmFleeFrom(G, m.x - 1, m.y - 1); } }
+    }
     else if (m.st === 'wind') { m.walk = 0; const c = byId(G, m.chTgt); if (c) { const q = P(c); m.face = (q.x - m.x) - (q.y - m.y) > 0 ? 1 : -1; } if (G.time - m.wT > 0.75) { const q = c ? P(c) : { x: m.x + 1, y: m.y }, d = Math.hypot(q.x - m.x, q.y - m.y) || 1; m.cd = [(q.x - m.x) / d, (q.y - m.y) / d]; m.st = 'charge'; m.cT = G.time; m.hit = []; } }
     else if (m.st === 'charge') {
       const sp = CQ_SPEED * 1.75 * dt, nx = m.x + m.cd[0] * sp, ny = m.y + m.cd[1] * sp;
@@ -656,7 +688,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       m.lx = m.x; m.ly = m.y;
     }
     // trappola sul percorso: ci cade dentro
-    if (m.st !== 'trap' && m.st !== 'dead') for (const p of G.traps) if (!p.used && Math.hypot(p.x - m.x, p.y - m.y) < 0.8) { p.used = 1; m.st = 'trap'; m.trapT = G.time + TRAP_T; m.x = p.x; m.y = p.y; m.path = []; m.aw = 1; alarm(G, p.x, p.y); trumpet(G, 1); if (!warm) say(G, 'trap', {}); break; }
+    if (m.st !== 'trap' && m.st !== 'dead') for (const p of G.traps) if (!p.used && Math.hypot(p.x - m.x, p.y - m.y) < 1.0) { p.used = 1; m.st = 'trap'; m.trapT = G.time + TRAP_T; m.x = p.x; m.y = p.y; m.path = []; m.aw = 1; alarm(G, p.x, p.y); trumpet(G, 1); if (!warm) say(G, 'trap', {}); break; }
     if (!warm && G.time >= (m.trT || 0) && m.st !== 'sleep') trumpet(G, 0);
   }
   // un cacciatore colpito (carica del mammut o sciacallo): a terra, lascia cadere quello che porta
@@ -709,7 +741,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     return best;
   }
   function canSee(G, c, x, y) {
-    const q = P(c), d = Math.hypot(q.x - x, q.y - y); if (dark(G) < 0.5) return d < 12;
+    const q = P(c), d = Math.hypot(q.x - x, q.y - y); if (dark(G) < 0.5) return d < viewD(G);
     if (d < (torchOn(G, c) ? TORCH_L : SEE_N)) return true;
     if (inFire(G, x, y) && d < 10) return true;
     return active(G).some(o => o !== c && torchOn(G, o) && dxy(o, x, y) < TORCH_L * 0.85) && d < 9;
@@ -720,7 +752,8 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     c.sp--; c.thT = G.time + 1.1;
     const q = P(c), m = G.mm;
     let hit = false;
-    if (tg.k === 'm') { const p = m.st === 'trap' ? 1 : m.st === 'sleep' ? 0.97 : Math.min(0.94, 0.94 - Math.max(0, tg.d - 2.5) * 0.12); hit = Math.random() < p; }
+    // fermo nella fossa o circondato: sempre; mentre dorme quasi sempre; se cammina o scappa e' molto piu' difficile
+    if (tg.k === 'm') { const mv = m.st === 'flee' || m.st === 'charge' ? 0.55 : m.st === 'walk' || m.st === 'cur' ? 0.78 : 1, p = m.st === 'trap' || m.st === 'stuck' ? 1 : m.st === 'sleep' ? 0.97 : Math.min(0.94, 0.94 - Math.max(0, tg.d - 2.5) * 0.12) * mv; hit = Math.random() < p; }
     else hit = Math.random() < Math.min(0.9, 0.95 - tg.d * 0.08);
     const lx = tg.x + (hit ? (Math.random() - 0.5) * 0.8 : (tg.x - q.x) / tg.d * (1 + Math.random()) + (Math.random() - 0.5) * 1.4), ly = tg.y + (hit ? (Math.random() - 0.5) * 0.8 : (tg.y - q.y) / tg.d * (1 + Math.random()) + (Math.random() - 0.5) * 1.4);
     const sp = { id: ++G.spN, x: lx, y: ly }; const cx = Math.floor(lx), cy = Math.floor(ly);
@@ -728,18 +761,23 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     G.sp.push(sp); G.fly.push([Math.round(q.x * 10) / 10, Math.round(q.y * 10) / 10, Math.round(tg.x * 10) / 10, Math.round(tg.y * 10) / 10, G.time]);
     if (tg.k === 'j') { if (hit) { G.jk = G.jk.filter(j => j.id !== tg.id); c.jkK = (c.jkK || 0) + 1; say(G, 'jk', { a: c.id }); } else say(G, 'miss', { a: c.id, j: 1 }); return; }
     if (!hit) { say(G, 'miss', { a: c.id }); m.aw = Math.max(m.aw, 0.8); return; }
-    m.hp -= m.st === 'trap' ? 2 : 1; c.hits = (c.hits || 0) + 1; G.kn = { x: m.x, y: m.y, t: G.time };
+    // le lance da sole lo feriscono soltanto (non scende sotto FLOOR): il colpo che lo abbatte si da' nella fossa o quando e' circondato
+    const open = m.st === 'trap' || m.st === 'stuck', fl = mmFloor(m);
+    c.hits = (c.hits || 0) + 1; G.kn = { x: m.x, y: m.y, t: G.time };
+    if (open) m.hp -= 2; else if (m.hp > fl) m.hp -= 1;
     if (m.hp <= 0) { m.hp = 0; m.st = 'dead'; m.path = []; m.walk = 0; G.killT = G.time; say(G, 'kill', { a: c.id }); return; }
-    say(G, 'hit', { a: c.id, d: m.hp });
-    if (m.st === 'trap') return;
-    m.aw = 1; if (m.st === 'sleep' || m.st === 'graze' || m.st === 'drink' || m.st === 'walk' || m.st === 'rub' || m.st === 'flee') mmReact(G, c);
+    say(G, 'hit', { a: c.id, d: m.hp, fl: !open && m.hp <= fl ? 1 : 0 });
+    if (open) return;
+    m.aw = 1; if (m.st !== 'wind' && m.st !== 'charge') mmReact(G, c, 1);
   }
+  // sotto questa vita le lance non lo feriscono piu': serve la fossa o circondarlo
+  function mmFloor(m) { return Math.max(2, Math.round(m.max * FLOOR_K)); }
   function doShout(G, c) {
     if (!c.alive || c.dn || (c.shT || 0) > G.time) return;
     c.shT = G.time + SHOUT_CD; const q = P(c), m = G.mm;
     G.shouts.push([Math.round(q.x * 10) / 10, Math.round(q.y * 10) / 10, G.time, c.id]);
     mmNoise(G, q.x, q.y, 'sh');
-    if (m && m.st !== 'dead' && m.st !== 'trap' && m.st !== 'charge' && m.st !== 'wind' && Math.hypot(m.x - q.x, m.y - q.y) < SHOUT_R) { alarm(G, q.x, q.y); mmFleeFrom(G, q.x, q.y, 11); }
+    if (m && m.st !== 'dead' && m.st !== 'trap' && m.st !== 'stuck' && m.st !== 'charge' && m.st !== 'wind' && Math.hypot(m.x - q.x, m.y - q.y) < SHOUT_R) { alarm(G, q.x, q.y); mmFleeFrom(G, q.x, q.y, 11); }
     for (const j of G.jk) if (Math.hypot(j.x - q.x, j.y - q.y) < SHOUT_R) { j.fear = G.time + 5; j.fx = q.x; j.fy = q.y; }
   }
 
@@ -770,9 +808,9 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
   }
   function jkSpawn(G) {
-    const k = dayN(G), n = Math.min(10, 2 * k + Math.floor(G.chars.length / 4)), F = fireC();
+    const k = dayN(G), n = Math.min(12, 3 * k + Math.floor(G.chars.length / 3)), F = fireC();
     for (let i = 0; i < n; i++) { for (let t = 0; t < 60; t++) { const f = cqModeFree(40); if (f && Math.hypot(f.x - F.x, f.y - F.y) > 16) { G.jk.push({ id: ++G.jkN, x: f.x, y: f.y, path: [], face: 1, walk: 0, cd: 0, fear: 0, tk: 0, ang: Math.random() * 7 }); break; } } }
-    say(G, 'night', { d: k, v: n, of: G.opt.nights || 3 });
+    say(G, 'night', { d: k, v: n, of: NN(G) });
   }
   function jkTick(G, dt) {
     const F = fireC(), fr = fireR(G), t = cyc(G);
@@ -788,7 +826,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
           for (const c of active(G)) { const q = P(c); if (safe(G, q.x, q.y)) continue; const d = Math.hypot(q.x - j.x, q.y - j.y), alone = !active(G).some(o => o !== c && dist2(o, c) < 3); const s = d - (c.mt >= 0 ? 8 : 0) - (alone ? 3 : 0) + (torchOn(G, c) ? 4 : 0); if (d < 18 && s < bs) { bs = s; best = { c, x: q.x, y: q.y }; } }
           const m = G.mm; if (m && m.st === 'dead' && !G.butch && m.meat > 0) { const d = Math.hypot(m.x - j.x, m.y - j.y); if (d - 4 < bs && d < 26) { bs = d - 4; best = { car: 1, x: m.x, y: m.y }; } }
           for (const it of G.meat) if (it.st === 0) { const d = Math.hypot(it.x - j.x, it.y - j.y); if (d - 5 < bs && d < 22 && !safe(G, it.x, it.y)) { bs = d - 5; best = { it, x: it.x, y: it.y }; } }
-          if (G.fuel < 18 && G.food > 0) { const d = Math.hypot(F.x - j.x, F.y - j.y); if (d - 6 < bs) { bs = d - 6; best = { stash: 1, x: F.x + 2, y: F.y }; } }
+          if (G.fuel < 30 && G.food > 0) { const d = Math.hypot(F.x - j.x, F.y - j.y); if (d - 6 < bs) { bs = d - 6; best = { stash: 1, x: F.x + 2, y: F.y }; } }
           j.tg = best;
           if (best) { const cx = Math.floor(best.x), cy = Math.floor(best.y); const p = cqPath(j.x, j.y, cqCellFree(cx, cy) ? cx + 0.5 : best.x, cqCellFree(cx, cy) ? cy + 0.5 : best.y); j.path = p.slice(0, 10); }
           else { j.ang += 0.6; const R = fr + 6 + Math.random() * 3, x = Math.floor(F.x + Math.cos(j.ang) * R), y = Math.floor(F.y + Math.sin(j.ang) * R); if (cqCellFree(x, y)) j.path = cqPath(j.x, j.y, x + 0.5, y + 0.5).slice(0, 8); }
@@ -796,7 +834,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       }
       // non entrano nella luce del fuoco; stanno lontani dalle torce (se sono pochi)
       if (j.path.length) cqModeStep(j, dt, j.fear > G.time ? 1.2 : 1.04); else j.walk = 0;
-      if (fr && Math.hypot(j.x - F.x, j.y - F.y) < fr * 0.95) { const a = Math.atan2(j.y - F.y, j.x - F.x); j.x = F.x + Math.cos(a) * fr * 0.95; j.y = F.y + Math.sin(a) * fr * 0.95; j.path = []; }
+      { const cr = coreR(G) + 0.25; if (cr > 0.25 && Math.hypot(j.x - F.x, j.y - F.y) < cr) { const a = Math.atan2(j.y - F.y, j.x - F.x); j.x = F.x + Math.cos(a) * cr; j.y = F.y + Math.sin(a) * cr; j.path = []; } }
       for (const [rx, ry, rr] of refC()) if (Math.hypot(j.x - rx, j.y - ry) < rr) { const a = Math.atan2(j.y - ry, j.x - rx), nx = rx + Math.cos(a) * (rr + 0.05), ny = ry + Math.sin(a) * (rr + 0.05); if (cqCellFree(Math.floor(nx), Math.floor(ny))) { j.x = nx; j.y = ny; } j.path = []; }
       if (j.cd > G.time || j.fear > G.time) continue;
       const pack = G.jk.filter(o => Math.hypot(o.x - j.x, o.y - j.y) < 2.5).length;
@@ -807,7 +845,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       }
       if (j.tg && j.tg.car && Math.hypot(j.x - j.tg.x, j.y - j.tg.y) < 1.6 && G.mm.meat > 0 && (j.eat = (j.eat || 0) + dt) > 10) { j.eat = 0; G.mm.meat--; say(G, 'eatc', { v: G.mm.meat }); }
       if (j.tg && j.tg.it && j.tg.it.st === 0 && Math.hypot(j.x - j.tg.it.x, j.y - j.tg.it.y) < 0.7) { j.tg.it.st = 3; j.cd = G.time + 12; say(G, 'stolem', {}); }
-      if (j.tg && j.tg.stash && Math.hypot(j.x - j.tg.x, j.y - j.tg.y) < 1 && G.food > 0 && G.fuel < 18) { G.food--; j.cd = G.time + 10; say(G, 'stoler', { v: G.food }); }
+      if (j.tg && j.tg.stash && Math.hypot(j.x - j.tg.x, j.y - j.tg.y) < 1 && G.food > 0 && G.fuel < 30) { G.food--; j.cd = G.time + 10; say(G, 'stoler', { v: G.food }); }
     }
   }
 
@@ -817,7 +855,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const me = G.me, a = e.a != null ? byId(G, e.a) : null, who = a ? (a === me ? 'Hai' : '<b>' + esc(a.name) + '</b> ha') : '';
     const T = h => cqToast(h);
     switch (e.k) {
-      case 'hit': T('🎯 ' + who + ' colpito il mammut! ' + (e.d <= 2 ? 'È allo stremo!' : 'Sanguina: seguite il sangue.')); beep(300, 0.1, 0.05); beep(220, 0.25, 0.05, 0.1); break;
+      case 'hit': T('🎯 ' + who + ' colpito il mammut! ' + (e.fl ? 'È ferito, ma le lance da sole non bastano: spingetelo nella FOSSA o CIRCONDATELO!' : e.d <= 2 ? 'È allo stremo!' : 'Sanguina: seguite il sangue.')); beep(300, 0.1, 0.05); beep(220, 0.25, 0.05, 0.1); break;
       case 'miss': if (a === me) T(e.j ? '🎯 Mancato lo sciacallo!' : '🎯 Mancato! Raccogli la lancia da terra.'); beep(500, 0.05, 0.02); break;
       case 'jk': T('🐺 ' + who + ' trafitto uno sciacallo!'); beep(700, 0.08, 0.04); break;
       case 'kill': T('🦣 ' + who + ' abbattuto il MAMMUT! Macellatelo e portate la carne al fuoco: ne bastano ' + MEAT_NEED + ' pezzi.'); beep(392, 0.2, 0.06); beep(523, 0.2, 0.06, 0.2); beep(659, 0.4, 0.06, 0.4); break;
@@ -831,16 +869,18 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       case 'stoler': T('🐺 Gli sciacalli hanno rubato un coniglio dalle scorte! Il fuoco è troppo basso.'); break;
       case 'eatc': T('🐺 Gli sciacalli divorano la carcassa! (restano ' + e.v + ' pezzi)'); break;
       case 'trap': T('🕳️ Il mammut è caduto nella FOSSA! Per qualche secondo non può scappare: colpitelo!'); trumpetSnd(G, 1); break;
-      case 'out': T('🦣 Il mammut è uscito dalla fossa!'); break;
+      case 'out': T('🦣 Il mammut è uscito dalla fossa, furioso!'); break;
+      case 'stuck': T('🦣 Il mammut è CIRCONDATO: non ha vie di fuga! Colpitelo adesso, prima che sfondi!'); trumpetSnd(G, 1); break;
+      case 'free': T('🦣 Il mammut sfonda l\'accerchiamento!'); break;
       case 'dig': T('🕳️ Fossa pronta! Ora spingete il mammut fin lì (con le urla o le torce).'); break;
       case 'rab': if (a === me) T('🐇 Preso un coniglio! Portalo al fuoco.'); beep(880, 0.06, 0.03); break;
       case 'torch': if (a === me) T('🔥 Torcia accesa: illumina di notte, tiene lontani gli sciacalli e spinge via il mammut.'); break;
       case 'wake': T('🦣 Il mammut si è svegliato!'); break;
       case 'sleep': break;
-      case 'night': T('🌙 Notte ' + e.d + ' di ' + e.of + '. Restate vicino al fuoco: nel buio ci sono ' + e.v + ' sciacalli.'); [520, 580, 640, 600, 520].forEach((f, i) => beep(f, 0.22, 0.02, i * 0.16)); break;
-      case 'meal': T('🍖 Cena al fuoco: ' + (e.h ? e.h + ' senza coniglio, domani sarete più lenti.' : 'tutti hanno mangiato.')); break;
+      case 'night': T('🌙 Notte ' + e.d + ' di ' + e.of + ': ' + e.v + ' sciacalli nel buio. State vicino alle fiamme, e il fuoco divora la legna: qualcuno dovrà uscire a prenderla.'); [520, 580, 640, 600, 520].forEach((f, i) => beep(f, 0.22, 0.02, i * 0.16)); break;
+      case 'meal': T('🍖 Cena al fuoco: ' + (e.h ? e.h + ' senza coniglio: affamati, domani più lenti (chi salta due cene è sfinito).' : 'tutti hanno mangiato.')); break;
       case 'dawn': T('🌅 È l\'alba del giorno ' + e.d + '.' + (e.last ? ' Ultimo giorno: stanotte il mammut migra!' : '')); break;
-      case 'fire': T('🔥 Il fuoco si è spento! Serve legna, presto!'); beep(200, 0.3, 0.05); break;
+      case 'fire': T('🔥 Il fuoco si è spento! Gli sciacalli arrivano al campo: serve legna, presto!'); beep(200, 0.3, 0.05); break;
       case 'spy': T('👁️ ' + who + ' guardato lontano dal cerchio di pietre: il mammut è sulla mappa per qualche secondo!'); if (a === me) G.big = 1; beep(880, 0.15, 0.04); beep(1175, 0.25, 0.04, 0.15); break;
       case 'smell': break;
       case 'cur': break;
@@ -869,7 +909,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     const toDusk = DUSK - t, campD = Math.hypot(F.x - c.x, F.y - c.y);
     if (night || (toDusk < campD / 1.6 + 12 && toDusk > -40 && t < DAWN)) {
       if (c.role === 'h' && night && m && m.st === 'sleep' && G.kn && G.time - G.kn.t < 120 && !G.kn.fuzzy && (c.sp || 0) > 0 && dayN(G) >= 2 && torchOn(G, c)) { if (Math.hypot(m.x - c.x, m.y - c.y) > 4) go(G, c, m.x, m.y, 10); else if (Math.random() < 0.6) doThrow(G, c); return; }
-      if ((c.logs || 0) < 2 && G.fuel < 70 && !night) { const i = nearTree(c, 9); if (i >= 0 && toDusk > 6) return chop(G, c, i); }
+      if ((c.logs || 0) < 2 && !night) { const i = nearTree(c, 9); if (i >= 0 && toDusk > 6) return chop(G, c, i); }
+      // il fuoco sta morendo e nessuno ha legna: uno solo esce al buio (con la torcia se puo') e torna con due tronchi
+      const anyLogs = G.chars.some(o => o.alive && !o.dn && (o.logs || 0) > 0 && atCamp(o.x, o.y, 4));
+      if (night && (c.wood || (G.fuel < 26 && !anyLogs && !G.chars.some(o => o !== c && o.bot && o.wood && o.alive && !o.dn)))) {
+        if ((c.logs || 0) >= 2 || (G.fuel <= 0 && (c.logs || 0) >= 1)) { c.wood = 0; go(G, c, F.x + 0.5, F.y + 1); return; }
+        c.wood = 1; if (!torchOn(G, c) && campD < 2.6 && G.fuel > 0) doAct(G, c, { k: 'torch' });
+        const i = nearTree(c, 30); if (i >= 0) return chop(G, c, i);
+      }
       if (campD > 1.8) { const a = c.id * 1.7, x = F.x + Math.cos(a) * 1.6, y = F.y + Math.sin(a) * 1.6; go(G, c, x, y); } else { c.path = []; if (night && !torchOn(G, c) && (c.sp || 0) > 0 && Math.random() < 0.1) doAct(G, c, { k: 'torch' }); }
       return;
     }
@@ -881,19 +928,42 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
     // raccoglitori: legna e conigli
     if (c.role === 'g') {
-      if ((c.logs || 0) >= LOGS_MAX || ((c.logs || 0) > 0 && G.fuel < 30) || (c.rab || 0) >= RAB_MAX || ((c.rab || 0) > 0 && t > DUSK - 40)) { go(G, c, F.x + 1, F.y); return; }
-      if (G.fuel < 85 && (c.logs || 0) < LOGS_MAX && (G.food >= G.chars.filter(o => o.alive).length || c.id % 2 || (c.logs || 0) > 0)) { const i = nearTree(c, 30); if (i >= 0) return chop(G, c, i); }
+      const wants = G.fuel < FUEL_MAX - LOG_FUEL * 0.5;   // il fuoco prende legna (se no la si tiene in mano per la notte)
+      if (((c.logs || 0) >= LOGS_MAX && wants) || ((c.logs || 0) > 0 && G.fuel < 30) || (c.rab || 0) >= RAB_MAX || ((c.rab || 0) > 0 && t > DUSK - 40)) { go(G, c, F.x + 1, F.y); return; }
+      if ((c.logs || 0) < LOGS_MAX && (G.food >= G.chars.filter(o => o.alive).length || c.id % 2 || (c.logs || 0) > 0)) { const i = nearTree(c, 30); if (i >= 0) return chop(G, c, i); }
       const r = G.rab.slice().sort((a, b) => Math.hypot(a.x - c.x, a.y - c.y) - Math.hypot(b.x - c.x, b.y - c.y))[0];
       if (r) { go(G, c, r.x, r.y, 6); return; }
       const b = MP().burrows[(c.id + Math.floor(G.time / 30)) % MP().burrows.length]; go(G, c, b.x, b.y, 12); return;
     }
     // cacciatori: se sanno dov'e' il mammut ci vanno (a tiro di lancia), altrimenti seguono le tracce piu' fresche
     if (m && m.st !== 'dead' && G.kn && G.time - G.kn.t < 40) {
-      const d = Math.hypot(m.x - c.x, m.y - c.y), seeIt = d < 11;
+      const d = Math.hypot(m.x - c.x, m.y - c.y), seeIt = canSee(G, c, m.x, m.y);
       if (seeIt) {
-        if (m.st === 'trap' || d < THROW_R - 0.3) { c.path = []; if (Math.random() < 0.55) doThrow(G, c); return; }
-        if (G.traps.some(p => !p.used) && Math.random() < 0.08) { const p = G.traps.find(p => !p.used); if ((m.x - c.x) * (p.x - m.x) + (m.y - c.y) * (p.y - m.y) > 0 && Math.hypot(p.x - m.x, p.y - m.y) < 12) doShout(G, c); }
-        const a = Math.atan2(c.y - m.y, c.x - m.x) + (c.id % 3 - 1) * 0.5, x = m.x + Math.cos(a) * 4.2, y = m.y + Math.sin(a) * 4.2; go(G, c, x, y, 8); return;
+        const open = m.st === 'trap' || m.st === 'stuck', weak = m.hp <= mmFloor(m);
+        if (open && d < THROW_R - 0.3) { c.path = []; if (Math.random() < 0.7) doThrow(G, c); return; }
+        if (open) { go(G, c, m.x, m.y, 6); return; }
+        const H = G.chars.filter(o => o.bot && o.alive && !o.dn && o.role === 'h').sort((a, b) => a.id - b.id), i = Math.max(0, H.indexOf(c)), n = Math.max(1, H.length);
+        // fossa pronta vicino: il primo va dietro al mammut (dalla parte opposta alla fossa) e urla, gli altri aspettano ai lati della fossa
+        const tp = G.traps.filter(p => !p.used && Math.hypot(p.x - m.x, p.y - m.y) < 16).sort((a, b) => Math.hypot(a.x - m.x, a.y - m.y) - Math.hypot(b.x - m.x, b.y - m.y))[0];
+        if (tp) {
+          const dd = Math.hypot(m.x - tp.x, m.y - tp.y) || 1, ux = (m.x - tp.x) / dd, uy = (m.y - tp.y) / dd;
+          if (i === 0) { const x = m.x + ux * 3.5, y = m.y + uy * 3.5; if (Math.hypot(x - c.x, y - c.y) < 1.6) { c.path = []; doShout(G, c); } else go(G, c, x, y, 8); return; }
+          const s = i % 2 ? 1 : -1, x = tp.x - uy * 3 * s, y = tp.y + ux * 3 * s; go(G, c, x, y, 10); return;
+        }
+        // ferito al massimo (le lance non bastano piu') o tranquillo che pascola: due cacciatori scavano una fossa a qualche passo da lui
+        if ((weak || m.st === 'graze' || m.st === 'rest') && i < 2 && n >= 2 && !G.digs.length) {
+          const ax = H.reduce((s, o) => s + o.x, 0) / n, ay = H.reduce((s, o) => s + o.y, 0) / n, dd = Math.hypot(m.x - ax, m.y - ay) || 1;
+          if (!c.dgP) { for (let k = 0; k < 6 && !c.dgP; k++) { const a = Math.atan2(m.y - ay, m.x - ax) + (k - 2.5) * 0.4, x = Math.floor(m.x + Math.cos(a) * 6) + 0.5, y = Math.floor(m.y + Math.sin(a) * 6) + 0.5; if (digOk(G, x, y)) c.dgP = { x, y }; } const o = H[1 - i]; if (o && c.dgP) o.dgP = c.dgP; }
+        }
+        if (c.dgP && !G.traps.some(p => Math.hypot(p.x - c.dgP.x, p.y - c.dgP.y) < 1)) {
+          if (Math.hypot(c.dgP.x - c.x, c.dgP.y - c.y) < 0.9) { c.path = []; if (!c.op) doAct(G, c, { k: 'dig' }); } else go(G, c, c.dgP.x, c.dgP.y, 10);
+          return;
+        }
+        c.dgP = null;
+        // se no lo circondano: ognuno al suo posto intorno (angoli diversi), e chi e' a tiro lo ferisce finche' le lance servono
+        if (!weak && d < THROW_R - 0.3 && Math.random() < 0.45) { c.path = []; doThrow(G, c); return; }
+        const a0 = (G.ringA == null ? (G.ringA = Math.random() * 7) : G.ringA), a = a0 + i / n * Math.PI * 2, x = m.x + Math.cos(a) * 4.4, y = m.y + Math.sin(a) * 4.4;
+        go(G, c, x, y, 8); return;
       }
       go(G, c, G.kn.x, G.kn.y, 14); return;
     }
@@ -911,26 +981,26 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     G.tr = []; G.trN = 0; G.mmN = []; G.trD = new Map(); G.trC = null; G.sp = []; G.spN = 0; G.fly = []; G.shouts = []; G.digs = []; G.dgN = 0; G.traps = []; G.rab = []; G.rbN = 0; G.rabT = 2; G.jk = []; G.jkN = 0;
     G.meat = []; G.home = 0; G.butch = 0; G.cut = {}; G.fall = []; G.lg = []; G.lgN = 0; G.trump = null; G.kn = null; G.ph = 0;
     G.spy = 0; G.spyCd = 0; G.zcur = null; G.fav = 0;
-    G.fuel = 42; G.food = 0; G.wind = Math.random() * Math.PI * 2; G.windT = 70; G.windTo = G.wind;
+    G.fuel = 45; G.food = 0; G.wind = Math.random() * Math.PI * 2; G.windT = 70; G.windTo = G.wind;
     cq.mapDirty = true;
   }
   function mmStart(G) {
     const C = MP().camp, all = placeList('eat').concat(placeList('drink')).sort((a, b) => Math.hypot(b.x - C.x, b.y - C.y) - Math.hypot(a.x - C.x, a.y - C.y)), L2 = all.filter(p => Math.hypot(p.x - C.x, p.y - C.y) > 55);
     const p = L2.length ? L2[Math.floor(Math.random() * L2.length)] : all[Math.floor(Math.random() * Math.min(3, all.length))];   // nasce lontano dal campo
     G.mm = { x: p.x, y: p.y, face: 1, walk: 0, path: [], st: 'walk', tgt: null, hp: 0, max: 0, need: { e: Math.random(), w: Math.random() }, aw: 0, wary: 0, fear: [], mudT: 0, dT: 20, gT: 1, trT: 30, meat: MEAT_N, side: 1 };
-    G.mm.max = G.mm.hp = 5 + Math.floor(G.chars.length / 2);
+    G.mm.max = G.mm.hp = 6 + Math.floor(G.chars.length / 2);
     // un paio di minuti di vita prima della partita: cosi' ci sono gia' tracce da seguire
     for (let i = 0; i < 260; i++) { G.time = -130 + i * 0.5; mmTick(G, 0.5, true); }
     G.time = 0; G.trump = null; if (G.mm.st === 'sleep') { G.mm.st = 'walk'; G.mm.tgt = null; }
   }
   CQ_MODES.mammut = {
     n: 'Caccia al mammut',
-    desc: '🦣 Una tribù, un mammut furbo. Seguite le tracce, cacciatelo con lance e fosse, sopravvivete alle notti (fuoco e conigli) e portate la carne al campo prima che migri.',
+    desc: '🦣 Una tribù, un mammut furbo nella foschia. Seguite le tracce per trovarlo; le lance lo feriscono, ma per abbatterlo serve la fossa o circondarlo. Le notti sono dure: legna, conigli e sciacalli. Poi la carne al campo, prima che migri.',
     maps: [['prateria', 'Prateria']],
-    def: { nights: 3, map: 'prateria', n: 6, fill: true },
+    def: { nights: 2, map: 'prateria', n: 6, fill: true },
     ns: [[2, '2'], [4, '4'], [6, '6'], [8, '8']],
-    opts: o => `<div class="row"><div class="lbl">Notti prima che il mammut migri</div>${seg('nights', [[2, '2'], [3, '3'], [4, '4']], o.nights || 3)}</div>`,
-    read: d => ({ nights: +d.get('nights') || 3 }),
+    opts: o => `<div class="row"><div class="lbl">Notti prima che il mammut migri</div>${seg('nights', [[2, '2'], [3, '3'], [4, '4']], o.nights || 2)}</div>`,
+    read: d => ({ nights: +d.get('nights') || 2 }),
     start(G) {
       setup(G);
       const bots = G.chars.filter(c => c.bot); bots.forEach((c, i) => { c.role = i % 3 === 2 || (bots.length <= 2 && i === 1) ? 'g' : 'h'; });
@@ -938,11 +1008,11 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       mmStart(G);
     },
     gstart(G) { setup(G); for (const c of G.chars) Object.assign(c, { sp: SPEARS, logs: 0, rab: 0, mt: -1, tor: 0, dn: 0, rv: 0, hun: 0 }); G.mm = { x: 0, y: 0, face: 1, walk: 0, path: [], st: 'walk', hp: 1, max: 1, need: { e: 0, w: 0 }, fear: [], meat: MEAT_N }; },
-    intro: () => '🦣 Trovate il mammut seguendo le tracce. Prima del buio: legna per il fuoco e conigli!',
+    intro: () => '🦣 Nella foschia il mammut si vede solo da vicino: seguite le tracce. Le lance lo feriscono, ma per abbatterlo serve la FOSSA o CIRCONDARLO. Prima del buio: legna e un coniglio a testa!',
     speed(c) {
       const G = cq.g; if (!G || !G.tr) return 1; if (!c.alive) return 1.1; if (c.dn) return 0;
       if (c.op) { const q = P(c); if (Math.hypot(q.x - c.op.x, q.y - c.op.y) < 0.6 && G.time - c.op.t0 < 0.4) return 1; }
-      return (c.mt >= 0 ? 0.72 : 1) * (1 - 0.07 * (c.logs || 0)) * (c.hun ? 0.85 : 1);
+      return (c.mt >= 0 ? 0.72 : 1) * (1 - 0.07 * (c.logs || 0)) * (c.hun ? (c.hun > 1 ? 0.68 : 0.82) : 1);
     },
     big(G) {
       const me = G.me, q = { x: cq.x, y: cq.y }, t = cyc(G), m = G.mm; if (!G.tr) return '';
@@ -957,17 +1027,21 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       const rf = isNight(G) && !inFire(G, q.x, q.y) ? refuge(q.x, q.y) : null;
       if (rf) return { glade: '✨ Tra le lucciole sei al sicuro: gli sciacalli non entrano nella radura.', spring: '♨️ Il calore della sorgente tiene lontani gli sciacalli.', dolmen: '🪨 Sotto il dolmen gli sciacalli non ti prendono.' }[rf];
       if (isNight(G) && !inFire(G, q.x, q.y) && !torchOn(G, me)) return '🌑 Sei fuori dalla luce del fuoco: gli sciacalli cacciano al buio…';
+      if (isNight(G) && !inCore(G, q.x, q.y)) return '🔥 Sei al bordo della luce: gli sciacalli osano fin qui. Vicino alle fiamme sei al sicuro.';
+      if (m && (m.st === 'stuck' || m.st === 'trap') && Math.hypot(m.x - q.x, m.y - q.y) < 9) return m.st === 'trap' ? '🕳️ È nella fossa: tirate le lance, ora fanno male davvero!' : '🦣 È circondato: tirate le lance, ora fanno male davvero!';
+      if (isNight(G) && G.fuel < 20 && (me.logs || 0) === 0) return '🪵 Il fuoco sta morendo: serve qualcuno che vada a fare legna al buio!';
       // la traccia piu' vicina sotto i piedi: cosa racconta
       let tb = null, td = 1.15; for (const tr of G.tr) { const d = Math.hypot(tr.x - q.x, tr.y - q.y); if (d < td) { td = d; tb = tr; } }
       if (tb) return trackTxt(G, tb);
-      if ((me.logs || 0) || (me.rab || 0)) return '🔥 Porta al fuoco del campo: ' + (me.logs ? '🪵×' + me.logs + ' ' : '') + (me.rab ? '🐇×' + me.rab : '');
+      if ((me.logs || 0) || (me.rab || 0)) return atCamp(q.x, q.y, 3.2) && me.logs ? '🪵 Il fuoco è pieno: tieni la legna per la notte (la metti quando cala).' : '🔥 Porta al fuoco del campo: ' + (me.logs ? '🪵×' + me.logs + ' ' : '') + (me.rab ? '🐇×' + me.rab : '');
+      if (me.hun) return me.hun > 1 ? '😵 Sfinito dalla fame: stasera devi mangiare un coniglio!' : '😣 Affamato: sei più lento. Stasera serve un coniglio a testa.';
       return '';
     },
     hud(G) {
       if (!G.tr) return '🦣 Caccia al mammut';
-      const t = cyc(G), d = dayN(G), nightNow = t >= NIGHT && t < DAWN, left = nightNow ? DAWN - t : t < DUSK ? DUSK - t : t < NIGHT ? NIGHT - t : DAY - t + DUSK, last = d >= (G.opt.nights || 3);
-      const m = G.mm, hp = m && m.st === 'dead' ? '🦴' : m ? '❤️' + m.hp : '';
-      return `🦣 ${hp} · ${nightNow ? '🌙 Notte' : t >= DUSK ? '🌇 Tramonto' : '☀️ Giorno'} ${d}/${G.opt.nights || 3}${last && !nightNow ? ' ⚠️' : ''} · ⏳ ${mmss(left)} · 🔥 ${Math.round(G.fuel)} · 🐇 ${G.food} · 🍖 ${G.home}/${MEAT_NEED} · 💨 ${windArrow(G)}`;
+      const t = cyc(G), d = dayN(G), nightNow = t >= NIGHT && t < DAWN, left = nightNow ? DAWN - t : t < DUSK ? DUSK - t : t < NIGHT ? NIGHT - t : DAY - t + DUSK, last = d >= NN(G);
+      const m = G.mm, hp = m && m.st === 'dead' ? '🦴' : m ? '❤️' + m.hp + (m.max && m.hp <= mmFloor(m) ? '🛡️' : '') : '';
+      return `🦣 ${hp} · ${nightNow ? '🌙 Notte' : t >= DUSK ? '🌇 Tramonto' : '☀️ Giorno'} ${d}/${NN(G)}${last && !nightNow ? ' ⚠️' : ''} · ⏳ ${mmss(left)} · 🔥 ${Math.round(G.fuel)} · 🐇 ${G.food} · 🍖 ${G.home}/${MEAT_NEED} · 💨 ${windArrow(G)}`;
     },
     nameCol: c => c.dn ? '#ff8a6a' : c.hun ? '#e0c060' : null,
     draw: c => { const f = (g, X, Y, TW, L2, w, fc) => tribal(g, X, Y, TW, L2, w, fc, c); return f; },
@@ -988,7 +1062,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       // passi pesanti del mammut, sciacalli vicini nel buio (battito)
       const now = performance.now();
       if (me.alive && isNight(G) && G.phase === 'play') { let d = 99; for (const j of G.jk) d = Math.min(d, Math.hypot(j.x - cq.x, j.y - cq.y)); if (d < 7 && now > (G.hb || 0)) { const v = 0.02 + 0.05 * (1 - d / 7); beep(55, 0.09, v); beep(50, 0.11, v * 0.8, 0.16); G.hb = now + 360 + d * 110; } }
-      if (G.trump && G.trump.t !== G.trHeard && G.time - G.trump.t < 1.5) { G.trHeard = G.trump.t; trumpetSnd(G, G.trump.l); const d = Math.hypot(G.trump.x - cq.x, G.trump.y - cq.y); if (d > 10 && me.alive) cqToast('🦣 Un barrito ' + (d > 30 ? 'lontano' : 'non lontano') + ', ' + IZ.dir(G.trump.x - cq.x, G.trump.y - cq.y) + '.'); }
+      if (G.trump && G.trump.t !== G.trHeard && G.time - G.trump.t < 1.5) { G.trHeard = G.trump.t; const d = Math.hypot(G.trump.x - cq.x, G.trump.y - cq.y); if (d < HEAR_T || !me.alive) trumpetSnd(G, G.trump.l); if (d > 10 && d < HEAR_T && me.alive) cqToast('🦣 Un barrito ' + (d > 30 ? 'lontano' : 'non lontano') + ', ' + IZ.dir(G.trump.x - cq.x, G.trump.y - cq.y) + '.'); }
       if (isNight(G) && (G.howlT = (G.howlT || 8) - dt) <= 0 && G.jk.length && me.alive) { G.howlT = 14 + Math.random() * 14; const j = G.jk[Math.floor(Math.random() * G.jk.length)]; G.howl = { x: j.x, y: j.y, t: performance.now() }; [520, 580, 640, 600, 520].forEach((f, i) => beep(f, 0.22, 0.018, i * 0.16)); }
       G.fly = G.fly.filter(f => G.time - f[4] < 0.6); G.shouts = G.shouts.filter(s => G.time - s[2] < 1.2);
     },
@@ -998,15 +1072,15 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if ((G.windT -= dt) <= 0) { G.windT = 70 + Math.random() * 40; G.windTo = G.wind + (Math.random() < 0.5 ? -1 : 1) * (0.6 + Math.random() * 0.9); }
       G.wind += Math.max(-dt * 0.15, Math.min(dt * 0.15, G.windTo - G.wind));
       // fuoco: si consuma (di piu' di notte)
-      const was = G.fuel > 0; G.fuel = Math.max(0, G.fuel - dt * (isNight(G) ? 0.85 : 0.3)); if (was && G.fuel <= 0) say(G, 'fire', {});
+      const was = G.fuel > 0; G.fuel = Math.max(0, G.fuel - dt * (isNight(G) ? BURN_N : BURN_D)); if (was && G.fuel <= 0) say(G, 'fire', {});
       // fasi del giorno: notte (cena, sciacalli), alba
       const ph = t >= NIGHT && t < DAWN ? 1 : 0;
       if (ph !== G.ph) {
         G.ph = ph;
         if (ph) {
-          let h = 0; for (const c of G.chars) if (c.alive) { if (G.food > 0) { G.food--; c.hun = 0; } else { c.hun = 1; h++; } }
+          let h = 0; for (const c of G.chars) if (c.alive) { if (G.food > 0) { G.food--; c.hun = 0; } else { c.hun = (c.hun || 0) + 1; h++; } }
           say(G, 'meal', { h }); jkSpawn(G);
-        } else if (G.time > 10) say(G, 'dawn', { d: dayN(G), last: dayN(G) >= (G.opt.nights || 3) });
+        } else if (G.time > 10) say(G, 'dawn', { d: dayN(G), last: dayN(G) >= NN(G) });
       }
       mmTick(G, dt);
       const m = G.mm;
@@ -1036,7 +1110,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
         if ((c.sp || 0) < SPEAR_MAX) { const s = G.sp.find(o => Math.hypot(o.x - q.x, o.y - q.y) < 0.75); if (s) { G.sp = G.sp.filter(o => o !== s); c.sp = (c.sp || 0) + 1; } }
         if (c.mt < 0 && !(c.logs || 0)) { const it = G.meat.find(i => i.st === 0 && Math.hypot(i.x - q.x, i.y - q.y) < 0.8); if (it) { it.st = 1; it.c = c.id; c.mt = it.id; } }
         if (atCamp(q.x, q.y, 3.2)) {
-          if (c.logs) { G.fuel = Math.min(100, G.fuel + c.logs * LOG_FUEL); c.logs = 0; }
+          while (c.logs && G.fuel < FUEL_MAX - LOG_FUEL * 0.5) { G.fuel = Math.min(FUEL_MAX, G.fuel + LOG_FUEL); c.logs--; }
           if (c.rab) { G.food += c.rab; c.rab = 0; }
           if (c.mt >= 0) { const it = G.meat[c.mt]; if (it) { it.st = 2; it.c = -1; } c.mt = -1; c.mtK = (c.mtK || 0) + 1; G.home++; say(G, 'home', { a: c.id, v: G.home }); }
           if (atCamp(q.x, q.y, 2.6) && (c.sp || 0) < SPEARS) c.sp = SPEARS;   // rastrelliera del campo
@@ -1073,7 +1147,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       else cqModeEnd({ t: '🦣 Caccia fallita', why: why || 'Il mammut è sfuggito.', win: [], rank });
     },
     // online: lance, legna, conigli, carne in mano, torcia, a terra, rialzo, fame, azione in corso, statistiche
-    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.sp || 0, c.logs || 0, c.rab || 0, c.mt, r(c.tor || 0), c.dn ? Math.round((G.time - c.dn) * 10) / 10 : 0, Math.round((c.rv || 0) * 100), c.hun ? 1 : 0, c.op ? ({ chop: 1, dig: 2, butch: 3, look: 4 })[c.op.k] || 0 : 0, c.op ? (c.op.k === 'chop' ? c.op.i : c.op.k === 'dig' ? c.op.i : 0) : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.hits || 0, c.lgK || 0, c.rbK || 0, c.mtK || 0, c.rvK || 0, c.jkK || 0]; },
+    csnap: c => { const G = cq.g, r = v => Math.max(0, Math.round((v - G.time) * 10) / 10); return [c.sp || 0, c.logs || 0, c.rab || 0, c.mt, r(c.tor || 0), c.dn ? Math.round((G.time - c.dn) * 10) / 10 : 0, Math.round((c.rv || 0) * 100), c.hun || 0, c.op ? ({ chop: 1, dig: 2, butch: 3, look: 4 })[c.op.k] || 0 : 0, c.op ? (c.op.k === 'chop' ? c.op.i : c.op.k === 'dig' ? c.op.i : 0) : 0, c.op ? Math.round((G.time - c.op.t0) * 10) / 10 : 0, c.hits || 0, c.lgK || 0, c.rbK || 0, c.mtK || 0, c.rvK || 0, c.jkK || 0]; },
     capply(G, c, a) {
       [c.sp, c.logs, c.rab, c.mt] = a; c.tor = a[4] > 0 ? G.time + a[4] : 0; c.dn = a[5] > 0 ? G.time - a[5] || 0.01 : 0; c.rv = a[6] / 100; c.hun = a[7];
       const k = ['', 'chop', 'dig', 'butch', 'look'][a[8]];
@@ -1136,6 +1210,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (!G.tr) return;
       const W = cq.w, H = cq.h, now = performance.now() / 1000, MN = this.night(G), see = (x, y) => !MN || MN.see(x, y), on = (X, Y, m = 40) => X > -m && X < W + m && Y > -m && Y < H + m;
       const font = (s) => { g.font = s + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; };
+      haze(g, G, sx, sy, TW);   // foschia sopra la prateria e i personaggi, sotto i segni del gioco
       // fiamme del fuoco del campo
       { const F = fireC(), X = sx(F.x, F.y), Y = sy(F.x, F.y); if (on(X, Y) && G.fuel > 0) { const k = Math.min(1, 0.4 + G.fuel / 70); for (let i = 0; i < 3; i++) { const t = now * 6 + i * 2.1, dx = (i - 1) * 6, h = (18 + Math.sin(t) * 5) * k; g.fillStyle = i === 1 ? '#ffd040' : '#ff7a1a'; g.beginPath(); g.moveTo(X + dx - 7 * k, Y - 4); g.quadraticCurveTo(X + dx - 4, Y - h * 0.6, X + dx + Math.sin(t * 1.7) * 2, Y - 4 - h); g.quadraticCurveTo(X + dx + 4, Y - h * 0.6, X + dx + 7 * k, Y - 4); g.fill(); } } if (on(X, Y) && G.fuel <= 0) { g.strokeStyle = 'rgba(200,200,200,.35)'; g.lineWidth = 2; g.beginPath(); g.moveTo(X, Y - 6); g.quadraticCurveTo(X + 6 * Math.sin(now * 2), Y - 18, X, Y - 30); g.stroke(); }
         // scorte: conigli sulla cesta
@@ -1169,7 +1244,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       for (const s of G.shouts) { const k = (G.time - s[2]) / 1.2; if (k < 0 || k >= 1) continue; const X = sx(s[0], s[1]), Y = sy(s[0], s[1]) - TW; g.strokeStyle = 'rgba(255,230,160,' + (0.7 * (1 - k)) + ')'; g.lineWidth = 3; for (const o of [0, 0.3]) { const r = (0.5 + Math.max(0, k - o) * 5) * TW; if (k > o) { g.beginPath(); g.ellipse(X, Y + TW, r, r * 0.5, 0, 0, 7); g.stroke(); } } }
       const m = G.mm;
       // il mammut: punto interrogativo che si riempie se si sta accorgendo di qualcuno, naso se ha fiutato, "!" rosso prima della carica, zzz se dorme
-      if (m && m.st !== 'dead' && see(m.x, m.y)) {
+      if (m && m.st !== 'dead' && see(m.x, m.y) && (!G.me.alive || mmShown(G, cq.x, cq.y))) {
         const X = sx(m.x, m.y), Y = sy(m.x, m.y) - TW * 2.35;
         if (on(X, Y)) {
           if (m.st === 'wind' || m.st === 'charge') { font(26); g.fillStyle = '#ff3a2a'; g.fillText('❗', X, Y - 6 + Math.sin(now * 20) * 2); }
@@ -1188,7 +1263,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       // ululato: freccia sul bordo verso lo sciacallo che ulula
       if (G.howl && performance.now() - G.howl.t < 2200) edge(g, sx(G.howl.x, G.howl.y), sy(G.howl.x, G.howl.y), W, H, '🐺', 'rgba(255,90,70,.9)');
       // barrito: freccia sul bordo per qualche secondo
-      if (G.trump && G.time - G.trump.t < 4) { const X = sx(G.trump.x, G.trump.y), Y = sy(G.trump.x, G.trump.y); edge(g, X, Y, W, H, '🦣', '#e0b84a'); }
+      if (G.trump && G.time - G.trump.t < 4 && Math.hypot(G.trump.x - cq.x, G.trump.y - cq.y) < HEAR_T) { const X = sx(G.trump.x, G.trump.y), Y = sy(G.trump.x, G.trump.y); edge(g, X, Y, W, H, '🦣', '#e0b84a'); }
       // freccia verso il fuoco: quando porto qualcosa, al tramonto e di notte se sono lontano
       { const F = fireC(), me = G.me, t = cyc(G); if (me.alive && !me.dn && (me.mt >= 0 || me.logs || me.rab || (t > DUSK - 25 && t < DAWN)) && !atCamp(cq.x, cq.y, 6)) edge(g, sx(F.x, F.y), sy(F.x, F.y), W, H, '🔥', '#ff9a40'); }
       // nome del luogo quando ci entri
@@ -1203,6 +1278,23 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     }
   };
   function windArrow(G) { const a = G.wind; return arrowOf(Math.cos(a), Math.sin(a)); }
+  // FOSCHIA del giorno: limpido fino a HAZE0 caselle da me, poi velo chiaro (oltre VIEW_D il mammut non si vede).
+  // Immagine pronta a un terzo della risoluzione, rifatta solo se cambiano misura dello schermo o posizione del centro; poi solo incollata
+  function haze(g, G, sx, sy, TW) {
+    const day = 1 - Math.min(1, dark(G) * 2); if (day <= 0.02 || !G.me.alive) return;
+    const W = cq.w, H = cq.h, k = 3, X = sx(cq.x, cq.y), Y = sy(cq.x, cq.y) - TW * 0.3;
+    const ux = Math.abs(sx(cq.x + 0.7071, cq.y - 0.7071) - sx(cq.x, cq.y)), uy = Math.abs(sy(cq.x + 0.7071, cq.y + 0.7071) - sy(cq.x, cq.y));
+    const key = [W, H, Math.round(X / k), Math.round(Y / k), Math.round(ux), Math.round(uy)].join(',');
+    let c = haze.c; if (!c) c = haze.c = document.createElement('canvas');
+    if (haze.k !== key) {
+      haze.k = key; c.width = Math.ceil(W / k); c.height = Math.ceil(H / k); const h = c.getContext('2d');
+      h.clearRect(0, 0, c.width, c.height); h.save(); h.translate(X / k, Y / k); h.scale(1, uy / ux);
+      const r0 = HAZE0 * ux / k, r1 = VIEW_D * 1.08 * ux / k, gr = h.createRadialGradient(0, 0, r0, 0, 0, r1);
+      gr.addColorStop(0, 'rgba(222,228,212,0)'); gr.addColorStop(0.55, 'rgba(222,228,212,.38)'); gr.addColorStop(1, 'rgba(222,228,212,.72)');
+      h.fillStyle = gr; const R = Math.hypot(c.width, c.height) * Math.max(1, ux / uy) * 2; h.fillRect(-R, -R, 2 * R, 2 * R); h.restore();
+    }
+    g.globalAlpha = day; g.drawImage(c, 0, 0, c.width, c.height, 0, 0, c.width * k, c.height * k); g.globalAlpha = 1;
+  }
   function edge(g, X, Y, W, H, icon, col) {
     const m = 34, top = 120, bot = H - 140; if (X > m && X < W - m && Y > top && Y < bot) return;
     const cx = W / 2, cy = (top + bot) / 2, dx = X - cx, dy = Y - cy, k = Math.min(Math.abs((W / 2 - m) / (dx || 1e-6)), Math.abs(((bot - top) / 2) / (dy || 1e-6)));
@@ -1428,7 +1520,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     if (G.guest) { lerp(m); if (m.mv) m.walk = (m.walk || 0) + 0.25; }
     m.walkA = m.walk || 0;
     const md = (g, X, Y, TW) => drawMammoth(g, X, Y, TW, m); md.big = 1;
-    out.push({ x: m.x, y: m.y, dr: md, name: null, mam: 1 });
+    if (!G.me.alive || mmShown(G, cq.x, cq.y)) out.push({ x: m.x, y: m.y, dr: md, name: null, mam: 1 });   // di giorno nella foschia si vede solo da vicino
     for (const r of G.rab) { lerp(r); if (G.guest) r.walk = (r.walk || 0) + 0.3; out.push({ x: r.x, y: r.y, dr: (g, X, Y, TW) => drawRabbit(g, X, Y, TW, r), name: null }); }
     for (const j of G.jk) { lerp(j); if (G.guest) j.walk = (j.walk || 0) + 0.3; out.push({ x: j.x, y: j.y, dr: (g, X, Y, TW) => drawJackal(g, X, Y, TW, j), name: null }); }
     return out;
@@ -1471,5 +1563,5 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     window.addEventListener('keydown', e => { const k = e.key && e.key.toLowerCase(); if (!cq.g || cq.g.mode !== 'mammut' || !cq.on) return; if (k === 'q') throwBtn(); else if (k === 'r') shoutBtn(); });
     setInterval(() => { const G = cq.g, live = !!(G && G.mode === 'mammut' && G.phase === 'play' && G.tr && G.pre <= 0 && G.me.alive && $('#cqTask').hidden && !$('#ciack').hidden); if (tb.hidden === live) { tb.hidden = !live; sb.hidden = !live; } if (!live && !pp.hidden) pp.hidden = true; }, 300);
   }
-  window.__mm = { mmTick, doThrow, doShout, knock, cyc, dark, trackTxt };
+  window.__mm = { mmTick, doThrow, doShout, knock, cyc, dark, trackTxt, mmFleeFrom, mmFloor };
 });
