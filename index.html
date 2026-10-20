@@ -5284,13 +5284,16 @@ function cqBgCell(x, y, low) {   // low: oggetto basso (porta, leva, forziere...
   cqBgZone([B.ox + (x - y - 1) * TW / 2 - CQ_TREE_SD * TW, B.oy + (x + y) * TH / 2 - (low ? 3.5 : CQ_TREE_UP) * U - TW - cqHc(x, y) * (CQ_MAP.hb || 0.7) * U, B.ox + (x - y + 1) * TW / 2 + CQ_TREE_SD * TW, B.oy + (x + y + 2) * TH / 2 + TW]);
 }
 function cqDraw() {
-  const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w, H = cq.h;
+  // M.view(G) -> { z, x, y }: il gioco allarga la visuale (z < 1) e sposta la telecamera di x, y caselle (es. la mira lontana dell'Assedio).
+  // Si disegna tutto in grande (W, H logici = schermo / z) con la tela rimpicciolita: chi disegna sopra in pixel dello schermo usa cq.vz
+  const VW = cq.g && cq.g.mode && cq.g.M.view && cq.g.phase === 'play' ? cq.g.M.view(cq.g) : null, VZ = VW && VW.z > 0.3 && VW.z < 1 ? VW.z : 1; cq.vz = VZ;
+  const c = $('#cqCanvas'), g = c.getContext('2d'), W = cq.w / VZ, H = cq.h / VZ;
   if (!cq.bg) cqBuildBg();
   const B = cq.bg, TW = B.TW, TH = TW / 2, U = TH * 1.15;
   const px = (x, y) => (x - y) * TW / 2, py = (x, y) => (x + y) * TH / 2;
   // posizioni allineate ai pixel dello schermo: l'immagine pronta e i riquadri ridisegnati combaciano senza righe
-  const cam = cqCam(), CX = cam ? cam.x : cq.x, CY = cam ? cam.y : cq.y;   // centro dello schermo: io, oppure la telecamera libera
-  const dp = cq.dpr, al = v => Math.round(v * dp) / dp, X = px(CX, CY), Y = py(CX, CY) - cqZpx(CX, CY, TW);   // con le altezze la telecamera sale con me
+  const cam = cqCam(), CX = (cam ? cam.x : cq.x) + (VW ? VW.x || 0 : 0), CY = (cam ? cam.y : cq.y) + (VW ? VW.y || 0 : 0);   // centro dello schermo: io, oppure la telecamera libera (+ lo spostamento chiesto dal gioco)
+  const dp = cq.dpr * VZ, al = v => Math.round(v * dp) / dp, X = px(CX, CY), Y = py(CX, CY) - cqZpx(CX, CY, TW);   // con le altezze la telecamera sale con me
   const ix = al(W / 2 - X - B.ox), iy = al(H / 2 - Y + TH - B.oy), tx = ix + B.ox, ty = iy + B.oy;
   g.setTransform(dp, 0, 0, dp, 0, 0);
   { const bc = CQ_MAP.bg && CQ_MAP.bg(cq.x, cq.y); if (bc) { g.fillStyle = bc; g.fillRect(0, 0, W, H); } else g.clearRect(0, 0, W, H); }   // bg: colore dietro la mappa (il mare aperto dell'isola)
@@ -5398,7 +5401,7 @@ function cqDraw() {
     const gr = g.createRadialGradient(X, Y, 0, X, Y, R); gr.addColorStop(0, col); gr.addColorStop(1, 'rgba(255,230,140,0)'); g.fillStyle = gr; g.beginPath(); g.arc(X, Y, R, 0, 7); g.fill();
   }
   if (nl > 0) {
-    const lights = [[tx + X, ty + Y - TH, (MN ? MN.r : G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
+    const lights = [[tx + (VW ? px(cq.x, cq.y) : X), ty + (VW ? py(cq.x, cq.y) - cqZpx(cq.x, cq.y, TW) : Y) - TH, (MN ? MN.r : G.me.torch ? 6.5 : 3.4) * TW, 0.8]];
     if (MN) for (const [lx, ly, lr, ls, la, lh] of MN.lights) lights.push([tx + px(lx, ly), ty + py(lx, ly) - TH * 0.5 - cqZpx(lx, ly, TW), lr * TW, ls, la, lh]);   // la, lh: luce a cono (torcia), angolo sullo schermo e mezza apertura
     if (fR) {
       const fx = tx + px(F.x + 0.5, F.y + 0.5), fy = ty + py(F.x + 0.5, F.y + 0.5) - TH * 0.5;
@@ -5478,6 +5481,7 @@ function cqDraw() {
   }
   // joystick
   if (cq.joy) {
+    g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0);   // in pixel dello schermo anche con la visuale allargata
     const j = cq.joy, dx = j.x - j.x0, dy = j.y - j.y0, m = Math.hypot(dx, dy), k = m > 40 ? 40 / m : 1;
     g.strokeStyle = 'rgba(150,160,175,.55)'; g.lineWidth = 2; g.beginPath(); g.arc(j.x0, j.y0, 40, 0, 7); g.stroke();
     g.fillStyle = 'rgba(150,160,175,.55)'; g.beginPath(); g.arc(j.x0 + dx * k, j.y0 + dy * k, 16, 0, 7); g.fill();

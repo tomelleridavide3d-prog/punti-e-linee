@@ -19,7 +19,14 @@ export default [
   [0, `(async () => { cqNewMatch(); await new Promise(r => setTimeout(r, 2500)); const G = cq.g; G.pre = 0; const a = G.chars.find(c => c.name === 'zzAsAmico'); G.me.t = 1 - a.t; G.a0 = a.t; for (const c of G.chars) if (c.bot) c.alive = false; window.__as.setupHalf(G); G.me.x = cq.x = 26.5; G.me.y = cq.y = 51.5; return 'host: partita, amico attacca, bot fermi, host al calderone'; })()`, 3000],
   [1, st('amico'), 0],
   // l'amico spinge l'ariete
-  [1, `(() => { const G = cq.g; cq.x = 29.5; cq.y = G.rm.y + 1.6; return 'amico dietro l ariete'; })()`, 3000], [0, st('host'), 0],
+  [1, `(() => { const G = cq.g; cq.x = 29.5; cq.y = Math.floor(G.rm.y + 1.7) + 1.35; return 'amico dietro l ariete'; })()`, 3000], [0, st('host'), 0],
+  // al portone: l'amico carica tenendo premuto il pulsante grande e lascia
+  [0, `(() => { const G = cq.g; G.rm.y = 53.4; return 'host: ariete portato al portone'; })()`, 800],
+  [1, `(() => { const G = cq.g; cq.x = 29.5; cq.y = Math.floor(G.rm.y + 1.7) + 1.35; return 'amico dietro l ariete al portone'; })()`, 1200],
+  [1, `(() => { const t = $('#cqKill').textContent; $('#cqKill').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); return 'amico tiene premuto: ' + t; })()`, 1600],
+  [0, `(() => { const a = cq.g.chars.find(c => c.name === 'zzAsAmico'); return 'host vede la carica: ' + (a.rc ? Math.round((cq.g.time - a.rc) * 100) / 100 + ' s' : 'NO') + ' | carica ariete ' + cq.g.rm.pl; })()`, 0],
+  [1, `(() => { const t = $('#cqKill').textContent; $('#cqKill').dispatchEvent(new PointerEvent('pointerup', { bubbles: true })); return 'amico lascia (' + t + ')'; })()`, 1500],
+  [0, st('host'), 0],
   // scala: prende, appoggia, sale, va all'argano e lo gira
   [1, go(25.5, 78.5), 1200], [1, btn, 1200], [1, go(10.5, 53.5), 1200], [1, btn, 1200], [1, btn, 2500], [1, st('amico'), 0],
   [1, go(23.5, 49.5), 1200], [1, btn, 6200], [0, st('host'), 0], [1, `(() => 'amico: ' + __T.slice(-2).join(' / ') + ' | barra: ' + $('#cqModeBar').textContent)()`, 0],

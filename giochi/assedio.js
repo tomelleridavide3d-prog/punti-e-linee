@@ -12,6 +12,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const W = 60, H = 84, HB = 0.8, WZ = 4, TZ = 5;   // altezza di un livello (U), camminamento, torri
   const HP = 3, SAFE = 2.5, RELOAD = 0.85, RMAX = 12, RMIN = 1.6, CLIMB = 1.5, DOWN = 1.0, PUSH = 1.5, LEVER = 5, CARRY_L = 0.78;
   const NLAD = 3, IV = 7, RESP_A = 4, WAVE = 8;
+  const CH_T = 1.5, RAM_WIN = 0.4, RAM_CD = 0.6;   // ariete: secondi per la carica piena, finestra del colpo di squadra, pausa dopo il colpo
   const GATE_HP = 130, RAM_Y0 = 78.5, RAM_Y1 = 53.4, RAM_X = 29.5, RAM_R = 2.3, HIT_T = 1.6, OIL_T = 15, BURN = 2.4;
   const BONUS = [0, 60, 45];   // secondi in piu' a fase conquistata
   // LE CLASSI (passo B): si sceglie prima di tornare in battaglia (pannello in basso quando sei a terra, o il pulsante a sinistra)
@@ -26,7 +27,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const maxHp = c => CL[clsOf(c)].hp;
   const Z2 = { x: 29.5, y: 33.5, r: 4.3, t: 18 }, Z3 = { x: 29.5, y: 8.2, r: 3.9, t: 24 };
   const RK = { x: 25, y: 77 }, LEV = { x: 24, y: 49 }, OILC = [{ x: 27, y: 51, sx: 26.5, sy: 51.5 }, { x: 32, y: 51, sx: 33.5, sy: 51.5 }];
-  const SPAWN_A = [null, { x: 29.5, y: 80.5 }, { x: 29.5, y: 59.5 }, { x: 29.5, y: 44.5 }], SPAWN_D = [null, [{ x: 29.5, y: 42.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }]];
+  const SPAWN_A = [null, { x: 26.5, y: 81.5 }, { x: 29.5, y: 59.5 }, { x: 29.5, y: 44.5 }], SPAWN_D = [null, [{ x: 29.5, y: 42.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }], [{ x: 13.5, y: 13.5 }, { x: 45.5, y: 13.5 }]];
   const PHN = [null, '🚪 Il portone', '⚔️ Il cortile', '👑 La sala del trono'];
   const mmss = t => Math.floor(Math.max(0, t) / 60) + ':' + String(Math.floor(Math.max(0, t) % 60)).padStart(2, '0');
   const MP = () => CQ_MAP;
@@ -410,7 +411,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   CQ_MAPS.castello = { n: 'Castello di Roccaforte', make: mapCastle, only: 'assedio' };
   // altezza (in U) di quello che c'e' in una casella, per le frecce: muro/oggetto alto = la freccia si pianta
   const PH = { aMerl: 0, aGate: 3.3, aKdoor: 1.6, aIdoor: 1.3, aWinch: 1.1, aOil: 1.05, aThrone: 2.4, aCol: 3.25, aBench2: 0.5, aTable: 0.8, aArmor: 2.1, aChest: 0.6, aAltar: 1.1, aPew: 0.95, aCandle: 1.6, aWell: 2.2, aLowW: 1.05, aStallW: 1.15, aHorse: 1.6, aTrough: 0.5, aGrind: 1.0, aScare: 1.9,
-    aForge: 2.6, aAnvil: 0.8, aDummy: 1.8, aTarget: 1.6, aRackW: 1.7, aCart: 1.1, aBraz: 1.4, aBann: 3.2, aHearth: 1.9, aBed: 0.7, aStool: 0.45, aShelf: 1.6, aFount: 1.5, aStall: 1.75, aBarr: 1.0, aPal: 1.3, aLamp: 2.3, aTent: 1.9, aFire: 0.3, aRack: 2.6, aLad: 0.3, aBench: 0.8, pine: 4, oak: 4, rock: 0.8, bush: 0.7, hay: 1.0, barrel: 0.9, crate: 0.8, crate2: 1.2, logpile: 0.8 };
+    aForge: 2.6, aAnvil: 0.8, aDummy: 1.8, aTarget: 1.6, aRackW: 1.7, aCart: 1.1, aBraz: 1.4, aBann: 3.2, aHearth: 1.9, aBed: 0.7, aStool: 0.45, aShelf: 1.6, aFount: 1.5, aStall: 1.75, aBarr: 1.0, aPal: 1.3, aRamS: 2.0, aLamp: 2.3, aTent: 1.9, aFire: 0.3, aRack: 2.6, aLad: 0.3, aBench: 0.8, pine: 4, oak: 4, rock: 0.8, bush: 0.7, hay: 1.0, barrel: 0.9, crate: 0.8, crate2: 1.2, logpile: 0.8 };
   function topAt(xi, yi) {
     if (!cqFloor[yi] || !cqFloor[yi][xi]) { const k = WK && WK[yi] ? WK[yi][xi] : 'lake'; return k === 'lake' || k === 'pool' ? -0.1 : k === 'house' ? 1.5 : k === 'keep' ? 1.4 : 9; }
     const base = cqHc(xi, yi) * HB, s = cqSolid[yi][xi]; if (!s) return base;
@@ -604,6 +605,15 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       G.bwOld = [...want.keys()];
       for (const c of G.chars) if (c.bot && c.path && c.path.length) { c.path = []; c.goal = null; }
     }
+    // l'ariete e' solido finche' il portone non cade (casella invisibile 'aRamS'; chi del computer ci passava in mezzo ricalcola la strada)
+    const rs = G.ph === 1 && !G.gopen && G.rm ? ramCells(G.rm).map(q => q.join(',')).join('|') : '';
+    if (rs !== G.rmSig) {
+      G.rmSig = rs; const want = new Set(rs ? rs.split('|') : []);
+      for (const k of G.rmOld || []) if (!want.has(k)) { const [x, y] = k.split(',').map(Number); if (cqSolid[y][x] && cqSolid[y][x].prop === 'aRamS') cqSolid[y][x] = null; }
+      for (const k of want) { const [x, y] = k.split(',').map(Number); if (!cqSolid[y][x] && cqFloor[y] && cqFloor[y][x]) cqSolid[y][x] = { prop: 'aRamS', o: {} }; }
+      G.rmOld = [...want];
+      for (const c of G.chars) if (c.bot && c.path && c.path.some(([x, y]) => want.has(Math.floor(x) + ',' + Math.floor(y)))) { c.path = []; c.goal = null; }
+    }
     // portone: crepe secondo i colpi, sfondato = macerie (si passa)
     const gs = G.gopen ? 3 : G.gh > GATE_HP * 0.66 ? 0 : G.gh > GATE_HP * 0.33 ? 1 : 2;
     if (gs !== G.gsS) { G.gsS = gs; for (let i = 0; i < 4; i++) { const x = 28 + i, y = 50; if (gs === 3) { cqSolid[y][x] = null; if (cqDeco) cqDeco[y][x] = 'aRubble'; } else { cqSolid[y][x] = { prop: 'aGate', o: { i, d: gs } }; if (cqDeco) cqDeco[y][x] = null; } cqBgCell(x, y); } }
@@ -628,7 +638,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     else if (e.k === 'place') { if (!atk) { t = '🪜 Una scala sulle mura! Rovesciala!'; beep(300, 0.1, 0.05); } else if (A === me) t = '🪜 Scala appoggiata: sali!'; if (d < 16) thud(0.4, 200); }
     else if (e.k === 'fall') { if (A === me) { t = '🤚 Scala rovesciata!'; beep(700, 0.06, 0.04); } else if (atk) t = '💥 ' + (A ? an + ' ha' : 'Hanno') + ' rovesciato una scala!'; if (d < 14) { thud(0.6 * (1 - d / 14), 150); thud(0.4 * (1 - d / 14), 90); shake(G, 4); } }
     else if (e.k === 'jump') { if (A === me) t = '🪂 Che salto! (−1 ❤)'; if (d < 12) thud(0.5 * (1 - d / 12), 110); }
-    else if (e.k === 'ram') { if (d < 16) { thud(0.8 * (1 - d / 16), 70); thud(0.5 * (1 - d / 16), 140); shake(G, 7 * (1 - d / 16)); } }
+    else if (e.k === 'ram') { const f = 0.6 + 0.4 * Math.min(1.5, e.s || 1); if (d < 16) { thud(0.8 * (1 - d / 16) * f, 70); thud(0.5 * (1 - d / 16), 140); shake(G, 8 * f * (1 - d / 16)); } if (e.n > 1) fxAdd(G, 'txt', e.x, e.y, '💥 COLPO DI SQUADRA!'); }
     else if (e.k === 'ramgate') { ann(G, '🐏 L\'ARIETE È AL PORTONE!', atk ? 'Spingete e sfondatelo!' : 'Olio bollente, presto!', atk ? '#8a5a1a' : '#8a1a1a'); bell(); }
     else if (e.k === 'gate50') { ann(G, '🚪 IL PORTONE STA CEDENDO!', atk ? 'Ancora qualche colpo!' : 'Tenete duro!', '#8a3a1a'); bell(); }
     else if (e.k === 'lever') { if (!atk) { ann(G, '⚙️ NEMICO ALL\'ARGANO!', 'Sta aprendo il portone: fermatelo!', '#8a1a1a'); bell(); } else if (A === me) t = '⚙️ Gira l\'argano: resta fermo!'; }
@@ -654,7 +664,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const swish = () => { beep(900, 0.05, 0.015, 0, 'sawtooth'); beep(500, 0.07, 0.015, 0.03, 'sawtooth'); };
   const clang = (v, wood) => { if (wood) { thud(v, 150); beep(240, 0.06, 0.03 * v, 0, 'square'); } else { beep(1250, 0.09, 0.04 * v, 0, 'square'); beep(1870, 0.12, 0.025 * v, 0.01, 'triangle'); } };
   // piccoli effetti sulla mappa (colpi, schegge, polvere): solo da disegnare, su ogni telefono
-  function fxAdd(G, k, x, y) { (G.fx = G.fx || []).push({ k, x, y, t0: performance.now() }); if (G.fx.length > 24) G.fx.shift(); }
+  function fxAdd(G, k, x, y, t) { (G.fx = G.fx || []).push({ k, x, y, t, t0: performance.now() }); if (G.fx.length > 24) G.fx.shift(); }
 
   // ======================= AZIONI (pulsante grande) =======================
   const nearLever = (x, y) => Math.hypot(x - LEV.x - 0.5, y - LEV.y - 0.5) < 1.45;
@@ -665,6 +675,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     if (c.pu) return { k: c.pu.k, t: c.pu.k === 'lever' ? '⚙️ Giro l\'argano…' : c.pu.k === 'fix' ? '🔧 Riparo…' : '🤚 Rovescio…', on: false };
     if (atk) {
       if (carry) { const s = nearSpot(G, p.x, p.y); return s >= 0 ? { k: 'place', s, t: '🪜 Appoggia la scala', on: true } : { k: 'ldrop', t: '🪜 Lascia la scala', on: true }; }
+      if (atGate(G) && inRamZone(G, p)) { const k = c === G.me && G.chg ? Math.min(1, (performance.now() - G.chg) / 1000 / CH_T) : chgK(G, c); return { k: 'ram', t: k > 0 ? '🐏 ' + Math.round(k * 100) + '% · lascia!' : '🐏 Tieni premuto: carica!', on: true }; }
       if (G.ph === 1 && !G.gopen && z === 'wall' && nearLever(p.x, p.y)) return { k: 'lever', t: '⚙️ Apri il portone!', on: true };
       const top = nearLadTop(G, p.x, p.y); if (top && z === 'wall') return { k: 'down', l: top, t: '🧗 Scendi', on: true };
       const js = z === 'wall' ? jumpAt(G, p.x, p.y) : -1; if (js >= 0) return { k: 'jump', s: js, t: '🪂 Salta giù (−1 ❤)', on: true };
@@ -719,19 +730,42 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   }
 
   // ======================= ARIETE, OLIO, ZONE (host) =======================
+  // L'ARIETE e' SOLIDO (caselle x 28-30 sotto di lui: ramCells) e si SPINGE COL CORPO: chi gli sta attaccato dietro (ramZone) lo spinge, piu' siete piu' va.
+  // Al portone si CARICA il colpo: tieni premuto (c.rc = quando ho cominciato), lasci = colpo; chi lascia insieme (entro RAM_WIN) fa il colpo di squadra.
+  const ramBack = R => Math.floor(R.y + 1.7) + 1;
+  const ramCells = R => { const L = []; for (let y = Math.floor(R.y - 1.8); y < ramBack(R); y++) for (let x = 28; x <= 30; x++) L.push([x, y]); return L; };
+  const inRamZone = (G, p) => { const Yb = ramBack(G.rm); return p.x > 27.55 && p.x < 31.45 && p.y >= Yb - 0.1 && p.y < Yb + 1.6; };
+  const atGate = G => G.ph === 1 && !G.gopen && G.rm.y <= RAM_Y1 + 0.05;
+  const chgK = (G, c) => c.rc ? Math.min(1, (G.time - c.rc) / CH_T) : 0;
   function ramTick(G, dt) {
     if (G.ph !== 1 || G.gopen) return;
-    const R = G.rm, push = G.chars.filter(c => { if (!c.alive || dead(G, c) || !isAtk(G, c) || c.cl) return false; const p = P(c); return Math.abs(p.x - RAM_X) < 1.9 && p.y > R.y - 1.2 && p.y < R.y + RAM_R; });
+    const R = G.rm, push = G.chars.filter(c => c.alive && !dead(G, c) && isAtk(G, c) && !c.cl && inRamZone(G, P(c)));
     R.n = push.reduce((s, c) => s + (clsOf(c) === 'n' ? 2 : 1), 0); for (const c of push) c.rmT = (c.rmT || 0) + dt;   // il genio spinge per due
-    if (!R.n) return;
-    if (R.y > RAM_Y1) { R.y = Math.max(RAM_Y1, R.y - (0.35 + 0.2 * Math.min(3, R.n)) * dt); if (R.y === RAM_Y1) say(G, 'ramgate', {}); return; }
-    if (G.time >= R.nx) {
-      R.nx = G.time + HIT_T; R.hit = G.time; const before = G.gh;
-      G.gh = Math.max(0, G.gh - (5 + 3 * (Math.min(3, R.n) - 1)));
-      say(G, 'ram', { x: RAM_X, y: R.y - 1.5 });
-      if (before > GATE_HP / 2 && G.gh <= GATE_HP / 2) say(G, 'gate50', {});
-      if (G.gh <= 0) openGate(G, push[0]);
+    for (const c of G.chars) if (c.rc && (!push.includes(c) || !atGate(G))) c.rc = 0;   // uscito da dietro l'ariete: carica persa
+    R.pl = push.reduce((m, c) => Math.max(m, chgK(G, c)), 0);
+    if (R.y > RAM_Y1) {
+      if (!R.n) return;
+      R.y = Math.max(RAM_Y1, R.y - (0.25 + 0.22 * Math.min(4, R.n)) * dt);
+      // chi e' davanti all'ariete viene spostato di lato (non ci finisce dentro)
+      const y0 = R.y - 1.8; for (const c of G.chars) { if (!c.alive || dead(G, c) || c.cl) continue; const p = P(c); if (p.x > 27.7 && p.x < 31.3 && p.y > Math.floor(y0) - 0.35 && p.y < y0 + 0.6) tp(G, c, p.x < RAM_X ? 27.4 : 31.6, p.y); }
+      if (R.y === RAM_Y1) say(G, 'ramgate', {});
+      return;
     }
+    if (R.win && G.time >= R.win.e) {   // il colpo: piu' carica = piu' danno, in squadra di piu'
+      const W2 = R.win; R.win = null; R.cd = G.time + RAM_CD; R.hit = G.time; const before = G.gh;
+      G.gh = Math.max(0, G.gh - (2 + 6 * W2.s * (W2.n > 1 ? 1.2 : 1)));
+      say(G, 'ram', { x: RAM_X, y: R.y - 1.5, n: W2.n, s: r1(W2.s) });
+      if (before > GATE_HP / 2 && G.gh <= GATE_HP / 2) say(G, 'gate50', {});
+      if (G.gh <= 0) openGate(G, byId(G, W2.ids[0]));
+    }
+  }
+  function ramCharge(G, c) { if (!atGate(G) || c.rc || !isAtk(G, c) || dead(G, c) || !inRamZone(G, P(c))) return; c.rc = G.time; }
+  function ramRelease(G, c, p) {
+    if (!c.rc) return; const mx = chgK(G, c); c.rc = 0;
+    if (!atGate(G) || !inRamZone(G, P(c))) return;
+    const k = p != null ? Math.max(0, Math.min(mx + 0.25, 1, p)) : mx; if (k < 0.12) return;
+    const R = G.rm; c.rhN = (c.rhN || 0) + 1;
+    if (R.win) { R.win.s += k; R.win.n++; R.win.ids.push(c.id); } else R.win = { e: Math.max(G.time, R.cd || 0) + RAM_WIN, s: k, n: 1, ids: [c.id] };
   }
   // il genio ripara il portone da dentro mentre l'ariete lo colpisce (piu' genii, un po' piu' veloce)
   function fixTick(G, dt) {
@@ -764,15 +798,15 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   // ======================= I TEMPI =======================
   function setupHalf(G) {
     G.hs = G.time; G.ar = []; G.bodies = []; G.ph = 1; G.lim = G.opt.time || 240; G.gh = GATE_HP; G.gopen = false; G.zp = 0; G.zc = 0; G.za = G.zd = 0;
-    G.rm = { y: RAM_Y0, n: 0, nx: 0, hit: -9 }; G.oil = [0, 0]; G.burn = null; G.best = G.best || [0, 0];
+    G.rm = { y: RAM_Y0, n: 0, nx: 0, hit: -9, pl: 0, win: null, cd: 0 }; G.oil = [0, 0]; G.burn = null; G.best = G.best || [0, 0];
     G.ld = []; for (let i = 0; i < NLAD; i++) G.ld.push({ st: 0, c: -1, s: -1, x: 0, y: 0 });
-    G.bw = []; G.bwN = G.bwN || 0;
+    G.bw = []; G.bwN = G.bwN || 0; G.gopen = false; syncMap(G);   // l'ariete solido subito: nessuno ricompare dentro di lui
     // i personaggi del computer: compito e classe (chi attacca: guerriero e genio all'ariete, guerriero con la scala, arcieri; chi difende: genio all'olio, arcieri, genio al portone, guerriero)
     const A = G.chars.filter(c => isAtk(G, c) && c.bot), D = G.chars.filter(c => !isAtk(G, c) && c.bot);
     const RA = [['ram', 'g'], ['ram', 'n'], ['lad', 'g'], ['arc', 'a'], ['arc', 'a'], ['ram', 'g'], ['arc', 'a'], ['lad', 'n']], RD = [['oil', 'n'], ['wal', 'a'], ['wal', 'a'], ['fix', 'n'], ['wal', 'g'], ['wal', 'a'], ['wal', 'g'], ['wal', 'a']];
     A.forEach((c, i) => { [c.role, c.cls] = RA[i % RA.length]; c.ncls = null; });
     D.forEach((c, i) => { [c.role, c.cls] = RD[i % RD.length]; c.ncls = null; });
-    for (const c of G.chars) { if (CL[c.ncls]) c.cls = c.ncls; c.hp = maxHp(c); c.dn = 0; c.sf = 0; c.cl = null; c.pu = null; c.sd = 0; c.rl = 0; c.bwT = 0; c.post = null; c.sp = null; const p = baseSpawn(G, c); tp(G, c, p.x, p.y); }
+    for (const c of G.chars) { if (CL[c.ncls]) c.cls = c.ncls; c.hp = maxHp(c); c.dn = 0; c.sf = 0; c.cl = null; c.pu = null; c.sd = 0; c.rc = 0; c.rl = 0; c.bwT = 0; c.post = null; c.sp = null; const p = baseSpawn(G, c); tp(G, c, p.x, p.y); }
   }
   function endHalf(G, done) {
     const t = atkT(G); G.res[G.half - 1] = { done: !!done, t: hT(G), s: score(G) }; G.best[t] = score(G);
@@ -811,7 +845,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     if (tgt) { if ((c.rl || 0) <= G.time) melee(G, c); return; }
     if (k === 'n') { const b = G.bw.find(b => b.t !== c.t && Math.hypot(b.x + 0.5 - p.x, b.y + 0.5 - p.y) < 1.3); if (b && (c.rl || 0) <= G.time) melee(G, c); return; }
     const th = enemies(G, c).some(e => clsOf(e) === 'a' && Math.hypot(P(e).x - p.x, P(e).y - p.y) < 12.5 && !dead(G, e));
-    const busy = c.role === 'ram' && G.ph === 1 && Math.abs(p.x - RAM_X) < 1.9 && p.y > G.rm.y - 1.2 && p.y < G.rm.y + RAM_R;
+    const busy = c.role === 'ram' && G.ph === 1 && inRamZone(G, p);
     c.sd = th && (busy || Math.random() < 0.45) ? 1 : 0;
   }
   // il genio del computer pianta una barricata verso i nemici, se ha la carica e la casella va bene
@@ -855,7 +889,10 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
         if (G.ld.some(l => l.st === 0)) { if (act('take')) return; go(c, RK.x + 0.5, RK.y + 1.5); return; }
       }
       // all'ariete (chi spinge e chi da' una mano quando non spinge nessuno)
-      if (c.role === 'ram' || (G.rm.n < 2 && c.role !== 'lad' && Math.random() < 0.3)) { const ox = (c.id % 2 ? -0.7 : 0.7); go(c, RAM_X + ox, Math.min(RAM_Y0 + 1, G.rm.y + 1.6)); return; }
+      if (c.role === 'ram' || (G.rm.n < 2 && c.role !== 'lad' && Math.random() < 0.3)) {
+        if (atGate(G) && inRamZone(G, P(c))) { if (!c.rc) { ramCharge(G, c); c.rcT = 0.7 + Math.random() * 0.3; } else if (chgK(G, c) >= c.rcT || (G.rm.win && Math.random() < 0.7)) ramRelease(G, c); c.path = []; return; }
+        go(c, RAM_X + [-0.9, 0, 0.9][c.id % 3], ramBack(G.rm) + 0.45); return;
+      }
       // arciere: si mette a tiro delle mura dietro un riparo
       if (!c.post || Math.random() < 0.03) { const lim = G.rm.y + 4; const L2 = ARC1.filter(p => p[1] < lim + 6); c.post = rnd(L2.length ? L2 : ARC1); }
       go(c, c.post[0], c.post[1]); return;
@@ -925,14 +962,19 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       return `<b style="color:${T.l}">${T.e} ${atk ? '⚔️ Attaccate' : '🛡️ Difendete'}</b> · ${steps} ${pr} · ⏱ <b>${mmss(left)}</b>` + (r0 ? ` · 🎯 ${r0.done ? mmss(r0.t) : scoreTxt(r0.s)}` : '');
     },
     hide: c => dead(cq.g, c),
+    view: G => G.vw && (G.vw.z < 0.995 || Math.abs(G.vw.x) + Math.abs(G.vw.y) > 0.02) ? G.vw : null,   // visuale allargata mentre miro (motore: M.view)
     nameCol: c => c.t != null ? TEAMS[c.t].l : null,
     voice: SQ.voice,
     btn(G) { if (G.guest && !G.ready) return null; const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
-    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return; beep(520, 0.04, 0.02); if (G.guest) { cqNetSend({ k: 'a', a: a.k, x: a.x, y: a.y }); if (a.k === 'climb') { const S = MP().spots[a.l.s]; cq.x = S.ax; cq.y = S.ay; } } else doAct(G, me, { k: a.k, x: a.x, y: a.y }); },
+    act(G) { const me = G.me, a = action(G, me); if (!a || !a.on) return;
+      if (a.k === 'ram') { if (G.chg) return; G.chg = performance.now(); beep(180, 0.12, 0.03, 0, 'sawtooth'); if (G.guest) { cqNetSend({ k: 'rc' }); me.rc = G.time; } else ramCharge(G, me); return; }   // si lascia con ramLet
+      beep(520, 0.04, 0.02); if (G.guest) { cqNetSend({ k: 'a', a: a.k, x: a.x, y: a.y }); if (a.k === 'climb') { const S = MP().spots[a.l.s]; cq.x = S.ax; cq.y = S.ay; } } else doAct(G, me, { k: a.k, x: a.x, y: a.y }); },
     ev(G, c, o) {
       if (!o) return;
       if (o.k === 'a') doAct(G, c, { k: o.a, x: o.x, y: o.y });
       if (o.k === 'ml') melee(G, c);
+      if (o.k === 'rc') ramCharge(G, c);
+      if (o.k === 'rh') ramRelease(G, c, +o.p || 0);
       if (o.k === 'sd') c.sd = o.on && clsOf(c) === 'g' && canHit(G, c) ? 1 : 0;
       if (o.k === 'cls') setCls(G, c, o.c);
       if (o.k === 'sh' && !dead(G, c) && (c.rl || 0) <= G.time + 0.25 && canShoot(G, c)) mkArrow(G, c, o.x, o.y, o.q);
@@ -951,6 +993,10 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       { const z = zoneAt(cq.x, cq.y), r = roomAt(cq.x, cq.y), R = r >= 0 ? MP().rooms[r] : null, n = z === 'wall' ? (R && R.ala === 'T' ? 'Torre' : 'Mura') : R ? R.n : '';
         if (n && n !== G.myZn) { if (G.myZn != null && n !== 'Borgo' && n !== 'Strada maestra' && n !== 'Portone') G.zn = { n, t: performance.now() }; G.myZn = n; } }
       bowUI(G); clsUI(G);
+      // carica dell'ariete persa se mi sposto da dietro o se il portone cade
+      if (G.chg && (!atGate(G) || !inRamZone(G, { x: cq.x, y: cq.y }) || dead(G, me))) { G.chg = 0; if (G.guest) cqNetSend({ k: 'rh', p: 0 }); me.rc = 0; }
+      if (G.gopen && !G.goT) G.goT = performance.now(); if (!G.gopen) G.goT = 0;
+      G.vw = viewTick(G, dt);
       // l'amico dice all'host che classe ha scelto (una volta, appena entra)
       if (G.guest && G.ready && G.clsSent !== myCls()) { G.clsSent = myCls(); cqNetSend({ k: 'cls', c: myCls() }); }
       // guerriero: tenendo premuto il pulsante si alza lo scudo
@@ -995,7 +1041,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       SQ.end(G, w, why + funny(G, w), line, sc);
     },
     csnap: c => { const G = cq.g; return [c.t, c.hp == null ? maxHp(c) : c.hp, r1(Math.max(0, (c.dn || 0) - G.time)), r1(Math.max(0, (c.sf || 0) - G.time)), c.cl ? [c.cl.s, c.cl.d, r2(c.cl.t0 - G.time), c.cl.T] : 0, c.pu ? [['push', 'lever', 'fix'].indexOf(c.pu.k), r1(c.pu.e - G.time)] : 0, c.tpN || 0, c.tp || 0, r1(Math.max(0, (c.rl || 0) - G.time)), [c.k || 0, c.d || 0, c.lp || 0, c.pn || 0, c.cap || 0, Math.round(c.rmT || 0), Math.round(c.zt || 0), c.oN || 0, c.lvN || 0],
-      [clsOf(c), c.ncls || 0, c.sd ? 1 : 0, r1(c.sdA || 0), c.sw ? r2(Math.min(9, G.time - c.sw)) : 9, r1(c.swA || 0), r1(Math.max(0, (c.bwT || 0) - G.time))], [c.mh || 0, c.blk || 0, c.bN || 0, c.bk || 0, Math.round(c.fxT || 0)]]; },
+      [clsOf(c), c.ncls || 0, c.sd ? 1 : 0, r1(c.sdA || 0), c.sw ? r2(Math.min(9, G.time - c.sw)) : 9, r1(c.swA || 0), r1(Math.max(0, (c.bwT || 0) - G.time))], [c.mh || 0, c.blk || 0, c.bN || 0, c.bk || 0, Math.round(c.fxT || 0)], c.rc ? r2(G.time - c.rc) : 0]; },
     capply(G, c, a) {
       c.t = a[0]; c.hp = a[1]; const was = !!c.dn && c.dn > G.time; c.dn = a[2] > 0 ? G.time + a[2] : 0; c.sf = a[3] > 0 ? G.time + a[3] : 0;
       if (was && !c.dn) c.angel = G.time;
@@ -1004,18 +1050,19 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       [c.k, c.d, c.lp, c.pn, c.cap, c.rmT, c.zt, c.oN, c.lvN] = a[9];
       if (a[10]) { const v = a[10]; c.cls = v[0]; if (c !== G.me || !G.clsT || performance.now() - G.clsT > 1500) c.ncls = v[1] || null; if (c !== G.me || !G.sdT || performance.now() - G.sdT > 500) { c.sd = v[2]; } c.sdA = v[3]; if (v[4] < 9 && (c !== G.me || !G.shotT || performance.now() - G.shotT > 600)) c.sw = G.time - v[4]; c.swA = v[5]; c.bwT = G.time + v[6]; }
       if (a[11]) [c.mh, c.blk, c.bN, c.bk, c.fxT] = a[11];
+      if (c !== G.me || !G.chg) c.rc = a[12] ? G.time - a[12] : 0;
       if (c === G.me) { if (!G.ready) { G.ready = 1; G.myTp = c.tpN; } else if (c.tpN !== G.myTp) { G.myTp = c.tpN; if (c.tp) { cq.x = c.tp[0]; cq.y = c.tp[1]; } } }
     },
     snap(G) {
       return { lg: G.lg, h: G.half, hs: r1(G.time - G.hs), iv: r1(Math.max(0, G.iv - G.time)), res: G.res, a0: G.a0, li: G.lit, bs: G.best,
-        ph: G.ph, lim: G.lim, gh: Math.round(G.gh), go: G.gopen ? 1 : 0, zp: r2(G.zp), za: G.za || 0, zd: G.zd || 0, rm: [r2(G.rm.y), G.rm.n, r1(G.rm.hit - G.time)], oil: G.oil.map(t => r1(t - G.time)), bu: G.burn ? [r1(G.burn.t0 - G.time), r1(G.burn.e - G.time)] : 0,
+        ph: G.ph, lim: G.lim, gh: Math.round(G.gh), go: G.gopen ? 1 : 0, zp: r2(G.zp), za: G.za || 0, zd: G.zd || 0, rm: [r2(G.rm.y), G.rm.n, r1(G.rm.hit - G.time), r2(G.rm.pl || 0)], oil: G.oil.map(t => r1(t - G.time)), bu: G.burn ? [r1(G.burn.t0 - G.time), r1(G.burn.e - G.time)] : 0,
         ld: G.ld.map(l => [l.st, l.c, l.s, l.x || 0, l.y || 0]), bw: (G.bw || []).map(b => [b.x, b.y, b.t, b.hp, b.o]),
         ar: G.ar.filter(a => G.time - a.t0 < 3).map(a => [a.id, a.o, a.q, r2(a.x0), r2(a.y0), r2(a.z0), r2(a.x1), r2(a.y1), r2(a.z1), r2(a.t0 - G.time), r2(a.d), r2(a.pk), a.te ? r2(a.te - G.time) : 0, a.hit, a.te ? [r2(a.hx), r2(a.hy), r2(a.hz)] : 0, a.t]),
         bd: G.bodies.map(b => [b.id, r2(b.x), r2(b.y), b.face, r1(b.t - G.time)]) };
     },
     apply(G, x) {
       G.half = x.h; G.hs = G.time - x.hs; G.iv = x.iv > 0 ? G.time + x.iv : 0; G.res = x.res; G.a0 = x.a0; G.lit = x.li; G.best = x.bs;
-      G.ph = x.ph; G.lim = x.lim; G.gh = x.gh; G.gopen = !!x.go; G.zp = x.zp; G.za = x.za; G.zd = x.zd; G.rm = { y: x.rm[0], n: x.rm[1], hit: G.time + x.rm[2] }; G.oil = x.oil.map(v => G.time + v); G.burn = x.bu ? { t0: G.time + x.bu[0], e: G.time + x.bu[1], hit: [] } : null;
+      G.ph = x.ph; G.lim = x.lim; G.gh = x.gh; G.gopen = !!x.go; G.zp = x.zp; G.za = x.za; G.zd = x.zd; G.rm = { y: x.rm[0], n: x.rm[1], hit: G.time + x.rm[2], pl: x.rm[3] || 0 }; G.oil = x.oil.map(v => G.time + v); G.burn = x.bu ? { t0: G.time + x.bu[0], e: G.time + x.bu[1], hit: [] } : null;
       G.ld = x.ld.map(a => ({ st: a[0], c: a[1], s: a[2], x: a[3], y: a[4] }));
       G.bw = (x.bw || []).map(a => ({ x: a[0], y: a[1], t: a[2], hp: a[3], o: a[4] }));
       for (const v of x.ar) { const o = { id: v[0], o: v[1], q: v[2], x0: v[3], y0: v[4], z0: v[5], x1: v[6], y1: v[7], z1: v[8], t0: G.time + v[9], d: v[10], pk: v[11], te: v[12] ? G.time + v[12] : 0, hit: v[13], t: v[15] }; if (v[14]) [o.hx, o.hy, o.hz] = v[14]; const old = G.ar.find(a => a.id === o.id); if (old) Object.assign(old, { te: o.te, hit: o.hit, hx: o.hx, hy: o.hy, hz: o.hz }); else G.ar.push(o); }
@@ -1040,12 +1087,13 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (lad) { g.save(); g.translate(X, Y - TW * 1.05); g.rotate(-0.38 * f); g.strokeStyle = '#8a5a2a'; g.lineWidth = Math.max(2.5, TW / 14); g.beginPath(); for (const s of [-0.12, 0.12]) { g.moveTo(-TW * 0.95, s * TW); g.lineTo(TW * 0.95, s * TW); } g.stroke(); g.strokeStyle = '#b07a40'; g.lineWidth = Math.max(2, TW / 20); g.beginPath(); for (let i = -4; i <= 4; i++) { g.moveTo(i * TW * 0.2, -0.12 * TW); g.lineTo(i * TW * 0.2, 0.12 * TW); } g.stroke(); g.restore(); }
       const dr = c.cl ? MODE.draw(c) : null, top = Y - TW * (dr ? dr.top : cqTop(L)) - 15, hp = c.hp == null ? maxHp(c) : c.hp, sh = c.hitT && G.time - c.hitT < 0.35 ? Math.sin((G.time - c.hitT) * 60) * 2 : 0;
       hearts(g, X + sh, top, hp, safe(G, c), maxHp(c));
+      { const ck = c === G.me && G.chg ? Math.min(1, (performance.now() - G.chg) / 1000 / CH_T) : chgK(G, c); if (ck > 0) { const bw = 44, full = ck >= 1; g.fillStyle = 'rgba(0,0,0,.65)'; cqRR(g, X - bw / 2 - 2, top - 16, bw + 4, 10, 5); g.fill(); g.fillStyle = full ? (Math.sin(performance.now() / 70) > 0 ? '#fff0a0' : '#ffc030') : '#ff8a30'; cqRR(g, X - bw / 2, top - 14, bw * ck, 6, 3); g.fill(); } }
       if (c.pu) { const T = c.pu.k === 'lever' ? LEVER : PUSH, k = c.pu.k === 'fix' ? G.gh / GATE_HP : Math.max(0, Math.min(1, 1 - (c.pu.e - G.time) / T)), bw = 38; g.fillStyle = 'rgba(0,0,0,.6)'; cqRR(g, X - bw / 2 - 2, top - 14, bw + 4, 8, 4); g.fill(); g.fillStyle = c.pu.k === 'lever' ? '#e8c040' : c.pu.k === 'fix' ? '#7ad070' : '#ffb040'; cqRR(g, X - bw / 2, top - 12, bw * k, 4, 2); g.fill(); }
     },
     extras(G) {
       const out = [];
-      if (G.rm && (G.ph === 1 || G.rm.y <= RAM_Y1 + 0.1)) {   // l'ARIETE (disegnato in profondita' come un personaggio)
-        if (!MODE.__rd) { MODE.__rd = (g, X, Y, TW) => ramDraw(g, X, Y, TW, cq.g); MODE.__rd.top = 2.2; }
+      if (G.rm && (!G.gopen || (G.goT && performance.now() - G.goT < 1200))) {   // l'ARIETE (disegnato in profondita' come un personaggio); a portone caduto sparisce piano
+        if (!MODE.__rd) { MODE.__rd = (g, X, Y, TW) => { const G2 = cq.g, a = G2.gopen ? Math.max(0, 1 - (performance.now() - G2.goT) / 1200) : 1; if (a <= 0) return; g.save(); g.globalAlpha = a; ramDraw(g, X, Y, TW, G2); g.restore(); }; MODE.__rd.top = 2.2; }
         out.push({ x: RAM_X, y: G.rm.y, L: null, w: 0, f: 1, name: null, all: true, dr: MODE.__rd });
       }
       if (!MODE.__cb) { MODE.__cb = (g, X, Y, TW) => banner(g, X, Y, TW, TEAMS[atkT(cq.g)].c, performance.now() / 1000); MODE.__cb.top = 1.5; }
@@ -1054,7 +1102,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     },
     over(g, G, sx, sy, TW) {
       if (G.guest && !G.ready) return;
-      const me = G.me, W2 = cq.w, H2 = cq.h, now = performance.now() / 1000, U = TW * 0.575, near = (x, y, r) => Math.abs(x - cq.x) < r && Math.abs(y - cq.y) < r;
+      const me = G.me, W2 = cq.w / (cq.vz || 1), H2 = cq.h / (cq.vz || 1), now = performance.now() / 1000, U = TW * 0.575, near = (x, y, r) => Math.abs(x - cq.x) < r && Math.abs(y - cq.y) < r;
       const SX = (x, y) => sx(x, y), SY = (x, y, z) => sy(x, y) + cqZpx(x, y, TW) - z * U;
       const MN = MODE.night(G);
       if (G.lit === 's') { g.fillStyle = 'rgba(255,120,50,.07)'; g.fillRect(0, 0, W2, H2); }
@@ -1106,9 +1154,10 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (G.fx && G.fx.length) {
         const t1 = performance.now();
         for (const e of G.fx) {
-          const k = (t1 - e.t0) / (e.k === 'hit' ? 650 : 600); if (k >= 1 || !near(e.x, e.y, 24)) continue; const X = SX(e.x, e.y), Y = SY(e.x, e.y, zAt(e.x, e.y));
+          const k = (t1 - e.t0) / (e.k === 'hit' ? 650 : e.k === 'txt' ? 1400 : 600); if (k >= 1 || !near(e.x, e.y, 24)) continue; const X = SX(e.x, e.y), Y = SY(e.x, e.y, zAt(e.x, e.y));
           g.globalAlpha = 1 - k;
-          if (e.k === 'hit') { g.fillStyle = '#ff4a3a'; for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2; g.beginPath(); g.arc(X + Math.cos(t) * k * TW * 0.4, Y - TW * 0.8 + Math.sin(t) * k * TW * 0.3, 2.6, 0, 7); g.fill(); }
+          if (e.k === 'txt') { g.font = '900 16px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 4; g.strokeStyle = 'rgba(40,20,0,.75)'; const ty = Y - TW * (2.6 + k * 0.8); g.strokeText(e.t, X, ty); g.fillStyle = '#ffd040'; g.fillText(e.t, X, ty); }
+          else if (e.k === 'hit') { g.fillStyle = '#ff4a3a'; for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2; g.beginPath(); g.arc(X + Math.cos(t) * k * TW * 0.4, Y - TW * 0.8 + Math.sin(t) * k * TW * 0.3, 2.6, 0, 7); g.fill(); }
             g.font = '800 14px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.6)'; g.strokeText('-1 ❤', X, Y - TW * (1.2 + k * 0.6)); g.fillStyle = '#ff6a5a'; g.fillText('-1 ❤', X, Y - TW * (1.2 + k * 0.6)); }
           else if (e.k === 'dust') { g.fillStyle = '#c8b898'; for (let i = 0; i < 6; i++) { const t = i / 6 * Math.PI * 2; g.beginPath(); g.arc(X + Math.cos(t) * TW * (0.3 + k * 0.5), Y + Math.sin(t) * TW * (0.15 + k * 0.25), TW * (0.12 + k * 0.1), 0, 7); g.fill(); } }
           else { g.fillStyle = '#9a6c40'; const n = e.k === 'wreck' ? 10 : 5; for (let i = 0; i < n; i++) { const t = i / n * Math.PI * 2 + 0.5, r = TW * (0.2 + k * 0.6); g.fillRect(X + Math.cos(t) * r - 2, Y - TW * 0.5 + Math.sin(t) * r * 0.6 + k * k * TW * 0.6, 5, 3); } }
@@ -1148,9 +1197,11 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       }
       if (!dead(G, me) && !inIv(G)) { const o = objective(G); if (o) SQ.edge(g, sx(o.x, o.y), sy(o.x, o.y) - TW, W2, H2, o.i, o.c); }
       if (G.myHurt && performance.now() - G.myHurt < 450) { const k = 1 - (performance.now() - G.myHurt) / 450; g.strokeStyle = 'rgba(230,30,30,' + (0.55 * k) + ')'; g.lineWidth = 16; g.strokeRect(0, 0, W2, H2); }
+      { const W2 = cq.w, H2 = cq.h; g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0);   // scritte e radar in pixel dello schermo (anche con la visuale allargata)
       if (G.zn) { const t = performance.now() - G.zn.t; if (t < 2200) { const a = Math.min(1, t / 200, (2200 - t) / 500); g.globalAlpha = a; const tx = G.zn.n.toUpperCase(); g.font = '800 13px system-ui,sans-serif'; const w = g.measureText(tx).width + 26; g.fillStyle = 'rgba(20,18,16,.7)'; cqRR(g, W2 / 2 - w / 2, H2 * 0.62 - 14, w, 28, 10); g.fill(); g.fillStyle = '#f2e2b8'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, W2 / 2, H2 * 0.62); g.globalAlpha = 1; } else G.zn = null; }
       annDraw(g, G, W2, H2);
       minimap(g, G, W2);
+      g.restore(); }
     }
   };
   // l'obiettivo del momento (freccia sul bordo)
@@ -1160,7 +1211,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     if (isAtk(G, me)) {
       if (G.ld.some(l => l.st === 1 && l.c === me.id)) { const s = M.spots.find((S, i) => spotFree(G, i) && spotOk(S)); return s ? { x: s.ax, y: s.ay, i: '🪜', c: T.c } : null; }
       if (z !== 'out') return { x: LEV.x + 0.5, y: LEV.y + 0.5, i: '⚙️', c: T.c };
-      return { x: RAM_X, y: G.rm.y, i: '🐏', c: T.c };
+      return { x: RAM_X, y: ramBack(G.rm) + 0.5, i: '🐏', c: T.c };
     }
     const lv = G.chars.find(c => c.pu && c.pu.k === 'lever'); if (lv) return { x: LEV.x + 0.5, y: LEV.y + 0.5, i: '⚙️', c: '#e04030' };
     const l = G.ld.filter(l => l.st === 2).sort((a, b) => Math.hypot(M.spots[a.s].tx - cq.x, M.spots[a.s].ty - cq.y) - Math.hypot(M.spots[b.s].tx - cq.x, M.spots[b.s].ty - cq.y))[0];
@@ -1174,7 +1225,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     const poly = (pts, col) => { g.fillStyle = col; g.beginPath(); pts.forEach((p, i) => { const [a, b] = Pp(...p); i ? g.lineTo(a, b) : g.moveTo(a, b); }); g.closePath(); g.fill(); };
     const ln = (a, b, col, w) => { const [x1, y1] = Pp(...a), [x2, y2] = Pp(...b); g.strokeStyle = col; g.lineWidth = w; g.beginPath(); g.moveTo(x1, y1); g.lineTo(x2, y2); g.stroke(); };
     const at = G.ph === 1 && G.rm.y <= RAM_Y1 + 0.05, sw = at ? Math.max(0, 1 - (G.time - G.rm.hit) / 0.35) : 0, push = G.rm.n > 0, sway = push ? Math.sin(performance.now() / 160) * 0.06 : 0;
-    const head = -1.85 - 0.45 * sw + (at ? 0.3 : 0) + sway;
+    const head = -1.85 - 0.45 * sw + (at ? 0.3 + 0.6 * (G.rm.pl || 0) * (1 - sw) : 0) + sway;   // caricando, il tronco si tira indietro
     g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(X, Y + TW * 0.08, TW * 1.75, TW * 0.8, 0, 0, 7); g.fill();
     // il tronco con la testa di montone (dietro, verso il portone)
     ln([0, head + 0.25, 0.95], [0, 1.4, 0.95], '#5a3818', TW * 0.34); ln([0, head + 0.25, 1.05], [0, 1.4, 1.05], '#7a5028', TW * 0.12);
@@ -1347,7 +1398,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   }
   const HELP = [
     ['🏰', 'Lo scopo', 'Due squadre, <b>due tempi</b>: una <b>attacca</b> il castello, l\'altra lo <b>difende</b>, poi si cambia. L\'assalto ha <b>3 fasi</b>: 🚪 il portone, ⚔️ il cortile, 👑 la sala del trono. Ogni fase conquistata dà <b>tempo in più</b> e chi attacca riparte più avanti.'],
-    ['🐏', 'Il portone', 'Chi attacca <b>spinge l\'ariete</b> (stai vicino: più siete, più va veloce) fino al portone e lo sfonda a colpi. Oppure: prendi una <b>scala</b> 🪜 all\'accampamento, appoggiala alle mura, sali e gira l\'<b>argano</b> ⚙️ sulla torre del portone (resta fermo 5 secondi).'],
+    ['🐏', 'Il portone', 'Chi attacca <b>spinge l\'ariete col corpo</b> (camminaci contro da dietro: più siete, più va veloce). Al portone <b>tieni premuto 🐏</b> per caricare e <b>lascia</b>: più carichi, più fa male; se lasciate insieme è un <b>colpo di squadra</b>. Oppure: prendi una <b>scala</b> 🪜 all\'accampamento, appoggiala alle mura, sali e gira l\'<b>argano</b> ⚙️ sulla torre del portone (resta fermo 5 secondi).'],
     ['🔥', 'Difendere il portone', 'Dalle mura tira frecce. Rovescia le scale 🤚 (chi sale cade). Sulle torri del portone c\'è l\'<b>olio bollente</b>: versalo quando l\'ariete è sotto (toglie 2 cuori, poi si ricarica).'],
     ['⚔️', 'Le zone', 'Cortile e trono si conquistano <b>stando nel cerchio</b>: se ci sono solo attaccanti avanza (più siete, più veloce), se ci sono anche difensori è <b>contesa</b> e si ferma. Cacciateli!'],
     ['🎭', 'Le classi', 'Scegli prima di tornare in battaglia (pannello in basso, o il pulsante a sinistra): <b>🗡️ Guerriero</b> spada e 4 cuori, <b>tieni premuto</b> = scudo che para le frecce davanti; <b>🏹 Arciere</b> l\'unico con l\'arco; <b>🔨 Genio</b> martello, pianta <b>🪵 barricate</b>, spinge l\'ariete per due, <b>ripara il portone</b> da dentro e ricarica l\'olio prima.'],
@@ -1406,6 +1457,26 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     const st = sel + (pend ? 1 : 0) + ck;
     if (cp.dataset.s !== st) { cp.dataset.s = st; for (const b of cp.querySelectorAll('button')) { b.classList.toggle('on', b.dataset.k === sel); b.classList.toggle('pend', b.dataset.k === sel && pend); } cb.innerHTML = CL[ck].i + (pend ? '<i></i>' : ''); }
   }
+  // VISUALE CHE SI ALLARGA: mirando lontano la telecamera va verso il punto d'arrivo e si allontana quanto basta per vedere me e lui (dolce, entra ed esce)
+  function viewTick(G, dt) {
+    const V = G.vw || { z: 1, x: 0, y: 0 }, A = G.aim && G.aim.ok && !dead(G, G.me) ? G.aim : null;
+    let tz = 1, tx = 0, ty = 0;
+    if (A) {
+      const dx = A.x - cq.x, dy = A.y - cq.y, TW = Math.max(48, Math.min(cq.w, cq.h) / 8);
+      if (Math.hypot(dx, dy) > 3) { tx = dx * 0.45; ty = dy * 0.45; }
+      const ox = dx - tx, oy = dy - ty, sxa = Math.max(Math.abs((ox - oy) * TW / 2), Math.abs((tx - ty) * TW / 2)), sya = Math.max(Math.abs((ox + oy) * TW / 4), Math.abs((tx + ty) * TW / 4));
+      tz = Math.max(0.55, Math.min(1, (cq.w / 2 - 46) / (sxa || 1), (cq.h / 2 - 150) / (sya || 1)));
+    }
+    const k = 1 - Math.exp(-Math.min(0.1, dt) * 6);
+    V.z += (tz - V.z) * k; V.x += (tx - V.x) * k; V.y += (ty - V.y) * k;
+    return V;
+  }
+  // lascio il pulsante dell'ariete: parte il colpo (forza = quanto ho tenuto premuto)
+  function ramLet(G) {
+    if (!G || !G.chg) return; const p = r2(Math.min(1, (performance.now() - G.chg) / 1000 / CH_T)); G.chg = 0;
+    if (G.guest) { cqNetSend({ k: 'rh', p }); G.me.rc = 0; } else ramRelease(G, G.me, p);
+    if (p >= 0.12) { beep(120, 0.1, 0.04, 0, 'square'); }
+  }
   function autoFire(G) { const me = G.me; let b = null, bd = RMAX; for (const e of enemies(G, me)) { const p = P(e), d = Math.hypot(p.x - cq.x, p.y - cq.y); if (d < bd && MODE.night(G).see(e.x, e.y)) { bd = d; b = p; } } if (b) fire(G, b.x, b.y); }
   function bowUI(G) {
     const el = document.getElementById('asBow'); if (!el) return;
@@ -1453,7 +1524,9 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     bw.addEventListener('pointerup', up); bw.addEventListener('pointercancel', up); bw.oncontextmenu = e => e.preventDefault();
     if (host) host.appendChild(bw);
     window.addEventListener('keydown', e => { const k = e.key && e.key.toLowerCase(), G = cq.g; if (!G || G.mode !== 'assedio' || !cq.on || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; if (k === 'm') G.big = !G.big; if (k === 'f') { if (clsOf(G.me) === 'a') autoFire(G); else meleeMe(G); } if (k === 'q' && !e.repeat && clsOf(G.me) === 'g') setShield(G, 1); if (/^[123]$/.test(k)) pickCls(G, CLK[+k - 1]); });
-    window.addEventListener('keyup', e => { const G = cq.g; if (G && G.mode === 'assedio' && e.key && e.key.toLowerCase() === 'q' && G.sdOn) setShield(G, 0); });
+    window.addEventListener('keyup', e => { const G = cq.g, k = e.key && e.key.toLowerCase(); if (!G || G.mode !== 'assedio') return; if (k === 'q' && G.sdOn) setShield(G, 0); if (k === 'e' || k === 'enter' || k === ' ') ramLet(G); });
+    // il pulsante grande: il motore lo usa alla pressione; il colpo caricato dell'ariete parte quando si lascia
+    { const kb = document.getElementById('cqKill'); if (kb) { const rl = () => { const G = cq.g; if (G && G.mode === 'assedio') ramLet(G); }; for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) kb.addEventListener(ev, rl); } }
     // il pannello delle classi (in basso: compare da solo quando sei a terra, all'intervallo e al via) e il pulsante a sinistra per aprirlo
     const cp = document.createElement('div'); cp.id = 'asCls'; cp.hidden = true;
     cp.innerHTML = '<div class="h">Scegli la classe</div><div class="r">' + CLK.map(k => '<button type="button" data-k="' + k + '"><b>' + CL[k].i + '</b><span>' + CL[k].n + '</span><small>' + CL[k].d + '</small><em>al ritorno</em></button>').join('') + '</div>';
@@ -1477,5 +1550,5 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; }
     }, 200);
   }
-  window.__as = { action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
+  window.__as = { action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, viewTick, ramLet, ramCharge, ramRelease, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
 });
