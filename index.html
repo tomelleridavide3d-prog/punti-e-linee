@@ -321,8 +321,8 @@ details.gList[open] summary::after{content:' ▴'}
 .cv button.sel{border-color:var(--ink)}
 .cv button.ok{opacity:.3}
 .face.sella{background:#8a5a32;border-radius:48% 48% 30% 30%;box-shadow:inset -12px -12px 0 rgba(0,0,0,.15)}
-#instBox{border:2px solid #f2c230;border-radius:14px;padding:12px 14px;margin:0 0 12px;background:var(--card,rgba(242,194,48,.08));font-size:15px;line-height:1.4}
-#instBox .ib{display:flex;gap:8px;margin-top:10px}#instBox .ib .btn{flex:1;justify-content:center;padding:10px}
+#instBox,#pushBox{border:2px solid #f2c230;border-radius:14px;padding:12px 14px;margin:0 0 12px;background:var(--card,rgba(242,194,48,.08));font-size:15px;line-height:1.4}
+.ib{display:flex;gap:8px;margin-top:10px}.ib .btn{flex:1;justify-content:center;padding:10px}
 #ciack .chint{position:absolute;left:0;right:0;bottom:18px;text-align:center;color:var(--muted);font-size:14px;pointer-events:none}
 </style>
 </head>
@@ -351,6 +351,7 @@ details.gList[open] summary::after{content:' ▴'}
   <h1><span>Sviluppo software<small>di Tomelleri Davide</small></span></h1>
   <p class="you" id="homeYou"></p>
   <div id="instBox" hidden></div>
+  <div id="pushBox" hidden></div>
   <button class="gcard" id="gDots"><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><rect x="4" y="7" width="18" height="17" rx="1.2" fill="#8a3a32"/><rect x="2.8" y="5.2" width="20.4" height="2.8" rx="1" fill="#e0b84a"/><g fill="#f2d98a"><rect x="6.5" y="10" width="3" height="3" rx=".5"/><rect x="11.5" y="10" width="3" height="3" rx=".5"/><rect x="16.5" y="10" width="3" height="3" rx=".5"/><rect x="6.5" y="15" width="3" height="3" rx=".5"/><rect x="16.5" y="15" width="3" height="3" rx=".5"/></g><path d="M10.6 24v-4.6q2.4-2.6 4.8 0V24z" fill="#2a1e14"/><path d="M13 5.2V1.2" stroke="#2a2e35" stroke-width="1"/><path d="M13 1.2h4.6l-1.3 1.3 1.3 1.3H13z" fill="#e2553a"/></svg></span>
@@ -1689,7 +1690,7 @@ async function pushSub(ask) {
 }
 async function pushToggle() {
   if (pushOn()) {
-    pushPost('/unsub', { id: store.settings.pushId }); store.settings.pushId = ''; store.settings.pushSig = ''; saveStore();
+    pushPost('/unsub', { id: store.settings.pushId }); store.settings.pushId = ''; store.settings.pushSig = ''; store.settings.pushOff = 1; saveStore();
     // il telefono a volte ci mette tanto a cancellare l'iscrizione: non si aspetta piu' di 3 s (il postino l'ha gia' tolta)
     try { await Promise.race([(async () => { const reg = await navigator.serviceWorker.getRegistration(); const sb = reg && await reg.pushManager.getSubscription(); if (sb) await sb.unsubscribe(); })(), new Promise(r => setTimeout(r, 3000))]); } catch {}
     cqToast('🔕 Avvisi spenti su questo telefono.'); cqNetBox(); return;
@@ -1698,6 +1699,7 @@ async function pushToggle() {
   if (!pushOk()) { cqToast('🔕 Questo browser non può ricevere gli avvisi.'); return; }
   let p = Notification.permission; if (p !== 'granted') p = await Notification.requestPermission();
   if (p !== 'granted') { cqToast('🔕 Permesso negato. Si può dare dalle impostazioni del browser: Notifiche → Consenti.'); return; }
+  store.settings.pushOff = 0; store.settings.pushAsked = 1; saveStore(); pushBoxShow();
   let ok = false; try { ok = await pushSub(true); } catch (e) { console.warn('avvisi:', e); }
   cqToast(ok ? '🔔 Fatto! Quando un amico apre un set compare la campanella.' : '🔕 Non riesco ad attivare gli avvisi: riprova tra poco.');
   cqNetBox();
@@ -1729,6 +1731,18 @@ function pushSend() {
   };
 }
 if (pushOn()) setTimeout(() => pushSub(false).catch(() => {}), 4000);
+// permesso gia' dato ma non iscritto (e mai spento a mano): lo iscrivo senza chiedere
+else if (pushOk() && Notification.permission === 'granted' && !store.settings.pushOff && !/^zz/i.test(store.settings.myName || '')) setTimeout(() => pushSub(true).catch(() => {}), 4000);
+// appena si apre il sito: riquadro con la domanda (il permesso del telefono si puo' chiedere solo dopo un tocco); risposto una volta, non torna
+// (si puo' sempre accendere/spegnere dal pulsante sotto "Crea un set")
+function pushBoxShow() {
+  const b = $('#pushBox'); if (!b) return;
+  if (!pushOk() || pushIOS() || Notification.permission !== 'default' || store.settings.pushAsked || store.settings.pushId) { b.hidden = true; return; }
+  b.innerHTML = '🔔 <b>Vuoi sapere quando un amico apre un set?</b> Ti arriva un avviso senza suono e puoi entrare subito a giocare.<div class="ib"><button class="btn primary" type="button" id="pushYes">🔔 Sì, avvisami</button><button class="btn" type="button" id="pushNo">No grazie</button></div>';
+  b.hidden = false;
+  $('#pushYes').onclick = () => { store.settings.pushAsked = 1; saveStore(); b.hidden = true; pushToggle(); };
+  $('#pushNo').onclick = () => { store.settings.pushAsked = 1; saveStore(); pushBoxShow(); cqToast('Va bene! Puoi accendere gli avvisi quando vuoi dal pulsante 🔕 sotto "Crea un set".'); };
+}
 
 // quanto resta sul sito: la visita (voce 'sito') ha u = ultima volta che c'era (ogni minuto mentre la pagina si vede) e x = ora di USCITA
 // (pagina in sottofondo o chiusa; se cade la connessione la scrive il server). x c'e' = uscito; tornando entro 3 minuti x si toglie
@@ -5925,7 +5939,7 @@ function instShow() {
   };
   $('#instNo').onclick = () => { store.settings.instNo = Date.now() + 3 * 86400000; saveStore(); instShow(); };   // si ripropone tra 3 giorni
 }
-instShow();
+instShow(); pushBoxShow();
 (() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + (CQ_GFX ? ' · grafica ' + CQ_GFX : ''); })();
 
 // ---- avvio ----
