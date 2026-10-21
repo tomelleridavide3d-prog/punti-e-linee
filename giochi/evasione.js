@@ -60,6 +60,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     R('Bosco', 1, 1, 98, 3, 'grass', GRS, HEDGE, { nl: 1, f: 1 });
     R('Prato', 1, 4, 3, 67, 'grass', GRS, HEDGE, { nl: 1, f: 1 });
     R('Prato', 96, 4, 3, 67, 'grass', GRS, HEDGE, { nl: 1, f: 1 });
+    R('Prato', 1, 71, 3, 1, 'grass', GRS, HEDGE, { nl: 1, f: 1 }); R('Prato', 96, 71, 3, 1, 'grass', GRS, HEDGE, { nl: 1, f: 1 });   // fuori si gira tutto intorno al muro
     R('Strada provinciale', 1, 72, 98, 5, 'road', ['#3a3c40', '#383a3e'], HEDGE, { lx: 22, ly: 75.6, f: 1 });
     for (let x = 2; x < 98; x += 3) { const h = Math.sin(x * 12.9898) * 43758.5453, r = h - Math.floor(h); if (r < 0.75) pp(r < 0.5 ? 'pine' : 'oak', x + (r < 0.3 ? 1 : 0), r < 0.4 ? 1 : 2); }
     for (const y of [10, 22, 34, 48, 60]) { pp('pine', 2, y); pp('pine', 97, y + 4); }
@@ -126,7 +127,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     R('Docce', 64, 22, 8, 8, 'shtile', ['#5f7f8c', '#5a7a86'], '#8aa2aa', { ly: 29.4 }); D(67, 30, 2, 1);
     row('shower', 64, 71, 22); row('sbench', 66, 69, 26); L(66, 25); L(70, 25);
     R('Corridoio sud', 52, 31, 20, 2, 'pris2', PRIS2, PAINT, { nl: 1 }); D(51, 31, 1, 2); L(58, 31.5); L(68, 31.5);
-    R('Lavanderia', 73, 22, 18, 12, 'tile', ['#8aa0aa', '#849aa4'], PAINT, { ly: 32.9 }); D(72, 31, 1, 2); D(81, 34, 3, 1);
+    R('Lavanderia', 73, 22, 18, 12, 'tile', ['#8aa0aa', '#849aa4'], PAINT, { ly: 32.9 }); D(72, 31, 1, 2);
     row('washer', 74, 83, 22); row('dryer', 85, 90, 22); row('ftable', 76, 80, 27); for (let y = 26; y <= 29; y++) for (const x of [85, 87, 89]) pp('sheet', x, y, { k: (x + y) % 3 });
     pp('lcart', 75, 31); pp('lcart', 78, 31); pp('lcart', 89, 32); pp('ironb', 82, 29); col('ushelf', 90, 24, 25);
     for (const [x, y] of [[77, 25], [84, 25], [80, 30], [88, 31]]) L(x, y);
@@ -256,6 +257,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     // NASCONDIGLI per la refurtiva [casella]: prima quelli comuni (le guardie a volte li controllano), poi la piastrella smossa di ogni cella dei giocatori
     const stash = [{ x: 12, y: 60, n: 'l\'orto', i: '🌱' }, { x: 21, y: 64, n: 'la casetta degli attrezzi', i: '🏚️' }, { x: 10, y: 18, n: 'dietro la tv', i: '📺' }, { x: 67, y: 25, n: 'lo scarico della doccia', i: '🚿' }];
     for (const k of pcells) { const c = cells[k]; c.st = stash.length; stash.push({ x: c.x0 + 3, y: c.y0 === 9 ? 10 : 29, n: 'la piastrella della cella ' + c.n, i: '🧱', cell: k, r: 0.8 }); }
+    // TUNNEL: si scava nell'angolo sotto la branda e si sbuca nel bosco oltre il muro (deco 'hole' ridisegnata quando cambia)
+    for (const k of pcells) { const c = cells[k], hy = c.y0 === 9 ? 11 : 28; c.hole = [c.x0 + 0.5, hy + 0.5]; c.ht = [c.x0, hy]; c.exit = [c.x0 + 1.5, 2.5]; deco.push([c.x0, hy, 'hole']); }
     return { w: W, h: H, rooms, doors, decals, props, holes, deco, tasks: [], hall, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: {}, help: '', btnTxt: '', sabTxt: '',
       draw, floor: FLOOR, decoDraw, drawWall, ground, bg: () => '#07080b', bgSc: 1.5,
       lamps, LITC, ROOM, cells, pcells, iso, spots, portals, PORT, spotl, routes, acts, gal, stash, isoOut: [50.0, 59.5] };
@@ -331,7 +334,29 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     dock(K, x, y) { if (K.TW < 40) return; K.speck(x, y, 6, ['rgba(255,255,255,.07)', 'rgba(0,0,0,.18)'], K.TW / 20); if (K.hsh(x, y, 4) < 0.08) { const [X, Y] = K.S(x + 0.5, y + 0.5, 0); K.g.fillStyle = 'rgba(10,10,12,.3)'; K.g.beginPath(); K.g.ellipse(X, Y, K.TW * 0.25, K.TW * 0.12, 0, 0, 7); K.g.fill(); } }
   };
   // decorazioni calpestabili (materasso a terra in isolamento)
-  function decoDraw(K, t, x, y) { if (t === 'mat') { K.bx(x + 0.15, y + 0.05, x + 1.85, y + 0.9, 0, 0.12, '#6a6656'); K.bx(x + 0.2, y + 0.1, x + 0.6, y + 0.85, 0.12, 0.18, '#8a8676'); } }
+  // stato dei buchi (aggiornato da syncHoles): [progresso 0-2, sacchi di terra, murato]
+  const HST = {};
+  function holeArt(K, x, y) {
+    const h = HST[x + ',' + y]; if (!h) return; const g = K.g, TW = K.TW;
+    if (h.s) { K.bx(x + 0.08, y + 0.12, x + 0.88, y + 0.9, 0, 0.03, '#a8a296'); K.strokes([[K.S(x + 0.2, y + 0.3, 0.03), K.S(x + 0.6, y + 0.7, 0.03)], [K.S(x + 0.5, y + 0.2, 0.03), K.S(x + 0.75, y + 0.55, 0.03)]], 'rgba(0,0,0,.3)'); return; }
+    if (h.p > 0) { const [X, Y] = K.S(x + 0.45, y + 0.5, 0), r = (0.2 + 0.1 * Math.min(2, h.p)) * TW * 0.707;
+      g.fillStyle = '#6a4a2e'; g.beginPath(); g.ellipse(X, Y, r * 1.25, r * 0.62, 0, 0, 7); g.fill();
+      g.fillStyle = h.p >= 2 ? '#050403' : '#1e140c'; g.beginPath(); g.ellipse(X, Y, r, r * 0.5, 0, 0, 7); g.fill(); }
+    for (let i = 0; i < Math.min(4, h.d); i++) { const u = 0.12 + (i % 2) * 0.36, v = i < 2 ? 0.08 : 0.42; K.bx(x + u, y + v, x + u + 0.3, y + v + 0.28, 0, 0.26, '#8a6a42'); K.bx(x + u + 0.1, y + v + 0.1, x + u + 0.2, y + v + 0.18, 0.26, 0.31, '#6a4a2e'); }
+  }
+  // CAMION DELLA LAVANDERIA (x0, y0 = angolo dietro a nord-ovest; lungo 5,8 verso est, largo 2,4): cassone bianco con la striscia blu, cabina blu
+  function truckArt(K, x0, y0) {
+    const { bx, dot, poly, S } = K, x1 = x0 + 4.25, y1 = y0 + 2.4;
+    for (const u of [0.8, 3.4]) { bx(x0 + u, y1 - 0.12, x0 + u + 0.7, y1 + 0.02, 0, 0.5, '#1a1a1e'); bx(x0 + u, y0 - 0.02, x0 + u + 0.7, y0 + 0.12, 0, 0.5, '#1a1a1e'); }
+    bx(x1 + 0.4, y1 - 0.12, x1 + 1.1, y1 + 0.02, 0, 0.5, '#1a1a1e');
+    bx(x0, y0, x1, y1, 0.42, 2.35, '#e8e6de'); K.qL(x0, x1, y1 + 0.005, 1.02, 1.26, '#2a5aa8'); K.qL(x0, x1, y1 + 0.006, 0.9, 0.96, '#c83a2a');
+    dot(x0 + 2.1, y1 + 0.03, 1.75, 0.2, '#f4f2ea'); dot(x0 + 2.1, y1 + 0.03, 1.75, 0.13, '#3a7ad8');
+    bx(x1 + 0.05, y0 + 0.15, x1 + 1.6, y1 - 0.15, 0.42, 1.75, '#3a6ab8'); bx(x1 + 0.05, y0 + 0.2, x1 + 0.9, y1 - 0.2, 1.75, 1.85, '#2a4a88');
+    poly([S(x1 + 1.62, y0 + 0.35, 1.68), S(x1 + 1.62, y1 - 0.35, 1.68), S(x1 + 1.62, y1 - 0.35, 1.15), S(x1 + 1.62, y0 + 0.35, 1.15)], '#2a3a4a');
+    poly([S(x1 + 0.3, y1 - 0.14, 1.62), S(x1 + 1.3, y1 - 0.14, 1.62), S(x1 + 1.3, y1 - 0.14, 1.15), S(x1 + 0.3, y1 - 0.14, 1.15)], '#2a3a4a');
+    bx(x1 + 1.55, y0 + 0.2, x1 + 1.68, y1 - 0.2, 0.42, 0.72, '#c8ccd2'); dot(x1 + 1.69, y0 + 0.45, 0.85, 0.06, '#fff4b0'); dot(x1 + 1.69, y1 - 0.45, 0.85, 0.06, '#fff4b0');
+  }
+  function decoDraw(K, t, x, y) { if (t === 'hole') { holeArt(K, x, y); return; } if (t === 'mat') { K.bx(x + 0.15, y + 0.05, x + 1.85, y + 0.9, 0, 0.12, '#6a6656'); K.bx(x + 0.2, y + 0.1, x + 0.6, y + 0.85, 0.12, 0.18, '#8a8676'); } }
   // SEGNI A TERRA (nella mappa pronta): campo da basket, posti dell'appello, linee gialle, parcheggio del camion, strisce pedonali
   function ground(K) {
     const g = K.g, S = K.S, TW = K.TW, ln = (pts, col, w) => { g.strokeStyle = col; g.lineWidth = w || Math.max(1.5, TW / 22); g.beginPath(); pts.forEach((p, i) => { const [X, Y] = S(p[0], p[1], 0); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); };
@@ -426,6 +451,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     const { bx, cyl, dot, glow, line, S, poly, qL, strokes } = K, g = K.g, TW = K.TW;
     o = o || {};
     switch (t) {
+      case 'tblk': break;
+      case 'ltruck': truckArt(K, x, y); break;   // il camion parcheggiato (si disegna a parte): caselle solo occupate
       // ---- celle ----
       case 'bunk': {   // letto a castello (2 caselle lungo y, disegnato dalla casella davanti): due materassi, coperte, cuscini, scaletta
         if (o.part) break; const y0 = y - 1, c = o.c || '#5a6a7a';
@@ -665,8 +692,12 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   const onSpot = c => { const s = mySpot(c), p = P(c); return Math.hypot(p.x - s[0], p.y - s[1]) < SPOT_R; };
   // FUORI POSTO: in una zona vietata, ricercato, oppure fuori dalla propria cella dopo che le sbarre si sono chiuse
   function illegal(G, c) {
-    if (!c.alive || isoOn(G, c)) return false;
+    if (!c.alive || isoOn(G, c) || c.out || c.inT) return false;
     if (ricOn(G, c)) return true;
+    // TRAVESTITO: le guardie ti credono un collega; da vicino (DV_R) ti riconoscono (il portinaio no: guarda il tesserino, tranne con l'allerta)
+    if (c.dv) { const p = P(c); return G.gd.some(g => g.st !== 'ko' && floorOf(g.x) === floorOf(p.x) && (!g.post || alertOn(G) || g.route !== MP().routes.ingresso.route) && Math.hypot(g.x - p.x, g.y - p.y) < DV_R); }
+    // SCORTATO: un detenuto accanto a un "secondino" travestito sembra in regola
+    if (G.chars.some(o => o !== c && o.dv && !o.out && Math.hypot(o.x - P(c).x, o.y - P(c).y) < 1.7)) return false;
     const p = P(c); if (forbAt(p.x, p.y)) return true;
     if (closed(G) && !inCell(c)) return true;
     return false;
@@ -684,9 +715,27 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     else if (e.k === 'stseen') { if (mine) t = '👀 Una guardia ti ha visto al nascondiglio: andrà a controllare!'; }
     else if (e.k === 'found') { const S = MP().stash[e.h]; t = '🔎 Le guardie hanno frugato ' + (S ? S.n : 'un nascondiglio') + ': sequestrati ' + icons(e.it) + '!'; beep(500, 0.15, 0.04); beep(380, 0.25, 0.04, 0.15); }
     else if (e.k === 'frisk') { t = mine ? '🔎 Ti hanno perquisito: sequestrati ' + icons(e.it) + '!' : '🔎 Perquisito ' + an + ': sequestrati ' + icons(e.it) + '.'; beep(500, 0.15, 0.04); beep(380, 0.25, 0.04, 0.15); }
-    else if (e.k === 'ps') { const C = MP().cells[e.kc], my = me.cell === e.kc; t = my ? '🔎 PERQUISIZIONE nella <b>tua cella ' + C.n + '</b> tra ' + e.s + ' s! Porta via la refurtiva!' : '🔎 Perquisizione in arrivo nella cella ' + (C ? C.n : '?') + ' tra ' + e.s + ' s.'; for (let i = 0; i < 3; i++) beep(700, 0.12, 0.04, i * 0.25, 'square'); }
+    else if (e.k === 'ps') { const C = MP().cells[e.kc], my = me.cell === e.kc; t = (e.sn ? '🐀 Soffiata! ' : '') + (my ? '🔎 PERQUISIZIONE nella <b>tua cella ' + C.n + '</b> tra ' + Math.max(1, e.s) + ' s! Porta via la refurtiva!' : '🔎 Perquisizione in arrivo nella cella ' + (C ? C.n : '?') + ' tra ' + Math.max(1, e.s) + ' s.'); for (let i = 0; i < 3; i++) beep(700, 0.12, 0.04, i * 0.25, 'square'); }
     else if (e.k === 'psok') { const S = MP().stash[e.h]; t = '😎 Perquisizione finita' + (S && S.cell != null ? ' nella cella ' + MP().cells[S.cell].n : '') + ': non hanno trovato niente!'; }
     else if (e.k === 'dummy') { if (mine) { t = '🧸 Fantoccio pronto! Al controllo notturno delle celle il secondino crederà che dormi (ma con l\'allerta guarda meglio).'; beep(660, 0.08, 0.03); beep(880, 0.1, 0.03, 0.09); } }
+    else if (e.k === 'out') { const v = VIA[e.v] || ['🌲', '']; t = mine ? v[0] + ' SEI FUORI! Sei scappato ' + v[1] + '. Ora aspetta i compagni (o aiutali con la corda).' : v[0] + ' ' + an + ' è scappato ' + v[1] + '!'; for (let i = 0; i < 5; i++) beep([523, 659, 784, 1046, 1318][i], 0.16, 0.04, i * 0.12, 'triangle'); }
+    else if (e.k === 'evaso') { t = '🚨 EVASIONE! Le guardie hanno scoperto che manca ' + an + ': ALLERTA!'; for (let i = 0; i < 6; i++) beep(i % 2 ? 600 : 900, 0.2, 0.04, i * 0.22, 'square'); }
+    else if (e.k === 'seal') { const C = MP().cells[e.kc]; t = '🧱 ' + (e.w === 'terra' ? 'Hanno trovato i sacchi di terra nella cella ' : 'Hanno trovato il buco nella cella ') + (C ? C.n : '') + ': il tunnel è stato murato!'; beep(300, 0.3, 0.05); beep(220, 0.4, 0.05, 0.3); }
+    else if (e.k === 'piece') { const C = MP().cells[e.kc]; if (me.cell === e.kc) t = '⛏️ Un pezzo di tunnel fatto! Domani notte si finisce. Di giorno porta la terra nell\'orto 🟫'; }
+    else if (e.k === 'tundone') { const C = MP().cells[e.kc]; t = '🕳️ Il tunnel della cella ' + (C ? C.n : '') + ' è finito: si può scappare!'; beep(784, 0.12, 0.04); beep(1046, 0.18, 0.04, 0.12); }
+    else if (e.k === 'fulldirt') { if (mine) t = '🟫 Troppa terra in cella: di giorno portala nell\'orto, se no la perquisizione la trova!'; }
+    else if (e.k === 'digseen') { t = mine ? '👀 Il secondino ti ha visto scavare! Ti ha preso il cucchiaio e il pezzo di stanotte è perso.' : '👀 Il secondino ha visto ' + an + ' scavare!'; beep(520, 0.1, 0.05, 0, 'square'); beep(780, 0.15, 0.05, 0.1, 'square'); }
+    else if (e.k === 'dump') { if (mine) t = '🟫 Terra sparsa nell\'orto: nessuno se ne accorge (si spera).'; }
+    else if (e.k === 'cam0') { t = '🚚 Oggi il camion della lavanderia arriva alle <b>' + e.t + '</b> nel cortile di carico. Ci si entra dalla porta dell\'officina (serve il 🪛).'; beep(660, 0.1, 0.03); beep(880, 0.1, 0.03, 0.12); }
+    else if (e.k === 'cam1') { t = '🚚 Il camion della lavanderia è arrivato! Riparte tra ' + CAM_T + ' secondi.'; thud(0.4, 90); }
+    else if (e.k === 'cam3') { t = '🚚 Il camion riparte…'; }
+    else if (e.k === 'camchk') { t = '🔎 La guardia ha controllato il carico del camion: ' + (e.n > 1 ? 'presi in ' + e.n : 'preso') + '!'; }
+    else if (e.k === 'inT') { if (mine) t = '🚚 Sei nel camion, nascosto tra i sacchi. Prima di partire a volte controllano il carico…'; }
+    else if (e.k === 'mdoor') { t = mine ? '🪛 Porta del carico aperta (fino a stasera). Ha fatto rumore…' : '🪛 ' + an + ' ha aperto la porta del cortile di carico.'; }
+    else if (e.k === 'wear') { if (mine) t = '👔 Ora sei una "guardia": le altre ti credono un collega, ma da vicino ti riconoscono. Col 🪪 tesserino esci dal cancello principale, e puoi scortare un compagno.'; }
+    else if (e.k === 'rope') { t = mine ? '🪢 Corda lanciata! Resta lì ' + ROPE_T + ' s, se una guardia non la vede prima.' : '🪢 ' + an + ' ha lanciato una corda oltre il muro! Scavalca la rete del cortile e arrampicati.'; beep(880, 0.08, 0.03); }
+    else if (e.k === 'ropegone') { t = '🪢 Una guardia ha trovato la corda e l\'ha tolta. ALLERTA!'; }
+    else if (e.k === 'snitch') { if (mine) t = e.w ? '🐀 Soffiata fatta (' + e.w + '). Prossima tra ' + SPY_CD + ' s.' : '🐀 Non avevi niente da dire: la guardia ti ha guardato strano.'; }
     else if (e.k === 'nc') { t = '🔦 Il secondino passa a controllare le celle…'; }
     else if (e.k === 'dmok') { t = mine ? '🧸 Il fantoccio ha funzionato: il secondino crede che dormi!' : '🧸 Il fantoccio di ' + an + ' ha ingannato il secondino!'; }
     else if (e.k === 'dmbad' || e.k === 'ncmiss') { t = mine ? (e.k === 'dmbad' ? '🧸 Il secondino ha scoperto il fantoccio' : '🔦 Il secondino ha visto il tuo letto vuoto') + ': sei RICERCATO!' : '🔦 Al controllo delle celle manca ' + an + '!'; for (let i = 0; i < 4; i++) beep(i % 2 ? 640 : 860, 0.18, 0.035, i * 0.22, 'square'); }
@@ -699,6 +748,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   function catchT(G, gd, c) {
     if (isoOn(G, c) || !c.alive) return;
     const M = MP(), n = G.chars.filter(o => isoOn(G, o)).length, s = M.iso[n % M.iso.length], lost = pk(c).splice(0);
+    c.dv = 0; c.dg = 0; c.inT = 0; c.cl = 0;
     c.iso = G.time + ISO_T; c.ric = 0; c.isoN = (c.isoN || 0) + 1; c.path = []; c.isoC = n % M.iso.length;
     if (c.bot || c === G.me) { c.x = s.x; c.y = s.y; if (c === G.me) { cq.x = s.x; cq.y = s.y; G.myIso = c.isoN; } }
     G.alE = Math.max(G.alE || 0, G.time + ALERT_T); say(G, 'caught', { a: c.id, it: lost.join(',') });
@@ -706,7 +756,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
 
   // ======================= REFURTIVA, NASCONDIGLI, PERQUISIZIONI, FANTOCCIO =======================
   // gli attrezzi [icona, nome, a cosa serve] e dove si rubano (di giorno, se nessuna guardia ti vede); dopo un furto ne arriva un altro tra RESP_T s
-  const IT = { cu: ['🥄', 'Cucchiaio', 'per scavare'], ca: ['🪛', 'Cacciavite', 'per le serrature'], le: ['🧵', 'Lenzuolo', 'per fare la corda'], st: ['🧻', 'Stracci', 'per il fantoccio'], di: ['👔', 'Divisa', 'per travestirsi'], te: ['🪪', 'Tesserino', 'per i cancelli'] };
+  const IT = { cu: ['🥄', 'Cucchiaio', 'per scavare'], ca: ['🪛', 'Cacciavite', 'per le serrature'], le: ['🧵', 'Lenzuolo', 'per fare la corda'], st: ['🧻', 'Stracci', 'per il fantoccio'], di: ['👔', 'Divisa', 'per travestirsi'], te: ['🪪', 'Tesserino', 'per i cancelli'], tr: ['🟫', 'Terra', 'da spargere nell\'orto'] };
   const SRC = [{ k: 'cu', x: 68.5, y: 12.5 }, { k: 'st', x: 78.5, y: 28.5 }, { k: 'le', x: 86.5, y: 28.5 }, { k: 'ca', x: 56.5, y: 35.5 }, { k: 'di', x: 72.5, y: 54.5 }, { k: 'te', x: 59.5, y: 53.5 }];
   const POCK = 2, ST_N = 3, RESP_T = 45, PICK_R = 1.25, ST_R = 1.25, PS_W = 20, FR_P = 0.3, NCK = [190.5, 216];
   const PHF = ['Guarda guarda cosa abbiamo qui…', 'Sequestrato!', 'Questo me lo tengo io, grazie', 'E questo da dove salta fuori?', 'Bravi furbacchioni…'];
@@ -752,6 +802,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     const lost = G.st[h].splice(0), ps = G.ps && G.ps.h === h && G.ps.st === 1, gd = nearGuard(G, S.x + 0.5, S.y + 0.5); let fr = 0;
     G.stW[h] = 0;
     if (S.cell != null) for (const c of G.chars) if (c.alive && !isoOn(G, c) && inCell(c, S.cell) && pk(c).length) { fr = 1; say(G, 'frisk', { a: c.id, it: c.pk.splice(0).join(',') }); }
+    if (S.cell != null && (G.dirt[S.cell] || 0) > 0 && !G.seal[S.cell]) { fr = 1; seal(G, S.cell, 'terra'); }
     if (lost.length) say(G, 'found', { h, it: lost.join(',') }); else if (ps && !fr) say(G, 'psok', { h });
     if (ps) { G.ps.st = 2; G.ps.e = G.time; }
     gsay(G, gd, rnd(lost.length || fr ? PHF : PHE));
@@ -760,7 +811,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   // PERQUISIZIONI: una cella al giorno (due il secondo giorno), annunciata PS_W secondi prima; di solito quella con piu' refurtiva nascosta
   function psStart(G, T) {
     const M = MP(), ks = [...new Set(G.chars.filter(c => c.alive).map(c => c.cell))];
-    let k = rnd(ks); if (Math.random() < 0.6) k = ks.slice().sort((a, b) => G.st[M.cells[b].st].length - G.st[M.cells[a].st].length)[0];
+    let k = rnd(ks); if (Math.random() < 0.6) k = ks.slice().sort((a, b) => G.st[M.cells[b].st].length + 2 * (G.dirt[b] || 0) - G.st[M.cells[a].st].length - 2 * (G.dirt[a] || 0))[0];
     G.ps = { k, h: M.cells[k].st, t: T, st: 0, g: -1 }; say(G, 'ps', { kc: k, s: Math.round(T - G.time) });
   }
   function psTick(G) {
@@ -795,12 +846,112 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     let bad = 0;
     for (const c of G.chars) {
       if (c.cell !== k || !c.alive || isoOn(G, c) || inCell(c)) continue;
+      if (c.out) { if (c.seen) continue; if (c.dm && !alertOn(G)) { say(G, 'dmok', { a: c.id }); continue; } found(G, c); bad = 1; continue; }
       if (c.dm && !alertOn(G)) { say(G, 'dmok', { a: c.id }); continue; }
       say(G, c.dm ? 'dmbad' : 'ncmiss', { a: c.id }); c.dm = 0; c.ric = G.time + RIC_T; c.miss = (c.miss || 0) + 1; bad = 1;
     }
     if (bad) { G.alE = Math.max(G.alE || 0, G.time + ALERT_T); gsay(G, g, 'Il letto è vuoto! ALLARME!'); g.md = 1; }
     else gsay(G, g, rnd(['Dormono come angioletti', 'Russano… tutto ok', 'Che pace', 'Zitti e a nanna']));
   }
+  // ======================= LE VIE DI FUGA =======================
+  // TUNNEL (sotto la branda, col cucchiaio, di notte, un pezzo per notte: TUN_T s di scavo a pezzo, un sacco di terra ogni SACK_T s, al massimo DIRT_MAX in cella),
+  // DIVISA (+ tesserino al cancello principale, con un compagno scortato), CAMION della lavanderia (orario a caso annunciato; porta dell'officina col cacciavite),
+  // CORDA (chi e' fuori la lancia dal muro col lenzuolo; dentro si scavalca la rete del cortile e ci si arrampica dalla fascia di ronda)
+  const TUN_T = 36, SACK_T = 9, DIRT_MAX = 4, CAM_T = 26, CAM_P = 0.3, CL_T = 2.5, ROPE_T = 70, DV_R = 2.3;
+  const DOORP = [83.9, 40.5], TRK = [84.6, 39.3], MDP = [71.5, 40.9], GATEP = [71.5, 66.3];
+  const VIA = { tun: ['🕳️', 'dal tunnel'], div: ['👔', 'travestito da guardia'], cam: ['🚚', 'nel camion della lavanderia'], cor: ['🪢', 'con la corda'] };
+  const clockAt = t => clock({ time: t });
+  const tunCap = G => Math.min(2, dayN(G));
+  const holeNear = c => { const p = P(c), M = MP(); for (const k of M.pcells) { const h = M.cells[k].hole; if (Math.hypot(p.x - h[0], p.y - h[1]) < 0.75) return k; } return -1; };
+  const near = (c, q, r) => { const p = P(c); return Math.hypot(p.x - q[0], p.y - q[1]) < r; };
+  // il camion adesso: 0 niente, 1 arriva, 2 parcheggiato, 3 riparte; sh = quanto e' spostato verso il cancello
+  function camPh(G) {
+    const C = G.cam; if (!C) return { ph: 0, sh: 0 };
+    const u = G.time - C.T; if (u < -4) return { ph: 0, sh: 0 }; if (u < 0) return { ph: 1, sh: 12 * Math.pow(-u / 4, 2) };
+    if (u < CAM_T) return { ph: 2, sh: 0 }; if (u < CAM_T + 4) return { ph: 3, sh: 12 * Math.pow((u - CAM_T) / 4, 2) }; return { ph: 0, sh: 0 };
+  }
+  // la rete del cortile: da una parte all'altra (cortile <-> fascia di ronda)
+  function fenceAt(c) {
+    const p = P(c), x = p.x, y = p.y; if (floorOf(x)) return null; let q = null;
+    if (y > 32.3 && y < 66.7) { if (x > 9 && x < 9.9) q = [7.5, y]; else if (x > 6 && x < 8) q = [9.5, y]; }
+    if (!q && x > 9.3 && x < 47.7) { if (y > 66 && y < 66.95) q = [x, 68.5]; else if (y > 68 && y < 70) q = [x, 66.5]; }
+    return q && cqCellFree(Math.floor(q[0]), Math.floor(q[1])) ? q : null;
+  }
+  // da fuori, accanto al muro di cinta: dove cadrebbe la corda (ix, iy = dentro, nella fascia di ronda)
+  function ropeAt(c) {
+    const p = P(c), x = p.x, y = p.y; let r = null;
+    if (y > 2 && y < 3.95 && x > 8 && x < 92) r = { ix: x, iy: 6.6, ox: x, oy: y };
+    else if (x > 2 && x < 3.95 && y > 8 && y < 67) r = { ix: 6.6, iy: y, ox: x, oy: y };
+    else if (x > 96.05 && x < 98 && y > 8 && y < 67) r = { ix: 93.4, iy: y, ox: x, oy: y };
+    else if (y > 72.05 && y < 73.6 && x > 8 && x < 92) r = { ix: x, iy: 69.4, ox: x, oy: y };
+    return r && cqCellFree(Math.floor(r.ix), Math.floor(r.iy)) ? r : null;
+  }
+  const ropeNear = (G, c) => G.rope.findIndex(r => near(c, [r.ix, r.iy], 1.1));
+  const inOrto = c => { const p = P(c); return floorOf(p.x) === 0 && p.x > 10.3 && p.x < 18.7 && p.y > 58.3 && p.y < 64.2; };
+  // SCAPPATO: fuori dal muro, aspetta i compagni; chi lo segue da vicino (detenuti del computer agganciati) scappa con lui
+  function escapeC(G, c, via, x, y, o) {
+    if (c.out) return; o = o || {}; const p0 = P(c), x0 = p0.x, y0 = p0.y;
+    let tx = x, ty = y; if (!cqCellFree(Math.floor(tx), Math.floor(ty))) { const q = cqSpot(Math.floor(tx), Math.floor(ty)); tx = q.x; ty = q.y; }
+    Object.assign(c, { out: via, outT: G.time, dv: 0, dg: 0, inT: 0, cl: 0, ric: 0, zz: 0, path: [], tk: o.k == null ? -1 : o.k });
+    c.relN = (c.relN || 0) + 1; c.rel = [tx, ty];
+    if (c.bot || c === G.me) { c.x = tx; c.y = ty; if (c === G.me) { cq.x = tx; cq.y = ty; G.myRel = c.relN; } }
+    say(G, 'out', { a: c.id, v: via });
+    if (o.nf) return;
+    let esc = via === 'div' ? 1 : 9;   // col travestimento si scorta un compagno solo
+    for (const b of G.chars) if (esc > 0 && b !== c && b.alive && !b.out && !isoOn(G, b) && (b.ld === c.id || via === 'div') && (b.bot || via === 'div') && Math.hypot(P(b).x - x0, P(b).y - y0) < (via === 'div' ? 2.2 : 3.2) && roomAt(P(b).x, P(b).y) === roomAt(x0, y0) && !b.inT) { esc--; escapeC(G, b, via, x + 0.6 * (2 - esc), y + 0.4, { k: o.k, nf: 1 }); }
+  }
+  // la fuga scoperta (all'appello o al controllo): allerta lunga; se era il tunnel, lo trovano e lo murano
+  function found(G, c) {
+    c.seen = 1; G.alE = Math.max(G.alE || 0, G.time + ALERT_T * 2); say(G, 'evaso', { a: c.id, v: c.out });
+    if (c.out === 'tun' && c.tk >= 0 && !G.seal[c.tk]) seal(G, c.tk, 'fuga');
+  }
+  function seal(G, k, why) { G.seal[k] = 1; G.tun[k] = 0; G.dirt[k] = 0; for (const c of G.chars) if (c.dg === k + 1) c.dg = 0; say(G, 'seal', { kc: k, w: why }); }
+  // SCAVARE (sull'host): progresso, sacchi di terra, rumore; se il secondino ti vede, perdi il pezzo di stanotte e il cucchiaio
+  function digTick(G, dt) {
+    const M = MP();
+    for (const c of G.chars) {
+      if (!c.dg) continue; const k = c.dg - 1, C = M.cells[k];
+      if (!closed(G) || isoOn(G, c) || c.out || G.seal[k] || !inCell(c, k) || !near(c, C.hole, 0.85) || !pk(c).includes('cu') || (G.tun[k] || 0) >= tunCap(G) || (G.dirt[k] || 0) >= DIRT_MAX) { c.dg = 0; continue; }
+      G.tun[k] = Math.min(tunCap(G), (G.tun[k] || 0) + dt / TUN_T);
+      G.digS[k] = (G.digS[k] || 0) + dt; if (G.digS[k] >= SACK_T) { G.digS[k] -= SACK_T; G.dirt[k] = (G.dirt[k] || 0) + 1; }
+      const bf = [C.x0 + 1.5, C.y0 === 9 ? 14.6 : 25.4], cc = [C.x0 + 2, C.y0 + 2];
+      if ((c.nT = (c.nT || 0) - dt) <= 0) { c.nT = 1.6; GD.noise(G, bf[0], bf[1], 5); }
+      const gd = seenBy(G, c) || G.gd.find(o => o.st !== 'ko' && Math.hypot(o.x - bf[0], o.y - bf[1]) < 3.5 && GD.sees(o, cc[0], cc[1], 5) > 0);
+      if (gd) { G.tun[k] = G.tun0[k] || 0;   // si torna a com'era a inizio notte
+        c.dg = 0; const j = c.pk.indexOf('cu'); if (j >= 0) c.pk.splice(j, 1); G.alE = Math.max(G.alE || 0, G.time + ALERT_T); gsay(G, gd, 'Che stai scavando?! Dammi quel cucchiaio!'); say(G, 'digseen', { a: c.id }); continue; }
+      if (G.tun[k] >= tunCap(G)) { c.dg = 0; say(G, G.tun[k] >= 2 ? 'tundone' : 'piece', { kc: k }); }
+      else if ((G.dirt[k] || 0) >= DIRT_MAX) { c.dg = 0; say(G, 'fulldirt', { a: c.id }); }
+    }
+  }
+  // IL CAMION: annunciato dopo l'appello del mattino, arriva, aspetta CAM_T s (una guardia sorveglia), controlla il carico (a volte) e riparte
+  function camTick(G) {
+    if (!G.cam && G.camL.length && G.time >= Math.floor(G.camL[0] / DAY) * DAY + AP1 + 1.5) { const T = G.camL.shift(); G.cam = { T, st: 0 }; say(G, 'cam0', { t: clockAt(T) }); }
+    const C = G.cam; if (!C) return;
+    const u = G.time - C.T;
+    if (C.st === 0 && u >= -4) { C.st = 1; say(G, 'cam1', {}); const g = nearGuard(G, 88, 44, true); if (g) { GD.postAt(G, g, 89.5, 43.5, 89.5, 40, CAM_T + 5); gsay(G, g, 'Forza, scaricate e via!'); } }
+    if (C.st === 1 && u >= 0) C.st = 2;
+    if (C.st === 2 && u >= CAM_T - 3 && !C.chk) { C.chk = 1; const inn = G.chars.filter(c => c.inT); if (inn.length && Math.random() < (alertOn(G) ? CAM_P + 0.35 : CAM_P)) { const g = nearGuard(G, DOORP[0], DOORP[1]); gsay(G, g, 'Diamo un\'occhiata al carico… AH-AH!'); say(G, 'camchk', { n: inn.length }); for (const c of inn) { c.inT = 0; catchT(G, g, c); } } }
+    if (C.st === 2 && u >= CAM_T) { C.st = 3; say(G, 'cam3', {}); }
+    if (C.st === 3 && u >= CAM_T + 4) { let i = 0; for (const c of G.chars) if (c.inT) escapeC(G, c, 'cam', 88.5 + (i++ % 4) * 0.9, 74.5, { nf: 1 }); G.cam = null; }
+  }
+
+  // LA SPIA: una SOFFIATA ogni SPY_CD s. Cosa dice alle guardie (la cosa piu' utile per fermare la fuga): il tunnel (perquisizione improvvisa di giorno,
+  // controllo delle celle di notte), il nascondiglio comune piu' pieno, la corda, la porta del carico aperta. Il fumetto della guardia e' innocente.
+  const SPY_CD = 60;
+  function snitch(G, c, gd) {
+    const M = MP(); let w = '';
+    const tk = M.pcells.filter(k => !G.seal[k] && ((G.tun[k] || 0) > 0 || (G.dirt[k] || 0) > 0)).sort((a, b) => (G.tun[b] || 0) - (G.tun[a] || 0))[0];
+    const st = M.stash.map((h, i) => ({ h, i, n: (G.st[i] || []).length })).filter(q => q.h.cell == null && q.n > 0).sort((a, b) => b.n - a.n)[0];
+    if (tk != null && phase(G) === 'day' && !G.ps) { G.ps = { k: tk, h: M.cells[tk].st, t: G.time + 8, st: 0, g: -1, sn: 1 }; say(G, 'ps', { kc: tk, s: 8, sn: 1 }); w = 'il tunnel della cella ' + M.cells[tk].n; }
+    else if (tk != null && closed(G) && !G.nc) { ncStart(G); w = 'chi non è in cella stanotte'; }
+    else if (G.rope.length) { const r = G.rope[0], g = nearGuard(G, r.ix, r.iy, true); if (g) GD.investigate(g, r.ix, r.iy, 'an'); (G.gan = G.gan || []).push({ x: r.ix, y: r.iy, k: 'src', t: G.time - 1, n: 0, rope: 1 }); w = 'la corda sul muro'; }
+    else if (st) { const g = nearGuard(G, st.h.x, st.h.y, true); if (g) sendCheck(G, g, st.i, 40); w = st.h.n; }
+    else if (G.mdO) { GD.anomaly(G, 72.5, 40.5, 'door'); w = 'la porta del carico aperta'; }
+    c.snN = (c.snN || 0) + 1;
+    if (gd) gsay(G, gd, rnd(['Mmh… interessante.', 'Ah sì? Grazie, ragazzo.', 'Vedremo, vedremo…', 'Torna al tuo posto, va\'.']));
+    say(G, 'snitch', { a: c.id, w });
+  }
+
   // fine dell'isolamento: di notte in cella, di giorno nel corridoio centrale
   function release(G, c) {
     const M = MP(), night = closed(G), q = night ? cellOf(c).sp[c.slot] : M.isoOut;
@@ -814,8 +965,33 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     if (isoOn(G, c)) return { k: 'wait', t: '⛓️ Isolamento: ' + Math.ceil(c.iso - G.time) + ' s', on: false };
     // il rischio si legge sul pulsante: se una guardia ti vede adesso, lo dice
     const seen = () => seenBy(G, c) ? ' · 👀 ti vedono!' : '';
+    if (c.cl) return { k: 'x', t: '🧗 Ti arrampichi…', on: false };
+    if (c.inT) { const u = G.cam ? Math.ceil(G.cam.T + CAM_T - G.time) : 0; return { k: 'outT', t: '🚚 Nascosto nel camion' + (u > 0 ? ' · riparte tra ' + u + ' s' : '') + ' (tocca per uscire)', on: camPh(G).ph === 2 }; }
+    if (c.out) { const r = ropeAt(c); if (r && pk(c).includes('le')) return { k: 'rope', t: '🪢 Lancia la corda oltre il muro (🧵)', on: true }; return { k: 'x', t: '🌲 Sei fuori! ' + (pk(c).includes('le') ? 'Vai al muro e lancia la corda' : 'Aspetta i compagni'), on: false }; }
+    const hk = holeNear(c);
+    if (hk >= 0 && !G.seal[hk]) {
+      const tn = G.tun[hk] || 0, pc = Math.floor(tn * 50) + '%', d = G.dirt[hk] || 0;
+      if (tn >= 2) return { k: 'tun', t: '🕳️ Scappa dal tunnel!' + seen(), on: true };
+      if (c.dg) return { k: 'undig', t: '⛏️ Scavi… ' + pc + ' · tocca per smettere', on: true };
+      if (closed(G) && inCell(c, hk)) {
+        if (!pk(c).includes('cu')) return { k: 'x', t: '⛏️ Per scavare serve il 🥄 cucchiaio', on: false };
+        if (d >= DIRT_MAX) return { k: 'x', t: '🟫 Troppa terra in cella: di giorno portala nell\'orto', on: false };
+        if (tn >= tunCap(G)) return { k: 'x', t: '⛏️ Tunnel ' + pc + ' · basta per stanotte', on: false };
+        return { k: 'dig', t: '⛏️ Scava il tunnel · ' + pc, on: true };
+      }
+      if (d > 0 && pk(c).length < POCK) return { k: 'soil', t: '🟫 Prendi un sacco di terra (' + d + ')', on: true };
+      if (tn > 0 && !closed(G)) return { k: 'x', t: '🕳️ Tunnel ' + pc + ' · si scava di notte', on: false };
+    }
+    if (c.spy && !c.out) { const g = nearGuard(G, P(c).x, P(c).y); if (g && Math.hypot(g.x - P(c).x, g.y - P(c).y) < 2.6 && floorOf(g.x) === floorOf(P(c).x)) return G.time > (c.spT || 0) ? { k: 'snitch', t: '🐀 Fai una soffiata alla guardia', on: true } : { k: 'x', t: '🐀 Prossima soffiata tra ' + Math.ceil(c.spT - G.time) + ' s', on: false }; }
+    if (camPh(G).ph === 2 && near(c, DOORP, 1.3)) return { k: 'hideT', t: '🚚 Nasconditi nel camion' + seen(), on: true };
+    if (near(c, MDP, 1.1) && !G.mdO && !closed(G)) return pk(c).includes('ca') ? { k: 'unscrew', t: '🪛 Svita la porta del carico' + seen(), on: true } : { k: 'x', t: '🔒 Porta del carico: serve il 🪛 cacciavite', on: false };
+    if (near(c, GATEP, 1.4) && c.dv) return pk(c).includes('te') ? { k: 'gate', t: '🪪 Mostra il tesserino ed esci', on: true } : { k: 'x', t: '🪪 Al cancello serve il tesserino', on: false };
+    if (ropeNear(G, c) >= 0) return { k: 'climbR', t: '🧗 Arrampicati sulla corda' + seen(), on: true };
+    if (fenceAt(c)) return { k: 'fence', t: '🧗 Scavalca la rete' + seen(), on: true };
+    if (pk(c).includes('tr') && inOrto(c)) return { k: 'dump', t: '🟫 Spargi la terra nell\'orto' + seen(), on: true };
     const h = stNear(c); if (h >= 0) { const S = MP().stash[h], n = (G.st[h] || []).length; return { k: 'stash', h, t: S.i + ' Nascondiglio' + (n ? ' · ' + n + '/' + ST_N : '') + seen(), on: true }; }
     const i = srcNear(c); if (i >= 0 && srcOn(G, i)) return pk(c).length >= POCK ? { k: 'full', t: '🎒 Tasche piene: nascondi qualcosa', on: false } : { k: 'steal', i, t: '✋ Ruba ' + itx(SRC[i].k) + seen(), on: true };
+    if (pk(c).includes('di') && !c.dv) return { k: 'wear', t: '👔 Indossa la divisa' + seen(), on: true };
     if (inCell(c) && !c.dm && pk(c).includes('st') && !ricOn(G, c)) return { k: 'dummy', t: '🧸 Fai il fantoccio nel letto (usa 🧻)', on: true };
     if (closed(G) && inCell(c) && !ricOn(G, c)) return c.zz ? { k: 'wake', t: '💤 Dormi… (tocca per svegliarti)', on: true } : { k: 'sleep', t: '💤 Dormi fino all\'alba', on: true };
     return null;
@@ -828,6 +1004,24 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     if (a.k === 'wake') c.zz = 0;
     if (a.k === 'steal') { const s = SRC[cur.i], gd = seenBy(G, c); pk(c).push(s.k); G.src[cur.i] = G.time + RESP_T; c.stN = (c.stN || 0) + 1; say(G, 'steal', { a: c.id, it: s.k, s: gd ? 1 : 0 }); if (gd) caughtAct(G, gd, c); }
     if (a.k === 'dummy') { c.pk.splice(c.pk.indexOf('st'), 1); c.dm = 1; say(G, 'dummy', { a: c.id }); }
+    const gd = () => seenBy(G, c), M = MP(), rm = k => { const j = c.pk.indexOf(k); if (j >= 0) c.pk.splice(j, 1); };
+    if (a.k === 'tun') { const k = holeNear(c); escapeC(G, c, 'tun', M.cells[k].exit[0], M.cells[k].exit[1], { k }); }
+    if (a.k === 'dig') { c.dg = holeNear(c) + 1; c.zz = 0; c.nT = 0; }
+    if (a.k === 'undig') c.dg = 0;
+    if (a.k === 'soil') { const k = holeNear(c); G.dirt[k]--; c.pk.push('tr'); }
+    if (a.k === 'dump') { rm('tr'); const g = gd(); say(G, 'dump', { a: c.id }); if (g) { gsay(G, g, 'Che ci fai con tutta quella terra?'); caughtAct(G, g, c); } }
+    if (a.k === 'hideT') { const g = gd(); if (g) { gsay(G, g, 'Ehi! Giù dal camion!'); caughtAct(G, g, c); return; } c.inT = 1; c.path = []; say(G, 'inT', { a: c.id });
+      for (const b of G.chars) if (b.bot && b.ld === c.id && !b.out && !b.inT && !isoOn(G, b) && Math.hypot(b.x - c.x, b.y - c.y) < 3.2) { b.inT = 1; b.path = []; } }
+    if (a.k === 'outT') c.inT = 0;
+    if (a.k === 'snitch') { c.spT = G.time + SPY_CD; snitch(G, c, nearGuard(G, P(c).x, P(c).y)); }
+    if (a.k === 'unscrew') { G.mdO = 1; GD.noise(G, 72, 40.5, 6); GD.anomaly(G, 72.5, 40.5, 'door'); say(G, 'mdoor', { a: c.id }); const g = gd(); if (g) caughtAct(G, g, c); }
+    if (a.k === 'gate') { rm('te'); const g = G.gd.find(o => o.route === M.routes.ingresso.route); gsay(G, g, rnd(['Buon lavoro, collega!', 'Tutto tranquillo? Ciao!', 'Porti il detenuto in tribunale? Vai pure'])); escapeC(G, c, 'div', 71.5, 73.5); }
+    if (a.k === 'rope') { const r = ropeAt(c); if (r) { rm('le'); r.e = G.time + ROPE_T; G.rope.push(r); (G.gan = G.gan || []).push({ x: r.ix, y: r.iy, k: 'src', t: G.time, n: 0, rope: 1 }); say(G, 'rope', { a: c.id, x: r.ix, y: r.iy }); } }
+    if (a.k === 'climbR') { c.cl = G.time + CL_T; c.clR = ropeNear(G, c); c.path = []; const g = gd(); if (g) caughtAct(G, g, c); }
+    if (a.k === 'fence') { const q = fenceAt(c), g = gd(); if (q) { c.relN = (c.relN || 0) + 1; c.rel = q; if (c.bot || c === G.me) { c.x = q[0]; c.y = q[1]; if (c === G.me) { cq.x = q[0]; cq.y = q[1]; G.myRel = c.relN; } } thud(0.3, 240); } if (g) caughtAct(G, g, c);
+      // i compagni del computer che lo seguono scavalcano con lui
+      for (const b of G.chars) if (b.bot && b.ld === c.id && !b.out && !isoOn(G, b) && Math.hypot(b.x - c.x, b.y - c.y) < 3.5 && q) { const fb = fenceAt(b); if (fb) { b.x = fb[0]; b.y = fb[1]; b.path = []; } } }
+    if (a.k === 'wear') { rm('di'); c.dv = 1; say(G, 'wear', { a: c.id }); const g = gd(); if (g) { gsay(G, g, 'Ehi, quella divisa non è tua!'); caughtAct(G, g, c); } }
   }
   // ---- DETENUTI DEL COMPUTER ----
   function go(G, c, x, y) {
@@ -835,12 +1029,34 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     c.path = route(c.x, c.y, tx, ty); c.gx = tx; c.gy = ty; return c.path.length > 0 || Math.hypot(c.x - tx, c.y - ty) < 0.7;
   }
   function botT(G, c, dt) {
-    if (isoOn(G, c)) { c.path = []; c.walk = 0; return; }
+    if (isoOn(G, c) || c.inT || c.cl) { c.path = []; c.walk = 0; return; }
+    if (c.out) { if ((c.think -= dt) <= 0) { c.think = 3 + Math.random() * 4; if (Math.random() < 0.4) { const a = Math.random() * 7; go(G, c, c.x + Math.cos(a) * 1.5, c.y + Math.sin(a) * 1.5); } } cqModeStep(c, dt, 0.5); return; }
     if ((c.think -= dt) <= 0) {
       c.think = 0.4 + Math.random() * 0.3;
-      const ph = phase(G); let tg = null;
-      if (ph === 'ap') { const s = mySpot(c); tg = [s[0], s[1]]; }
+      const ph = phase(G), L = byId(G, c.ld), M = MP(); let tg = null;
+      const follow = L && !L.out && !isoOn(G, L) && (illegal(G, L) || L.dv || L.inT || L.cl || L.dg);
+      // fuori c'e' gia' il mio compagno: un tunnel finito (raggiungibile), una corda, il camion con la porta aperta
+      let plan = null;
+      if (L && L.out && !closed(G)) {
+        const tk = M.pcells.find(k => (G.tun[k] || 0) >= 2 && !G.seal[k]); const cp = camPh(G);
+        if (tk != null) plan = { p: M.cells[tk].hole, k: 'tun', tk };
+        else if (cp.ph === 2 && G.mdO) plan = { p: DOORP, k: 'cam' };
+      } else if (L && L.out && closed(G) && inCell(c)) { const tk = M.pcells.find(k => (G.tun[k] || 0) >= 2 && !G.seal[k] && inCell(c, k)); if (tk != null) plan = { p: M.cells[tk].hole, k: 'tun', tk }; }
+      if (plan) { if (Math.hypot(c.x - plan.p[0], c.y - plan.p[1]) < 0.9) { if (plan.k === 'tun') { const C = M.cells[plan.tk]; escapeC(G, c, 'tun', C.exit[0], C.exit[1], { k: plan.tk, nf: 1 }); } else { c.inT = 1; c.path = []; } return; } tg = plan.p; }
+      else if (follow) {
+        // dietro al compagno (nel camion: dentro anche lui se il camion e' fermo)
+        if (L.inT && camPh(G).ph === 2) { if (Math.hypot(c.x - DOORP[0], c.y - DOORP[1]) < 1) { c.inT = 1; c.path = []; return; } tg = DOORP; }
+        else { const d = Math.hypot(c.x - L.x, c.y - L.y); tg = d > 1.3 ? [L.x - Math.cos(L.a || 0) * 0.8, L.y - Math.sin(L.a || 0) * 0.8] : null; if (!tg) c.path = []; c.think = 0.25; }
+      }
+      else if (ph === 'ap') { const s = mySpot(c); tg = [s[0], s[1]]; }
       else if (ph === 'rin' || ph === 'night') tg = cellOf(c).sp[c.slot];
+      else if (pk(c).includes('tr')) {
+        // COMPAGNO FURBO: porta la terra del tunnel nell'orto e la sparge quando nessuna guardia lo guarda
+        const o = [14.5, 60.2]; if (inOrto(c) && Math.hypot(c.x - o[0], c.y - o[1]) < 1.2) { c.path = []; if (!seenBy(G, c)) doAct(G, c, { k: 'dump' }); } else tg = o;
+      }
+      else if ((G.dirt[c.cell] || 0) > 0 && !G.seal[c.cell] && pk(c).length < POCK && !(G.ps && G.ps.k === c.cell && G.ps.st === 1)) {
+        const h = cellOf(c).hole; if (Math.hypot(c.x - h[0], c.y - h[1]) < 0.7) { c.path = []; doAct(G, c, { k: 'soil' }); } else tg = h;
+      }
       else {
         // ora d'aria: un posto dove passare un po' di tempo (basket, pesi, panchine, mensa, tv...)
         if (!c.act || (c.actT || 0) < G.time) { const A = MP().acts, taken = new Set(G.chars.filter(o => o !== c && o.act).map(o => o.act.join())); let a = A[Math.floor(Math.random() * A.length)]; for (let i = 0; i < 6 && taken.has(a.join()); i++) a = A[Math.floor(Math.random() * A.length)]; c.act = a; c.actT = G.time + 14 + Math.random() * 22; }
@@ -848,7 +1064,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       }
       if (tg) { const d = Math.hypot(c.x - tg[0], c.y - tg[1]); if (d > 0.4 && (!c.path.length || Math.hypot((c.gx || 0) - tg[0], (c.gy || 0) - tg[1]) > 0.8)) go(G, c, tg[0], tg[1]); else if (d <= 0.4) c.path = []; }
       // di notte in cella: dorme (cosi' la notte puo' passare in fretta)
-      c.zz = closed(G) && inCell(c) && !ricOn(G, c) ? 1 : 0;
+      c.zz = closed(G) && inCell(c) && !ricOn(G, c) && !follow ? 1 : 0;
     }
     cqModeStep(c, dt, MODE.speed(c));
   }
@@ -858,6 +1074,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     G.src = SRC.map(() => 0); G.st = MP().stash.map(() => []); G.stW = {}; G.ps = null; G.nc = null; G.stO = null; G.dmK = '';
     // perquisizioni: una il primo giorno, due il secondo (orari a caso durante l'ora d'aria)
     const r = (a, b) => a + Math.random() * (b - a); G.psL = [r(52, 98), DAY + r(48, 70), DAY + r(86, 104)];
+    // vie di fuga: tunnel (progresso, a inizio notte, sacchi di terra, murati), camion (un orario a caso al giorno), porta del carico, corde
+    G.tun = {}; G.tun0 = {}; G.digS = {}; G.dirt = {}; G.seal = {}; G.cam = null; G.camL = [r(58, 92), DAY + r(58, 92)]; G.mdO = 0; G.rope = []; G.hK = ''; G.tK = ''; G.myOut = 0;
   }
   // sbarre delle celle e cancello del cortile: chiusi di notte (su ogni telefono, dal tempo)
   function syncDoors(G) {
@@ -872,6 +1090,35 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     }
     if (G.time > 0.5) { const d = Math.min(...D2.map(q => Math.hypot(q[0] - cq.x, q[1] - cq.y))); thud(0.7 * Math.max(0.15, 1 - d / 20), 110); setTimeout(() => thud(0.4 * Math.max(0.1, 1 - d / 20), 90), 140); }
   }
+  // buchi dei tunnel (deco 'hole'): si ridisegnano quando cambia il progresso, la terra o se e' murato
+  function syncHoles(G) {
+    const M = MP(), key = M.pcells.map(k => Math.ceil((G.tun[k] || 0) * 4) + ':' + (G.dirt[k] || 0) + ':' + (G.seal[k] ? 1 : 0)).join('|');
+    if (key === G.hK) return; G.hK = key;
+    for (const k of M.pcells) { const c = M.cells[k], [x, y] = c.ht; HST[x + ',' + y] = { p: Math.ceil((G.tun[k] || 0) * 4) / 4, d: G.dirt[k] || 0, s: G.seal[k] ? 1 : 0 }; cqBgCell(x, y, 1); }
+  }
+  // camion parcheggiato = caselle occupate; serranda e cancello aperti mentre passa; porta dell'officina aperta col cacciavite
+  function syncTruck(G) {
+    const ph = camPh(G).ph, key = ph + ':' + (G.mdO ? 1 : 0); if (key === G.tK) return; G.tK = key;
+    for (let y = 39; y <= 41; y++) for (let x = 85; x <= 90; x++) { const cur = cqSolid[y][x]; if (ph === 2 && !cur) cqSolid[y][x] = { prop: 'tblk', o: {} }; if (ph !== 2 && cur && cur.prop === 'tblk') cqSolid[y][x] = null; }
+    if (ph === 2) for (const c of G.chars) { if (c !== G.me && !c.bot) continue; const p = P(c); if (!cqFree(p.x, p.y)) { const q = cqSpot(Math.floor(p.x), Math.floor(p.y)); if (c === G.me) { cq.x = q.x; cq.y = q.y; } else { c.x = q.x; c.y = q.y; } } }
+    const op = ph === 1 || ph === 3;
+    for (const y of [39, 40, 41]) { cqSolid[y][91] = op ? null : { prop: 'shut', o: { v: 1 } }; cqSolid[y][95] = op ? null : { prop: 'tgate', o: { v: 1, l: y === 40 } }; cqBgCell(91, y, 1); cqBgCell(95, y, 1); }
+    for (const y of [40, 41]) { cqSolid[y][72] = G.mdO ? null : { prop: 'mdoor', o: { v: 1, l: y === 41 } }; cqBgCell(72, y, 1); }
+  }
+  const DVL = { skin: 'guardia', col: '#4a5f8a', hat: 'nessuno' };
+  const dvDraw = (g, X, Y, TW, L, w, f) => cqPlayer(g, X, Y, TW, DVL, w, f);
+  // il camion si disegna a FETTE (una per casella lungo x): ogni fetta e' un "personaggio" del motore (riquadro stretto, giusto davanti/dietro alle persone)
+  const TDR = [0, 1, 2, 3, 4, 5].map(i => {
+    const dr = (g, X, Y, TW) => {
+      const G = cq.g; if (!G) return; const bx0 = TRK[0] + camPh(G).sh, ax = bx0 + i + 0.5, ay = TRK[1] + 1.2, U = TW * 0.575, S = (x, y, z) => [(x - y) * TW / 2, (x + y) * TW / 4 - z * U];
+      const a = bx0 + i, b = a + 1, y0 = TRK[1] - 0.15, y1 = TRK[1] + 2.55, z = 2.5;
+      g.save(); g.translate(X - (ax - ay) * TW / 2, Y - (ax + ay) * TW / 4); g.beginPath();
+      for (const q of [[S(a, y0, z), S(b, y0, z), S(b, y1, z), S(a, y1, z)], [S(a, y1, z), S(b, y1, z), S(b, y1, 0), S(a, y1, 0)], [S(b, y1, z), S(b, y0, z), S(b, y0, 0), S(b, y1, 0)]]) { g.moveTo(...q[0]); for (const p of q.slice(1)) g.lineTo(...p); g.closePath(); }
+      g.clip(); cqTools(g, TW).prop('ltruck', bx0, TRK[1]); g.restore();
+    };
+    dr.top = 3; return dr;
+  });
+
   // PASSAGGI DA PRESIDIARE (allarme di squadra): uscite del braccio, del cortile, scale, cancello
   function chokes(G, x, y) {
     const f = floorOf(x), L = f === 0 ? [[48.5, 19.5], [48.5, 45.5], [25.5, 31.5], [45.5, 13.5], [51.5, 50.5], [71.5, 66.5], [72.5, 40.5]] : [[O1 + 45.5, 13.5], [O1 + 58.5, 57.5]];
@@ -882,7 +1129,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   const env = G => { const E = { thieves: G.chars.filter(c => illegal(G, c)), pos: P, vis: c => c.bot ? 0.65 : 1,
     range: (x, y) => rangeAt(G, x, y), alert: alertOn(G), k: G.opt.dif === 'f' ? 0.8 : G.opt.dif === 'd' ? 1.25 : 1, speed: 1,
     hides: MP().stash.filter(h => h.cell == null), hiddenAt: i => stashChecked(G, i), same: (x1, y1, x2, y2) => floorOf(x1) === floorOf(x2),
-    chokes: (x, y) => chokes(G, x, y), onNotice: (gd, an) => say(G, 'notice', { x: an.x }),
+    chokes: (x, y) => chokes(G, x, y), onNotice: (gd, an) => { if (an.rope) { G.rope = G.rope.filter(r => Math.hypot(r.ix - an.x, r.iy - an.y) > 0.1); gsay(G, gd, 'Una CORDA?! Qualcuno è scappato!'); say(G, 'ropegone', {}); G.alE = Math.max(G.alE || 0, G.time + ALERT_T); } else say(G, 'notice', { x: an.x }); },
     onCatch: (gd, c) => catchT(G, gd, c), onKo: () => {},
     onChase: (gd, c) => { GD.alarm(G, gd, E); say(G, 'chase', { a: c.id }); } };
   return E; };
@@ -895,8 +1142,9 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     def: { dif: 'n', map: 'carcere', n: 4, fill: true, spy: 0 },
     ns: [[2, '2'], [4, '4'], [6, '6'], [8, '8']],
     opts: o => `<details class="row evHow"><summary><b>📖 Come si gioca</b> (tocca per leggere)</summary>${helpHtml()}</details>
-      <div class="row"><div class="lbl">Guardie</div>${seg('dif', [['f', 'Facili'], ['n', 'Normali'], ['d', 'Difficili']], o.dif || 'n')}</div><div class="hint">Due giorni e due notti (circa 8 minuti). In due le guardie sono meno.</div>`,
-    read: d => ({ dif: d.get('dif') || 'n', spy: 0 }),
+      <div class="row"><div class="lbl">Guardie</div>${seg('dif', [['f', 'Facili'], ['n', 'Normali'], ['d', 'Difficili']], o.dif || 'n')}</div>
+      <div class="row"><div class="lbl">Spia</div>${seg('spy', [['0', 'Nessuna'], ['1', '🐀 Una spia']], String(o.spy || 0))}</div><div class="hint">Con la spia: uno di voi (a caso, segreto) lavora per il direttore e fa soffiate alle guardie. Vince se qualcuno resta dentro. Da 3 detenuti in su.</div><div class="hint">Due giorni e due notti (circa 8 minuti). In due le guardie sono meno.</div>`,
+    read: d => ({ dif: d.get('dif') || 'n', spy: d.get('spy') === '1' ? 1 : 0 }),
     start(G) {
       cq.mapDirty = true; cqUseMap('carcere');
       const M = MP(), R = M.routes, dif = G.opt.dif || 'n';
@@ -910,15 +1158,27 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       for (const c of G.chars) if (c.bot && c.look && c.look.skin === 'guardia') { const k = sk.shift(); c.look = k ? { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' } : { skin: 'omino', col: '#e8742a', hat: 'nessuno' }; }
       // celle a due a due, numeri di matricola = posto dell'appello
       const order = G.chars.slice().sort(() => Math.random() - 0.5);
-      order.forEach((c, i) => { const k = M.pcells[Math.floor(i / 2) % M.pcells.length], s = M.cells[k].sp[i % 2]; Object.assign(c, { cell: k, slot: i % 2, no: i + 1, x: s[0], y: s[1], iso: 0, ric: 0, isoN: 0, miss: 0, zz: 0, pk: [], dm: 0, stN: 0, path: [], think: Math.random(), dname: 'N°' + (i + 1) + ' ' + c.name }); });
+      order.forEach((c, i) => { const k = M.pcells[Math.floor(i / 2) % M.pcells.length], s = M.cells[k].sp[i % 2]; Object.assign(c, { cell: k, slot: i % 2, no: i + 1, x: s[0], y: s[1], iso: 0, ric: 0, isoN: 0, miss: 0, zz: 0, pk: [], dm: 0, stN: 0, out: '', seen: 0, dv: 0, inT: 0, cl: 0, dg: 0, ld: -1, path: [], think: Math.random(), dname: 'N°' + (i + 1) + ' ' + c.name }); });
       cq.x = G.me.x; cq.y = G.me.y; G.myF = null;
+      // ogni detenuto del computer si aggancia a un giocatore vero (prima il compagno di cella) e lo segue nella fuga
+      const hum = G.chars.filter(c => !c.bot);
+      for (const c of G.chars) if (c.bot) { const m = hum.find(h => h.cell === c.cell) || hum[c.no % Math.max(1, hum.length)]; c.ld = m ? m.id : -1; }
+      // LA SPIA (se scelta): uno a caso, segreto; i computer la seguono come gli altri
+      for (const c of G.chars) { c.spy = 0; c.spT = 0; }
+      if (G.opt.spy && G.chars.length >= 3) { const sp = G.chars[Math.floor(Math.random() * G.chars.length)]; sp.spy = 1; sp.spT = SPY_CD * 0.6; }
     },
     gstart(G) { cq.mapDirty = true; cqUseMap('carcere'); GD.pathFn = route; setup(G); G.gd = []; G.ready = 0; },
-    intro: G => '🔒 Rocca Nera, giorno 1: suona la campana dell\'appello!',
-    speed(c) { const G = cq.g; if (!G || isoOn(G, c)) return 0; return 1; },
+    intro: G => G.me && G.me.spy ? '🐀 Sei la SPIA: fai fallire la fuga!' : '🔒 Rocca Nera, giorno 1: suona la campana dell\'appello!',
+    speed(c) { const G = cq.g; if (!G || isoOn(G, c) || c.inT || c.cl) return 0; return 1; },
+    hide: c => !!c.inT,
+    draw: c => c.dv ? dvDraw : null,
     big(G) {
       const me = G.me; if (!G.ready && G.guest) return '';
       if (isoOn(G, me)) return '⛓️ Isolamento · esci tra ' + Math.ceil(me.iso - G.time) + ' s';
+      if (me.out) { const n = G.chars.filter(c => !c.out).length; return n ? '🌲 Sei fuori! Mancano ' + n + (n > 1 ? ' compagni' : ' compagno') + (pk(me).includes('le') ? ': lancia la corda dal muro' : '') : '🎉 Tutti fuori!'; }
+      if (me.inT) return '🚚 Nascosto nel camion: zitto e fermo…';
+      if (me.cl) return '🧗 Su per la corda!';
+      if (me.dg) return '⛏️ Scavi… se passa il secondino, smetti!';
       const ch = G.gd.find(g => g.st === 'chase' && g.tgt === me.id); if (ch) return '❗ Ti inseguono: fatti perdere di vista!';
       const t = cyc(G), ph = phase(G);
       if (ph === 'ap') { const end = t < AP1 ? AP1 : AP2; return onSpot(me) ? '✅ Sei al posto N° ' + me.no + ' · conta tra ' + Math.ceil(end - t) + ' s' : '📣 APPELLO! Corri al posto N° ' + me.no + ' in cortile · ' + Math.ceil(end - t) + ' s'; }
@@ -926,13 +1186,16 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (ricOn(G, me)) return '🚨 Sei ricercato: stai alla larga dalle guardie (' + Math.ceil(me.ric - G.time) + ' s)';
       if (G.ps && G.ps.st < 2 && G.ps.k === me.cell) return G.ps.st === 0 ? '🔎 Perquisizione nella tua cella tra ' + Math.max(0, Math.ceil(G.ps.t - G.time)) + ' s: svuota la piastrella!' : '🔎 Stanno perquisendo la tua cella!';
       if (G.ff) return '💤 Zzz… la notte passa';
+      if (me.dv) return '👔 Travestito da guardia: le guardie ti riconoscono da vicino';
+      { const cp = camPh(G); if (cp.ph === 2) return '🚚 Il camion è nel cortile di carico: riparte tra ' + Math.ceil(G.cam.T + CAM_T - G.time) + ' s'; }
       const p = P(me); if (!closed(G) && forbAt(p.x, p.y)) return '🚫 Zona vietata: se una guardia ti vede, ti insegue!';
       return '';
     },
     hud(G) {
       const me = G.me, t = cyc(G), ph = phase(G), nightNow = ph === 'night', d = dayN(G);
-      const next = ph === 'ap' ? '' : ph === 'day' ? '📣 Appello tra ' + mmss(AP2S - t) : ph === 'rin' ? '🛏️ Celle chiuse tra ' + mmss(CLOSE - t) : d >= NDAYS ? '🚌 Trasferimento all\'alba tra ' + mmss(DAY - t) : '🌅 Alba tra ' + mmss(DAY - t);
-      return `<b style="color:${TC}">🔒 N°${me.no || '?'}</b> · ${nightNow ? '🌙' : t >= DUSK0 ? '🌇' : '☀️'} Giorno ${d}/${NDAYS} · <b>${clock(G)}</b>` + (next ? ' · ' + next : '') + (alertOn(G) ? ' · <b style="color:#ff6a5a">🚨 ALLERTA</b>' : '');
+      const camN = G.cam && G.cam.st === 0 && ph === 'day' ? G.cam.T - G.time : 1e9;
+      const next = ph === 'ap' ? '' : ph === 'day' ? (camN < AP2S - t ? '🚚 Camion tra ' + mmss(camN) : '📣 Appello tra ' + mmss(AP2S - t)) : ph === 'rin' ? '🛏️ Celle chiuse tra ' + mmss(CLOSE - t) : d >= NDAYS ? '🚌 Trasferimento all\'alba tra ' + mmss(DAY - t) : '🌅 Alba tra ' + mmss(DAY - t);
+      return `<b style="color:${TC}">${me.spy ? '🐀' : '🔒'} N°${me.no || '?'}</b> · ${nightNow ? '🌙' : t >= DUSK0 ? '🌇' : '☀️'} Giorno ${d}/${NDAYS} · <b>${clock(G)}</b>` + (next ? ' · ' + next : '') + (alertOn(G) ? ' · <b style="color:#ff6a5a">🚨 ALLERTA</b>' : '');
     },
     nameCol: c => { const G = cq.g; return G && isoOn(G, c) ? '#9aa0a8' : G && ricOn(G, c) ? '#ff6a5a' : TC; },
     // guardie (comparse del gioco) e gli altri detenuti di Rocca Nera
@@ -945,6 +1208,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
         out.push({ x: g.x, y: g.y, L: null, w: g.walk, f: 1, name: null, all: true, dr: g.__dr });
       }
       for (const e of comparse(G)) out.push(e);
+      { const cp = camPh(G); if (cp.ph && Math.abs(87 - cq.x) < 30 && Math.abs(40 - cq.y) < 30 && floorOf(cq.x) === 0) for (let i = 0; i < 6; i++) out.push({ x: TRK[0] + cp.sh + i + 0.5, y: TRK[1] + 1.2, L: null, w: 0, f: 1, name: null, all: true, dr: TDR[i] }); }
       return out;
     },
     btn(G) { if (G.guest && !G.ready) return null; const a = action(G, G.me); return a ? { t: a.t, on: a.on } : null; },
@@ -953,7 +1217,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     voice: (G, c) => null,   // voce di vicinanza (in cella si sente il compagno; urlare dall'altra parte del cortile no)
     local(G, dt) {
       const me = G.me; if (G.guest && !G.ready) return;
-      syncDoors(G); syncComp(G);
+      syncDoors(G); syncComp(G); syncHoles(G); syncTruck(G);
       if (G.guest) GD.smooth(G, dt);
       // isolamento e rilascio: il mio personaggio si sposta sul mio telefono
       if (isoOn(G, me) && me.isoN !== G.myIso) { G.myIso = me.isoN; const s = MP().iso[me.isoC || 0]; if (s) { cq.x = s.x; cq.y = s.y; } cqCloseTask(); }
@@ -965,7 +1229,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       }
       { const f = floorOf(cq.x); if (G.myF !== f) { if (G.myF != null) G.fade = performance.now(); G.myF = f; } }
       // nome della stanza quando ci entro (le zone vietate in rosso)
-      { const r = roomAt(cq.x, cq.y); if (r >= 0 && r !== G.myR) { const R = MP().rooms[r]; if (!R.nl || R.f) { if (G.myRn !== R.n) { G.zn = { n: R.n, f: !!R.f && !(R.ala === 'I' && isoOn(G, me)), t: performance.now() }; G.myRn = R.n; } } G.myR = r; } }
+      { const r = roomAt(cq.x, cq.y); if (r >= 0 && r !== G.myR) { const R = MP().rooms[r]; if (!R.nl || R.f) { if (G.myRn !== R.n) { G.zn = { n: R.n, f: !!R.f && !(R.ala === 'I' && isoOn(G, me)) && !me.out, t: performance.now() }; G.myRn = R.n; } } G.myR = r; } }
       // campane, fischi e cancelli: ogni telefono li sente dal tempo
       { const t = cyc(G), pt = G.lt == null ? t : G.lt; G.lt = t; const cross = e => (pt < e && t >= e) || (pt - t > DAY / 2 && t >= e);   // (all'indietro solo a mezzanotte: le piccole correzioni dell'orologio non contano)
         if (cross(0.05) || cross(AP2S)) { bell(); if (pk(me).length && !isoOn(G, me)) setTimeout(() => cqToast("🎒 Hai roba in tasca: all'appello frugano a caso. Nascondila prima di andare al posto!"), 900); }
@@ -990,7 +1254,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       G.pc = t; const cross = e => pt < e && t >= e;
       // APPELLO: alla fine della finestra conta chi c'e'
       if (cross(AP1) || cross(AP2)) {
-        const miss = G.chars.filter(c => c.alive && !isoOn(G, c) && !onSpot(c));
+        const miss = G.chars.filter(c => c.alive && !isoOn(G, c) && !onSpot(c) && !c.out);
+        for (const c of G.chars) if (c.out && !c.seen) found(G, c);
         // PERQUISIZIONE A CAMPIONE: il capoguardia fruga le tasche di qualcuno dei presenti (di piu' con l'allerta)
         { const cg = G.gd.find(g => g.route === M.routes.cortile.route); let any = 0;
           for (const c of G.chars) if (c.alive && !isoOn(G, c) && onSpot(c) && pk(c).length && Math.random() < (alertOn(G) ? 0.5 : FR_P)) { any = 1; say(G, 'frisk', { a: c.id, it: c.pk.splice(0).join(',') }); }
@@ -1002,7 +1267,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       // il capoguardia sul palco durante l'appello
       { const cg = G.gd.find(g => g.route === M.routes.cortile.route); if (cg && phase(G) === 'ap' && cg.st !== 'chase' && cg.st !== 'post' && cg.st !== 'srch') { GD.postAt(G, cg, 28.5, 49.6, 28.5, 52, (t < AP1 ? AP1 : AP2) - t + 1); } }
       // le sbarre si chiudono: chi non e' nella sua cella e' ricercato
-      if (cross(CLOSE)) for (const c of G.chars) if (c.alive && !isoOn(G, c) && !inCell(c)) { c.ric = G.time + RIC_T * 1.5; c.miss = (c.miss || 0) + 1; say(G, 'night', { a: c.id }); G.alE = Math.max(G.alE || 0, G.time + ALERT_T); }
+      if (cross(CLOSE)) { G.mdO = 0; for (const k of M.pcells) G.tun0[k] = G.tun[k] || 0; }
+      if (cross(CLOSE)) for (const c of G.chars) if (c.alive && !isoOn(G, c) && !inCell(c) && !c.out) { c.ric = G.time + RIC_T * 1.5; c.miss = (c.miss || 0) + 1; say(G, 'night', { a: c.id }); G.alE = Math.max(G.alE || 0, G.time + ALERT_T); }
       GD.tick(G, dt, E);
       for (const g of G.gd) npcTp(g);
       // RIFLETTORI (di notte): chi e' fuori posto nella pozza di luce viene notato
@@ -1019,32 +1285,46 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (G.ps) psTick(G);
       if (NCK.some(cross) && !G.nc) ncStart(G);
       if (G.nc) ncTick(G);
+      // vie di fuga: scavo, camion, corde (si arrampica e scappa; la corda dura ROPE_T s o finche' una guardia la vede)
+      digTick(G, dt); camTick(G);
+      for (const c of G.chars) if (c.cl && G.time >= c.cl) { const r = G.rope[c.clR] || G.rope[0]; c.cl = 0; if (r) escapeC(G, c, 'cor', r.ox, r.oy); }
+      G.rope = G.rope.filter(r => r.e > G.time);
       // computer
       for (const c of G.chars) { if (!c.bot || !c.alive) continue; botT(G, c, dt); npcTp(c); }
+      // VITTORIA: tutti fuori
+      { const all = G.chars.filter(c => c.alive && !c.left && !c.spy); if (all.length && all.every(c => c.out)) { MODE.finish(G, 'win'); return; } }
+      // la spia del computer fa una soffiata ogni tanto
+      for (const c of G.chars) if (c.spy && c.bot && !c.out && !isoOn(G, c) && G.time > (c.spT || 0)) { c.spT = G.time + SPY_CD * (1 + Math.random() * 0.5); snitch(G, c, nearGuard(G, c.x, c.y, true)); }
       // DORMIRE: se tutti i giocatori veri sono a letto (in cella, di notte) la notte passa piu' in fretta
-      { const hum = G.chars.filter(c => c.alive && !c.bot && !c.left && !isoOn(G, c));
-        G.ff = closed(G) && t < DAY - 3 && hum.length > 0 && hum.every(c => c.zz && inCell(c)) && !G.chars.some(c => ricOn(G, c)) ? 1 : 0;
+      { const hum = G.chars.filter(c => c.alive && !c.bot && !c.left && !isoOn(G, c) && !c.out), outH = G.chars.some(c => !c.bot && c.out);
+        G.ff = closed(G) && t < DAY - 3 && (hum.length > 0 || outH) && hum.every(c => c.zz && inCell(c)) && !G.chars.some(c => ricOn(G, c) || c.dg || c.cl) ? 1 : 0;
         if (G.ff) G.time += dt * 6; }
       if (G.time >= NDAYS * DAY) MODE.finish(G, 'time');
     },
     finish(G, why) {
       const name = c => c.name + (c === G.me ? ' (tu)' : '');
       const line = c => [name(c), '— N°' + c.no + ' · ' + [c.stN ? '✋ ' + c.stN + (c.stN > 1 ? ' furti' : ' furto') : '', c.isoN ? '⛓️ isolamento ' + c.isoN + (c.isoN > 1 ? ' volte' : ' volta') : '😇 mai in isolamento', c.miss ? '🚨 ' + c.miss + ' appelli saltati' : ''].filter(Boolean).join(' · ')];
-      const rank = G.chars.slice().sort((a, b) => ((a.isoN || 0) + (a.miss || 0)) - ((b.isoN || 0) + (b.miss || 0))).map(line);
-      cqModeEnd({ t: '🚌 Trasferiti!', why: 'All\'alba del terzo giorno arriva il furgone blindato: vi portano a Rocca Nera 2, massima sicurezza. Nessuno è evaso.' + funny(G, 0), win: [], rank });
+      const line2 = c => { const l = line(c); if (c.out) l[1] = '— ' + VIA[c.out][0] + ' scappato ' + VIA[c.out][1] + ' · ' + l[1].slice(2); return l; };
+      const rank = G.chars.slice().sort((a, b) => (b.out ? 1 : 0) - (a.out ? 1 : 0) || (a.outT || 0) - (b.outT || 0) || ((a.isoN || 0) + (a.miss || 0)) - ((b.isoN || 0) + (b.miss || 0))).map(line2);
+      const n = G.chars.filter(c => c.out).length;
+      const spy = G.chars.find(c => c.spy), team = G.chars.filter(c => !c.spy), spyT = spy ? '<br>🐀 La spia era <b>N°' + spy.no + ' ' + esc(spy.name) + '</b>' + (spy.snN ? ' (' + spy.snN + (spy.snN > 1 ? ' soffiate' : ' soffiata') + ')' : '') + (why === 'win' ? ': non è bastato!' : ': missione compiuta, il direttore le regala un panettone.') : '';
+      if (why === 'win') cqModeEnd({ t: '🎉 Evasi tutti!', why: 'Rocca Nera si sveglia e le celle sono vuote: ' + [...new Set(team.map(c => c.out).filter(Boolean))].map(v => VIA[v][0]).join(' ') + ' Il direttore sviene.' + spyT + funny(G, 1), win: team.map(c => c.id), rank });
+      else cqModeEnd({ t: '🚌 Trasferiti!', why: 'All\'alba del terzo giorno arriva il furgone blindato' + (n ? ': ne sono scappati ' + n + ' su ' + team.length + ', ma dovevate scappare tutti. Chi è rimasto va a Rocca Nera 2.' : ': vi portano a Rocca Nera 2, massima sicurezza. Nessuno è evaso.') + spyT + funny(G, 0), win: spy ? [spy.id] : [], rank });
     },
-    csnap: c => { const G = cq.g; return [Math.round(Math.max(0, (c.iso || 0) - G.time) * 10) / 10, Math.round(Math.max(0, (c.ric || 0) - G.time) * 10) / 10, c.cell, c.slot, c.no, c.zz ? 1 : 0, c.isoN || 0, c.isoC || 0, c.relN || 0, c.rel || 0, c.miss || 0, pk(c).join(','), c.dm ? 1 : 0, c.stN || 0]; },
+    csnap: c => { const G = cq.g; return [Math.round(Math.max(0, (c.iso || 0) - G.time) * 10) / 10, Math.round(Math.max(0, (c.ric || 0) - G.time) * 10) / 10, c.cell, c.slot, c.no, c.zz ? 1 : 0, c.isoN || 0, c.isoC || 0, c.relN || 0, c.rel || 0, c.miss || 0, pk(c).join(','), c.dm ? 1 : 0, c.stN || 0, c.out || '', c.dv ? 1 : 0, c.inT ? 1 : 0, c.cl ? 1 : 0, c.dg || 0, c.seen ? 1 : 0, c.spy ? 1 : 0, Math.round(Math.max(0, (c.spT || 0) - G.time))]; },
     capply(G, c, a) {
       c.iso = a[0] > 0 ? G.time + a[0] : 0; c.ric = a[1] > 0 ? G.time + a[1] : 0; c.cell = a[2]; c.slot = a[3]; c.no = a[4]; if (c !== G.me) c.zz = a[5];
-      c.isoN = a[6]; c.isoC = a[7]; c.relN = a[8]; c.rel = a[9] || null; c.miss = a[10]; c.pk = a[11] ? a[11].split(',') : []; c.dm = a[12]; c.stN = a[13]; c.dname = 'N°' + c.no + ' ' + c.name;
+      c.isoN = a[6]; c.isoC = a[7]; c.relN = a[8]; c.rel = a[9] || null; c.miss = a[10]; c.pk = a[11] ? a[11].split(',') : []; c.dm = a[12]; c.stN = a[13]; c.out = a[14] || ''; c.dv = a[15]; c.inT = a[16]; c.cl = a[17]; c.dg = a[18]; c.seen = a[19]; c.spy = a[20]; c.spT = G.time + (a[21] || 0); if (c === G.me && c.spy && !G.spyT) { G.spyT = 1; setTimeout(() => cqToast('🐀 <b>Sei la SPIA</b>: lavori per il direttore. Vicino a una guardia fai una soffiata (ogni ' + SPY_CD + ' s). Vinci se qualcuno resta dentro. Non farti scoprire!'), 1500); } c.dname = 'N°' + c.no + ' ' + c.name;
       if (c === G.me && !G.ready) { G.ready = 1; G.myIso = c.isoN; G.myRel = c.relN; }
     },
     snap(G) { const r = v => Math.round(v * 10) / 10; return { gd: GD.snap(G), lg: G.lg, al: r(Math.max(0, G.alE - G.time)), ff: G.ff, cnt: G.cnt ? [r(G.time - G.cnt.t), G.cnt.n] : null,
-      src: G.src.map(t => r(Math.max(0, t - G.time))), st: G.st, ps: G.ps ? [G.ps.k, G.ps.h, r(G.ps.t - G.time), G.ps.st] : null }; },
+      src: G.src.map(t => r(Math.max(0, t - G.time))), st: G.st, ps: G.ps ? [G.ps.k, G.ps.h, r(G.ps.t - G.time), G.ps.st] : null,
+      tun: G.tun, dirt: G.dirt, seal: G.seal, mdO: G.mdO, cam: G.cam ? [r(G.cam.T - G.time), G.cam.st] : null, rope: G.rope.map(q => [q.ix, q.iy, q.ox, q.oy, r(q.e - G.time)]) }; },
     apply(G, x) {
       if (!G.gd.length) G.gd = x.gd.map((v, id) => ({ id, x: v[0], y: v[1], a: v[2], st: 'pat', sus: 0, walk: 0, route: [], path: [] }));
       GD.apply(G, x.gd); G.alE = x.al > 0 ? G.time + x.al : 0; G.ff = x.ff; G.cnt = x.cnt ? { t: G.time - x.cnt[0], n: x.cnt[1] } : null;
       if (x.src) G.src = x.src.map(v => G.time + v); if (x.st) G.st = x.st; G.ps = x.ps ? { k: x.ps[0], h: x.ps[1], t: G.time + x.ps[2], st: x.ps[3] } : null;
+      if (x.tun) { G.tun = x.tun; G.dirt = x.dirt; G.seal = x.seal; G.mdO = x.mdO; G.cam = x.cam ? { T: G.time + x.cam[0], st: x.cam[1] } : null; G.rope = (x.rope || []).map(q => ({ ix: q[0], iy: q[1], ox: q[2], oy: q[3], e: G.time + q[4] })); }
       for (const e of x.lg || []) if (e.n > G.lgN) { G.lgN = e.n; if (G.time > 0.3) show(G, e); }
     },
     // NOTTE: lampade, torce delle guardie, riflettori; di giorno luce dappertutto (si vede solo il proprio livello)
@@ -1092,6 +1372,22 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
         });
         if (G.ps && G.ps.st < 2) { const c = M.cells[G.ps.k], x = c.x0 + 2, y = c.y0 + 2; if (near(x, y, 24)) { const X = sx(x, y), Y = sy(x, y) - TW * (2.6 + 0.12 * Math.sin(now * 4)), tx = '🔎 PERQUISIZIONE' + (G.ps.st === 0 ? ' · ' + Math.max(0, Math.ceil(G.ps.t - G.time)) + ' s' : ''); g.font = '800 12px system-ui,sans-serif'; const w = g.measureText(tx).width + 18; g.fillStyle = 'rgba(150,30,30,.9)'; cqRR(g, X - w / 2, Y - 12, w, 24, 9); g.fill(); g.fillStyle = '#fff'; g.fillText(tx, X, Y); } }
       }
+      // LE VIE DI FUGA: corde sul muro, segnali dove si fa qualcosa (porta del carico, camion, cancello, tunnel finito), scavo in corso
+      if (mf === 0) {
+        for (const r of G.rope) { if (!near(r.ix, r.iy, 22)) continue; const a = [sx(r.ix, r.iy), sy(r.ix, r.iy)], b = [sx(r.ox, r.oy), sy(r.ox, r.oy)], mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2 - 3.4 * U, k = Math.min(1, (r.e - G.time) / 5);
+          g.globalAlpha = k; g.strokeStyle = '#5a4a30'; g.lineWidth = Math.max(3, TW * 0.09); g.beginPath(); g.moveTo(a[0], a[1]); g.lineTo(mx, my); g.lineTo(b[0], b[1]); g.stroke();
+          g.strokeStyle = '#e8dcc0'; g.lineWidth = Math.max(2, TW * 0.05); g.stroke(); g.fillStyle = '#e8dcc0'; for (let i = 1; i < 5; i++) { const u = i / 5; g.beginPath(); g.arc(a[0] + (mx - a[0]) * u, a[1] + (my - a[1]) * u, TW * 0.05, 0, 7); g.fill(); } g.globalAlpha = 1; }
+        const mark = (x, y, ico, col) => { if (!near(x, y, 14)) return; const X = sx(x, y), Y = sy(x, y), k = (now * 1.2) % 1; g.strokeStyle = col.replace('A', String(0.9 * (1 - k))); g.lineWidth = 2.5; g.beginPath(); g.ellipse(X, Y, TW * (0.3 + 0.3 * k), TW * (0.15 + 0.15 * k), 0, 0, 7); g.stroke(); g.font = Math.round(TW * 0.34) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(ico, X, Y - TW * (1.1 + 0.08 * Math.sin(now * 3))); };
+        if (!me.out && !isoOn(G, me)) {
+          const cp = camPh(G);
+          if (cp.ph === 2) mark(DOORP[0], DOORP[1], '🚚', 'rgba(120,200,255,A)');
+          if (!G.mdO && !closed(G) && (pk(me).includes('ca') || (G.cam && G.cam.st < 3))) mark(MDP[0], MDP[1], '🪛', 'rgba(255,210,90,A)');
+          if (me.dv) mark(GATEP[0], GATEP[1], '🪪', 'rgba(255,210,90,A)');
+          for (const r of G.rope) mark(r.ix, r.iy, '🧗', 'rgba(232,220,192,A)');
+          for (const k of M.pcells) if ((G.tun[k] || 0) >= 2 && !G.seal[k]) { const h = M.cells[k].hole; mark(h[0], h[1], '🕳️', 'rgba(120,255,140,A)'); }
+          { const k = M.cells[me.cell] && me.cell, h = M.cells[me.cell].hole, tn = G.tun[me.cell] || 0; if (k != null && !G.seal[k] && tn > 0 && tn < 2 && near(h[0], h[1], 6)) { const X = sx(h[0], h[1]), Y = sy(h[0], h[1]) - TW * 0.9, tx = '⛏️ ' + Math.floor(tn * 50) + '%' + ((G.dirt[k] || 0) ? ' · 🟫' + G.dirt[k] : ''); g.font = '800 11px system-ui,sans-serif'; const w = g.measureText(tx).width + 14; g.fillStyle = 'rgba(30,22,14,.85)'; cqRR(g, X - w / 2, Y - 10, w, 20, 8); g.fill(); g.fillStyle = '#f2dcb4'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(tx, X, Y); } }
+        }
+      }
       // CONI DI VISTA delle guardie (fermati dai muri): di giorno uno solo, di notte torcia forte + alone "se sei in luce"
       for (const gd of G.gd) {
         if (gd.st === 'ko' || !guardSeen(G, gd)) continue;
@@ -1115,7 +1411,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (alertOn(G)) { const a = 0.16 + 0.1 * Math.sin(now * 4); g.strokeStyle = 'rgba(255,40,40,' + a + ')'; g.lineWidth = 8; g.strokeRect(4, 4, W2 - 8, H2 - 8); }
       if (G.hb > 0) { const k = Math.max(0, 1 - (performance.now() - (G.hbP || 0)) / 380), a = 0.12 + 0.3 * G.hb * (0.5 + 0.5 * k); const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.72); gr.addColorStop(0, 'rgba(160,0,0,0)'); gr.addColorStop(1, 'rgba(160,0,0,' + a + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2); }
       // zona vietata: bordo rosso tratteggiato
-      { const p = P(me); if (!isoOn(G, me) && forbAt(p.x, p.y) && !closed(G)) { g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now * 30; g.strokeStyle = 'rgba(255,70,60,.55)'; g.lineWidth = 4; g.strokeRect(10, 10, W2 - 20, H2 - 20); g.restore(); } }
+      { const p = P(me); if (!isoOn(G, me) && !me.out && forbAt(p.x, p.y) && !closed(G)) { g.save(); g.setLineDash([14, 10]); g.lineDashOffset = -now * 30; g.strokeStyle = 'rgba(255,70,60,.55)'; g.lineWidth = 4; g.strokeRect(10, 10, W2 - 20, H2 - 20); g.restore(); } }
       // isolamento: buio e sbarre di luce dallo spioncino
       if (isoOn(G, me)) { g.fillStyle = 'rgba(6,6,8,.55)'; g.fillRect(0, 0, W2, H2); const k = Math.min(1, (me.iso - G.time) / ISO_T); g.fillStyle = 'rgba(10,10,14,.75)'; cqRR(g, W2 / 2 - 110, H2 * 0.62 - 20, 220, 40, 12); g.fill(); g.fillStyle = '#3a3e48'; cqRR(g, W2 / 2 - 90, H2 * 0.62 + 6, 180, 6, 3); g.fill(); g.fillStyle = '#e8a030'; cqRR(g, W2 / 2 - 90, H2 * 0.62 + 6, 180 * (1 - k), 6, 3); g.fill(); g.fillStyle = '#e8e0c8'; g.font = '700 13px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('⛓️ Isolamento · ancora ' + Math.ceil(me.iso - G.time) + ' s', W2 / 2, H2 * 0.62 - 6); }
       // si dorme: la notte passa (schermo scuro e orologio)
@@ -1126,6 +1422,9 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (G.fade) { const t = performance.now() - G.fade;
         if (t < 520) { g.fillStyle = 'rgba(4,4,6,' + (1 - t / 520) + ')'; g.fillRect(0, 0, W2, H2); }
         if (t < 1700) { const a = Math.min(1, (1700 - t) / 400); g.globalAlpha = a; g.fillStyle = 'rgba(10,10,14,.7)'; cqRR(g, W2 / 2 - 90, H2 * 0.3 - 22, 180, 44, 12); g.fill(); g.fillStyle = '#f2dca0'; g.font = '800 20px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText((mf ? '⬆️ ' : '🏛️ ') + FLN[mf].toUpperCase(), W2 / 2, H2 * 0.3); g.globalAlpha = 1; } }
+      // SEI FUORI! (per 3 s)
+      if (me.out && !G.myOut) { G.myOut = performance.now(); }
+      if (G.myOut) { const t = performance.now() - G.myOut; if (t < 3200) { const a = Math.min(1, t / 250, (3200 - t) / 600), v = VIA[me.out] || ['🌲', '']; g.globalAlpha = a; g.fillStyle = 'rgba(14,40,20,.86)'; cqRR(g, W2 / 2 - 140, H2 * 0.44 - 34, 280, 68, 16); g.fill(); g.strokeStyle = 'rgba(140,230,150,.7)'; g.lineWidth = 2; g.stroke(); g.fillStyle = '#c8ffd0'; g.font = '900 26px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(v[0] + ' SEI FUORI!', W2 / 2, H2 * 0.44 - 8); g.font = '600 13px system-ui,sans-serif'; g.fillStyle = '#e8ffe8'; g.fillText('scappato ' + v[1], W2 / 2, H2 * 0.44 + 18); g.globalAlpha = 1; } }
       board(g, G); pocket(g, G); minimap(g, G, W2);
     }
   };
@@ -1240,7 +1539,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     if (G.big) return;
     const t = cyc(G), x0 = 10, y0 = 122, w = 158, lh = 19, h = 24 + AG.length * lh;
     g.save(); g.fillStyle = 'rgba(30,24,20,.84)'; cqRR(g, x0, y0, w, h, 10); g.fill(); g.strokeStyle = 'rgba(232,168,80,.4)'; g.lineWidth = 1.5; g.stroke();
-    g.fillStyle = '#f2dcb4'; g.font = '700 11px system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('📋 GIORNO ' + dayN(G) + ' · ' + clock(G), x0 + 9, y0 + 13);
+    g.fillStyle = '#f2dcb4'; g.font = '700 11px system-ui,sans-serif'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillText('📋 GIORNO ' + dayN(G) + ' · ' + clock(G) + (G.cam && G.cam.st < 3 ? ' · 🚚 ' + clockAt(G.cam.T) : ''), x0 + 9, y0 + 13);
     AG.forEach((r, i) => {
       const y = y0 + 26 + i * lh + lh / 2 - 2, cur = t >= r[3] && t < r[4], past = t >= r[4];
       g.globalAlpha = cur ? 1 : past ? 0.45 : 0.75; if (cur) { g.fillStyle = 'rgba(255,170,70,.18)'; g.fillRect(x0 + 3, y - lh / 2 + 1, w - 6, lh - 2); }
@@ -1279,6 +1578,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     { const c = cellOf(me), q = c.sp[me.slot]; ico(q[0], q[1], '🛏️', sz - 1); }
     if (big) { SRC.forEach((s, i) => { if (srcOn(G, i)) ico(s.x, s.y, IT[s.k][0], sz - 2); }); M.stash.forEach((h, i) => { if ((G.st[i] || []).length) ico(h.x + 0.5, h.y + 0.5, h.i, sz - 3); }); }
     if (G.ps && G.ps.st < 2) { const c = M.cells[G.ps.k]; ico(c.x0 + 2, c.y0 + 2, '🔎', sz + 1); }
+    if (camPh(G).ph) ico(87, 40.5, '🚚', sz + 1); for (const r of G.rope) ico(r.ix, r.iy, '🪢', sz);
+    for (const k of M.pcells) if ((G.tun[k] || 0) >= 2 && !G.seal[k]) ico(M.cells[k].hole[0], M.cells[k].hole[1], '🕳️', sz - 1);
     for (const Pq of M.portals) if (Pq.f === mf) { const c = Pq.cells[Math.floor(Pq.cells.length / 2)]; ico(c[0] + 0.5, c[1] + 0.5, Pq.tf ? '⬆️' : '⬇️', sz - 2); }
     for (const gd of G.gd) dot(gd.x, gd.y, 3, gd.st === 'chase' ? '#ff3030' : gd.st === 'ko' ? '#888' : '#7aa8ff', '#000');
     for (const c of G.chars) if (c !== me && c.alive) dot(c.x, c.y, 3, isoOn(G, c) ? '#9aa0a8' : ricOn(G, c) ? '#ff6a5a' : TC, '#000');
@@ -1301,6 +1602,8 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   // FRASI DI FINE PARTITA (con qualche parolaccia, come negli altri giochi): al massimo 4
   function funny(G, won) {
     const L = [], N = c => '<b>' + esc(c.name) + '</b>', add = (pr, t) => L.push([pr + Math.random() * 0.5, t]);
+    if (won) { const f = G.chars.filter(c => c.out).sort((a, b) => a.outT - b.outT)[0], l = G.chars.filter(c => c.out).sort((a, b) => b.outT - a.outT)[0]; if (f !== l) add(9, N(f) + ' è scappato per primo, ' + N(l) + ' per ultimo: il primo ha già mangiato tre panini al bar della stazione.'); if (G.chars.every(c => c.out === 'tun' || c.spy)) add(8, 'Tutti dal tunnel: due notti col cucchiaio, le unghie distrutte, ma che soddisfazione. Fottuti secondini.'); if (G.chars.some(c => c.out === 'cam')) add(7, 'Il camion della lavanderia ha consegnato le lenzuola e qualche detenuto profumato di ammorbidente.'); if (G.chars.some(c => c.out === 'div')) add(7, 'Il portinaio ha salutato il "collega" con un sorriso. Domani lo licenziano, povero cristo.'); }
+    for (const c of G.chars) if (!won && c.out) add(6, N(c) + ' è scappato davvero… e ha lasciato gli altri a marcire. Bell\'amico, porca miseria.');
     if (!won) { if (!G.chars.some(c => c.isoN || c.miss)) add(6, 'Detenuti modello: mai un appello saltato. Il direttore vi vuole fare santi. E restate dentro.'); else add(4, 'A Rocca Nera 2 almeno il caffè è peggiore. Ottimo motivo per evadere la prossima volta.'); }
     for (const c of G.chars) {
       if ((c.isoN || 0) >= 2) add(8, N(c) + ' è finito in isolamento ' + c.isoN + ' volte: ormai il materasso ha la sua forma.');
@@ -1312,7 +1615,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   }
   // COME SI GIOCA: nelle impostazioni, da solo all'inizio delle prime partite, e col pulsante ❓
   const HELP = [
-    ['🎯', 'Lo scopo', 'Siete detenuti a <b>Rocca Nera</b>. Avete <b>due giorni e due notti</b> per scappare <b>tutti</b>: all\'alba del terzo giorno vi trasferiscono. (Le vie di fuga sono in arrivo: per ora preparate la refurtiva.)'],
+    ['🎯', 'Lo scopo', 'Siete detenuti a <b>Rocca Nera</b>. Avete <b>due giorni e due notti</b> per scappare <b>tutti</b>: all\'alba del terzo giorno vi trasferiscono. Rubate gli attrezzi, preparate la fuga e scegliete la via (anche diverse).'],
     ['📣', 'L\'appello', 'Mattina e sera suona la <b>campana</b>: corri al <b>tuo posto numerato</b> davanti al palco, in cortile. Chi manca diventa <b>ricercato</b> e le guardie lo cercano.'],
     ['🛏️', 'In cella', 'Dopo l\'appello della sera tutti in cella: alle 21:00 le <b>sbarre si chiudono</b>. Chi resta fuori è ricercato. Di notte, a letto, puoi <b>dormire</b> 💤 per far passare il tempo.'],
     ['🚫', 'Zone vietate', 'Sala delle guardie, uffici, carico, ingresso, isolamento e la <b>fascia di ronda</b> lungo il muro (in rosso sulla mappa): se una guardia ti vede lì ti insegue. Di notte fuori dalla cella sei sempre fuori posto.'],
@@ -1321,6 +1624,12 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
     ['🧱', 'Nascondigli', 'Nascondi la refurtiva nella <b>piastrella</b> della tua cella o in un nascondiglio comune (orto, casetta, dietro la tv, scarico della doccia). All\'<b>appello</b> frugano le tasche a caso. Le guardie a volte controllano i nascondigli comuni, e se ti vedono nascondere vanno a guardare.'],
     ['🔎', 'Perquisizioni', 'Ogni giorno una cella viene <b>perquisita</b> con un avviso di ' + PS_W + ' secondi: corri a svuotare la piastrella! Chi è dentro viene perquisito anche lui.'],
     ['🧸', 'Il fantoccio', 'Con gli <b>stracci</b>, in cella, fai un fantoccio nel letto. Di notte, al <b>controllo delle celle</b> 🔦 (mezzanotte e le tre), il secondino crede che dormi. Con l\'allerta però guarda meglio.'],
+    ['🕳️', 'Tunnel', 'Di notte, nella tua cella, col 🥄 scava nell\'angolo sotto la branda: <b>un pezzo per notte</b>, pronto la seconda. Fa rumore: se il secondino ti vede perdi il pezzo e il cucchiaio. La terra 🟫 resta in cella: di giorno portala nell\'<b>orto</b>, se no la perquisizione la trova e il tunnel viene murato.'],
+    ['👔', 'Divisa', 'Indossa la 👔 divisa: le guardie ti credono un collega, ma <b>da vicino ti riconoscono</b>. Col 🪪 tesserino esci dal <b>cancello principale</b> (dalla sala delle guardie), e puoi portarti dietro un compagno come "detenuto scortato".'],
+    ['🚚', 'Camion', 'Ogni giorno il camion della lavanderia arriva a un\'ora diversa (lo dicono al mattino). Col 🪛 svita la porta dell\'officina verso il cortile di carico e nasconditi nel camion: prima di partire a volte controllano il carico.'],
+    ['🪢', 'Corda', 'Chi è già fuori, col 🧵 lenzuolo, lancia la corda oltre il muro. Dentro si <b>scavalca la rete</b> del cortile, si attraversa la fascia di ronda (riflettori!) e ci si arrampica.'],
+    ['🚨', 'La fuga si scopre', 'All\'appello o al controllo delle celle chi manca fa scattare l\'<b>allerta</b> (il fantoccio copre anche chi è scappato). Se era un tunnel, lo trovano e lo murano: scappate insieme!'],
+    ['🐀', 'La spia', 'Solo se scelta nelle impostazioni: uno di voi, a caso e in segreto, lavora per il direttore. Vicino a una guardia fa una <b>soffiata</b> (tunnel, nascondigli, corda). Vincete se scappano tutti tranne lei. Occhio a chi chiacchiera con le guardie!'],
     ['⛓️', 'Presi', 'Chi viene preso finisce <b>' + ISO_T + ' secondi in isolamento</b>, perde quello che ha in tasca e le guardie diventano più attente.'],
     ['🗺️', 'Orientarsi', 'In alto a sinistra la <b>giornata</b> con gli orari; in alto a destra la <b>mappa</b> (toccala per ingrandirla). La scala del braccio porta al primo piano.']
   ];
@@ -1365,5 +1674,5 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
       if (bb.dataset.k !== bc) { bb.dataset.k = bc; bb.style.cssText = bc; }
     }, 200);
   }
-  window.__ev = { route, floorOf, illegal, phase, cyc, clock, action, roomAt, forbAt, SRC, IT, seenBy, doAct, psStart, ncStart, stashChecked, stNear, srcNear };
+  window.__ev = { camPh, escapeC, fenceAt, ropeAt, holeNear, TRK, DOORP, MDP, GATEP, route, floorOf, illegal, phase, cyc, clock, action, roomAt, forbAt, SRC, IT, seenBy, doAct, psStart, ncStart, stashChecked, stNear, srcNear };
 });
