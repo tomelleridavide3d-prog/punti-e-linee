@@ -269,7 +269,7 @@
   const PR = new Map();
   const same = (x, y, ts) => { const o = cqSolid[y] && cqSolid[y][x]; return !!(o && o.prop && ts.includes(o.prop)); };
   function propSpr(t, x, y, o) {
-    const k = t + ',' + x + ',' + y + ',' + (o && o.c || ''); if (PR.has(k)) return PR.get(k);
+    const k = t + ',' + x + ',' + y + ',' + (typeof o === 'string' ? o : o && o.c || ''); if (PR.has(k)) return PR.get(k);
     const S = spr(48, 100, 24, 78), glow = [];
     let skip = null;
     const marble = (u, v, X, Y) => { const f = Math.sin((x + u) * 6 + Math.sin(v * 5) * 2); return Math.abs(f) < 0.12 ? C.cream2 : h2(X + x * 9, Y) > 0.96 ? sh(C.cream, 1.05) : C.cream; };
@@ -372,6 +372,42 @@
         S.box(0.1, 0.12, 0.16, 0.18, 0.16, 1.9, C.brass); S.box(0.1, 0.82, 0.16, 0.88, 0.16, 1.9, C.brass); S.box(0.1, 0.12, 0.16, 0.88, 1.84, 1.92, C.gold2);
         const cs = y % 2 ? [hx('#b8443e'), hx('#3e6aa8'), hx('#c8a24a')] : [hx('#4a8a5a'), hx('#8a4aa0'), hx('#c86a3a')];
         let z = 0.16; [[0.25, 0.85, 0.45], [0.3, 0.8, 0.38], [0.35, 0.75, 0.3]].forEach(([a, b, hh], i) => { const c = cs[i]; S.box(0.25, a, 0.85, b, z, z + hh, c, { l: (s, tt) => Math.abs(s - 0.3) < 0.04 || Math.abs(s - 0.7) < 0.04 ? hx('#5a3a24') : sh(c, 0.8), t: (u, v) => Math.abs(u - 0.5) < 0.08 && Math.abs(v - 0.5) < 0.2 ? hx('#3a2a1a') : c }); z += hh; });
+        break;
+      }
+      case 'teatable': {   // tavolino tondo del salotto: piede di noce, piano con il centrino di pizzo, teiera di porcellana bianca e blu (le tazze si disegnano a parte)
+        S.cyl(0.5, 0.5, 0.2, 0, 0.05, C.woodD, { top: C.wood });
+        S.box(0.45, 0.45, 0.55, 0.55, 0.05, 0.5, C.wood, { l: C.wood2, r: C.wood });
+        S.cyl(0.5, 0.5, 0.44, 0.5, 0.55, C.wood2, { top: (dx, dy) => { const d = dx * dx + dy * dy; return d > 0.86 ? C.wood3 : d < 0.42 ? (((Math.round(dx * 9) + Math.round(dy * 6)) & 1) ? hx('#f4ecdc') : hx('#e6dac2')) : fr(dx * 2.5 + dy) < 0.12 ? C.wood : C.wood2; } });
+        const blu = hx('#2c4e86'), bianco = hx('#f6f2ea');
+        S.cyl(0.5, 0.5, 0.12, 0.55, 0.72, bianco, { side: (dx, tt) => sh(Math.abs(tt - 0.5) < 0.18 && (Math.round(dx * 4) & 1) ? blu : bianco, dx < -0.4 ? 1.05 : dx < 0.3 ? 0.94 : 0.8), top: bianco });
+        S.cyl(0.5, 0.5, 0.06, 0.72, 0.78, bianco, { top: blu });   // coperchio col pomello
+        const [bx0, by0] = S.P(0.5, 0.5, 0.64); S.line(Math.round(bx0) + 3, Math.round(by0), Math.round(bx0) + 7, Math.round(by0) - 4, bianco); S.set(Math.round(bx0) + 7, Math.round(by0) - 5, bianco);   // beccuccio
+        S.set(Math.round(bx0) - 4, Math.round(by0) - 2, bianco); S.set(Math.round(bx0) - 5, Math.round(by0) - 1, bianco); S.set(Math.round(bx0) - 5, Math.round(by0), bianco);   // manico
+        break;
+      }
+      case 'pchair': {   // poltrona "bergère" di velluto verde bottiglia con i chiodini d'oro e i piedini di legno; o = verso dove guarda (la spalliera dall'altra parte)
+        const v = hx('#2e6a52'), v2 = hx('#3c8466'), dir = typeof o === 'string' ? o : 's';
+        const B = { s: [0.14, 0.12, 0.86, 0.3], n: [0.14, 0.7, 0.86, 0.88], e: [0.12, 0.14, 0.3, 0.86], w: [0.7, 0.14, 0.88, 0.86] }[dir];
+        const side = dir === 's' || dir === 'n';
+        const A1 = side ? [0.12, 0.2, 0.27, 0.86] : [0.2, 0.12, 0.86, 0.27], A2 = side ? [0.73, 0.2, 0.88, 0.86] : [0.2, 0.73, 0.86, 0.88];
+        if (dir === 'n') { A1[1] = 0.14; A1[3] = 0.8; A2[1] = 0.14; A2[3] = 0.8; } if (dir === 'w') { A1[0] = 0.14; A1[2] = 0.8; A2[0] = 0.14; A2[2] = 0.8; }
+        const tuft = (s2, tt) => { const a = fr(s2 * 3), b = fr(tt * 2.6); return Math.abs(a - 0.5) < 0.1 && Math.abs(b - 0.5) < 0.12 ? sh(v, 0.62) : Math.abs(a - 0.5) + Math.abs(b - 0.5) < 0.16 ? sh(v, 0.82) : v; };
+        const nails = c => (s2, tt) => tt > 0.86 && (Math.round(s2 * 10) & 1) ? C.gold2 : c;
+        const parts = [
+          { b: [0.16, 0.16, 0.84, 0.84], z: [0, 0.12], c: C.woodD },   // piedini (sotto, si vedono agli angoli)
+          { b: B, z: [0.12, 1.3], c: v, back: 1 },
+          { b: A1, z: [0.12, 0.68], c: v, arm: 1 }, { b: A2, z: [0.12, 0.68], c: v, arm: 1 },
+          { b: [0.2, 0.2, 0.8, 0.8], z: [0.12, 0.42], c: v, seat: 1 }];
+        const ctr = p => (p.b[0] + p.b[2]) / 2 + (p.b[1] + p.b[3]) / 2;
+        parts.slice(1).sort((p, q) => ctr(p) - ctr(q)).forEach(p => {
+          const [x0, y0, x1, y1] = p.b, [z0, z1] = p.z;
+          const facesUs = p.back && (dir === 's' || dir === 'e');   // la faccia "davanti" della spalliera (dove ci si appoggia) e' quella che vediamo
+          if (p.seat) S.box(x0, y0, x1, y1, z0, z1, v, { t: (u2, v3) => (Math.abs(u2 - 0.5) < 0.42 && Math.abs(v3 - 0.5) < 0.42 ? v2 : sh(v2, 0.86)), l: nails(sh(v, 0.8)), r: nails(sh(v, 0.64)) });
+          else if (p.back) S.box(x0, y0, x1, y1, z0, z1, v, { l: dir === 's' ? tuft : nails(sh(v, 0.8)), r: dir === 'e' ? (s2, tt) => sh(tuft(s2, tt), 0.85) : nails(sh(v, 0.64)), t: sh(v2, 1.05) });
+          else S.box(x0, y0, x1, y1, z0, z1, v, { t: sh(v2, 1.08), l: nails(sh(v, 0.8)), r: nails(sh(v, 0.64)) });
+          if (facesUs) {}
+        });
+        for (const [a, b2] of [[0.18, 0.82], [0.82, 0.82], [0.82, 0.18]]) S.box(a - 0.04, b2 - 0.04, a + 0.04, b2 + 0.04, 0, 0.12, C.woodD);   // piedini davanti
         break;
       }
       case 'crate': case 'crate2': {   // baule da viaggio di cuoio con gli angoli d'ottone (crate2: con la cappelliera a righe sopra)

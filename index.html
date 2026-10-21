@@ -249,6 +249,11 @@ details.gList[open] summary::after{content:' ▴'}
 #tkRange{width:100%;margin:8px 0}
 #cqKill{touch-action:none;user-select:none;-webkit-user-select:none;position:absolute;right:18px;bottom:142px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:15px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqKill.on{background:#e2553a;color:#fff;cursor:pointer}
+#cqSlap{touch-action:none;user-select:none;-webkit-user-select:none;position:absolute;right:114px;bottom:148px;width:74px;height:74px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:13px;line-height:1.15;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#cqSlap.on{background:#e8a23a;color:#2a1a08;cursor:pointer}
+#cqKill.hk{font-size:13px;line-height:1.15}
+#cqSit,#cqDrink{position:absolute;right:18px;bottom:244px;font-size:16px;font-weight:700;padding:11px 15px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+#cqDrink{bottom:300px}
 #cqSabBtn{position:absolute;left:18px;bottom:96px}
 #cqShoot{position:absolute;right:18px;bottom:240px;width:86px;height:86px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:15px;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqShoot.on{background:#d8a830;color:#1d2127;cursor:pointer}
@@ -382,7 +387,8 @@ details.gList[open] summary::after{content:' ▴'}
   <div id="cqItems"></div>
   <div id="cqToast" hidden></div>
   <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
-  <button id="cqKill" type="button" hidden>Elimina</button>
+  <button id="cqKill" type="button" hidden>Elimina</button><button id="cqSlap" type="button" hidden>👋<br>Schiaffo</button>
+  <button class="btn" id="cqSit" type="button" hidden>🪑 Siediti</button><button class="btn" id="cqDrink" type="button" hidden>☕ Bevi</button>
   <button id="cqShoot" type="button" hidden>Spara</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
   <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
@@ -2212,7 +2218,7 @@ function cqMapHotel() {
   for (let i = 0; i < nd; i++) { const g = CQ_GAMES[i], x = 12 + 2 * i; pp('gdoor', x, 1, { c: g ? g[3] : '#6b6f78', k: g ? g[0] : null }); decals.push([x + 0.12, 2.1, 0.76, 0.7, '#5a3e26']); if (i < nd - 1) pp('plant', x + 1, 1); }
   if (R > 12 + 2 * nd - 2) pp('lamp', R, 1);
   // salottini
-  prow('sofa', 2, 12, 3, 1, 0); pp('table', 3, 10); pp('lamp', 1, 14); pp('plant', 5, 14); pp('tv', 1, 9);
+  pp('teatable', 3, 11); pp('lamp', 1, 14);   // salotto: tavolino del te' (le poltrone attorno: cqSalaSeats) pp('plant', 5, 14); pp('tv', 1, 9);
   prow('sofa', R - 4, 12, 3, 1, 0); pp('table', R - 3, 10); pp('lamp', R, 14); pp('plant', R - 5, 14); pp('coffee', R, 9);
   // bagagli, piante e lampade
   pp('rack', R, 5); pp('rack', R, 6); pp('crate', 1, 5); pp('crate2', 1, 6); pp('plant', 7, 14); pp('plant', R - 6, 14); pp('lamp', 6, 7); pp('lamp', R - 5, 7);
@@ -2268,7 +2274,8 @@ function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
   if (!cqFloor[cy] || !cqFloor[cy][cx]) return true;
   const s = cqSolid[cy][cx]; if (s && !s.soft) return true;   // soft: casella che vale solo per i percorsi dei computer (cqPath); la sagoma vera la decide il gioco
-  const G = cq.g; return !!(G && G.mode && G.M.blk && G.phase === 'play' && G.M.blk(G, x, y));   // M.blk(G, x, y): ostacoli del gioco che si muovono senza scatti (es. l'ariete dell'Assedio)
+  const G = cq.g; if (G && G.hall && cq.map === 'hotel' && cqSalaBlk(x, y)) return true;
+  return !!(G && G.mode && G.M.blk && G.phase === 'play' && G.M.blk(G, x, y));   // M.blk(G, x, y): ostacoli del gioco che si muovono senza scatti (es. l'ariete dell'Assedio)
 }
 function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBlocked(x + r, y - r) || cqBlocked(x - r, y + r) || cqBlocked(x + r, y + r)); }
 function openCiack() {
@@ -2641,7 +2648,7 @@ async function cqNetOpen(code, role) {
   }, 10000);
   // hall: stato di tutti, scherzi per me, conto alla rovescia dell'host
   N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hl`), s => { N.hl = s.val() || {}; }));
-  N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) cqHallDie(G.me, String(v.n || '').slice(0, 14)); }));
+  N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) { let sl = null; if (v.s) { if (cq.sit != null) { const p = cq.sitFrom; cq.sit = null; if (p) { cq.x = p.x; cq.y = p.y; } } sl = cqSlapTo(cq.x, cq.y, +v.dx || 0, +v.dy || 0); cq.x = sl.x1; cq.y = sl.y1; thud(0.9, 1700); } cqHallDie(G.me, String(v.n || '').slice(0, 14), sl); } }));
   if (role !== 'host') N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hc`), s => { const v = s.val(); N.hc = v ? v.n : null; }));
   if (cq.g && cq.g.hall) cqHallReset();
   if (role === 'host') {
@@ -3378,7 +3385,7 @@ function cqLib(...names) {
   })))).then(() => CQ_LIB);
 }
 const cqModeOpt = id => Object.assign({}, CQ_MODES[id].def, ((store.settings.cqModeOpt || {})[id]) || {});
-function cqModeUI(on) { $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = !on; $('#cqHallBar').hidden = true; $('#cqHallSet').hidden = true; $('#cqKill').hidden = true; }
+function cqModeUI(on) { $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = !on; $('#cqHallBar').hidden = true; $('#cqHallSet').hidden = true; $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; $('#cqKill').classList.remove('hk'); }
 // passo di un personaggio del computer lungo il suo percorso (sp = velocita' rispetto alla mia)
 function cqModeStep(c, dt, sp) {
   const p = c.path && c.path[0]; if (!p) { c.walk = 0; return; }
@@ -3545,15 +3552,17 @@ function cqHallUI(on) {
   if (!on) { $('#cqStart').hidden = true; $('#cqReady').hidden = true; $('#cqPickGame').hidden = true; }
   $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = true;
   $('#cqHallBar').hidden = !on; $('#cqHallSet').hidden = !on; if (!on) $('#cqCount').hidden = true;
-  if (!on) { $('#cqKill').hidden = true; }
+  if (!on) { $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; cq.sit = null; $('#cqKill').classList.remove('hk'); }
 }
-function cqHallDie(c, by) {
+function cqHallDie(c, by, sl) {   // sl = schiaffo {x0, y0 da dove vola, x1, y1 dove cade, f verso}
   const G = cq.g; if (!c.alive) return;
-  c.alive = false; c.dead = G.time + CQ_HALL_DEAD; c.path = []; c.angel = null;
+  if (c === G.me && cq.sit != null) { cq.sit = null; if (!sl) { const p = cq.sitFrom; if (p) { cq.x = p.x; cq.y = p.y; } } }
+  c.alive = false; c.dead = G.time + CQ_HALL_DEAD; c.path = []; c.angel = null; c.slap = !!sl; c.sit = null;
   G.bodies = G.bodies.filter(b => b.id !== c.id);
-  G.bodies.push({ id: c.id, x: c === G.me ? cq.x : c.x, y: c === G.me ? cq.y : c.y, face: c === G.me ? cq.face : c.face, look: cqLookOf(c), name: c.name, t: G.time });
-  for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square');
-  if (c === G.me) { cqToast('😵 ' + (by ? '<b>' + esc(by) + '</b> ti ha eliminato per scherzo!' : 'Eliminato per scherzo!') + ' Torni tra ' + CQ_HALL_DEAD + ' secondi…'); cqHallPub(true); }
+  const x = sl ? sl.x1 : c === G.me ? cq.x : c.x, y = sl ? sl.y1 : c === G.me ? cq.y : c.y;
+  G.bodies.push({ id: c.id, x, y, face: sl ? sl.f : c === G.me ? cq.face : c.face, look: cqLookOf(c), name: c.name, t: G.time, sl: sl ? { x0: sl.x0, y0: sl.y0 } : null });
+  if (!sl) for (let i = 0; i < 3; i++) beep(1300 - i * 120, 0.04, 0.035, i * 0.18, 'square');
+  if (c === G.me) { cqToast((sl ? '👋 ' + (by ? '<b>' + esc(by) + '</b> ti ha dato uno schiaffone!' : 'Che schiaffone!') : '😵 ' + (by ? '<b>' + esc(by) + '</b> ti ha eliminato per scherzo!' : 'Eliminato per scherzo!')) + ' Torni tra ' + CQ_HALL_DEAD + ' secondi…'); cqHallPub(true); }
 }
 function cqHallLive(c) {
   const G = cq.g; if (c.alive) return;
@@ -3561,18 +3570,120 @@ function cqHallLive(c) {
   if (c === G.me || Math.hypot(c.x - cq.x, c.y - cq.y) < 9) { beep(880, 0.35, 0.025, 0, 'triangle'); beep(1109, 0.35, 0.025, 0.12, 'triangle'); beep(1319, 0.5, 0.025, 0.24, 'triangle'); }
   if (c === G.me) cqHallPub(true);
 }
-// il mio scherzo: al personaggio piu' vicino (anche del computer); poi un po' di attesa
-function cqHallPrank() {
-  const G = cq.g, me = G.me; if (!me.alive || (me.pcd || 0) > 0 || !cqHallFree()) return;
+// il mio scherzo al personaggio piu' vicino: k = accoltellata, s = schiaffo (vola indietro di un paio di caselle, resta a terra con gli occhi sbarrati,
+// poi torna da angelo come dopo l'accoltellata); poi un po' di attesa
+function cqHallPrank(kind) {
+  const G = cq.g, me = G.me; if (!G || !G.hall || !me.alive || (me.pcd || 0) > 0 || !cqHallFree()) return;
   const v = cqKillTarget(); if (!v) return;
   me.pcd = CQ_HALL_CD;
-  if (v.remote) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/hk/${v.sid}`), { f: N.sid, n: me.name }).catch(() => {}); v.pred = G.time + 1.5; }
-  cqHallDie(v, me.name);
+  let sl = null, dx = v.x - cq.x, dy = v.y - cq.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
+  if (kind === 's') {
+    sl = cqSlapTo(v.x, v.y, dx, dy); cq.sw = (cq.sw || 0) + 1; cq.swT = G.time; cq.face = dx - dy >= 0 ? 1 : -1; cqHallPub(true);
+    thud(0.9, 1700); beep(260, 0.05, 0.05, 0, 'square'); beep(1400, 0.04, 0.03, 0.02, 'square');
+  }
+  if (v.remote) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/hk/${v.sid}`), sl ? { f: N.sid, n: me.name, s: 1, dx: Math.round(dx * 100) / 100, dy: Math.round(dy * 100) / 100 } : { f: N.sid, n: me.name }).catch(() => {}); v.pred = G.time + 1.5; }
+  if (sl) { v.x = v.tx = sl.x1; v.y = v.ty = sl.y1; }
+  cqHallDie(v, me.name, sl);
+}
+// dove finisce chi prende lo schiaffo: fino a 2,2 caselle nella direzione del colpo, fermandosi prima di muri, mobili e poltrone
+function cqSlapTo(x, y, dx, dy) {
+  let x1 = x, y1 = y;
+  for (let t = 0.1; t <= 2.2; t += 0.1) { const nx = x + dx * t, ny = y + dy * t; if (!cqFree(nx, ny)) break; x1 = nx; y1 = ny; }
+  return { x0: x, y0: y, x1, y1, f: dx - dy >= 0 ? 1 : -1 };
+}
+// ---- SALOTTO della hall: tavolino del te' (prop 'teatable' nella casella 3,11) e poltrone attorno, TANTE QUANTE LE PERSONE DEL SET (2-8).
+// Le poltrone non stanno nella mappa pronta: si disegnano a ogni fotogramma (si risistemano quando cambia il numero) e fermano il passo (cqSalaBlk).
+// Seduto: cq.sit = numero della poltrona (online hl.s = numero + 1). "Bevi": la tazza va dal tavolino alla bocca e torna (hl.dk = contatore).
+const CQ_SALA = { x: 3.5, y: 11.5, r: 1.5, z: 0.62 };   // z = altezza del piano del tavolino (in U)
+function cqSalaSeats() {
+  const N = cq.net, n = Math.max(2, Math.min(8, N ? Object.keys(N.pl).length : 2));
+  if (cq.salaS && cq.salaS.length === n) return cq.salaS;
+  cq.salaS = Array.from({ length: n }, (_, i) => {
+    const a = Math.PI / 2 + i * 2 * Math.PI / n, ca = Math.cos(a), sa = Math.sin(a);
+    const dir = Math.abs(ca) > Math.abs(sa) + 0.01 ? (ca > 0 ? 'w' : 'e') : (sa > 0 ? 'n' : 's');   // verso dove guarda (il tavolino): la spalliera e' dall'altra parte
+    const x = Math.round((CQ_SALA.x + ca * CQ_SALA.r) * 100) / 100, y = Math.round((CQ_SALA.y + sa * CQ_SALA.r) * 100) / 100;
+    // front: la spalliera sta davanti (verso chi guarda): chi e' seduto si disegna prima della poltrona
+    return { i, x, y, dir, f: -ca + sa >= 0 ? 1 : -1, front: dir === 'n' || dir === 'w', cx: CQ_SALA.x + ca * 0.27, cy: CQ_SALA.y + sa * 0.27 };
+  });
+  if (cq.sit != null && cq.sit >= n) cqSitToggle();   // la mia poltrona non c'e' piu' (qualcuno e' uscito): mi alzo
+  return cq.salaS;
+}
+const cqSalaBlk = (x, y) => cqSalaSeats().some(p => Math.abs(x - p.x) < 0.36 && Math.abs(y - p.y) < 0.36);
+// chi e' seduto sulla poltrona i (io o un amico)
+const cqSalaWho = i => { const G = cq.g; if (cq.sit === i) return G.me; return G.chars.find(c => c.remote && c.alive && c.sit === i) || null; };
+function cqSalaNear() {
+  if (cq.sit != null) return null;
+  let best = null, bd = 1.25; for (const p of cqSalaSeats()) { const d = Math.hypot(p.x - cq.x, p.y - cq.y); if (d < bd && !cqSalaWho(p.i)) { bd = d; best = p; } }
+  return best;
+}
+function cqSitToggle() {
+  const G = cq.g; if (!G || !G.hall) return;
+  if (cq.sit != null) { const p = cq.sitFrom; cq.sit = null; if (p) { cq.x = p.x; cq.y = p.y; } cqHallPub(true); return; }
+  const p = cqSalaNear(); if (!p || !G.me.alive) return;
+  cq.sitFrom = { x: cq.x, y: cq.y }; cq.sit = p.i; cq.x = p.x; cq.y = p.y; cq.face = p.f; cq.walk = 0;
+  thud(0.25, 300); cqHallPub(true);
+}
+function cqDrink() {
+  const G = cq.g; if (!G || !G.hall || cq.sit == null || G.time - (cq.dkT ?? -9) < 2.3) return;
+  cq.dkT = G.time; cq.dk = (cq.dk || 0) + 1; cqHallPub(true);
+  for (let i = 0; i < 3; i++) beep(520 + i * 40, 0.06, 0.02, 0.85 + i * 0.22, 'sine');   // sorsi
+}
+// la tazza della poltrona i: sul tavolino, oppure in mano a chi beve (t = secondi da quando ha cominciato)
+function cqCup(g, T, c) {
+  const TW = T.px(1, 0) * 2, u = TW / 34, p = c.cup, S = (x, y, z) => [T.px(x, y), T.py(x, y) - z * TW * 0.575], [ax, ay] = S(p.cx, p.cy, CQ_SALA.z);
+  let X = ax, Y = ay, rot = 0;
+  if (c.t != null && c.t < 2.3) {
+    const [sx, sy] = S(p.x, p.y, 0), mx = sx + p.f * 8 * u, my = sy - c.sitK * TW - 29 * u, t = c.t;
+    const k = t < 0.5 ? t / 0.5 : t < 1.7 ? 1 : Math.max(0, 1 - (t - 1.7) / 0.5), e = k * k * (3 - 2 * k);
+    X = ax + (mx - ax) * e; Y = ay + (my - ay) * e - Math.sin(e * Math.PI) * 6 * u; rot = t > 0.5 && t < 1.7 ? -p.f * 0.85 * Math.min(1, (t - 0.5) / 0.3, (1.7 - t) / 0.3) : 0;
+  }
+  g.save(); g.translate(X, Y); g.rotate(rot); g.scale(u, u);
+  g.fillStyle = '#f6f2ea'; g.beginPath(); g.ellipse(0, 0.5, 5.2, 1.8, 0, 0, 7); g.fill();   // piattino
+  g.fillStyle = '#fbf8f2'; g.beginPath(); g.moveTo(-3.4, -4.6); g.lineTo(3.4, -4.6); g.quadraticCurveTo(3.2, 0, 0, 0); g.quadraticCurveTo(-3.2, 0, -3.4, -4.6); g.fill();
+  g.strokeStyle = '#2c4e86'; g.lineWidth = 0.8; g.beginPath(); g.moveTo(-3.1, -2.8); g.lineTo(3.1, -2.8); g.stroke();   // riga blu
+  g.strokeStyle = '#fbf8f2'; g.lineWidth = 1.1; g.beginPath(); g.arc(3.8, -2.6, 1.5, -1.4, 1.4); g.stroke();   // manico
+  g.fillStyle = '#8a4a1e'; g.beginPath(); g.ellipse(0, -4.6, 3.4, 1, 0, 0, 7); g.fill();   // te'
+  g.restore();
+  if (c.t == null || c.t > 2.3) { const tt = performance.now() / 700 + p.i; g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = Math.max(1, u); g.beginPath(); g.moveTo(X, Y - 6 * u); g.quadraticCurveTo(X + Math.sin(tt) * 3 * u, Y - 10 * u, X, Y - 14 * u); g.stroke(); }   // fumo del te'
+}
+// manona dello schiaffo (t = secondi dall'inizio, 0-0,45): arriva da dietro e colpisce davanti
+function cqSlapHand(g, X, Y, TW, f, t) {
+  const u = TW / 34, k = Math.min(1, t / 0.18), a = (-1.9 + 2.5 * (k * k * (3 - 2 * k))) * f, cx = X + f * 2 * u, cy = Y - 24 * u;
+  const hx = cx + Math.sin(a) * 22 * u, hy = cy - Math.cos(a) * 10 * u + 8 * u;
+  if (t > 0.12 && t < 0.4) { g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 2 * u; for (const r of [16, 20, 24]) { g.beginPath(); g.arc(cx, cy + 6 * u, r * u, -Math.PI / 2 - 0.2 * f - (f > 0 ? 1.2 : 0), -Math.PI / 2 + 0.2 * f + (f > 0 ? 0 : 1.2)); g.stroke(); } }
+  g.save(); g.translate(hx, hy); g.rotate(a * 0.6); g.scale(f * u * 1.25, u * 1.25);
+  g.fillStyle = '#f3c9a0'; g.strokeStyle = '#8a5a3a'; g.lineWidth = 0.9;
+  for (const [x, y, h] of [[-3.6, -6, 6], [-1.2, -7, 7], [1.2, -7, 7], [3.6, -6, 6]]) { g.beginPath(); g.ellipse(x, y - h / 2 + 2, 1.15, h / 2, 0, 0, 7); g.fill(); g.stroke(); }
+  g.beginPath(); g.ellipse(-5.6, 0.5, 1.2, 3.2, -0.9, 0, 7); g.fill(); g.stroke();   // pollice
+  g.beginPath(); g.ellipse(0, 0, 5, 5.2, 0, 0, 7); g.fill(); g.stroke();   // palmo
+  g.restore();
+}
+// a terra dopo lo schiaffo: vola indietro (0-0,35 s), cade sdraiato con gli occhi sbarrati, le stelline che girano e "PAF!"
+function cqKnock(g, X, Y, TW, L, f, a) {
+  const u = TW / 34, k = Math.min(1, Math.max(0, (a - 0.12) / 0.3)), e = k * k * (3 - 2 * k);
+  g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(X, Y, (14 + 16 * e) * u, (6 + 2 * e) * u, 0, 0, 7); g.fill();
+  g.save(); g.translate(X - f * 24 * u * e, Y - 7 * u * e); g.rotate(f * Math.PI / 2 * e);
+  cqPlayer(g, 0, 0, TW, L, 0, -f, true);
+  g.scale(u, u);
+  const E = CQ_EYES[L.skin] || CQ_EYES.omino, r = E[1];   // occhi sbarrati sopra quelli del personaggio
+  for (const [x, y] of E[0]) { g.fillStyle = '#fff'; g.beginPath(); g.ellipse(-f * x, y, r * 1.45, r * 1.55, 0, 0, 7); g.fill(); g.strokeStyle = '#1a1a1a'; g.lineWidth = 0.7; g.stroke(); g.fillStyle = '#111'; g.beginPath(); g.arc(-f * x, y, r * 0.38, 0, 7); g.fill(); }
+  g.restore();
+  if (e > 0.6) {   // stelline che girano sopra la testa
+    const tt = performance.now() / 260, hx = X + f * 20 * u, hy = Y - 14 * u;
+    for (let i = 0; i < 3; i++) { const an = tt + i * 2.1, sx = hx + Math.cos(an) * 11 * u, sy = hy + Math.sin(an) * 4 * u - 6 * u; g.fillStyle = i % 2 ? '#fff3a0' : '#f2c230'; g.beginPath(); for (let j = 0; j < 8; j++) { const rr = (j % 2 ? 1.2 : 3.2) * u, aa = j * Math.PI / 4; g[j ? 'lineTo' : 'moveTo'](sx + Math.cos(aa) * rr, sy + Math.sin(aa) * rr); } g.fill(); }
+  }
+  if (a < 0.7) {   // "PAF!" che esplode
+    const s = Math.min(1, a / 0.12) * (1 - Math.max(0, (a - 0.45) / 0.25)), bx = X - f * 6 * u, by = Y - 44 * u;
+    g.save(); g.translate(bx, by); g.scale(s * u, s * u); g.rotate(-0.15 * f);
+    g.fillStyle = '#ffe14a'; g.strokeStyle = '#c0392b'; g.lineWidth = 1.4; g.beginPath(); for (let j = 0; j < 16; j++) { const rr = j % 2 ? 9 : 15, aa = j * Math.PI / 8; g[j ? 'lineTo' : 'moveTo'](Math.cos(aa) * rr * 1.3, Math.sin(aa) * rr); } g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#c0392b'; g.font = '900 9px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('PAF!', 0, 0.5);
+    g.restore();
+  }
 }
 // il mio stato per gli altri del set (ogni 0,15 s se cambia, altrimenti ogni 2 s)
 function cqHallPub(now) {
   const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
-  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, i: 1 }, k = JSON.stringify(o), t = performance.now();
+  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, k: G.me.alive || !G.me.slap ? 0 : 1, s: cq.sit != null ? cq.sit + 1 : 0, dk: cq.dk || 0, sw: cq.sw || 0, i: 1 }, k = JSON.stringify(o), t = performance.now();
   if (!now && (t - (N.hlT || 0) < 150 || (k === N.hlK && t - N.hlT < 2000))) return;
   N.hlT = t; N.hlK = k; N.F.set(cqNetRef(`cq/${N.code}/hl/${N.sid}`), o).catch(() => {});
 }
@@ -3622,7 +3733,10 @@ function cqHallNet() {
     if (!c) { c = { id: G.nid++, sid, remote: true, alive: true, imp: false, x: h.x, y: h.y, tx: h.x, ty: h.y, face: 1, walk: 0 }; G.chars.push(c); }
     c.name = String(p.name || 'Amico').slice(0, 14); c.look = cqNetLook(p.look); c.dname = c.name + (h.r ? ' ✅' : '');
     c.tx = h.x; c.ty = h.y; c.face = h.f === -1 ? -1 : 1; c.mv = h.w;
-    if (h.d && c.alive && !(c.pred > G.time)) cqHallDie(c, '');
+    c.sit = h.s ? h.s - 1 : null;
+    if (h.dk !== c.dkN) { if (c.dkN != null) c.dkT = G.time; c.dkN = h.dk; }   // ha cominciato a bere
+    if (h.sw !== c.swN) { if (c.swN != null) c.swT = G.time; c.swN = h.sw; }   // ha dato uno schiaffo
+    if (h.d && c.alive && !(c.pred > G.time)) cqHallDie(c, '', h.k ? { x0: c.x, y0: c.y, x1: c.tx, y1: c.ty, f: c.tx - c.x - (c.ty - c.y) >= 0 ? 1 : -1 } : null);
     if (h.d) c.pred = 0;
     if (!h.d && !c.alive && !(c.pred > G.time)) cqHallLive(c);
   }
@@ -3672,9 +3786,15 @@ function cqHallTick(dt) {
 }
 // pulsante Elimina della hall (sempre, con la piccola attesa tra uno scherzo e l'altro)
 function cqHallHud() {
-  const G = cq.g, me = G.me, kb = $('#cqKill'), show = me.alive && cqHallFree();
-  if (kb.hidden === show) kb.hidden = !show;
-  if (show) { const cd = Math.ceil(me.pcd || 0), txt = cd ? 'Elimina ' + cd : 'Elimina', on = !cd && !!cqKillTarget(); if (kb.textContent !== txt) kb.textContent = txt; if (kb.classList.contains('on') !== on) kb.classList.toggle('on', on); }
+  const G = cq.g, me = G.me, kb = $('#cqKill'), sb = $('#cqSlap'), show = me.alive && cqHallFree();
+  if (kb.hidden === show) kb.hidden = !show; if (sb.hidden === show) sb.hidden = !show; kb.classList.add('hk');
+  if (show) {
+    const cd = Math.ceil(me.pcd || 0), on = !cd && !!cqKillTarget();
+    for (const [b, ic, t] of [[kb, '🔪', 'Accoltella'], [sb, '👋', 'Schiaffo']]) { const h = ic + '<br>' + (cd ? cd : t); if (b.innerHTML !== h) b.innerHTML = h; if (b.classList.contains('on') !== on) b.classList.toggle('on', on); }
+  }
+  const salon = cq.map === 'hotel' && show, near = salon && (cq.sit != null || !!cqSalaNear()), st = cq.sit != null ? '🧍 Alzati' : '🪑 Siediti';
+  const it = $('#cqSit'); if (it.hidden === near) it.hidden = !near; if (it.textContent !== st) it.textContent = st;
+  const dk = $('#cqDrink'), drink = salon && cq.sit != null; if (dk.hidden === drink) dk.hidden = !drink;
 }
 // "Inizia" di chi ha creato il set (e "Si gira!" da solo): parte il 3 2 1
 function cqHallGo() {
@@ -4656,6 +4776,9 @@ function cqInit() {
   $('#tkClose').onclick = cqCloseTask;
   // al tocco (non al 'clic'): sul telefono, con un altro dito che fa camminare, il clic spesso non arriva e bisognava fermarsi
   $('#cqKill').addEventListener('pointerdown', e => { e.preventDefault(); cqMyKill(); });
+  $('#cqSlap').addEventListener('pointerdown', e => { e.preventDefault(); cqHallPrank('s'); });
+  $('#cqSit').onclick = () => cqSitToggle();
+  $('#cqDrink').onclick = () => cqDrink();
   $('#cqKill').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cqMyKill(); } });
   $('#cqShoot').onclick = cqShoot;
   window.addEventListener('keydown', e => { if (cq.on && e.target.tagName !== 'INPUT' && (e.key === 'f' || e.key === 'F')) cqShoot(); });
@@ -4757,7 +4880,8 @@ function cqFrame(t) {
   cq.raf = requestAnimationFrame(cqFrame);   // subito: se qualcosa va storto in questo fotogramma, il gioco non si blocca
   const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
-  const d = (!G || playing || (G.hall && G.me.alive && $('#cqPick').hidden)) && !(G && G.mode && G.pre > 0) ? cqDir() : null;
+  let d = (!G || playing || (G.hall && G.me.alive && $('#cqPick').hidden)) && !(G && G.mode && G.pre > 0) ? cqDir() : null;
+  if (d && G && G.hall && cq.sit != null) { cqSitToggle(); d = null; }   // seduto in poltrona: muovere il dito fa alzare
   const cam = cqCam();
   if (d && cam) { const k = CQ_SPEED * 1.6 * dt; cam.x = Math.max(0, Math.min(CQ_W, cam.x + d.wx * k)); cam.y = Math.max(0, Math.min(CQ_H, cam.y + d.wy * k)); cq.walk = 0; }   // telecamera libera (fantasmino): il mio personaggio resta fermo
   else if (d) {
@@ -4946,6 +5070,15 @@ function cqTools(g, TW) {
         qL(x0 + 0.05, x0 + 1.4, y + 0.88, 0.78, 0.92, '#c0392b');
         qL(x0 + 0.5, x0 + 0.9, y + 0.88, 0.95, 1.4, '#b8bec6');
         dot(x0 + 1.96, y + 0.28, 0.55, 0.06, on ? '#fff6b0' : '#8a8f99'); dot(x0 + 1.96, y + 0.72, 0.55, 0.06, on ? '#fff6b0' : '#8a8f99');
+        break;
+      }
+      case 'teatable': cyl(x + 0.5, y + 0.5, 0.18, 0, 0.05, '#4a2818'); bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0.05, 0.55, '#6a3a24'); cyl(x + 0.5, y + 0.5, 0.44, 0.55, 0.62, '#874c2e'); cyl(x + 0.5, y + 0.5, 0.1, 0.62, 0.85, '#f4f0e8'); break;
+      case 'pchair': {   // poltrona del salotto (o = verso dove guarda: n s e w; la spalliera e' dall'altra parte)
+        const c = '#2f6a52', B = { s: [0.15, 0.12, 0.85, 0.3], n: [0.15, 0.7, 0.85, 0.88], e: [0.12, 0.15, 0.3, 0.85], w: [0.7, 0.15, 0.88, 0.85] }[o] || [0.15, 0.12, 0.85, 0.3];
+        const back = () => bx(x + B[0], y + B[1], x + B[2], y + B[3], 0.15, 1.3, c);
+        if (o !== 'n' && o !== 'w') back();
+        bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 0.45, c); bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0.45, 0.5, cqShade(c, 1.2));
+        if (o === 'n' || o === 'w') back();
         break;
       }
       case 'gdoor': {   // porta di un gioco nella hall: cornice scura, porta del colore del gioco, architrave dorato (senza gioco: assi inchiodate)
@@ -5323,13 +5456,21 @@ function cqDraw() {
     let a = Math.atan2(sy, sx) - la; a = Math.atan2(Math.sin(a), Math.cos(a)); return Math.abs(a) < 0.55;
   };
   if (G) {
-    for (const b of G.bodies) if (seen(b.x, b.y)) list.push({ body: 1, x: b.x, y: b.y, L: b.look, f: b.face, a: G.time - b.t, nk: b.nk });   // nk: senza il coltello (es. preso dalla Cosa)
+    for (const b of G.bodies) if (seen(b.x, b.y)) {
+      const a = G.time - b.t, k = b.sl ? Math.min(1, a / 0.35) : 1, e = 1 - (1 - k) * (1 - k);   // schiaffo: vola dal punto del colpo a dove cade
+      list.push({ body: 1, x: b.sl ? b.sl.x0 + (b.x - b.sl.x0) * e : b.x, y: b.sl ? b.sl.y0 + (b.y - b.sl.y0) * e : b.y, L: b.look, f: b.face, a, nk: b.nk, sl: !!b.sl });
+    }
+    if (G.hall && cq.map === 'hotel') for (const p of cqSalaSeats()) {   // salotto: poltrone e tazze (chi beve ha la tazza in mano)
+      const w = cqSalaWho(p.i), t = w ? (w === G.me ? (cq.dkT != null ? G.time - cq.dkT : null) : w.dkT != null ? G.time - w.dkT : null) : null;
+      list.push({ chair: p, x: p.x, y: p.y, d: p.x + p.y });
+      list.push({ cup: p, x: p.cx, y: p.cy, t: t != null && t < 2.3 ? t : null, sitK: 0.29, d: t != null && t < 2.3 ? p.x + p.y + 0.03 : 15.02 });
+    }   // nk: senza il coltello (es. preso dalla Cosa)
     for (const ch of G.chars) {
       if (ch === G.me && G.hall && !ch.alive) continue;
       if (G.mode && G.M.hide && G.M.hide(ch)) continue;
-      if (ch === G.me && G.hall && cq.net) list.push({ ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : '') });
+      if (ch === G.me && G.hall && cq.net) list.push(cqSitDraw({ ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : ''), sw: cq.swT != null ? G.time - cq.swT : null }, cq.sit));
       else if (ch === G.me) list.push({ mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push({ mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push(G.hall ? cqSitDraw({ talk: ch.talk, ang: ch.angel != null ? G.time - ch.angel : null, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || ch.name, sw: ch.swT != null ? G.time - ch.swT : null }, ch.sit) : { mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     // M.prop(c) -> [tipo, opzione, nome visibile?, x, y]: il personaggio si disegna come quell'oggetto della mappa, centrato in x, y (es. Nascondino)
     if (G.mode && G.M.prop) for (const o of list) if (o.mo) { const pr = G.M.prop(o.mo); if (pr) { o.pr = pr; if (!pr[2]) o.name = null; if (pr[3] != null) { o.x = pr[3]; o.y = pr[4]; } } }
@@ -5464,7 +5605,7 @@ function cqDraw() {
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
   }
   for (const o of list) if (o.xr) { g.globalAlpha = o.ghost ? 0.25 : 0.5; cqPlayer(g, o.sx, o.sy, TW, o.L, o.w, o.f); g.globalAlpha = 1; }   // dietro a un albero (xray): sagoma in trasparenza
-  for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * (o.dr && o.dr.top ? o.dr.top : cqTop(o.L)), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
+  for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
   const mark = (x, y, col) => {
@@ -5517,14 +5658,16 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
   }
   if (!B && !FO) T.decals();
   // con le altezze chi sta su una casella si disegna dopo la sua colonna (e prima di quelle davanti)
-  for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: CQ_MAP.hz ? Math.max(c.x + c.y, Math.floor(c.x) + Math.floor(c.y) + 1.001) : c.x + c.y, c });
+  for (const c of list) if (c.r[2] > x0 && c.r[0] < x1 && c.r[3] > y0 && c.r[1] < y1) items.push({ d: c.d != null ? c.d : CQ_MAP.hz ? Math.max(c.x + c.y, Math.floor(c.x) + Math.floor(c.y) + 1.001) : c.x + c.y, c });
   items.sort((a, b) => a.d - b.d);
   // con la mappa pronta sotto (B) quello che sta dietro a tutti i personaggi del riquadro c'e' gia': si ridisegna solo da quello piu' indietro in poi
   const dmin = B && !cq.noSkip && !items.some(it => !it.c && it.o && it.o.prop === 'tree' && it.o.o && it.o.o.a < 1) ? items.reduce((m, it) => it.c ? Math.min(m, it.d) : m, Infinity) : -Infinity;   // con un albero trasparente nel riquadro si ridisegna tutto
   for (const it of items) {
     if (!it.c) { if (FO ? it.d > FO.x + FO.y + 1 : it.d >= dmin || dmin === Infinity) T.zcell(it.x, it.y, it.o); continue; }
     const c = it.c, X = c.sx - tx, Y = c.sy - ty;
-    if (c.body) cqBody(g, X, Y, TW, c.L, c.f, c.a, c.nk);
+    if (c.body) { if (c.sl) cqKnock(g, X, Y, TW, c.L, c.f, c.a); else cqBody(g, X, Y, TW, c.L, c.f, c.a, c.nk); }
+    else if (c.chair) T.prop('pchair', c.x - 0.5, c.y - 0.5, c.chair.dir);
+    else if (c.cup) cqCup(g, T, c);
     else if (c.fire) cqFlames(g, X, Y, TW, c.fu);
     else if (c.mob) T.mob(c.mob);
     else if (c.trap) T.trap(c.x, c.y);
@@ -5533,9 +5676,15 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     else if (c.dr) c.dr(g, X, Y, TW, c.L, c.w, c.f);   // M.draw: personaggio disegnato dal gioco (es. la Cosa)
     else if (c.pr) T.prop(c.pr[0], c.x - 0.5, c.y - 0.5, c.pr[1]);
     else if (c.tint) cqPlayerTint(g, X, Y, TW, c.L, c.w, c.f, c.tint);
-    else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y, TW, c.L, c.w, c.f); g.globalAlpha = 1; }
+    else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y - (c.sitK || 0) * TW, TW, c.L, c.w, c.f, !!c.sitK); g.globalAlpha = 1; if (c.sw != null && c.sw < 0.45) cqSlapHand(g, X, Y - (c.sitK || 0) * TW, TW, c.f, c.sw); }
   }
   g.restore();
+}
+// seduto in poltrona (salotto della hall): sulla poltrona, piu' in alto, fermo, girato verso il tavolino; davanti o dietro la poltrona secondo la spalliera
+function cqSitDraw(o, i) {
+  if (i == null || !cq.g || !cq.g.hall) return o;
+  const p = cqSalaSeats()[i]; if (!p) return o;
+  o.x = p.x; o.y = p.y; o.f = p.f; o.w = 0; o.sitK = 0.29; o.d = p.x + p.y + (p.front ? -0.01 : 0.01); return o;
 }
 // personaggio trasformato (giochi del motore, es. lo zombie): si disegna a parte, si colora solo la sua sagoma (con le macchie) e si incolla.
 // T = { c: colore, a: quanto copre, rot: macchie, s: numero del personaggio (le macchie restano sempre uguali) }
