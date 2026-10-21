@@ -1482,7 +1482,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   document.getElementById('hcChatF').onsubmit = e => { e.preventDefault(); chatSend(chatI.value); };
   document.getElementById('hcChatX').onclick = chatClose;
   for (const ev of ['keydown', 'keyup']) chatI.addEventListener(ev, e => { e.stopPropagation(); if (ev === 'keydown' && e.key === 'Escape') chatClose(); });   // i tasti scritti non muovono il personaggio
-  if (!window.hcKeys) { window.hcKeys = 1; document.addEventListener('keydown', e => { if (e.repeat) return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = e.key.toLowerCase(); if (k === 'q') coinPress(); else if (k === 'r') runSet(!cq.hcRun); else if (k === 'm') G.big = !G.big; else if (k === 'l') planUI(G); else if ((k === 'enter' || k === 't') && cq.net && chatP.hidden) { e.preventDefault(); chatOpen(); } }); }
+  if (!window.hcKeys) { window.hcKeys = 1; document.addEventListener('keydown', e => { if (e.repeat) return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = (e.key || '').toLowerCase(); if (k === 'q') coinPress(); else if (k === 'r') runSet(!cq.hcRun); else if (k === 'm') G.big = !G.big; else if (k === 'l') planUI(G); else if ((k === 'enter' || k === 't') && cq.net && chatP.hidden) { e.preventDefault(); chatOpen(); } }); }
   (function loop() {
     requestAnimationFrame(loop);
     const G = live(), panel = !$('#cqTask').hidden, me = G && G.me;

@@ -1139,7 +1139,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   catB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); catchPress(); });
   tapB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); tapPress(); });
   mapB.onclick = e => { e.stopPropagation(); const G = live(); if (G) { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } };
-  if (!window.mxKeys) { window.mxKeys = 1; document.addEventListener('keydown', e => { if (e.repeat && e.key !== ' ') return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = e.key.toLowerCase(); if (k === 'q') catchPress(); else if (k === ' ' && G.du) { e.preventDefault(); if (!e.repeat) tapPress(); } else if (k === 'm') G.big = !G.big; }); }
+  if (!window.mxKeys) { window.mxKeys = 1; document.addEventListener('keydown', e => { if (e.repeat && e.key !== ' ') return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = (e.key || '').toLowerCase(); if (k === 'q') catchPress(); else if (k === ' ' && G.du) { e.preventDefault(); if (!e.repeat) tapPress(); } else if (k === 'm') G.big = !G.big; }); }
   (function loop() {
     requestAnimationFrame(loop);
     const G = live(), panel = !$('#cqTask').hidden, me = G && G.me, duelMe = !!(G && G.du && (G.du.x === me.id || G.du.ds.includes(me.id)));

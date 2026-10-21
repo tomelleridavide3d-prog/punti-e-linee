@@ -4632,8 +4632,8 @@ function cqInit() {
   root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
   const up = e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy = null; cq.dirty = true; } };
   root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
-  window.addEventListener('keydown', e => { if (cq.on) { cq.keys[e.key.toLowerCase()] = true; if (e.key.startsWith('Arrow')) e.preventDefault(); } });
-  window.addEventListener('keyup', e => { delete cq.keys[e.key.toLowerCase()]; cq.dirty = true; });
+  window.addEventListener('keydown', e => { if (cq.on) { cq.keys[(e.key || '').toLowerCase()] = true; if ((e.key || '').startsWith('Arrow')) e.preventDefault(); } });
+  window.addEventListener('keyup', e => { delete cq.keys[(e.key || '').toLowerCase()]; cq.dirty = true; });
   $('#cqBack').onclick = closeCiack;
   $('#cqLookBtn').onclick = cqOpenPick;
   const mus = () => { $('#cqMusic').style.opacity = store.settings.music === false ? 0.4 : 1; };
