@@ -1046,8 +1046,9 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     const d0 = Math.hypot(x - T.x, y - T.y); if (d0 < CT_RMIN - 0.5 || d0 > CT_RMAX + 0.5) return;
     const [x1, y1] = aimEnd(T.x, T.y, x - T.x, y - T.y, d0, c.bot ? 1.1 : 0.6);
     T.n--; T.rl = G.time + (clsOf(c) === 'n' ? CT_RLG : CT_RL); T.arm = G.time; c.ctN = (c.ctN || 0) + 1;
-    const z0 = 2.2, z1 = zAt(x1, y1) + 0.2, d = Math.hypot(x1 - T.x, y1 - T.y);
-    G.rk.push({ id: ++G.rkN, o: c.id, t: c.t, x0: T.x, y0: T.y - 0.3, z0, x1, y1, z1, t0: G.time + 0.25, d: 1.1 + d * 0.05, pk: 2.4 + 0.22 * d });
+    const z0 = 2.2, z1 = zAt(x1, y1) + 0.2, d = Math.hypot(x1 - T.x, y1 - T.y), pk = 2.4 + 0.22 * d, r = { id: ++G.rkN, o: c.id, t: c.t, x0: T.x, y0: T.y - 0.3, z0, x1, y1, z1, t0: G.time + 0.25, d: 1.1 + d * 0.05, pk };
+    for (let i = 1, n = Math.ceil(d / 0.2); i < n; i++) { const u = i / n; if (u < 0.5) continue; const x = r.x0 + (x1 - r.x0) * u, y = r.y0 + (y1 - r.y0) * u, z = z0 + (z1 - z0) * u + 4 * pk * u * (1 - u), top = topAt(Math.floor(x), Math.floor(y)); if (top < 8 && z < top) { Object.assign(r, { x1: x, y1: y, z1: top + 0.05, d: r.d * u, pk: pk * u, u }); r.z1 = top + 0.05; break; } }
+    G.rk.push(r);
     say(G, 'ctfire', { a: c.id, x: r1(T.x), y: r1(T.y) });
   }
   function fireBal(G, c, i, x, y) {
@@ -1974,13 +1975,26 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
 
   // ======================= IL PULSANTE DELL'ARCO (tira indietro come una fionda) =======================
   const PULL = 110;
+  // AIUTO DI MIRA fatto SULLO SCHERMO: il cerchio (disegnato all'altezza del terreno dove sta) aggancia il nemico se, come lo vedo io, tocca la sua
+  // figura dai piedi alla testa. Cosi' chi sta in alto (torri, mura), disegnato sollevato, si aggancia puntando proprio lui (unita': una casella = TW)
+  const scr = (x, y, z) => [(x - y) / 2, (x + y) / 4 - 0.575 * z];
+  function lockAt(G, x, y, dist, M) {
+    const [ax, ay] = scr(x, y, zAt(x, y)); let bd = 0.5 + dist * 0.03, tg = null;
+    const segD = (p, z0, z1) => { const [fx, fy] = scr(p.x, p.y, z0), [hx, hy] = scr(p.x, p.y, z1), L2 = (hx - fx) ** 2 + (hy - fy) ** 2, k = L2 ? Math.max(0, Math.min(1, ((ax - fx) * (hx - fx) + (ay - fy) * (hy - fy)) / L2)) : 0; return Math.hypot(fx + (hx - fx) * k - ax, fy + (hy - fy) * k - ay); };
+    for (const e of enemies(G, G.me)) { if (!MODE.night(G).see(e.x, e.y)) continue; const p = xyOf(G, e), z = bodyZ(G, e), d = segD(p, z, z + 1.5); if (d < bd) { bd = d; tg = p; } }
+    if (M && M.k === 'b' && ctAlive(G) && segD(G.ct, 0, 2.2) < 0.9) tg = { x: G.ct.x, y: G.ct.y };
+    if (M && M.k === 'b' && twAlive(G) && segD(G.tw, 0, 4) < 1.0) tg = { x: G.tw.x, y: G.tw.y };
+    return tg;
+  }
   function aimFrom(G, dx, dy) {
     const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), m = Math.hypot(dx, dy); if (m < 14) return { ok: false };
     let wx = -dx / TW - 2 * dy / TW, wy = dx / TW - 2 * dy / TW; const wl = Math.hypot(wx, wy) || 1; wx /= wl; wy /= wl;
     const M = machOf(G, G.me), O = M ? M.o : { x: cq.x, y: cq.y }, r0 = M ? M.rmin : RMIN, r1m = M ? M.rmax : RMAX;
     const dist = r0 + (r1m - r0) * Math.min(1, (m - 14) / (PULL - 14));
     let x = O.x + wx * dist, y = O.y + wy * dist, tg = null;
-    if (!M || M.k === 'b') { let bd = 0.9 + dist * 0.06; for (const e of enemies(G, G.me)) { const p = P(e), d = Math.hypot(p.x - x, p.y - y); if (d < bd && MODE.night(G).see(e.x, e.y)) { bd = d; tg = p; } } if (M && ctAlive(G) && Math.hypot(G.ct.x - x, G.ct.y - y) < 1.6) tg = { x: G.ct.x, y: G.ct.y }; }
+    // AIUTO DI MIRA: aggancia il nemico dove LO VEDO sullo schermo. Chi sta in alto (torre, mura) e' disegnato sollevato: per l'occhio il suo posto a terra
+    // e' spostato indietro di 1,15 caselle per ogni unita' di altezza in piu' (stesso punto dello schermo), quindi conta sia dov'e' sia dove sembra
+    tg = lockAt(G, x, y, dist, M);
     if (tg) { x = tg.x; y = tg.y; }
     return { ok: true, x, y, d: Math.hypot(x - O.x, y - O.y), tg: !!tg, m: M ? M.k : null, i: M ? M.i : -1, o: O };
   }
@@ -2048,7 +2062,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     if (G.guest) cqNetSend(M.k === 'c' ? { k: 'cf', x: r2(A.x), y: r2(A.y) } : { k: 'bf', i: M.i, x: r2(A.x), y: r2(A.y) });
     else if (M.k === 'c') fireCt(G, me, A.x, A.y); else fireBal(G, me, M.i, A.x, A.y);
   }
-  function autoFire(G) { const me = G.me; let b = null, bd = RMAX; for (const e of enemies(G, me)) { const p = P(e), d = Math.hypot(p.x - cq.x, p.y - cq.y); if (d < bd && MODE.night(G).see(e.x, e.y)) { bd = d; b = p; } } if (b) fire(G, b.x, b.y); }
+  function autoFire(G) { const me = G.me; let b = null, bd = RMAX; for (const e of enemies(G, me)) { const p = xyOf(G, e), d = Math.hypot(p.x - cq.x, p.y - cq.y); if (d < bd && MODE.night(G).see(e.x, e.y)) { bd = d; b = p; } } if (b) fire(G, b.x, b.y); }
   function bowUI(G) {
     const el = document.getElementById('asBow'); if (!el) return;
     const me = G.me, M = machOf(G, me), cc = clsOf(me), ck = M ? 'm' + M.k + (M.k === 'c' ? G.ct.n : '') : cc + (cc === 'a' ? me.q : '');
@@ -2121,5 +2135,5 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; }
     }, 200);
   }
-  window.__as = { PORT, DOCKS, QUIV, fireMach, machOf, arcPk, action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, viewTick, ramLet, ramCharge, ramRelease, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
+  window.__as = { lockAt, fireCt, PORT, DOCKS, QUIV, fireMach, machOf, arcPk, action, doAct, zoneAt, spotsOf, inCastle, topAt, mkArrow, aimFrom, fire, botT, botShoot, setupHalf, syncMap, clear, score, Z2, Z3, RK, LEV, openGate, nextPhase, CL, setCls, pickCls, viewTick, ramLet, ramCharge, ramRelease, melee, meleeMe, setShield, buildOk, doBuild, keepsWay, frontCell };
 });
