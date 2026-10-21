@@ -2292,7 +2292,9 @@ const CQ_SKINS = {
   bassotto: { n: 'Bassotto', col: '#a0582a', d: 'Un bassotto con gli stivaletti rossi. Ti sta osservando.' },
   palma: { n: 'Palma', col: '#3a9a4a', d: 'Una palma. Nessuno sa come cammini. Sospetta di tutti.' },
   pinguino: { n: 'Pinguino', col: '#2a2e35', d: 'Un pinguino con la giacca rossa. Molto composto.' },
-  bruco: { n: 'Bruco', col: '#5ab03c', d: 'Un bruco col cappello da cowboy. Non si fida di nessuno.' }
+  bruco: { n: 'Bruco', col: '#5ab03c', d: 'Un bruco col cappello da cowboy. Non si fida di nessuno.' },
+  pane: { n: 'Banana bread', col: '#c8843a', d: 'Una banana tra due fette di pane. Ha qualcosa da nascondere.' },
+  lupo: { n: 'Lupo T-rex', col: '#8c8a84', d: 'Un lupo cecoslovacco che cammina come un T-rex: braccini corti, zainetto e fiocco rosa. Ti tiene d\'occhio.' }
 };
 function cqLook() {
   const L = store.settings.cqLook || {}, skin = CQ_SKINS[L.skin] ? L.skin : 'omino';
@@ -5644,12 +5646,12 @@ function cqName(g, X, Y, name, col) {
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
 // altezza del nome sopra la testa (in larghezze di tessera), secondo il personaggio
-const cqTop = L => L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'pinguino' ? 2.2 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' ? 2.0 : 1.9;
+const cqTop = L => L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'pinguino' ? 2.2 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' || L.skin === 'lupo' ? 2.0 : L.skin === 'pane' ? 1.8 : 1.9;
 const CQ_EYES = {
   pinguino: [[[3.5, -45], [8.2, -45]], 2.8, '#f4f4f4'], bassotto: [[[12.5, -22], [16.5, -22.2]], 2.3, '#a0582a'], palma: [[[0.3, -27], [5, -27.2]], 2.4, '#9a6a3a'],
   gatto: [[[0, -29], [8, -29]], 2.8, '#e08a3a'], regista: [[[1.5, -32.5], [7, -32.5]], 1.9, '#f0c8a0'], guardia: [[[2, -31], [7.5, -31]], 2, '#f0c8a0'],
   tonno: [[[6, -33]], 3.9, '#2f5a8a', '#fff'], giraffa: [[[10.5, -65.2]], 1.9, '#e8b84a'], polipo: [[[1, -28], [8, -28.3]], 3.4, '#d8608a'],
-  bruco: [[[4.5, -31.5], [11, -31.5]], 3.4, '#4f9a34'], procione: [[[0.2, -29.5], [7.8, -29.5]], 2.6, '#2a2e35', '#fff'], omino: [[[0.8, -28.3], [7.2, -28.3]], 2.3, null, '#2a2e35'] };
+  bruco: [[[4.5, -31.5], [11, -31.5]], 3.4, '#4f9a34'], pane: [[[-2.5, -29], [5.5, -29]], 2.9, '#f3dca8'], lupo: [[[15.5, -41], [19.8, -41.2]], 1.9, '#8c8a84'], procione: [[[0.2, -29.5], [7.8, -29.5]], 2.6, '#2a2e35', '#fff'], omino: [[[0.8, -28.3], [7.2, -28.3]], 2.3, null, '#2a2e35'] };
 function cqDeadEyes(g, s, f) {
   const E = CQ_EYES[s] || CQ_EYES.omino, r = E[1];
   for (const [x, y] of E[0]) {
@@ -5851,6 +5853,66 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     g.fillStyle = '#4a2e18'; g.fillRect(-9.5, -44.5, 19, 3.2);
     ell(f * 5, -43, 1.5, 1.5, '#f2c230');
     g.restore();
+  } else if (s === 'pane') {
+    // banana bread: una banana tra due fette di pane in cassetta (crosta dorata, mollica chiara), gambette e braccini, faccia sospettosa sulla fetta davanti
+    const slice = (dx, dy, crust, crumb) => {
+      g.save(); g.translate(dx, dy);
+      g.fillStyle = crust; g.beginPath(); g.moveTo(-12.5, -5); g.lineTo(-12.5, -31); g.quadraticCurveTo(-16, -46, -5, -45); g.quadraticCurveTo(0, -49, 5, -45); g.quadraticCurveTo(16, -46, 12.5, -31); g.lineTo(12.5, -5); g.quadraticCurveTo(0, -2.5, -12.5, -5); g.fill();
+      if (crumb) {
+        g.fillStyle = crumb; g.beginPath(); g.moveTo(-10, -7.2); g.lineTo(-10, -31.5); g.quadraticCurveTo(-13, -43.3, -4.6, -42.5); g.quadraticCurveTo(0, -46, 4.6, -42.5); g.quadraticCurveTo(13, -43.3, 10, -31.5); g.lineTo(10, -7.2); g.quadraticCurveTo(0, -5, -10, -7.2); g.fill();
+        for (const [x, y, r] of [[-6, -13, 0.9], [-1, -10, 0.7], [6, -14, 1], [3, -19, 0.6], [-7, -37, 0.7], [7, -38, 0.8], [1, -40, 0.6], [-4, -21, 0.6]]) ell(x, y, r, r * 0.8, '#dcb878');
+      }
+      g.restore();
+    };
+    // gambette con le scarpine
+    line(-4, -6, -4 + sw * 0.7, -1.5, '#9a5a24', 2.4); line(4, -6, 4 - sw * 0.7, -1.5, '#9a5a24', 2.4);
+    ell(-4 + sw * 0.7 + f * 1.5, -1, 3.8, 2.2, '#5a3a24'); ell(4 - sw * 0.7 + f * 1.5, -1, 3.8, 2.2, '#5a3a24');
+    slice(-f * 3.2, -1.2, '#9a5a24');   // fetta dietro
+    // la banana che spunta dai lati e da sopra (buccia gialla, punte marroni, puntini)
+    g.strokeStyle = '#e8c02a'; g.lineWidth = 7.5; g.lineCap = 'round'; g.beginPath(); g.moveTo(-f * 18, -30); g.quadraticCurveTo(-f * 2, -17, f * 18, -33); g.stroke();
+    g.strokeStyle = '#f6dc56'; g.lineWidth = 3.4; g.beginPath(); g.moveTo(-f * 17, -32); g.quadraticCurveTo(-f * 2, -20.5, f * 17, -35); g.stroke();
+    ell(-f * 19.5, -31, 2.2, 2, '#5a3a1a'); ell(f * 19.5, -34, 2, 1.8, '#5a3a1a');
+    for (const [x, y] of [[-11, -25], [9, -27], [13, -30.5]]) ell(f * x, y, 0.9, 0.7, '#8a6a24');
+    slice(0, 0, '#b8742e', '#f3dca8');   // fetta davanti
+    // braccini con le manine
+    line(-f * 12, -20, -f * 16.5, -14 + sw * 0.3, '#9a5a24', 2); line(f * 12, -20, f * 16.5, -15 - sw * 0.3, '#9a5a24', 2);
+    ell(-f * 16.8, -13.6 + sw * 0.3, 2.1, 2.1, '#f3dca8'); ell(f * 16.8, -14.6 - sw * 0.3, 2.1, 2.1, '#f3dca8');
+    // faccia: occhi di lato con le palpebre mezze chiuse, un sopracciglio giu' e uno su, bocca storta
+    susEye(f * -2.5, -29, 2.9, '#f3dca8'); susEye(f * 5.5, -29, 2.9, '#f3dca8');
+    line(f * -5.8, -34.2, f * 0.4, -32.6, '#6a3a14', 1.5); line(f * 2.6, -33.4, f * 8.6, -35.4, '#6a3a14', 1.5);
+    g.strokeStyle = '#6a3a14'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(f * -1, -21.5); g.quadraticCurveTo(f * 2.5, -22.6, f * 6.5, -23.8); g.stroke();
+    ell(f * -5.5, -24.5, 1.8, 1, 'rgba(220,110,90,.35)');
+  } else if (s === 'lupo') {
+    // lupo cecoslovacco in posa da T-rex: due zampe, busto in avanti, coda lunga per stare in equilibrio, braccini cortissimi,
+    // zainetto rosa e fiocco rosa in testa; occhi ambra sospettosi
+    const fur = '#8c8a84', dark = '#5e5d5a', light = '#ded7c6';
+    // coda folta (dietro a tutto), con la punta scura
+    ell(-f * 19, -17, 11, 4.2, fur, f * 0.22); ell(-f * 28, -14.5, 4.5, 3, dark, f * 0.3);
+    // zampa dietro (piu' scura) e zampa davanti
+    const leg = (dx, k, c) => { ell(dx - f * 1, -13, 5.5, 7.5, c, -f * 0.3); line(dx + f * 1.5, -8, dx + f * 0.5 + k * sw * 0.8, -2, c, 3.6); ell(dx + f * 2.5 + k * sw * 0.8, -1.2, 4.6, 2.2, dark); };
+    leg(-f * 4, -1, dark);
+    // zainetto rosa sulla schiena (con la tasca e lo spallaccio)
+    g.save(); g.translate(-f * 5, -31); g.rotate(-f * 0.35); g.fillStyle = '#f08ab8'; cqRR(g, -7, -7, 14, 14, 4); g.fill(); g.fillStyle = '#d86a9c'; cqRR(g, -5, 0.5, 10, 5, 2); g.fill(); ell(0, -7, 4, 1.6, '#d86a9c'); g.restore();
+    // busto in avanti
+    ell(f * 3, -24, 13, 8.5, fur, -f * 0.42); ell(f * 6, -20.5, 8, 4.2, light, -f * 0.42);
+    line(-f * 2, -33, f * 8, -24, '#d86a9c', 1.8);   // spallaccio
+    leg(f * 1, 1, fur);
+    // collo e testa alta davanti
+    ell(f * 11, -32, 5.5, 7, fur, -f * 0.5);
+    ell(f * 15, -40, 8.5, 7, fur);
+    ell(f * 21.5, -36.5, 7, 3.6, light); ell(f * 15.5, -36.8, 5, 3, light);   // muso chiaro e mascherina
+    ell(f * 27.5, -37.6, 2, 1.6, '#151515');
+    g.strokeStyle = '#3a3632'; g.lineWidth = 0.9; g.lineCap = 'round'; g.beginPath(); g.moveTo(f * 18.5, -34); g.quadraticCurveTo(f * 21.5, -33.6, f * 24.5, -35); g.stroke();   // bocca chiusa, storta
+    // orecchie a punta
+    for (const [x, k] of [[11, -0.12], [16.5, 0.1]]) { tri([[f * (x - 3.2), -44], [f * (x + 0.5 + k * 8), -55], [f * (x + 3.4), -44.5]], fur); tri([[f * (x - 1.4), -45], [f * (x + 0.4 + k * 6), -51.5], [f * (x + 1.8), -45.2]], '#4a4846'); }
+    // fiocco rosa tra le orecchie
+    tri([[f * 13.6, -48.6], [f * 9.2, -52.4], [f * 9.6, -45.6]], '#f08ab8'); tri([[f * 13.6, -48.6], [f * 18, -52], [f * 17.4, -45.2]], '#f08ab8'); ell(f * 13.6, -48.6, 1.8, 1.8, '#d86a9c');
+    // occhi ambra con la palpebra mezza chiusa e le sopracciglia storte
+    for (const x of [15.5, 19.8]) { ell(f * x, -41, 1.9, 2.1, '#e8a83a'); ell(f * (x + 0.8), -40.6, 0.9, 1.4, '#111'); ell(f * x, -42.3, 2.3, 1.5, fur); }
+    line(f * 13.4, -44, f * 17, -43.1, '#3a3632', 1.2); line(f * 18.4, -43.4, f * 22, -45, '#3a3632', 1.2);
+    // braccini da T-rex con gli artigli
+    line(f * 10, -25, f * 14.5, -24, fur, 2.2); line(f * 14.5, -24, f * 16, -21.5, fur, 1.8);
+    line(f * 16, -21.5, f * 17.3, -20.6, '#f2f2f2', 0.8); line(f * 16, -21.5, f * 16.6, -19.8, '#f2f2f2', 0.8);
   } else {
     const rac = s === 'procione', col = rac ? '#8a8f99' : L.col;
     // coda ad anelli (procione), dietro a tutto
