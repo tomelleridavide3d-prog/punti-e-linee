@@ -2266,7 +2266,9 @@ const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {},
 cqUseMap('studio');
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
-  return !cqFloor[cy] || !cqFloor[cy][cx] || !!cqSolid[cy][cx];
+  if (!cqFloor[cy] || !cqFloor[cy][cx]) return true;
+  const s = cqSolid[cy][cx]; if (s && !s.soft) return true;   // soft: casella che vale solo per i percorsi dei computer (cqPath); la sagoma vera la decide il gioco
+  const G = cq.g; return !!(G && G.mode && G.M.blk && G.phase === 'play' && G.M.blk(G, x, y));   // M.blk(G, x, y): ostacoli del gioco che si muovono senza scatti (es. l'ariete dell'Assedio)
 }
 function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBlocked(x + r, y - r) || cqBlocked(x - r, y + r) || cqBlocked(x + r, y + r)); }
 function openCiack() {
