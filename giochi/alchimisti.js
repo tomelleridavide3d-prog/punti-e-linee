@@ -941,7 +941,7 @@
     $('#ciack').appendChild(el);
     el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
-    $('#alBot').onclick = () => bottle(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); prepRender(G); };
+    $('#alBot').onclick = () => bottle(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); spell('Ops… 🙈', 'oops'); prepRender(G); };
     $('#alRdy').onclick = () => setReady(G, !ready(G)); $('#alBk').onclick = () => bookOpen(G); $('#alCol').onclick = () => bookOpen(G);
     helpOnce('prep');
     U2.pot = []; U2.fx = []; U2.msg = '';
@@ -952,14 +952,14 @@
   function say(t) { U2.msg = t; U2.msgT = now(); const m = document.getElementById('alMsg'); if (m) m.textContent = t; }
   function addIng(G, id) {
     if (U2.pot.length >= MAXI) { say('Al massimo ' + MAXI + ' ingredienti: imbottiglia o svuota.'); SFX.full(); U2.shake = now(); return; }
-    U2.pot.push(id); U2.fx.push({ id, t: now() }); SFX.plop(); say('');
+    U2.pot.push(id); U2.fx.push({ id, t: now() }); SFX.plop(); say(''); spell(cqPickOne(SPELLS));
     legendCheck(G); prepRender(G);
   }
   function bottle(G) {
     if (!U2.pot.length) return;
     const b = G.me.belt, i = b.findIndex(v => !v);
     if (i < 0) { say('La cintura è piena: tocca un\'ampolla per svuotarla.'); SFX.full(); return; }
-    b[i] = potKey(U2.pot); U2.pot = []; U2.drain = now(); SFX.bottle(); sendBelt(G);
+    b[i] = potKey(U2.pot); U2.pot = []; U2.drain = now(); SFX.bottle(); spell('Tadà! ✨', 'spin'); sendBelt(G);
     say(b.every(Boolean) ? 'Cintura piena! Premi ✔ Pronto (o cambia qualcosa).' : ''); prepRender(G);
   }
   function unbottle(G, i) { if (!G.me.belt[i]) return; G.me.belt[i] = ''; SFX.pour(); sendBelt(G); if (ready(G)) setReady(G, false); prepRender(G); }
@@ -1058,6 +1058,45 @@
     const vg = g.createLinearGradient(0, H * 0.7, 0, H); vg.addColorStop(0, 'rgba(6,8,18,0)'); vg.addColorStop(1, 'rgba(6,8,18,.85)'); g.fillStyle = vg; g.fillRect(0, H * 0.7, W, H * 0.3);
   }
   cqEachFrame(() => { const el = document.getElementById('alAsc'); if (el) ascDraw(el); });
+  // ======================= IL MAGO AL CALDERONE (solo per divertimento): dondola e fa girare la bacchetta; a ogni ingrediente SALTA, agita la bacchetta
+  // verso il calderone (scia di scintille) e grida una formula; trema e suda se la miscela e' instabile; piroetta quando imbottigli; "ops" quando svuoti =======================
+  const SPELLS = ['Abracadabra!', 'Bim bum bam!', 'Sim sala bim!', 'Hocus pocus!', 'Alakazam!', 'Pozionus maximus!', 'Zim zum!', 'Brodo magico!', 'Che profumino…', 'Eh eh eh!', 'Ancora uno!', 'Bibbidi bobbidi!'];
+  function spell(w, k) { U2.sp = { t: now(), w, k: k || 'cast', s: Math.random() < 0.5 ? 1 : -1 }; }
+  function wizPrep(g, W, H, cx, cy, R, t, P) {
+    const G = cq.g; if (!G || !G.me || typeof cqLookOf !== 'function') return;
+    const sp = U2.sp, a = sp ? t - sp.t : 99, k = sp ? sp.k : '', TW = Math.min(H * 0.3, 60), X = Math.max(TW * 0.75, cx - R * 1.6), Y0 = cy + R * 0.88;
+    const inst = P ? P.inst : 0, nerv = inst >= VOLATILE ? 1 : inst >= 0.3 ? 0.5 : 0;
+    // salto (formula: piccolo; leggendaria: altissimo), piroetta, tremarella
+    const hop = k === 'leg' ? Math.max(0, Math.sin(Math.min(1, a / 0.9) * Math.PI)) * TW * 0.9 : (k === 'cast' || k === 'spin') && a < 0.45 ? Math.sin(a / 0.45 * Math.PI) * TW * 0.28 : 0;
+    const sx = k === 'spin' && a < 0.6 ? Math.cos(a / 0.6 * Math.PI * 2) : 1, shk = nerv ? Math.sin(t * 55) * 1.6 * nerv : 0, bob = Math.sin(t * 2.2) * 2;
+    const X1 = X + shk, Y = Y0 - hop - Math.abs(bob) * 0.5;
+    g.save(); g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.ellipse(X, Y0 + 2, TW * 0.36 * (1 - hop / TW * 0.4), TW * 0.1, 0, 0, 7); g.fill(); g.restore();
+    g.save(); g.translate(X1, Y); g.scale(sx || 0.05, 1); g.rotate(k === 'oops' && a < 0.8 ? Math.sin(a * 18) * 0.08 * (1 - a / 0.8) : bob * 0.01);
+    wizard(g, 0, 0, TW, cqLookOf(G.me), k === 'cast' && a < 0.45 ? a * 14 : 0, 1, sideOf(G, G.me), G.me.belt.map(b => b ? brew(b).c : null), G.me.cos);
+    g.restore();
+    // la bacchetta: gira piano da ferma, colpo verso il calderone quando arriva un ingrediente
+    const hx = X1 + TW * 0.42, hy = Y - TW * 0.42, cast = k === 'cast' || k === 'leg' ? Math.max(0, 1 - a / 0.5) : 0;
+    const ang = cast > 0 ? -2.1 + (1 - cast) * 1.8 : k === 'oops' && a < 1 ? 1.1 : -0.85 + 0.3 * Math.sin(t * 2.4), L = TW * 0.55, tx = hx + Math.cos(ang) * L, ty = hy + Math.sin(ang) * L;
+    g.strokeStyle = '#3a2416'; g.lineWidth = Math.max(2.5, TW / 22); g.lineCap = 'round'; g.beginPath(); g.moveTo(hx, hy); g.lineTo(tx, ty); g.stroke();
+    g.strokeStyle = '#e8d8b0'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); g.moveTo(tx - Math.cos(ang) * L * 0.18, ty - Math.sin(ang) * L * 0.18); g.lineTo(tx, ty); g.stroke();
+    g.globalAlpha = 0.35 + 0.25 * Math.sin(t * 9); g.fillStyle = '#fff2a0'; g.beginPath(); g.arc(tx, ty, TW * 0.13, 0, 7); g.fill(); g.globalAlpha = 1;
+    star(g, tx, ty, TW * 0.07 * (1 + 0.2 * Math.sin(t * 7)), '#ffe070');
+    for (let i = 0; i < 4; i++) { const q = (t * 0.9 + i / 4) % 1; g.globalAlpha = 1 - q; star(g, tx + Math.sin(i * 2 + t) * TW * 0.15, ty - q * TW * 0.45, TW * 0.03, i % 2 ? '#ffe070' : '#c8e8ff'); } g.globalAlpha = 1;
+    // la magia vola nel calderone (scia di scintille a ogni ingrediente)
+    if (cast > 0 || (k === 'leg' && a < 1.4)) { const n = 10; for (let i = 0; i < n; i++) { const u = Math.min(1, (a / 0.6) - i * 0.05); if (u <= 0) continue; const px = tx + (cx - tx) * u, py = ty + (cy - R * 0.3 - ty) * u - Math.sin(u * Math.PI) * R * 0.45; g.globalAlpha = Math.max(0, 1 - a / 0.9); star(g, px + Math.sin(i * 3 + t * 9) * 4, py, TW * (0.04 + (i % 3) * 0.012), ['#ffe070', '#ff9ad8', '#9ae8ff'][i % 3]); } g.globalAlpha = 1; }
+    if (k === 'leg' && a < 1.6) for (let i = 0; i < 10; i++) { const an = i * 0.628 + t, r = TW * (0.5 + a * 0.6); g.globalAlpha = Math.max(0, 1 - a / 1.6); star(g, X1 + Math.cos(an) * r, Y - TW * 0.7 + Math.sin(an) * r * 0.6, TW * 0.06, '#ffe070'); } g.globalAlpha = 1;
+    // sudore se la miscela e' instabile
+    if (nerv) { const q = (t * 1.3) % 1; g.globalAlpha = 1 - q; g.fillStyle = '#9ad8ff'; g.beginPath(); g.ellipse(X1 - TW * 0.25, Y - TW * 1.05 + q * TW * 0.35, TW * 0.04, TW * 0.06, 0, 0, 7); g.fill(); g.globalAlpha = 1; }
+    // il fumetto con la formula
+    const txt = sp && a < 1.5 ? sp.w : nerv && Math.sin(t * 0.8) > 0.3 ? (nerv >= 1 ? 'Uh oh… 💦' : 'Mmh…') : '';
+    if (txt) {
+      g.font = '800 ' + Math.round(Math.max(12, TW * 0.17)) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const bw = g.measureText(txt).width + 16, bx = Math.max(bw / 2 + 2, Math.min(W - bw / 2 - 2, X1 + TW * 0.95)), by = Math.max(14, Y - TW * 1.9), al = sp && a < 1.5 ? Math.min(1, a * 6, (1.5 - a) * 4) : 1, pop = sp && a < 0.15 ? 0.7 + a * 2 : 1;
+      g.save(); g.globalAlpha = al; g.translate(bx, by); g.scale(pop, pop);
+      g.fillStyle = '#fff8e8'; cqRR(g, -bw / 2, -13, bw, 26, 12); g.fill(); g.beginPath(); g.moveTo(-bw / 2 + 10, 12); g.lineTo(-bw / 2 + 2, 22); g.lineTo(-bw / 2 + 20, 12); g.fill();
+      g.fillStyle = '#3a2416'; g.fillText(txt, 0, 1); g.restore();
+    }
+  }
   // il calderone disegnato (bolle, fuoco, l'ingrediente che cade, schizzi). Trema e ribolle forte quando la miscela e' instabile: un indizio, non la ricetta
   function potDraw() {
     const cv = document.getElementById('alCv'); if (!cv) return;
@@ -1095,6 +1134,7 @@
       if (a < 1) { g.font = Math.round(R * 0.4) + 'px system-ui'; g.fillText(ING_BY[f.id].e, cx, 10 + (cy - R * 0.25 - 10) * a * a); }
       else { const k = (t - f.t - 0.4) / 0.5; g.globalAlpha = 1 - k; g.fillStyle = ING_BY[f.id].c; for (let i = 0; i < 8; i++) { const an = Math.PI + i / 7 * Math.PI; g.beginPath(); g.arc(cx + Math.cos(an) * R * 0.5 * k, cy - R * 0.25 + Math.sin(an) * R * 0.5 * k - k * (1 - k) * R * 0.6, R * 0.05, 0, 7); g.fill(); } g.globalAlpha = 1; }
     }
+    wizPrep(g, W, H, cx, cy, R, t, P);
     if (P && P.leg) { for (let i = 0; i < 12; i++) { const a2 = t * 1.5 + i * 0.5236, r = R * (0.5 + 0.25 * Math.sin(t * 3 + i)); g.fillStyle = i % 2 ? '#ffe070' : '#fff8d0'; g.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6 + i); g.beginPath(); g.arc(cx + Math.cos(a2) * r * 1.2, cy - R * 0.4 + Math.sin(a2) * r * 0.35 - Math.abs(Math.sin(t * 2 + i)) * R * 0.5, R * 0.035, 0, 7); g.fill(); } g.globalAlpha = 1; }   // leggendaria: scintille d'oro
     if (P && Math.random() < 0.02 + inst * 0.05) SFX.bubble();
   }
@@ -1921,7 +1961,7 @@
   // una leggendaria appena nata nel calderone: festa, ornamento sbloccato
   function legendCheck(G) {
     const key = potKey(U2.pot), LG = LEGEND[key], B = book(); if (!LG) return;
-    U2.gold = now(); SFX.prize();
+    U2.gold = now(); SFX.prize(); spell('WOOOW! 🌟', 'leg');
     if ((B.leg || {})[key]) return;
     B.leg = B.leg || {}; B.leg[key] = Date.now(); saveStore(); G.me.cos = myCos(); if (G.guest) cqNetSend({ k: 'cos', v: G.me.cos });
     cqToast('🌟 <b>POZIONE LEGGENDARIA!</b> ' + esc(LG.n) + '<br>🎁 ' + LEG_PR[LG.pr][0] + ' ' + LEG_PR[LG.pr][1]);
