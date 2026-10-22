@@ -64,6 +64,9 @@
     // Ingresso: tavolino con il cassetto, pendolo, cassapanca, appendiabiti, portaombrelli, armatura
     ['console', 12, 21, { h: 1, n: 'Cassetto del tavolino' }], ['armor', 11, 23], ['vase', 20, 21, { h: 1, n: 'Vaso' }], ['lamp', 21, 21], ['clock', 22, 21, { h: 2, n: 'Pendolo' }],
     ['bench', 22, 27, { h: 2, n: 'Cassapanca' }], ['coatrack', 14, 28], ['umbrella', 19, 28, { h: 1, n: 'Portaombrelli' }], ['plant', 11, 28],
+    // DECORAZIONI (arricchita il 22-10-2026): camino, busti, cavalletto, scala e libri, fontana, carriola, gabbietta, portasciugamani, lanterna; nuovi nascondigli
+    ['fireplace', 18, 10], ['bust', 11, 10], ['bust', 18, 21], ['easel', 14, 6], ['ladder', 5, 2], ['bookpile', 2, 4], ['fountain', 5, 14], ['wheelbarrow', 7, 18], ['birdcage', 1, 13],
+    ['towel', 24, 10], ['bathshelf', 31, 10, { h: 1, n: 'Mensola del bagno' }], ['bin', 32, 24, { h: 1, n: 'Pattumiera' }], ['plant', 24, 28], ['vanity', 25, 1, { h: 1, n: 'Toeletta' }], ['lamp', 24, 1], ['clantern', 6, 25],
     // Corridoio di servizio
     ['armor', 8, 24], ['sidetable', 8, 28, { h: 1, n: 'Cassetto del mobiletto' }],
     // Cantina: botti, scaffale delle bottiglie, casse, barattoli, baule vecchio
@@ -254,6 +257,56 @@
         bx(x + 0.05, y + 0.02, x + 0.45, y + 0.98, 0, 2.2, '#6a3a24'); qR(K, x + 0.45, y + 0.06, y + 0.94, 0.06, 2.14, '#2a1a10');
         for (let r = 0; r < 5; r++) for (let i = 0; i < 4; i++) dot(x + 0.45, y + 0.16 + i * 0.22, 0.25 + r * 0.4, 0.055, r % 2 ? '#2e5a3a' : '#5a1a2a'); return true;
       case 'crate': eng(K, 'crate', x, y); return true;
+      case 'fireplace': {   // camino di pietra acceso, con la mensola, le candele e l'orologio
+        bx(x + 0.02, y + 0.42, x + 0.98, y + 0.98, 0, 1.45, '#a89a88'); qL(x + 0.22, x + 0.78, y + 0.98, 0.08, 0.82, '#1a1210');
+        for (let i = 0; i < 6; i++) dot(x + 0.32 + i * 0.07, y + 0.97, 0.18 + 0.12 * ((i * 7) % 3), 0.045, i % 2 ? '#ffb030' : '#ff6a20'); dot(x + 0.5, y + 0.97, 0.3, 0.06, '#ffe070');
+        bx(x + 0.3, y + 0.85, x + 0.7, y + 0.95, 0.08, 0.14, '#3a2414');
+        bx(x - 0.04, y + 0.38, x + 1.04, y + 1.02, 1.45, 1.55, '#6a3a24');
+        for (const u of [0.15, 0.85]) { cyl(x + u, y + 0.7, 0.04, 1.55, 1.75, '#f4ecd8'); dot(x + u, y + 0.7, 1.8, 0.02, '#ffd060'); }
+        bx(x + 0.4, y + 0.6, x + 0.6, y + 0.75, 1.55, 1.8, '#c8a050'); dot(x + 0.5, y + 0.75, 1.68, 0.05, '#f4ecd8');
+        glow(x + 0.5, y + 1.0, 0.4, 2.2, 'rgba(255,150,60,.4)'); return true;
+      }
+      case 'bust':   // busto di marmo sulla colonna
+        cyl(x + 0.5, y + 0.5, 0.26, 0, 0.1, '#d8d4cc'); cyl(x + 0.5, y + 0.5, 0.18, 0.1, 1.2, '#ecebe6'); cyl(x + 0.5, y + 0.5, 0.25, 1.2, 1.3, '#d8d4cc');
+        bx(x + 0.32, y + 0.4, x + 0.68, y + 0.6, 1.3, 1.55, '#e4e2dc'); cyl(x + 0.5, y + 0.5, 0.13, 1.55, 1.95, '#f0eee8'); dot(x + 0.46, y + 0.55, 1.78, 0.02, '#9a968e'); return true;
+      case 'easel': {   // cavalletto con un quadro a meta' (un tramonto sul mare)
+        line(S(x + 0.25, y + 0.6, 0), S(x + 0.5, y + 0.45, 1.9), '#7a5232', Math.max(2, TW / 26)); line(S(x + 0.75, y + 0.6, 0), S(x + 0.5, y + 0.45, 1.9), '#7a5232', Math.max(2, TW / 26)); line(S(x + 0.5, y + 0.2, 0), S(x + 0.5, y + 0.45, 1.6), '#6a4428', Math.max(2, TW / 30));
+        qL(x + 0.18, x + 0.82, y + 0.62, 0.75, 1.65, '#f4ecd8'); qL(x + 0.22, x + 0.78, y + 0.62, 1.15, 1.6, '#e8a868'); qL(x + 0.22, x + 0.78, y + 0.62, 0.8, 1.15, '#3a6aa8'); dot(x + 0.6, y + 0.62, 1.3, 0.05, '#ffe070');
+        bx(x + 0.15, y + 0.58, x + 0.85, y + 0.66, 0.68, 0.74, '#7a5232'); return true;
+      }
+      case 'ladder':   // scala della biblioteca appoggiata alla libreria
+        for (const u of [0.25, 0.75]) line(S(x + u, y + 0.85, 0), S(x + u, y + 0.1, 2.3), '#874c2e', Math.max(2, TW / 24));
+        for (let i = 1; i < 7; i++) { const k = i / 7; line(S(x + 0.25, y + 0.85 - 0.75 * k, 2.3 * k), S(x + 0.75, y + 0.85 - 0.75 * k, 2.3 * k), '#a5643c', Math.max(1.5, TW / 34)); }
+        return true;
+      case 'bookpile':   // pile di libri per terra
+        [['#a83a3a', 0], ['#3a5a9a', 0.12], ['#c8a040', 0.24], ['#4a8a4a', 0.36]].forEach(([c, z], i) => bx(x + 0.25 + (i % 2) * 0.05, y + 0.3 - (i % 2) * 0.04, x + 0.7 + (i % 2) * 0.03, y + 0.65, z, z + 0.12, c));
+        bx(x + 0.55, y + 0.6, x + 0.85, y + 0.85, 0, 0.1, '#6a3a7a'); bx(x + 0.57, y + 0.62, x + 0.83, y + 0.83, 0.1, 0.2, '#e8dcc0'); return true;
+      case 'fountain':   // fontanella della serra: vasca di pietra, colonna, acqua
+        cyl(x + 0.5, y + 0.5, 0.46, 0, 0.42, '#b8b0a0'); cyl(x + 0.5, y + 0.5, 0.4, 0.4, 0.44, '#7ab8d8'); cyl(x + 0.5, y + 0.5, 0.08, 0.44, 1.0, '#c8c0b0'); cyl(x + 0.5, y + 0.5, 0.2, 1.0, 1.1, '#b8b0a0'); cyl(x + 0.5, y + 0.5, 0.16, 1.08, 1.11, '#8ac8e8');
+        for (let i = 0; i < 4; i++) { const a = i * 1.57 + 0.4; line(S(x + 0.5 + Math.cos(a) * 0.16, y + 0.5 + Math.sin(a) * 0.16, 1.1), S(x + 0.5 + Math.cos(a) * 0.3, y + 0.5 + Math.sin(a) * 0.3, 0.45), 'rgba(170,220,250,.8)', Math.max(1, TW / 50)); }
+        return true;
+      case 'wheelbarrow':   // carriola con la terra e una pianta
+        bx(x + 0.15, y + 0.3, x + 0.85, y + 0.75, 0.25, 0.6, '#3a7a52'); bx(x + 0.2, y + 0.35, x + 0.8, y + 0.7, 0.6, 0.62, '#4a3220'); dot(x + 0.5, y + 0.5, 0.8, 0.12, '#4aa058');
+        cyl(x + 0.92, y + 0.52, 0.12, 0.05, 0.3, '#22262e'); line(S(x + 0.15, y + 0.35, 0.45), S(x - 0.05, y + 0.35, 0.55), '#7a5232', 2); line(S(x + 0.15, y + 0.7, 0.45), S(x - 0.05, y + 0.7, 0.55), '#7a5232', 2); return true;
+      case 'birdcage': {   // gabbietta dorata con l'uccellino giallo
+        bx(x + 0.47, y + 0.47, x + 0.53, y + 0.53, 0, 1.2, '#c8a050'); cyl(x + 0.5, y + 0.5, 0.2, 0, 0.05, '#8a6a2c'); cyl(x + 0.5, y + 0.5, 0.28, 1.2, 1.25, '#c8a050');
+        for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; line(S(x + 0.5 + Math.cos(a) * 0.28, y + 0.5 + Math.sin(a) * 0.28, 1.25), S(x + 0.5 + Math.cos(a) * 0.1, y + 0.5 + Math.sin(a) * 0.1, 1.85), '#e8c46a', 1); }
+        dot(x + 0.5, y + 0.5, 1.45, 0.06, '#f2d24a'); dot(x + 0.46, y + 0.52, 1.5, 0.02, '#e2553a'); return true;
+      }
+      case 'towel':   // portasciugamani con gli asciugamani a righe
+        for (const u of [0.15, 0.85]) bx(x + u - 0.03, y + 0.45, x + u + 0.03, y + 0.51, 0, 1.4, '#b8c0c8');
+        bx(x + 0.12, y + 0.45, x + 0.88, y + 0.51, 1.35, 1.4, '#b8c0c8'); qL(x + 0.2, x + 0.48, y + 0.52, 0.65, 1.38, '#e86a8a'); qL(x + 0.52, x + 0.8, y + 0.52, 0.8, 1.38, '#5a9ac8');
+        qL(x + 0.2, x + 0.48, y + 0.52, 0.85, 0.9, '#ffffff'); qL(x + 0.52, x + 0.8, y + 0.52, 1.0, 1.05, '#ffffff'); return true;
+      case 'bathshelf': cabinet(K, x, y, true, [0.12, 0.45, 0.88, 0.95], 1.2, '#ecebe6', 'dw', 0, '#d4d0c6'); for (const [u, c, h] of [[0.25, '#5a9ac8', 0.3], [0.45, '#e86a8a', 0.22], [0.65, '#f2d24a', 0.26]]) cyl(x + u, y + 0.7, 0.06, 1.26, 1.26 + h, c); return true;
+      case 'bin': cyl(x + 0.5, y + 0.5, 0.25, 0, 0.7, '#8a9098'); cyl(x + 0.5, y + 0.5, 0.27, 0.7, 0.78, '#a8b0b8'); bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0.78, 0.85, '#5a6068'); return true;
+      case 'vanity':   // toeletta con lo specchio ovale, il profumo e la spazzola
+        cabinet(K, x, y, true, [0.1, 0.45, 0.9, 0.95], 0.82, '#e8dcc8', 'dr', 2, '#c8b494');
+        bx(x + 0.3, y + 0.5, x + 0.7, y + 0.56, 0.88, 1.8, '#c8a050'); qL(x + 0.34, x + 0.66, y + 0.56, 1.05, 1.75, '#a8c8dc'); qL(x + 0.38, x + 0.48, y + 0.56, 1.3, 1.6, '#e8f4fa');
+        cyl(x + 0.2, y + 0.75, 0.05, 0.88, 1.05, '#e86a8a'); bx(x + 0.72, y + 0.7, x + 0.86, y + 0.78, 0.88, 0.92, '#874c2e'); return true;
+      case 'clantern':   // lanterna sul trespolo (la cantina e' buia)
+        bx(x + 0.47, y + 0.47, x + 0.53, y + 0.53, 0, 1.3, '#22262e'); cyl(x + 0.5, y + 0.5, 0.2, 0, 0.05, '#22262e');
+        bx(x + 0.38, y + 0.38, x + 0.62, y + 0.62, 1.3, 1.65, '#ffd890'); bx(x + 0.35, y + 0.35, x + 0.65, y + 0.65, 1.65, 1.72, '#22262e');
+        glow(x + 0.5, y + 0.5, 1.45, 2.4, 'rgba(255,190,100,.38)'); return true;
       case 'jarshelf':   // mensola con i barattoli
         bx(x + 0.05, y + 0.6, x + 0.95, y + 0.95, 0, 2.0, '#874c2e'); qL(x + 0.1, x + 0.9, y + 0.95, 0.06, 1.95, '#2a1a10');
         for (let r = 0; r < 3; r++) { qL(x + 0.08, x + 0.92, y + 0.95, r * 0.66, r * 0.66 + 0.06, '#a5643c'); for (let i = 0; i < 3; i++) cyl(x + 0.22 + i * 0.28, y + 0.82, 0.08, r * 0.66 + 0.06, r * 0.66 + 0.38, ['#c8402a', '#e8a030', '#6a2a6a', '#4a8a3a'][(r + i * 2) % 4]); }
@@ -283,10 +336,27 @@
       }
       K.strokes([[S(x, y, 0.9), S(x + 1, y, 0.9)], [S(x, y, 0.9), S(x, y + 1, 0.9)]], 'rgba(255,255,255,.18)');
     }
+    const pk = PAINT[x + ',' + y]; if (pk) wallArt(K, x, y, pk);
     if (y === PORCH.y && (x === PORCH.x0 - 1 || x === PORCH.x1)) {   // lanterne ai lati del portone
       bx(x + 0.42, y + 0.42, x + 0.58, y + 0.58, 0.9, 1.5, '#22262e'); bx(x + 0.34, y + 0.34, x + 0.66, y + 0.66, 1.5, 1.9, '#ffd890'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.9, 2.0, '#22262e');
       K.glow(x + 0.5, y + 0.5, 1.7, 1.6, 'rgba(255,210,140,.35)');
     }
+  }
+  // quadri (paesaggio, ritratto, natura morta, mare, astratto) sulle facce dei muri che guardano una stanza; finestre sui muri esterni
+  const PAINT = {}; [[12, 9], [17, 9], [22, 9], [2, 9], [7, 9], [25, 9], [31, 9], [10, 7], [10, 11], [10, 18], [10, 22], [23, 2], [23, 7], [23, 12], [23, 17], [23, 22], [23, 27], [12, 20], [20, 20], [25, 20], [31, 20], [6, 20], [7, 22], [7, 27]].forEach(([x, y], i) => { PAINT[x + ',' + y] = ['land', 'face', 'fruit', 'sea', 'abstr'][(x * 7 + y * 3 + i) % 5]; });
+  [[14, 0], [20, 0], [27, 0], [30, 0], [0, 11], [0, 15], [0, 18], [0, 24]].forEach(([x, y]) => { PAINT[x + ',' + y] = 'win'; });
+  function wallArt(K, x, y, k) {
+    const fy = !!(cqFloor[y + 1] && cqFloor[y + 1][x]), Q = (u0, u1, z0, z1, c) => fy ? K.qL(x + u0, x + u1, y + 1, z0, z1, c) : qR(K, x + 1, y + u0, y + u1, z0, z1, K.shade(c, 0.82));
+    if (k === 'win') {   // finestra con le tendine
+      Q(0.14, 0.86, 0.18, 0.86, '#f2f0ea'); Q(0.2, 0.8, 0.24, 0.8, NIGHT ? '#24386e' : '#a8d4f0'); Q(0.2, 0.8, 0.5, 0.8, NIGHT ? '#1a2a52' : '#c8e6f8'); Q(0.48, 0.52, 0.24, 0.8, '#f2f0ea'); Q(0.2, 0.8, 0.5, 0.53, '#f2f0ea');
+      Q(0.08, 0.22, 0.14, 0.88, '#a83434'); Q(0.78, 0.92, 0.14, 0.88, '#a83434'); Q(0.06, 0.94, 0.84, 0.9, '#c8a050'); return;
+    }
+    Q(0.18, 0.82, 0.24, 0.8, '#c8a050'); Q(0.22, 0.78, 0.28, 0.76, '#7a5a2a');
+    if (k === 'land') { Q(0.24, 0.76, 0.52, 0.74, '#9ac8e8'); Q(0.24, 0.76, 0.3, 0.52, '#5a9a4a'); Q(0.24, 0.5, 0.42, 0.56, '#4a8a3a'); Q(0.58, 0.66, 0.6, 0.68, '#ffe070'); }
+    else if (k === 'sea') { Q(0.24, 0.76, 0.5, 0.74, '#e8a868'); Q(0.24, 0.76, 0.3, 0.5, '#2a5a9a'); Q(0.44, 0.48, 0.42, 0.66, '#5a3a24'); Q(0.48, 0.62, 0.48, 0.64, '#f4ecd8'); }
+    else if (k === 'face') { Q(0.24, 0.76, 0.3, 0.74, '#3a2a2a'); Q(0.4, 0.6, 0.3, 0.46, '#5a3a5a'); Q(0.42, 0.58, 0.46, 0.66, '#e8c0a0'); Q(0.4, 0.6, 0.62, 0.7, '#4a2a1a'); }
+    else if (k === 'fruit') { Q(0.24, 0.76, 0.3, 0.74, '#2a3a2a'); Q(0.3, 0.7, 0.32, 0.36, '#8a6a4a'); Q(0.36, 0.46, 0.36, 0.46, '#e2553a'); Q(0.48, 0.58, 0.36, 0.44, '#f2c230'); Q(0.58, 0.66, 0.36, 0.47, '#8a3a8a'); }
+    else { Q(0.24, 0.5, 0.3, 0.52, '#e2553a'); Q(0.5, 0.76, 0.3, 0.6, '#3a6aa8'); Q(0.24, 0.5, 0.52, 0.74, '#f2c230'); Q(0.5, 0.76, 0.6, 0.74, '#ecebe6'); }
   }
   // tappeti, scalini della cantina e zerbino (disegnati sopra il pavimento)
   const RUG = (x, y, w, h, c, b) => [[x, y, w, h, b], [x + 0.12, y + 0.12, w - 0.24, h - 0.24, c], [x + 0.3, y + 0.3, w - 0.6, h - 0.6, b], [x + 0.36, y + 0.36, w - 0.72, h - 0.72, c]];
@@ -296,7 +366,16 @@
     [30.6, 12.2, 1.8, 1, '#9ac0d0'], [30.7, 12.3, 1.6, 0.8, '#e8eef2'],   // tappetino del bagno
     [3, 21, 2, 1, '#4a4542'], [3, 21.33, 2, 0.67, '#6a6560'], [3, 21.66, 2, 0.34, '#8a8580'],   // scalini che scendono in cantina
     [16, 29, 2, 1, '#4a3020'], [16.1, 29.1, 1.8, 0.8, '#7a5a34'],   // zerbino del portone
-    [10, 4, 1, 1, '#3a2418']];   // passaggio segreto (pavimento scuro)
+    [10, 4, 1, 1, '#3a2418'],   // passaggio segreto (pavimento scuro)
+    ...RUG(14, 2.6, 5.4, 4.6, '#2e5a3a', '#d8c8a0'),   // tappeto verde dello studio
+    ...RUG(26, 13.4, 4.2, 3.2, '#5a8aa8', '#e8eef2'),   // tappetone del bagno
+    [8.12, 21, 1.76, 8, '#c8a050'], [8.24, 21, 1.52, 8, '#2a3a6a'], [8.6, 21, 0.8, 8, '#3a4a7a'],   // passatoia blu del corridoio
+    [24.15, 22.08, 7.7, 0.75, '#5a6a4a'], [24.25, 22.16, 7.5, 0.6, '#7a8a5a'],   // stuoia davanti ai banconi della cucina
+    [4.2, 9.6, 1.6, 10.4, '#c8bc9c'], [1, 14.6, 9, 1.4, '#c8bc9c'], [8.2, 18.2, 1.6, 1.8, '#c8bc9c'],   // vialetti di ghiaia della serra
+    ...[[2.3, 11.2, '#8a6a2a'], [6.6, 12.1, '#5a8a3a'], [3.1, 18.4, '#a8783a'], [7.4, 15.3, '#5a8a3a'], [8.7, 10.6, '#8a6a2a'], [2.6, 15.6, '#6a9a4a']].map(([x, y, c]) => [x, y, 0.22, 0.14, c]),   // foglie cadute
+    [1, 21, 0.7, 0.45, 'rgba(230,230,235,.22)'], [5.4, 28.4, 0.6, 0.6, 'rgba(230,230,235,.2)'], [1, 28.3, 0.6, 0.7, 'rgba(230,230,235,.2)'],   // ragnatele negli angoli della cantina
+    [2.2, 25.2, 1.4, 1.1, '#a8904a'], [2.5, 25.5, 0.9, 0.6, '#c8b060'], [4.6, 23.6, 0.8, 0.5, 'rgba(60,90,120,.45)'],   // paglia e una pozzanghera in cantina
+    ...RUG(19.6, 23.2, 2.6, 2.2, '#2e5a4a', '#c99a44')];   // tappetino tondo dell'ingresso
 
   // ---- la mappa per il motore ----
   function mapVilla() {
@@ -405,7 +484,7 @@
   // ---- PREPARAZIONE girando per la villa: telecamera libera come il fantasmino di Nascondino (cq.cam), mirino al centro,
   // catalogo in alto, pulsante grande "📌 Metti" / "🗑️ Togli". Il tasto 📋 apre una pianta mini per volare in una stanza ----
   // icone dei mobili sulla pianta mini (diverse da quelle delle trappole)
-  const PROP_E = { shelf: '📚', globe: '🌍', armchair: '🛋️', sofa: '🛋️', chair: '🪑', kchair: '🪑', gbench: '🪑', bench: '🪑', lamp: '🕯️', rlamp: '🕯️', sidetable: '🗄️', nightstand: '🗄️', console: '🗄️', rdesk: '🗄️', dresser: '🗄️', filecab: '🗄️', kcounter: '🗄️', bathcab: '🗄️', sideboard: '🗄️', desk: '🗄️', safe: '🔒', plant: '🪴', bigpot: '🪴', palm: '🌴', planter: '🌱', sack: '🌾', bed: '🛏️', wardrobe: '👔', trunk: '🧳', oldtrunk: '🧳', armor: '🗡️', coffee: '☕', piano: '🎼', vase: '🏺', clock: '🕰️', coatrack: '🧥', umbrella: '☂️', toilet: '🚽', sink: '🚰', ksink: '🚰', washer: '🌀', basket: '🧺', tub: '🛁', stove: '🍳', fridge: '🧊', cupboard: '🍽️', ktable: '🍞', dog: '🐶', barrel: '🛢️', winerack: '🍷', crate: '📦', jarshelf: '🫙' };
+  const PROP_E = { shelf: '📚', globe: '🌍', armchair: '🛋️', sofa: '🛋️', chair: '🪑', kchair: '🪑', gbench: '🪑', bench: '🪑', lamp: '🕯️', rlamp: '🕯️', sidetable: '🗄️', nightstand: '🗄️', console: '🗄️', rdesk: '🗄️', dresser: '🗄️', filecab: '🗄️', kcounter: '🗄️', bathcab: '🗄️', sideboard: '🗄️', desk: '🗄️', safe: '🔒', plant: '🪴', bigpot: '🪴', palm: '🌴', planter: '🌱', sack: '🌾', bed: '🛏️', wardrobe: '👔', trunk: '🧳', oldtrunk: '🧳', armor: '🗡️', coffee: '☕', piano: '🎼', vase: '🏺', clock: '🕰️', coatrack: '🧥', umbrella: '☂️', toilet: '🚽', sink: '🚰', ksink: '🚰', washer: '🌀', basket: '🧺', tub: '🛁', stove: '🍳', fridge: '🧊', cupboard: '🍽️', ktable: '🍞', dog: '🐶', barrel: '🛢️', fireplace: '🔥', bust: '🗿', easel: '🎨', ladder: '🪜', bookpile: '📚', fountain: '⛲', wheelbarrow: '🌱', birdcage: '🐦', towel: '🧺', bathshelf: '🗄️', bin: '🗑️', vanity: '🪞', clantern: '🏮', winerack: '🍷', crate: '📦', jarshelf: '🫙' };
   const PLAN_C = { biblio: '#8a4a3a', noce: '#6a4a36', legno: '#9a6a48', serra: '#94a688', parquet: '#c8945a', scacchi: '#c4c4c0', pietra: '#706a64', corr: '#8a6a4a', marmo: '#d2c6ae', cotto: '#c8704a', door: '#b08a60', secret: '#5a3a28', porch: '#6a4a2a' };
   const U = { tool: 'dia' };
   const BUILD2 = 40;   // nelle manche dopo: solo per spostare le cose
