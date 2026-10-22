@@ -36,7 +36,7 @@
   // il computer beve per salvarsi
   let drinks = 0; for (let i = 0; i < 12; i++) { fresh(); bot.hold = 0; bot.x = 13.5; bot.y = 8.5; bot.belt = ['v', 'm', 'i', 'p']; bot.drT = 0; cq.x = 6.5; cq.y = 13.5; G.me.belt = ['f', '', '', '']; G.sel = 0; A.myThrow(G, bot.x, bot.y); const h0 = G.hxN; step(1.4); if (G.hx.some(h => h[0] > h0 && h[3] === 'drink' && h[1] === bot.id)) drinks++; }
   out.push('🤖 il computer sotto tiro con pozioni da bere: ha bevuto ' + drinks + ' volte su 12');
-  fresh(); bot.hp = 1; bot.hold = 0; bot.belt = ['f', 'm', '', '']; bot.drT = 0; let dr2 = 0; const h1 = G.hxN; step(6); dr2 = G.hx.filter(h => h[0] > h1 && h[3] === 'drink' && h[1] === bot.id).map(h => h[2]); out.push('   con un cuore solo in 6 s: ' + (dr2.join(' | ') || 'non beve'));
+  fresh(); bot.hp = 1; bot.iv = G.time + 99; G.me.iv = G.time + 99; bot.hold = 0; bot.belt = ['f', 'm', '', '']; bot.drT = 0; let dr2 = 0; const h1 = G.hxN; step(6); dr2 = G.hx.filter(h => h[0] > h1 && h[3] === 'drink' && h[1] === bot.id).map(h => h[2]); out.push('   con un cuore solo in 6 s: ' + (dr2.join(' | ') || 'non beve'));
   // etichetta
   fresh(); G.me.belt = ['f', '', '', '']; G.sel = 0; step(0.1); out.push('etichetta: ' + document.getElementById('alNm').textContent);
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));

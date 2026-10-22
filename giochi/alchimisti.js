@@ -759,7 +759,7 @@
   const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49] };
   const BELT = { giraffa: -26, bassotto: -10, pinguino: -14, lupo: -20, palma: -14 };
   const sideOf = (G, c) => G && G.chars.indexOf(c) === 1 ? 1 : 0;
-  function wizard(g, X, Y, TW, L, walk, f, s, vials) {
+  function wizard(g, X, Y, TW, L, walk, f, s, vials, cos) {
     const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, [hx, hy] = HEAD[L.skin] || HEAD.omino, by = BELT[L.skin] || -13;
     cqPlayer(g, X, Y, TW, L.skin === 'omino' ? Object.assign({}, L, { hat: 'nessuno' }) : L, walk, f);
     g.save(); g.translate(X, Y - bob); g.scale(u, u);
@@ -779,7 +779,26 @@
     g.fillStyle = S2.hat; g.beginPath(); g.moveTo(x0 + f * 2, hy - 2); g.quadraticCurveTo(x0 + f * 6, hy - 16, x0 + 10 * f, hy - 1); g.closePath(); g.fill();
     g.fillStyle = S2.band; g.beginPath(); g.moveTo(x0 - 10, hy - 1.5); g.lineTo(x0 + 10, hy - 1.5); g.lineTo(x0 + 9, hy - 5.5); g.lineTo(x0 - 9, hy - 5.5); g.closePath(); g.fill();
     star(g, x0 - f * 2, hy - 12, 2.6, S2.band); star(g, x0 + f * 3, hy - 21, 1.8, S2.band);
+    if (cos) cosDraw(g, cos, f, x0, hy, tx, ty, walk);
     g.restore();
+  }
+  // I PREMI DELLA COLLEZIONE sul mago (cos = 'stars,crown,owl,rose,…'), nelle unita' del cappello (x0, hy = tesa; tx, ty = punta)
+  function cosDraw(g, cos, f, x0, hy, tx, ty, walk) {
+    const has = k => cos.includes(k), t = performance.now() / 1000;
+    if (has('stars')) { star(g, x0 + f * 5, hy - 9, 2.4, '#ffe070'); star(g, x0 - f * 5, hy - 19, 1.9, '#ffe070'); star(g, (x0 + tx) / 2 + f * 2, (hy + ty) / 2 - 2, 1.6, '#fff4b0'); star(g, tx, ty - 2.5, 2.2 + 0.4 * Math.sin(t * 4), '#ffe070'); }
+    if (has('crown')) { g.fillStyle = '#f2c040'; g.beginPath(); g.moveTo(x0 - 10, hy - 1.5); for (let i = 0; i <= 6; i++) g.lineTo(x0 - 10 + i * 20 / 6, hy - (i % 2 ? 6 : 10)); g.lineTo(x0 + 10, hy - 1.5); g.closePath(); g.fill(); g.fillStyle = '#e8384a'; g.beginPath(); g.arc(x0, hy - 4.5, 1.6, 0, 7); g.fill(); g.fillStyle = '#5ab8ff'; g.beginPath(); g.arc(x0 - f * 6, hy - 4, 1.1, 0, 7); g.fill(); }
+    if (has('rose')) { const rx = x0 + f * 7, ry = hy - 4; g.fillStyle = '#3e7a34'; g.beginPath(); g.ellipse(rx + f * 3, ry + 1, 2.6, 1.2, 0.4 * f, 0, 7); g.fill(); g.fillStyle = '#c8203a'; g.beginPath(); g.arc(rx, ry, 2.8, 0, 7); g.fill(); g.fillStyle = '#ff4a62'; g.beginPath(); g.arc(rx - 0.6, ry - 0.6, 1.5, 0, 7); g.fill(); }
+    if (has('gear')) { const gx = x0 - f * 6, gy = hy - 4.5, a = t * 1.5; g.fillStyle = '#e8b830'; g.beginPath(); for (let i = 0; i < 16; i++) { const an = a + i * Math.PI / 8, r = i % 2 ? 2.4 : 3.2; i ? g.lineTo(gx + Math.cos(an) * r, gy + Math.sin(an) * r) : g.moveTo(gx + Math.cos(an) * r, gy + Math.sin(an) * r); } g.closePath(); g.fill(); g.fillStyle = '#7a5a10'; g.beginPath(); g.arc(gx, gy, 0.9, 0, 7); g.fill(); }
+    if (has('phoenix')) { const px = x0 - f * 8, py = hy - 3; g.strokeStyle = '#ff8a2a'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(px, py); g.quadraticCurveTo(px - f * 6, py - 8, px - f * 4, py - 16); g.stroke(); g.strokeStyle = '#ffd24a'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, py); g.quadraticCurveTo(px - f * 6, py - 8, px - f * 4, py - 16); g.stroke(); g.fillStyle = Math.sin(t * 12) > 0 ? '#ffe070' : '#ff7a2a'; g.beginPath(); g.arc(px - f * 4, py - 16.5, 1.3, 0, 7); g.fill(); }
+    if (has('owl')) {   // gufetto sulla spalla (dalla parte opposta a dove guarda), dondola un po'
+      const ox = x0 - f * 13, oy = hy + 14 + Math.sin(t * 2.2) * 0.6;
+      g.fillStyle = '#7a5a3a'; g.beginPath(); g.ellipse(ox, oy, 4.6, 5.6, 0, 0, 7); g.fill();
+      g.beginPath(); g.moveTo(ox - 4, oy - 4); g.lineTo(ox - 3.6, oy - 8); g.lineTo(ox - 1.5, oy - 5); g.moveTo(ox + 4, oy - 4); g.lineTo(ox + 3.6, oy - 8); g.lineTo(ox + 1.5, oy - 5); g.fill();
+      g.fillStyle = '#d8c0a0'; g.beginPath(); g.ellipse(ox, oy + 1.8, 3, 3.2, 0, 0, 7); g.fill();
+      const bl = (t % 4) < 0.15; g.fillStyle = '#fff'; for (const e of [-1.7, 1.7]) { g.beginPath(); g.arc(ox + e, oy - 2.2, 1.5, 0, 7); g.fill(); }
+      g.fillStyle = '#1a1410'; for (const e of [-1.7, 1.7]) { if (bl) g.fillRect(ox + e - 1.3, oy - 2.4, 2.6, 0.6); else { g.beginPath(); g.arc(ox + e + f * 0.4, oy - 2.2, 0.8, 0, 7); g.fill(); } }
+      g.fillStyle = '#f0a030'; g.beginPath(); g.moveTo(ox - 0.8, oy - 1); g.lineTo(ox + 0.8, oy - 1); g.lineTo(ox, oy + 0.6); g.fill();
+    }
   }
   function star(g, x, y, r, c) { g.fillStyle = c; g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; i ? g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); }
   function hearts(g, X, Y, hp) {
@@ -822,6 +841,13 @@
     pop: { n: 'Botto', a: 'scoppiettante', e: '🎈' }, blaze: { n: 'Incendio', a: 'divampante', e: '☄️' }, whirl: { n: 'Mulinello', a: 'turbinante', e: '🌪️' } };
   // REAZIONI tra COPPIE DI ELEMENTI (valgono nel calderone e, dal passo 4, anche sul pavimento): [a, b, prodotto, instabilita' in piu']
   const REACT = [['fire', 'ice', 'steam', 0.2], ['fire', 'smoke', 'soot', 0.1], ['glue', 'ice', 'statue', 0.05], ['grow', 'shrink', 'pop', 0.25], ['fire', 'wind', 'blaze', 0.15], ['pull', 'wind', 'whirl', 0.2]];
+  // POZIONI LEGGENDARIE: tre ricette segrete (una per piano), con l'indovinello nel ricettario. Sono piu' forti (LEG_AMP) e piu' larghe,
+  // e chi le PREPARA per la prima volta sblocca un ornamento per il cappello (pr). Chiave = ingredienti in ordine alfabetico
+  const LEGEND = {
+    grw: { n: 'Linfa della Regina Carnivora', fl: 0, pr: 'rose', rid: 'Ciò che cresce, ciò che incolla, ciò che tesse: la regina della serra si nutre di tre doni.' },
+    ims: { n: 'Lacrima di Crono', fl: 1, pr: 'gear', rid: 'Sabbia che scorre, gelo che ferma, vetro che riflette: così si imprigiona l\'attimo.' },
+    cfx: { n: 'Fiamma della Fenice Nera', fl: 2, pr: 'phoenix', rid: 'Il drago presta il fuoco, la fenice la piuma, la cenere ricorda: rinasce ciò che brucia.' } };
+  const LEG_AMP = 1.6, LEG_AREA = 1.3;
   const FUSE = 3.0, AREA = 1.3, SPEED = 5.5;   // (passo 5: 7 -> 5,5 e 2,6 -> 3,0: le ampolle si vedono arrivare e si possono schivare)   // miccia di una pozione stabile (s), raggio della zona (caselle), velocita' di volo (caselle/s)
   const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = cols => { const v = [0, 0, 0]; for (const c of cols) hexRgb(c).forEach((k, i) => { v[i] += k / cols.length; }); return '#' + v.map(k => Math.round(k).toString(16).padStart(2, '0')).join(''); };
@@ -834,6 +860,7 @@
     if (!ings.length) return null;
     const s = {}; let spd = 1, area = 1, dur = 1, bnc = 0, inst = 0.08 * (ings.length - 1), amp = 1;   // piu' ingredienti = un po' piu' instabile
     for (const g of ings) { if (g.el) s[g.el] = (s[g.el] || 0) + (g.pw || 1); spd *= g.spd || 1; area *= g.area || 1; dur *= g.dur || 1; bnc += g.bnc || 0; inst += g.inst || 0; amp *= g.amp || 1; }
+    const LG = LEGEND[key]; if (LG) { amp *= LEG_AMP; area *= LEG_AREA; }   // leggendaria
     const rx = [];
     for (let again = true; again;) { again = false; for (const [a, b, to, di] of REACT) if (s[a] > 0.01 && s[b] > 0.01) { const m = Math.min(s[a], s[b]); s[a] -= m; s[b] -= m; s[to] = (s[to] || 0) + m * 1.5; inst += di; rx.push(to); again = true; } }
     for (const k of Object.keys(s)) { s[k] = Math.round(s[k] * amp * 100) / 100; if (s[k] < 0.05) delete s[k]; }
@@ -845,7 +872,8 @@
     if (bnc) adj.push('rimbalzante'); if (amp > 1.01) adj.push('potente');
     const words = adj.slice(0, 2); if (inst >= 0.45) words.push('instabile');
     if (words.length) n += ' ' + words.join(' ');
-    const P = { k: key, ings, s, main, n, e: main ? EL[main].e : '💧', c: mix(ings.map(g => g.c)), spd: SPEED * spd, area: AREA * area * (1 + 0.12 * (ings.length - 1)), dur, bnc, inst: Math.round(inst * 100) / 100, fuse: FUSE * Math.exp(-2.2 * inst), rx };
+    if (LG) n = LG.n;
+    const P = { k: key, ings, s, main, n, leg: LG ? 1 : 0, e: LG ? '🌟' : main ? EL[main].e : '💧', c: LG ? '#f2c040' : mix(ings.map(g => g.c)), spd: SPEED * spd, area: AREA * area * (1 + 0.12 * (ings.length - 1)), dur, bnc, inst: Math.round(inst * 100) / 100, fuse: FUSE * Math.exp(-2.2 * inst), rx };
     BREW.set(key, P); return P;
   }
 
@@ -886,6 +914,8 @@
 #alBook{position:absolute;inset:0;z-index:9;background:rgba(10,6,18,.86);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 60px) 12px 20px;box-sizing:border-box;overflow-y:auto}
 #alBook .bk{width:100%;max-width:460px;background:#2a1e36;border:2px solid #c8a050;border-radius:16px;padding:14px;color:#f2ead8;font:14px/1.4 system-ui,sans-serif}#alBook .bk>b{font-size:17px;display:block;margin-bottom:6px}
 #alBook button{display:block;width:100%;margin-top:10px;padding:11px;border:0;border-radius:12px;font:700 15px system-ui;color:#fff;background:#8a4ad0}#alBook button:disabled{opacity:.4}#alBook .cl{background:rgba(255,255,255,.14)}
+#alBook .col{margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(200,160,80,.4)}#alBook .col>b{display:block;font-size:16px;margin:4px 0}#alBook .col>small{display:block;opacity:.8;margin-bottom:4px}#alBook .pz{display:flex;gap:8px;align-items:center;padding:4px 0;opacity:.5}#alBook .pz.on{opacity:1}#alBook .pz span{flex:0 0 26px;font-size:18px;text-align:center}#alBook .pz i{margin-left:auto;font-style:normal;font-weight:700;color:#ffd890}#alBook .pz em{font-size:13px}
+#alCol{width:100%;max-width:480px;text-align:center;font-size:12.5px;background:rgba(200,160,80,.14);border:1px solid rgba(200,160,80,.35);border-radius:10px;padding:5px 8px;box-sizing:border-box;cursor:pointer}
 #alBook .rc{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid rgba(255,255,255,.1)}#alBook .rc .ig{flex:0 0 58px;font-size:18px}#alBook small{opacity:.85}
 #alHelp{position:absolute;left:12px;right:12px;bottom:250px;z-index:10;max-width:460px;margin:0 auto;background:rgba(26,18,36,.95);color:#f2ead8;border:1px solid rgba(200,160,80,.6);border-radius:14px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)}#alHelp.prep{bottom:auto;top:240px}
 #alAsc{position:absolute;inset:0;z-index:12;background:#070b1c;cursor:pointer}#alAsc canvas{width:100%;height:100%;display:block}#alAsc .tx{position:absolute;left:0;right:0;top:27%;text-align:center;color:#f4ecd8;text-shadow:0 2px 14px #000,0 0 4px #000;font:700 15px system-ui,sans-serif;display:flex;flex-direction:column;gap:6px;opacity:0;transition:opacity .45s;pointer-events:none}#alAsc .tx b{font-size:30px}#alAsc .tx span{font-size:21px;color:#ffe2a0}#alAsc .tx small{font-size:14px;opacity:.85;letter-spacing:.08em}
@@ -897,6 +927,7 @@
     const el = document.createElement('div'); el.id = 'alPrep';
     el.innerHTML = `<div class="top"><span class="tm" id="alTm">${mmss((G.st && G.st.n > 1) ? PREP2 : PREP)}</span><b>⚗️ Prepara</b><button id="alBk" type="button">📖</button><button id="alRdy" type="button">✔ Pronto</button></div>
       <div id="alFl">${FL.e} <b>Piano ${G.st ? G.st.n : 1} di ${FLOORS.length}: ${FL.n}</b><br><small>${FL.tip}</small></div>
+      <div id="alCol">${colLine()}</div>
       <canvas id="alCv"></canvas><div id="alPot"></div><div id="alMsg"></div>
       <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
       <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${g.e}</span><span class="n">${esc(g.n)}</span><span class="d">${esc(g.d)}</span></button>`).join('')}</div>
@@ -905,7 +936,7 @@
     el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
     $('#alBot').onclick = () => bottle(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); prepRender(G); };
-    $('#alRdy').onclick = () => setReady(G, !ready(G)); $('#alBk').onclick = () => bookOpen(G);
+    $('#alRdy').onclick = () => setReady(G, !ready(G)); $('#alBk').onclick = () => bookOpen(G); $('#alCol').onclick = () => bookOpen(G);
     helpOnce('prep');
     U2.pot = []; U2.fx = []; U2.msg = '';
     prepRender(G);
@@ -916,7 +947,7 @@
   function addIng(G, id) {
     if (U2.pot.length >= MAXI) { say('Al massimo ' + MAXI + ' ingredienti: imbottiglia o svuota.'); SFX.full(); U2.shake = now(); return; }
     U2.pot.push(id); U2.fx.push({ id, t: now() }); SFX.plop(); say('');
-    prepRender(G);
+    legendCheck(G); prepRender(G);
   }
   function bottle(G) {
     if (!U2.pot.length) return;
@@ -1057,6 +1088,7 @@
       if (a < 1) { g.font = Math.round(R * 0.4) + 'px system-ui'; g.fillText(ING_BY[f.id].e, cx, 10 + (cy - R * 0.25 - 10) * a * a); }
       else { const k = (t - f.t - 0.4) / 0.5; g.globalAlpha = 1 - k; g.fillStyle = ING_BY[f.id].c; for (let i = 0; i < 8; i++) { const an = Math.PI + i / 7 * Math.PI; g.beginPath(); g.arc(cx + Math.cos(an) * R * 0.5 * k, cy - R * 0.25 + Math.sin(an) * R * 0.5 * k - k * (1 - k) * R * 0.6, R * 0.05, 0, 7); g.fill(); } g.globalAlpha = 1; }
     }
+    if (P && P.leg) { for (let i = 0; i < 12; i++) { const a2 = t * 1.5 + i * 0.5236, r = R * (0.5 + 0.25 * Math.sin(t * 3 + i)); g.fillStyle = i % 2 ? '#ffe070' : '#fff8d0'; g.globalAlpha = 0.6 + 0.4 * Math.sin(t * 6 + i); g.beginPath(); g.arc(cx + Math.cos(a2) * r * 1.2, cy - R * 0.4 + Math.sin(a2) * r * 0.35 - Math.abs(Math.sin(t * 2 + i)) * R * 0.5, R * 0.035, 0, 7); g.fill(); } g.globalAlpha = 1; }   // leggendaria: scintille d'oro
     if (P && Math.random() < 0.02 + inst * 0.05) SFX.bubble();
   }
   cqEachFrame(() => {
@@ -1074,7 +1106,7 @@
     for (let k = 0; k < 60; k++) {
       const n = Math.random() < 0.45 ? 1 : Math.random() < 0.7 ? 2 : 3, ids = [];
       for (let i = 0; i < n; i++) ids.push(cqPickOne(CPU_ING));
-      const P = brew(potKey(ids)); if (P.spd * P.fuse >= 6 && P.main !== 'pop') return P.k;
+      const P = brew(potKey(ids)); if (P.spd * P.fuse >= 6 && P.main !== 'pop' && !P.leg) return P.k;
     }
     return 'f';
   }
@@ -1086,7 +1118,7 @@
     for (let k = 0; k < 160; k++) {
       const n = Math.random() < 0.35 ? 1 : Math.random() < 0.75 ? 2 : 3, ids = [];
       for (let i = 0; i < n; i++) ids.push(cqPickOne(CPU_ING));
-      const P = brew(potKey(ids)); if (cand.some(c => c.P.k === P.k) || P.spd * Math.min(P.fuse, 9) < 6.5 || P.main === 'pop') continue;
+      const P = brew(potKey(ids)); if (cand.some(c => c.P.k === P.k) || P.spd * Math.min(P.fuse, 9) < 6.5 || P.main === 'pop' || P.leg) continue;
       let sc = potScore(G, P, { x: C, y: C, pit: false, vol: false }) + Math.random() * 1.2;
       for (const [el, v] of Object.entries(seen)) {   // contro le sue pozze: elementi che reagiscono con quelli che usa
         if (REACT.some(([a, b]) => (a === el && P.s[b]) || (b === el && P.s[a]))) sc += 1.5 * v / tot;
@@ -1133,7 +1165,7 @@
   }
   const hurts = P => Object.entries(P.s).some(([el, v]) => FX[el] && FX[el].dmg && v >= 0.6);   // toglie cuori
   const stops = P => Object.keys(P.s).some(el => FX[el] && FX[el].st && BLOCK.includes(FX[el].st[0]));   // blocca (prepara la combo)
-  const secret = P => P.rx.length > 0 && !book().own;   // nata da una reazione e senza ricettario: non si sa cosa fa
+  const secret = P => P.rx.length > 0 && !book().own && !P.leg;   // (le leggendarie si annunciano da sole)   // nata da una reazione e senza ricettario: non si sa cosa fa
   const pushOf = P => Object.entries(P.s).reduce((a, [el, v]) => a + ((FX[el] && FX[el].push) || 0) * v, 0);   // + spinge via, - tira
 
   // ======================= IL DUELLO =======================
@@ -1709,6 +1741,8 @@
     const p = flPos(f, Math.min(t, f.t0 + Math.min(f.d, f.fz))), P = brew(f.k); if (!P) return;
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), U = TW * 0.575, Z = Y - p.z * U, s = TW * 0.13, sp = (t - f.t0) * 12;
     g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(X, Y, s * 1.2, s * 0.5, 0, 0, 7); g.fill();
+    const ow = cq.g && cq.g.chars.find(c => c.id === f.o); if (ow && ow.cos && ow.cos.includes('trail')) for (let i = 1; i <= 7; i++) { const tt = Math.min(t, f.t0 + Math.min(f.d, f.fz)) - i * 0.035; if (tt < f.t0) break; const q = flPos(f, tt); g.globalAlpha = 0.85 - i * 0.1; g.fillStyle = 'hsl(' + ((i * 50 + t * 200) % 360) + ',90%,65%)'; g.beginPath(); g.arc(sx(q.x, q.y), sy(q.x, q.y) - q.z * U, s * (0.55 - i * 0.05), 0, 7); g.fill(); }   // premio: scia arcobaleno
+    g.globalAlpha = 1;
     g.save(); g.translate(X, Z); g.rotate(sp);
     g.fillStyle = P.c; g.beginPath(); g.arc(0, s * 0.3, s, 0, 7); g.fill(); g.fillStyle = '#d8e0e8'; g.fillRect(-s * 0.3, -s * 1.2, s * 0.6, s * 0.9); g.fillStyle = '#8a6a42'; g.fillRect(-s * 0.35, -s * 1.45, s * 0.7, s * 0.3);
     g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.arc(-s * 0.35, 0, s * 0.25, 0, 7); g.fill();
@@ -1759,6 +1793,7 @@
     else if (k === 'spores') { for (let i = 0; i < (on ? 6 : 3); i++) swp(900 + i * 180, 1400 + i * 180, 0.18, 0.02, i * 0.09, 'sine'); }   // campanellini
   };
   SFX.asc = () => { [392, 494, 587, 784, 988].forEach((q, i) => swp(q, q * 1.01, 0.5, 0.03, i * 0.32, 'sine')); swp(200, 600, 2.4, 0.02, 0, 'sawtooth'); };   // salita: arpeggio e vento
+  SFX.prize = () => { [523, 659, 784, 1047, 1319].forEach((q, i) => swp(q, q, 0.35, 0.035, i * 0.09, 'triangle')); };   // fanfara
   SFX.ouch = () => { swp(500, 220, 0.2, 0.05, 0, 'square'); };
   SFX.fall = () => { swp(900, 80, 1.1, 0.05, 0, 'triangle'); };
 
@@ -1769,6 +1804,7 @@
     if (was.startsWith('prep') && U2.pot.length && G.me.belt.some(v => !v)) bottle(G);   // tempo scaduto: quello che bolle si imbottiglia da solo
     const p = G.st ? G.st.ph : '';
     { const h = document.getElementById('alHelp'); if (h) h.remove(); const bk = document.getElementById('alBook'); if (bk) bk.remove(); }
+    G.me.cos = myCos(); if (G.guest && G.cosSent !== G.me.cos) { G.cosSent = G.me.cos; cqNetSend({ k: 'cos', v: G.me.cos }); }   // i miei premi all'host
     if (p === 'prep') {
       useFloor(Math.min(FLOORS.length, G.st.n) - 1); if (!G.guest && !(G.pl && G.pl.length === (FL.plants ? PLANTS.length : 0))) plantsInit(G);
       G.myRdy = false; G.me.belt = G.me.belt && !was ? G.me.belt : Array(BELT_N).fill(''); G.fl = []; G.zn = []; cq.x = SPAWN[sideIdx(G, G.me)][0]; cq.y = SPAWN[sideIdx(G, G.me)][1]; cq.sl = null; G.myFall = null; G.fill = null;
@@ -1828,19 +1864,44 @@
     if (P.inst >= VOLATILE) out.push('💥 instabile alla cintura');
     return out;
   }
+  // COLLEZIONE: ogni pozione vista scoppiare (tua o dell'altro) e' una SCOPERTA, anche senza ricettario. Ai traguardi di PRIZES si sblocca un premio
+  // per il proprio mago (lo vede anche l'altro). Le leggendarie (LEGEND) danno il loro ornamento a chi le PREPARA (B.leg)
+  const PRIZES = [{ n: 5, id: 'stars', e: '✨', t: 'Stelle d\'oro sul cappello' }, { n: 15, id: 'trail', e: '🌈', t: 'Scia arcobaleno per le ampolle' }, { n: 30, id: 'owl', e: '🦉', t: 'Gufetto sulla spalla' },
+    { n: 50, id: 'crown', e: '👑', t: 'Corona d\'oro sul cappello' }, { n: 80, id: 'embers', e: '🔥', t: 'Scintille ai piedi' }, { n: 120, id: 'aura', e: '🌙', t: 'Aura di luna' }];
+  const LEG_PR = { rose: ['🌹', 'Rosa della Regina sul cappello'], gear: ['⚙️', 'Ingranaggio d\'oro sul cappello'], phoenix: ['🪶', 'Piuma di fenice sul cappello'] };
+  const found = () => Object.keys(book().f).length;
+  function myCos() { const B = book(), n = found(); return PRIZES.filter(p => n >= p.n).map(p => p.id).concat(Object.keys(B.leg || {}).filter(k => LEGEND[k]).map(k => LEGEND[k].pr)).join(','); }
+  const cleanCos = v => String(v || '').replace(/[^a-z,]/g, '').slice(0, 80);
   function bookNote(key) {
-    const B = book(); if (!B.own || !key || B.f[key]) return;
+    const B = book(); if (!key || key.length > MAXI || !brew(key) || B.f[key]) return;
     B.f[key] = Date.now(); saveStore();
-    const P = brew(key); cqToast('📖 <b>Nuova pozione nel ricettario!</b> ' + P.ings.map(g => g.e).join('') + ' = ' + esc(P.n) + ' (' + Object.keys(B.f).length + '/' + TOTAL + ')');
+    const P = brew(key), n = found(); cqToast((B.own ? '📖 <b>Nuova pozione nel ricettario!</b> ' : '🔎 <b>Pozione scoperta!</b> ') + P.ings.map(g => g.e).join('') + ' = ' + esc(P.n) + ' (' + n + '/' + TOTAL + ')');
+    const pr = PRIZES.find(p => p.n === n); if (pr) setTimeout(() => { cqToast('🎁 <b>Premio sbloccato!</b> ' + pr.e + ' ' + pr.t); SFX.prize(); }, 1400);
+    const G = cq.g; if (G && G.mode === 'alchimisti') G.me.cos = myCos();
   }
+  // una leggendaria appena nata nel calderone: festa, ornamento sbloccato
+  function legendCheck(G) {
+    const key = potKey(U2.pot), LG = LEGEND[key], B = book(); if (!LG) return;
+    U2.gold = now(); SFX.prize();
+    if ((B.leg || {})[key]) return;
+    B.leg = B.leg || {}; B.leg[key] = Date.now(); saveStore(); G.me.cos = myCos(); if (G.guest) cqNetSend({ k: 'cos', v: G.me.cos });
+    cqToast('🌟 <b>POZIONE LEGGENDARIA!</b> ' + esc(LG.n) + '<br>🎁 ' + LEG_PR[LG.pr][0] + ' ' + LEG_PR[LG.pr][1]);
+  }
+  function colHtml() {
+    const B = book(), n = found();
+    return '<div class="col"><b>🏅 Collezione · ' + n + ' / ' + TOTAL + ' scoperte</b><small>Ogni pozione che vedi scoppiare (tua o dell\'altro) è una scoperta.</small>'
+      + PRIZES.map(p => '<div class="pz' + (n >= p.n ? ' on' : '') + '"><span>' + p.e + '</span>' + esc(p.t) + '<i>' + (n >= p.n ? '✔' : p.n) + '</i></div>').join('')
+      + '<b>🌟 Pozioni leggendarie</b>' + Object.entries(LEGEND).map(([k, L]) => (B.leg || {})[k] ? '<div class="pz on"><span>' + LEG_PR[L.pr][0] + '</span>' + esc(L.n) + ' = ' + brew(k).ings.map(g => g.e).join('') + '<i>✔</i></div>' : '<div class="pz"><span>' + FLOORS[L.fl].e + '</span><em>«' + esc(L.rid) + '»</em></div>').join('') + '</div>';
+  }
+  function colLine() { const n = found(), nx = PRIZES.find(p => n < p.n), lg = Object.keys(book().leg || {}).filter(k => LEGEND[k]).length; return '🏅 <b>' + n + '</b>/' + TOTAL + ' scoperte' + (nx ? ' · 🎁 a ' + nx.n + ': ' + nx.e + ' ' + esc(nx.t) : ' · 🎁 tutti i premi!') + ' · 🌟 ' + lg + '/' + Object.keys(LEGEND).length; }
   function bookOpen(G) {
     const host = document.getElementById('alPrep') || $('#ciack'), old = document.getElementById('alBook'); if (old) old.remove();
     const B = book(), el = document.createElement('div'); el.id = 'alBook';
     const coins = cqBank().coins;
-    if (!B.own) el.innerHTML = '<div class="bk"><b>📖 Ricettario dell\'alchimista</b><p>Svela le <b>reazioni segrete</b>: al calderone vedi subito cosa nasce quando gli ingredienti reagiscono tra loro (vapore, cristallo, incendio…). E annota ogni pozione che vedi scoppiare.</p><p>Costa <b>🪙 ' + BOOK_COST + '</b> · ne hai <b>' + coins + '</b>' + (coins < BOOK_COST ? '<br><small>Le monete si vincono giocando: 3 per ogni vittoria, 1 per ogni partita.</small>' : '') + '</p><button type="button" id="alBuy"' + (coins < BOOK_COST ? ' disabled' : '') + '>🪙 Compra</button><button type="button" class="cl">Chiudi</button></div>';
+    if (!B.own) el.innerHTML = '<div class="bk">' + colHtml() + '<b>📖 Ricettario dell\'alchimista</b><p>Svela le <b>reazioni segrete</b>: al calderone vedi subito cosa nasce quando gli ingredienti reagiscono tra loro (vapore, cristallo, incendio…). E annota ogni pozione che vedi scoppiare.</p><p>Costa <b>🪙 ' + BOOK_COST + '</b> · ne hai <b>' + coins + '</b>' + (coins < BOOK_COST ? '<br><small>Le monete si vincono giocando: 3 per ogni vittoria, 1 per ogni partita.</small>' : '') + '</p><button type="button" id="alBuy"' + (coins < BOOK_COST ? ' disabled' : '') + '>🪙 Compra</button><button type="button" class="cl">Chiudi</button></div>';
     else {
       const L = Object.entries(B.f).sort((a, b) => b[1] - a[1]).map(([k]) => brew(k)).filter(Boolean);
-      el.innerHTML = '<div class="bk"><b>📖 Ricettario · ' + L.length + ' / ' + TOTAL + ' pozioni</b>' + (L.length ? L.map(P => '<div class="rc"><span class="ig">' + P.ings.map(g => g.e).join('') + '</span><span><b style="color:' + P.c + '">' + P.e + ' ' + esc(P.n) + '</b><br><small>' + esc(describe(P)) + '</small></span></div>').join('') : '<p>Ancora vuoto: lancia pozioni (o guarda quelle dell\'altro) per riempirlo!</p>') + '<button type="button" class="cl">Chiudi</button></div>';
+      el.innerHTML = '<div class="bk">' + colHtml() + '<b>📖 Ricettario · ' + L.length + ' / ' + TOTAL + ' pozioni</b>' + (L.length ? L.map(P => '<div class="rc"><span class="ig">' + P.ings.map(g => g.e).join('') + '</span><span><b style="color:' + P.c + '">' + P.e + ' ' + esc(P.n) + '</b><br><small>' + esc(describe(P)) + '</small></span></div>').join('') : '<p>Ancora vuoto: lancia pozioni (o guarda quelle dell\'altro) per riempirlo!</p>') + '<button type="button" class="cl">Chiudi</button></div>';
     }
     host.appendChild(el);
     el.querySelector('.cl').onclick = () => el.remove();
@@ -1907,7 +1968,7 @@
     }
   }
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, <b>3 manche, una per piano</b>: si parte dalla serra e si sale fino al laboratorio in cima. Vince chi vince più manche.</p><p>🌿 <b>Serra carnivora</b>: le piante mordono chi passa vicino (fuoco le brucia, ghiaccio le congela, fungo le fa giganti, fata le rimpicciolisce, sabbia e colla le addormentano). 🕰️ <b>Sala dell\'orologio</b>: gli ingranaggi sotto il vetro ti fanno girare, il pendolo sbalza chi è sotto. ⚗️ <b>Laboratorio</b>: la voragine al centro.</p><p>⏰ <b>A metà duello</b> ogni piano ha il suo <b>evento</b>, annunciato 5 secondi prima: 🌸 nella serra le piante fioriscono e sparano polline magico, 🕛 nell\'orologio suona la mezzanotte e il tempo rallenta per tutti (anche le ampolle), 🌋 in cima la voragine erutta e tutte le pozioni diventano più forti.</p><p><b>1. Preparazione</b> (90 s, poi 60 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Ogni barattolo dice cosa fa e sotto il calderone leggi <b>cosa uscirà</b>; quando gli ingredienti <b>reagiscono tra loro</b> (fuoco + ghiaccio = vapore…) è un <b>segreto</b>: lo scopri lanciando, o col ricettario. Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). Due ampolle che si <b>scontrano in volo</b> scoppiano in aria e mescolano i loro ingredienti: rispondere a un lancio con un contro-lancio dritto può fermarlo! <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. <b>💥 COMBO</b>: se l\'altro è incollato 🍯, congelato 🧊 o rallentato ⏳, il fuoco gli toglie <b>' + COMBO + ' cuori</b>: prima lo blocchi, poi lo colpisci. <b>🍷 Bere o lanciare</b>: col pulsante 🍷 bevi l\'ampolla scelta e ti dà un potere (🔥 fuoco = mantello di fiamme, ❄️ brina = pattini, 🦅 vento = scatto, 🍯 colla = piedi piantati, 🪞 specchio = scudo che rimanda un\'ampolla, 🌫️ cenere = sparisci nel fumo, ⏳ sabbia = tutto più veloce…; quelle instabili possono farti male). Le ampolle sono <b>poche</b>: il <b>calderone del tuo angolo</b> ti ridà le <b>tue</b> pozioni, una alla volta, ma ha solo ' + RESERVE + ' ricariche (+1 ogni ' + RES_T + ' s).</p><p><b>📖 Ricettario</b> (🪙 ' + BOOK_COST + ' monete, dal pulsante 📖 al calderone): svela le reazioni segrete e annota le pozioni che vedi.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, <b>3 manche, una per piano</b>: si parte dalla serra e si sale fino al laboratorio in cima. Vince chi vince più manche.</p><p>🌿 <b>Serra carnivora</b>: le piante mordono chi passa vicino (fuoco le brucia, ghiaccio le congela, fungo le fa giganti, fata le rimpicciolisce, sabbia e colla le addormentano). 🕰️ <b>Sala dell\'orologio</b>: gli ingranaggi sotto il vetro ti fanno girare, il pendolo sbalza chi è sotto. ⚗️ <b>Laboratorio</b>: la voragine al centro.</p><p>⏰ <b>A metà duello</b> ogni piano ha il suo <b>evento</b>, annunciato 5 secondi prima: 🌸 nella serra le piante fioriscono e sparano polline magico, 🕛 nell\'orologio suona la mezzanotte e il tempo rallenta per tutti (anche le ampolle), 🌋 in cima la voragine erutta e tutte le pozioni diventano più forti.</p><p><b>1. Preparazione</b> (90 s, poi 60 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Ogni barattolo dice cosa fa e sotto il calderone leggi <b>cosa uscirà</b>; quando gli ingredienti <b>reagiscono tra loro</b> (fuoco + ghiaccio = vapore…) è un <b>segreto</b>: lo scopri lanciando, o col ricettario. Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). Due ampolle che si <b>scontrano in volo</b> scoppiano in aria e mescolano i loro ingredienti: rispondere a un lancio con un contro-lancio dritto può fermarlo! <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. <b>💥 COMBO</b>: se l\'altro è incollato 🍯, congelato 🧊 o rallentato ⏳, il fuoco gli toglie <b>' + COMBO + ' cuori</b>: prima lo blocchi, poi lo colpisci. <b>🍷 Bere o lanciare</b>: col pulsante 🍷 bevi l\'ampolla scelta e ti dà un potere (🔥 fuoco = mantello di fiamme, ❄️ brina = pattini, 🦅 vento = scatto, 🍯 colla = piedi piantati, 🪞 specchio = scudo che rimanda un\'ampolla, 🌫️ cenere = sparisci nel fumo, ⏳ sabbia = tutto più veloce…; quelle instabili possono farti male). Le ampolle sono <b>poche</b>: il <b>calderone del tuo angolo</b> ti ridà le <b>tue</b> pozioni, una alla volta, ma ha solo ' + RESERVE + ' ricariche (+1 ogni ' + RES_T + ' s).</p><p><b>📖 Ricettario</b> (🪙 ' + BOOK_COST + ' monete, dal pulsante 📖 al calderone): svela le reazioni segrete e annota le pozioni che vedi.</p><p><b>🏅 Collezione</b>: ogni pozione che vedi scoppiare (tua o dell\'altro) è una <b>scoperta</b> (' + TOTAL + ' in tutto). Ai traguardi sblocchi premi per il tuo mago, che vede anche l\'altro: ✨ stelle sul cappello, 🌈 scia arcobaleno, 🦉 gufetto, 👑 corona, 🔥 scintille, 🌙 aura. E ci sono <b>3 pozioni leggendarie</b> 🌟, una per piano: la ricetta è nascosta in un indovinello nel ricettario; chi la prepara la prima volta sblocca un ornamento speciale.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
 
   CQ_MODES.alchimisti = {
     n: 'Duello degli alchimisti',
@@ -1923,7 +1984,8 @@
       G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.fx = {}; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
       G.st = { n: 1, ph: 'prep', t0: 0, rd: {}, sc: {} }; U2.ph = '';
       useFloor(0); plantsInit(G);
-      for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(G); G.st.rd[c.id] = 1; }
+      for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(G); G.st.rd[c.id] = 1; c.cos = PRIZES.filter(() => Math.random() < 0.35).map(p => p.id).join(','); }   // anche il computer ha qualche premio
+      G.me.cos = myCos();
     },
     gstart(G) { syncFloor(); G.pl = []; G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
     intro: () => '⚗️ Benvenuto nella torre dei maghi!',
@@ -2002,6 +2064,7 @@
       else if (o.k === 'rdy' && G.st && G.st.ph === 'prep') { if (o.on) G.st.rd[c.id] = 1; else delete G.st.rd[c.id]; }
       else if (o.k === 'th' && +o.i >= 0 && +o.i < BELT_N) { const p = cleanBelt(o.p)[0]; if (p) c.belt[+o.i] = p; throwFrom(G, c, +o.i, +o.x || 0, +o.y || 0, o.q); }   // la pozione viaggia col lancio: cintura sempre uguale sui due telefoni
       else if (o.k === 'dr' && +o.i >= 0 && +o.i < BELT_N) { const p = cleanBelt(o.p)[0]; if (p) c.belt[+o.i] = p; drinkFrom(G, c, +o.i, +o.dx || 0, +o.dy || 0); }   // l'amico beve
+      else if (o.k === 'cos') c.cos = cleanCos(o.v);   // i premi dell'amico
       else if (o.k === 'fall') fell(G, c);
       else if (o.k === 'bonk') { hurt(G, c, '💫 contro il muro'); setFx(G, c, 'stuck', 0.7); }
     },
@@ -2013,9 +2076,9 @@
       if (x.zn) G.zn = x.zn.map(v => ({ i: v[0], k: v[1], x: v[2], y: v[3], r: v[4], t0: v[5], te: v[6], o: v[7] }));
       if (x.bx) G.bx = x.bx; if (x.hx) G.hx = x.hx;
     },
-    csnap: c => [c.hp, (c.belt || []).join(','), c.fx || {}, c.kb || 0, c.hitT || 0, c.bz || 0],
+    csnap: c => [c.hp, (c.belt || []).join(','), c.fx || {}, c.kb || 0, c.hitT || 0, c.bz || 0, c.cos || ''],
     capply(G, c, a) {
-      if (a[0] != null) c.hp = a[0]; if (c !== G.me && a[1] != null) c.belt = cleanBelt(a[1]);
+      if (a[0] != null) c.hp = a[0]; if (c !== G.me && a[1] != null) c.belt = cleanBelt(a[1]); if (c !== G.me && a[6] != null) c.cos = cleanCos(a[6]);
       if (a[2]) c.fx = a[2]; if (a[3]) c.kb = a[3]; if (a[4] != null) c.hitT = a[4];
       if (c === G.me && G.kbSeen == null) G.kbSeen = c.kb ? c.kb[0] : 0;   // entrando non rifaccio le spinte vecchie
       if (c === G.me && G.bzSeen == null) G.bzSeen = a[5] ? a[5][0] : 0;   // entrando non rifaccio gli scoppi vecchi
@@ -2029,9 +2092,9 @@
           const G2 = cq.g, sc = fxOn(G2, c, 'big') ? 1.5 : fxOn(G2, c, 'small') ? 0.6 : 1, fall = c.fx && c.fx.fall && c.fx.out > G2.time ? Math.min(1, (G2.time - c.fx.fall) / 0.6) : 0;
           const sh = c.hitT && G2.time - c.hitT < 0.35 ? Math.sin((G2.time - c.hitT) * 60) * 3 : 0;
           const gh = fxOn(G2, c, 'hidden');   // nascosto (pozione di fumo bevuta): io mi vedo trasparente
-          if (sc === 1 && !fall && !sh && !gh) { wizard(g, X, Y, TW, L2, w, f, s, vials(G2, c)); return; }
+          if (sc === 1 && !fall && !sh && !gh) { wizard(g, X, Y, TW, L2, w, f, s, vials(G2, c), c.cos); return; }
           g.save(); if (gh) g.globalAlpha *= 0.45; g.translate(X + sh, Y + fall * TW * 0.8); g.scale(sc * (1 - fall * 0.7), sc * (1 - fall * 0.7)); if (fall) g.rotate(fall * 3 * f);
-          wizard(g, 0, 0, TW, L2, w, f, s, vials(G2, c)); g.restore();
+          wizard(g, 0, 0, TW, L2, w, f, s, vials(G2, c), c.cos); g.restore();
         };
         c.__dr.top = cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75);
       }
@@ -2040,6 +2103,10 @@
     deco(g, c, X, Y, TW, G) {
       const L = cqLookOf(c), sc = fxOn(G, c, 'big') ? 1.5 : fxOn(G, c, 'small') ? 0.6 : 1, H = TW * (cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75));
       if (fxOn(G, c, 'frz')) { g.save(); g.globalAlpha = 0.55; g.fillStyle = '#bfe8ff'; cqRR(g, X - TW * 0.42 * sc, Y - H * 0.85 * sc, TW * 0.84 * sc, H * 0.88 * sc, 6); g.fill(); g.globalAlpha = 0.9; g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.stroke(); g.restore(); }
+      if (c.cos && !out(G, c)) {   // premi ai piedi
+        if (c.cos.includes('aura')) { g.save(); g.globalAlpha = 0.35 + 0.15 * Math.sin(G.time * 2); g.strokeStyle = '#c8e0ff'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, Y, TW * 0.46 * sc, TW * 0.2 * sc, 0, 0, 7); g.stroke(); g.globalAlpha *= 0.6; g.lineWidth = 1; g.beginPath(); g.ellipse(X, Y, TW * 0.58 * sc, TW * 0.26 * sc, 0, 0, 7); g.stroke(); g.restore(); }
+        if (c.cos.includes('embers')) for (let i = 0; i < 5; i++) { const q = (G.time * 0.9 + i / 5) % 1, an = i * 1.3 + G.time; g.globalAlpha = 1 - q; g.fillStyle = i % 2 ? '#ffb030' : '#ff6a2a'; g.beginPath(); g.arc(X + Math.cos(an) * TW * 0.3 * sc, Y - q * TW * 0.7, Math.max(1.4, TW / 30) * (1 - q * 0.5), 0, 7); g.fill(); g.globalAlpha = 1; }
+      }
       if (fxOn(G, c, 'stone')) { g.save(); g.globalAlpha = 0.6; g.fillStyle = '#8a8a90'; cqRR(g, X - TW * 0.4 * sc, Y - H * 0.85 * sc, TW * 0.8 * sc, H * 0.88 * sc, 8); g.fill(); g.restore(); }
       if (fxOn(G, c, 'fireS')) { g.save(); for (let i = 0; i < 8; i++) { const an = G.time * 3 + i * 0.785, fl = 0.6 + 0.4 * Math.sin(G.time * 13 + i * 2); g.fillStyle = i % 2 ? '#ff8a2a' : '#ffd24a'; g.globalAlpha = 0.8; g.beginPath(); g.ellipse(X + Math.cos(an) * TW * 0.42 * sc, Y + Math.sin(an) * TW * 0.18 * sc - TW * 0.08 * fl, TW * 0.05, TW * 0.11 * fl, 0, 0, 7); g.fill(); } g.restore(); }
       if (fxOn(G, c, 'shield')) { g.save(); g.globalAlpha = 0.5 + 0.2 * Math.sin(G.time * 5); g.strokeStyle = '#e8f0ff'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(X, Y - H * 0.45 * sc, TW * 0.5 * sc, H * 0.55 * sc, 0, 0, 7); g.stroke(); g.restore(); }
@@ -2091,5 +2158,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck };   // per le prove (prove/alc*.js)
 })();
