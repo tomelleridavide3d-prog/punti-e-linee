@@ -888,6 +888,7 @@
 #alBook button{display:block;width:100%;margin-top:10px;padding:11px;border:0;border-radius:12px;font:700 15px system-ui;color:#fff;background:#8a4ad0}#alBook button:disabled{opacity:.4}#alBook .cl{background:rgba(255,255,255,.14)}
 #alBook .rc{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid rgba(255,255,255,.1)}#alBook .rc .ig{flex:0 0 58px;font-size:18px}#alBook small{opacity:.85}
 #alHelp{position:absolute;left:12px;right:12px;bottom:250px;z-index:10;max-width:460px;margin:0 auto;background:rgba(26,18,36,.95);color:#f2ead8;border:1px solid rgba(200,160,80,.6);border-radius:14px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)}#alHelp.prep{bottom:auto;top:240px}
+#alAsc{position:absolute;inset:0;z-index:12;background:#070b1c;cursor:pointer}#alAsc canvas{width:100%;height:100%;display:block}#alAsc .tx{position:absolute;left:0;right:0;top:27%;text-align:center;color:#f4ecd8;text-shadow:0 2px 14px #000,0 0 4px #000;font:700 15px system-ui,sans-serif;display:flex;flex-direction:column;gap:6px;opacity:0;transition:opacity .45s;pointer-events:none}#alAsc .tx b{font-size:30px}#alAsc .tx span{font-size:21px;color:#ffe2a0}#alAsc .tx small{font-size:14px;opacity:.85;letter-spacing:.08em}
 #alHelp button{display:block;margin:10px auto 0;padding:8px 18px;border:0;border-radius:10px;background:#8a4ad0;color:#fff;font:700 14px system-ui}`;
     document.head.appendChild(st);
   }
@@ -946,6 +947,79 @@
     el.querySelectorAll('[data-b]').forEach(b => { const k = G.me.belt[+b.dataset.b], P = k && brew(k); b.querySelector('.lq').style.background = P ? P.c : 'transparent'; b.querySelector('.ig').textContent = P ? P.ings.map(g => g.e).join('') : '—'; });
     const r = $('#alRdy'), on = ready(G); r.classList.toggle('on', on); r.textContent = on ? '⏳ Aspetto…' : '✔ Pronto';
   }
+  // ======================= LA SALITA: tra un piano e l'altro la telecamera sale FUORI dalla torre, sotto la luna (si tocca per saltarla) =======================
+  const ASC_T = 3.4;
+  function ascOpen(n) {
+    const old = document.getElementById('alAsc'); if (old) old.remove();
+    const F = FLOORS[n - 1]; if (!F) return; prepCss();
+    const el = document.createElement('div'); el.id = 'alAsc'; el.dataset.t0 = performance.now();
+    el.innerHTML = '<canvas></canvas><div class="tx"><small>⬆️ SI SALE…</small><b>' + F.e + ' Piano ' + n + ' di ' + FLOORS.length + '</b><span>' + esc(F.n) + '</span></div>';
+    el.onclick = () => el.remove(); $('#ciack').appendChild(el); SFX.asc();
+  }
+  const fr = x => x - Math.floor(x);
+  function ascCloud(g, x, y, s, col, al) { g.globalAlpha = al; g.fillStyle = col; for (const [dx, dy, r] of [[0, 0, 1], [-0.9, 0.2, 0.7], [0.95, 0.15, 0.75], [-0.4, -0.35, 0.65], [0.45, -0.3, 0.6], [1.7, 0.3, 0.45], [-1.6, 0.35, 0.4]]) { g.beginPath(); g.ellipse(x + dx * s, y + dy * s * 0.6, r * s, r * s * 0.55, 0, 0, 7); g.fill(); } g.globalAlpha = 1; }
+  function ascDraw(el) {
+    const cv = el.querySelector('canvas'), W = cv.clientWidth, H = cv.clientHeight; if (!W || !H) return;
+    const a = (performance.now() - +el.dataset.t0) / 1000; if (a > ASC_T + 0.5) { el.remove(); return; }
+    const dpr = Math.min(2, window.devicePixelRatio || 1); if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const k = Math.min(1, a / ASC_T), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2, FLH = H * 1.1, cam = e * FLH;
+    el.style.opacity = a > ASC_T ? String(Math.max(0, 1 - (a - ASC_T) / 0.5)) : '1';
+    el.querySelector('.tx').style.opacity = a > 0.45 && a < ASC_T ? '1' : '0';
+    // cielo, stelle, luna
+    const sk = g.createLinearGradient(0, 0, 0, H); sk.addColorStop(0, '#060a1a'); sk.addColorStop(0.55, '#121a3a'); sk.addColorStop(1, '#283062'); g.fillStyle = sk; g.fillRect(0, 0, W, H);
+    for (let i = 0; i < 80; i++) { const x = fr(i * 0.618034) * W, y = fr(fr(i * 0.754878) + cam * 0.06 / (H * 1.3)) * H * 1.3 - H * 0.15; g.globalAlpha = 0.35 + 0.6 * Math.abs(Math.sin(a * 1.7 + i)); g.fillStyle = '#e8ecff'; g.fillRect(x, y, i % 7 ? 1.2 : 2, i % 7 ? 1.2 : 2); }
+    g.globalAlpha = 1;
+    const mr = Math.min(W, H) * 0.05, mx = W * 0.87, my = H * 0.13 + cam * 0.1, mg = g.createRadialGradient(mx, my, mr * 0.8, mx, my, mr * 4.5);
+    mg.addColorStop(0, 'rgba(240,236,210,.35)'); mg.addColorStop(1, 'rgba(240,236,210,0)'); g.fillStyle = mg; g.fillRect(mx - mr * 5, my - mr * 5, mr * 10, mr * 10);
+    g.fillStyle = '#f2ecd6'; g.beginPath(); g.arc(mx, my, mr, 0, 7); g.fill(); g.fillStyle = '#d8d0b4'; for (const [dx, dy, r] of [[-0.3, -0.2, 0.22], [0.25, 0.25, 0.16], [0.35, -0.35, 0.1]]) { g.beginPath(); g.arc(mx + dx * mr, my + dy * mr, r * mr, 0, 7); g.fill(); }
+    // montagne lontane: scendono e spariscono mentre si sale
+    for (const [base, col, amp, ph] of [[0.8, '#1c2448', 0.12, 0], [0.88, '#141a36', 0.08, 2]]) {
+      const yb = H * base + cam * 0.5; if (yb - H * amp > H) continue; g.fillStyle = col; g.beginPath(); g.moveTo(0, H + cam);
+      for (let x = 0; x <= W; x += 8) g.lineTo(x, yb - H * amp * (0.5 + 0.3 * Math.sin(x / W * 7 + ph) + 0.2 * Math.sin(x / W * 17 + ph * 2)));
+      g.lineTo(W, H + cam); g.closePath(); g.fill();
+    }
+    // nuvole lontane
+    for (let i = 0; i < 6; i++) ascCloud(g, (fr(i * 0.37 + a * 0.012) * 1.4 - 0.2) * W, fr(i * 0.23 + cam / (H * 2.2)) * H * 1.2 - H * 0.1, W * 0.09, '#2c3666', 0.75);
+    // LA TORRE: cilindro di pietra illuminato dalla luna (a destra), mattoni, cornici dei piani, finestre accese, edera
+    const R0 = Math.min(W * 0.25, 160), cx = W * 0.47, NS = 18, hs = (a2, b2) => fr(Math.sin(a2 * 12.9898 + b2 * 78.233) * 43758.5);
+    for (let i = 0; i < NS; i++) { const t1 = -Math.PI / 2 + i / NS * Math.PI, t2 = -Math.PI / 2 + (i + 1) / NS * Math.PI, l = 0.32 + 0.75 * Math.max(0, Math.cos((t1 + t2) / 2 - 0.7)); g.fillStyle = cqShade('#4c4658', l); const x1 = cx + R0 * Math.sin(t1), x2 = cx + R0 * Math.sin(t2); g.fillRect(x1, 0, x2 - x1 + 0.6, H); }
+    const bh = 15, off = ((cam % bh) + bh) % bh;
+    for (let y = -bh + off; y < H; y += bh) {
+      const row = Math.round((y - cam) / bh); g.fillStyle = 'rgba(10,8,16,.32)'; g.fillRect(cx - R0, y, R0 * 2, 1.4);
+      for (let j = 0; j < 14; j++) {
+        const th = -Math.PI / 2 + (j + (row & 1) * 0.5) / 14 * Math.PI, th2 = th + Math.PI / 14; if (Math.abs(th) > 1.5) continue;
+        const h = hs(row, j); if (h < 0.22 && th2 < 1.55) { g.fillStyle = h < 0.1 ? 'rgba(255,240,220,.07)' : 'rgba(0,0,0,.16)'; g.fillRect(cx + R0 * Math.sin(th) + 1, y + 1.4, R0 * (Math.sin(th2) - Math.sin(th)) - 1, bh - 1.4); }
+        g.fillStyle = 'rgba(10,8,16,.32)'; g.fillRect(cx + R0 * Math.sin(th), y, 1.2 * Math.cos(th) + 0.4, bh);
+      }
+    }
+    const ledge = Lw => H * 0.66 + cam - Lw * FLH;
+    for (const L of [-1, 0, 1, 2]) {   // finestre (due per piano) con la luce calda
+      const yl = ledge(L);
+      for (const [fy, th] of [[0.3, 0.45], [0.62, -0.5]]) {
+        const y = yl - FLH * fy, x = cx + R0 * Math.sin(th), w = 18 * Math.cos(th), hh = 30; if (y < -60 || y > H + 60) continue;
+        const gl = g.createRadialGradient(x, y, 2, x, y, 46); gl.addColorStop(0, 'rgba(255,190,90,.38)'); gl.addColorStop(1, 'rgba(255,190,90,0)'); g.fillStyle = gl; g.fillRect(x - 50, y - 50, 100, 100);
+        g.fillStyle = '#231a26'; g.beginPath(); g.moveTo(x - w / 2 - 3, y + hh / 2 + 3); g.lineTo(x - w / 2 - 3, y - hh / 2 + w / 2); g.arc(x, y - hh / 2 + w / 2, w / 2 + 3, Math.PI, 0); g.lineTo(x + w / 2 + 3, y + hh / 2 + 3); g.closePath(); g.fill();
+        g.fillStyle = Math.sin(a * 9 + L * 3 + th * 5) > 0.92 ? '#ffd890' : '#ffc260'; g.beginPath(); g.moveTo(x - w / 2, y + hh / 2); g.lineTo(x - w / 2, y - hh / 2 + w / 2); g.arc(x, y - hh / 2 + w / 2, w / 2, Math.PI, 0); g.lineTo(x + w / 2, y + hh / 2); g.closePath(); g.fill();
+        g.fillStyle = '#231a26'; g.fillRect(x - 0.8, y - hh / 2 + 2, 1.6, hh - 2); g.fillRect(x - w / 2, y + 2, w, 1.6);
+      }
+    }
+    for (const L of [-1, 0, 1, 2]) {   // cornici di pietra tra un piano e l'altro (con i merli)
+      const y = ledge(L); if (y < -30 || y > H + 30) continue; const R1 = R0 * 1.08;
+      g.fillStyle = '#2a2632'; g.fillRect(cx - R1, y + 4, R1 * 2, 8); g.fillStyle = cqShade('#6a6478', 1); g.fillRect(cx - R1, y - 6, R1 * 2, 10);
+      for (let j = 0; j < 9; j++) { const th = -1.35 + j / 8 * 2.7, x = cx + R1 * Math.sin(th), w = 13 * Math.cos(th); g.fillStyle = cqShade('#6a6478', 0.55 + 0.5 * Math.max(0, Math.cos(th - 0.7))); g.fillRect(x - w / 2, y - 16, w, 11); }
+    }
+    for (const L of [-1, 0, 1, 2]) for (const [th, seed, len] of [[-1.1, 1, 0.55], [-0.35, 2, 0.3], [0.5, 3, 0.42], [1.2, 4, 0.62]]) {   // edera: rampicanti che pendono dalle cornici
+      const top = ledge(L) + 10, n = Math.round(len * FLH / 9), x0 = cx + R0 * Math.sin(th + (L & 1) * 0.15), cw = Math.cos(th); if (top > H || top + n * 9 < 0) continue;
+      const X = i => x0 + Math.sin(i * 0.33 + seed * 2 + L) * 6 * cw;
+      g.strokeStyle = '#1e3a1c'; g.lineWidth = 1.6; g.beginPath(); for (let i = 0; i <= n; i++) i ? g.lineTo(X(i), top + i * 9) : g.moveTo(X(i), top); g.stroke();
+      for (let i = 1; i <= n; i++) { const h = hs(i + L * 7, seed), sz = (3 + 3.5 * h) * (1 - 0.5 * i / n) * (0.6 + 0.4 * cw), sd = i % 2 ? 1 : -1; g.fillStyle = h < 0.33 ? '#2a5228' : h < 0.7 ? '#3a6e34' : '#4a8a3e'; g.beginPath(); g.ellipse(X(i) + sd * sz * 0.8, top + i * 9, sz, sz * 0.62, sd * 0.6, 0, 7); g.fill(); if (h > 0.6) { g.beginPath(); g.ellipse(X(i) - sd * sz * 0.5, top + i * 9 + 4, sz * 0.7, sz * 0.45, -sd * 0.5, 0, 7); g.fill(); } }
+    }
+    // nuvole davanti (passano davanti alla torre) e buio in basso
+    for (let i = 0; i < 4; i++) ascCloud(g, (fr(i * 0.53 - a * 0.03) * 1.6 - 0.3) * W, fr(i * 0.31 + cam / (H * 0.9)) * H * 1.5 - H * 0.25, W * 0.16, '#3a4476', 0.82);
+    const vg = g.createLinearGradient(0, H * 0.7, 0, H); vg.addColorStop(0, 'rgba(6,8,18,0)'); vg.addColorStop(1, 'rgba(6,8,18,.85)'); g.fillStyle = vg; g.fillRect(0, H * 0.7, W, H * 0.3);
+  }
+  cqEachFrame(() => { const el = document.getElementById('alAsc'); if (el) ascDraw(el); });
   // il calderone disegnato (bolle, fuoco, l'ingrediente che cade, schizzi). Trema e ribolle forte quando la miscela e' instabile: un indizio, non la ricetta
   function potDraw() {
     const cv = document.getElementById('alCv'); if (!cv) return;
@@ -1684,6 +1758,7 @@
     else if (k === 'surge') { if (on) { swp(80, 900, 0.9, 0.06, 0, 'sawtooth'); swp(120, 40, 0.8, 0.08, 0.5, 'sawtooth'); } else swp(70, 40, 1.6, 0.06, 0, 'sawtooth'); }   // brontolio, poi l'eruzione
     else if (k === 'spores') { for (let i = 0; i < (on ? 6 : 3); i++) swp(900 + i * 180, 1400 + i * 180, 0.18, 0.02, i * 0.09, 'sine'); }   // campanellini
   };
+  SFX.asc = () => { [392, 494, 587, 784, 988].forEach((q, i) => swp(q, q * 1.01, 0.5, 0.03, i * 0.32, 'sine')); swp(200, 600, 2.4, 0.02, 0, 'sawtooth'); };   // salita: arpeggio e vento
   SFX.ouch = () => { swp(500, 220, 0.2, 0.05, 0, 'square'); };
   SFX.fall = () => { swp(900, 80, 1.1, 0.05, 0, 'triangle'); };
 
@@ -1698,6 +1773,7 @@
       useFloor(Math.min(FLOORS.length, G.st.n) - 1); if (!G.guest && !(G.pl && G.pl.length === (FL.plants ? PLANTS.length : 0))) plantsInit(G);
       G.myRdy = false; G.me.belt = G.me.belt && !was ? G.me.belt : Array(BELT_N).fill(''); G.fl = []; G.zn = []; cq.x = SPAWN[sideIdx(G, G.me)][0]; cq.y = SPAWN[sideIdx(G, G.me)][1]; cq.sl = null; G.myFall = null; G.fill = null;
       duelUI(G, false); prepOpen(G);
+      if (was.startsWith('mres') && G.st.n > 1) ascOpen(G.st.n);   // si sale: scena lungo la torre
     } else prepClose();
     if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelArm(G, G.me); duelUI(G, true); helpOnce('duel'); cqToast('⚔️ <b>Duello!</b> Le ampolle sono poche: <b>non sprecarle</b>. Prima <b>blocca</b> l\'altro (🍯 colla, 🧊 gelo, ⏳ sabbia), poi <b>brucialo</b>: <b>COMBO = -2 cuori!</b>'); }
     else duelUI(G, false);
@@ -2014,6 +2090,6 @@
     }
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
-  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr']) { const e = document.getElementById(id); if (e) e.remove(); } U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT };   // per le prove (prove/alc*.js)
+  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } U2.ph = ''; } });
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen };   // per le prove (prove/alc*.js)
 })();
