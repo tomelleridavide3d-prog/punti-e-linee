@@ -60,7 +60,7 @@
     // Cucina: banconi, lavello, forno, frigo, credenza, tavolo con le sedie, il cane che dorme
     ['kcounter', 24, 21, { h: 1, n: 'Cassetti' }], ['ksink', 25, 21], ['kcounter', 26, 21], ['stove', 27, 21, { h: 2, n: 'Forno' }],
     ['fridge', 30, 21, { h: 2, n: 'Frigo' }], ['kcounter', 31, 21, { h: 1, n: 'Cassetti' }], ['cupboard', 32, 21, { h: 2, n: 'Credenza' }],
-    ['kchair', 27, 25, { d: 'e' }], ['ktable', 28, 25, { part: 1 }], ['ktable', 29, 25, {}], ['kchair', 30, 25, { d: 'w' }], ['dog', 28, 27],
+    ['kchair', 27, 25, { d: 'e' }], ['ktable', 28, 25, { part: 1 }], ['ktable', 29, 25, {}], ['kchair', 30, 25, { d: 'w' }],
     // Ingresso: tavolino con il cassetto, pendolo, cassapanca, appendiabiti, portaombrelli, armatura
     ['console', 12, 21, { h: 1, n: 'Cassetto del tavolino' }], ['armor', 11, 23], ['vase', 20, 21, { h: 1, n: 'Vaso' }], ['lamp', 21, 21], ['clock', 22, 21, { h: 2, n: 'Pendolo' }],
     ['bench', 22, 27, { h: 2, n: 'Cassapanca' }], ['coatrack', 14, 28], ['umbrella', 19, 28, { h: 1, n: 'Portaombrelli' }], ['plant', 11, 28],
@@ -419,7 +419,8 @@
 #trCat button .e{font-size:20px;display:block}#trCat button.on{border-color:#ffd24a;background:rgba(90,70,30,.92);box-shadow:0 0 0 1px #ffd24a inset}#trCat button.off{opacity:.4}#trCat button.jo{border-style:dashed}
 #trTip{position:absolute;left:12px;right:12px;top:160px;z-index:5;color:#fff;font:13px system-ui,sans-serif;text-align:center;pointer-events:none;text-shadow:0 1px 3px #000}
 #trPlan{position:fixed;inset:0;z-index:60;background:rgba(16,12,22,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px;box-sizing:border-box;color:#f2ead8;font:14px system-ui,sans-serif}
-#trPlan canvas{display:block;touch-action:none;max-width:100%}`;
+#trPlan canvas{display:block;touch-action:none;max-width:100%}
+#trSafe{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;background:rgba(16,12,22,.95);color:#f2ead8;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;font:14px system-ui,sans-serif;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)}#trSafe canvas{touch-action:none}#trSafeN{font-size:22px;letter-spacing:4px}`;
     document.head.appendChild(st);
   }
   function buildOpen(G) {
@@ -508,16 +509,192 @@
     cq.x = 16.5; cq.y = 27.6;
     beep(523, 0.08, 0.04); beep(784, 0.12, 0.04, 0.09);
   }
+  // ---- FURTO: trappole che scattano, cuori, segni, cane, cassaforte ----
+  const HP = 3, DOG0 = [[28.5, 27.5]];   // il cane della cucina: c'e' sempre, uguale a quelli piazzati (non si sveglia mai)
+  const DOOR_IN = (it, x, y) => it.cells.some(([a, b]) => a === x && b === y);
   function raidStart(G) {
     G.ph = 'raid'; G.left = TIME; G.open = []; G.has = false; G.srch = null; G.stun = 0; G.t0 = G.time;
     const d = G.vb.items.find(it => it.k === 'dia'); G.dia = d.i;
-    cq.x = 16.5 + 0.5; cq.y = 28.3; G.room = 'Ingresso';
-    cqToast('🏚️ Sei nella villa del computer: trova il <b>diamante</b> e riportalo al portone! Attento ai diamanti finti…');
+    G.hp = HP; G.used = new Set(); G.rev = new Set(); G.fx = []; G.pianos = []; G.paint = 0; G.steps = []; G.slide = null; G.fall = null; G.resp = 0; G.camOff = 0; G.bonus = 0; G.safe = null; G.lost = 0;
+    G.dogs = DOG0.map(([x, y]) => ({ x, y, hx: x, hy: y, armed: false, st: 'sleep', path: [], face: 1, walk: 0 }))
+      .concat(G.vb.items.filter(it => it.k === 'cane').map(it => ({ x: it.x + 0.5, y: it.y + 0.5, hx: it.x + 0.5, hy: it.y + 0.5, armed: true, st: 'sleep', path: [], face: 1, walk: 0 })));
+    cq.x = 16.5 + 0.5; cq.y = 28.3; G.px = cq.x; G.py = cq.y; G.room = 'Ingresso';
+    cqToast('🏚️ Villa del computer: trova il <b>diamante</b> e riportalo al portone! Trascina poco il dito per camminare <b>piano</b> e vedere i segni delle trappole.');
+  }
+  // colpo preso: un cuore in meno, fermo per un po'; a zero cuori si torna al portone (con 3 cuori nuovi)
+  function hit(G, txt, stun) {
+    if (G.resp) return;
+    G.hp--; G.lost++; G.stun = Math.max(G.stun, G.time + stun); G.stunT = txt; G.hitT = G.time;
+    beep(150, 0.18, 0.07); beep(95, 0.25, 0.06, 0.08); try { navigator.vibrate && navigator.vibrate(80); } catch {}
+    closeSafe(G);
+    if (G.hp <= 0) { G.resp = G.time + stun + 0.3; cqToast('💔 <b>Niente più cuori!</b> Si ricomincia dal portone…'); }
+  }
+  function respawn(G) {
+    G.resp = 0; G.hp = HP; G.slide = null; G.fall = null; cq.x = 17; cq.y = 28.3;
+    if (G.has) { G.has = false; G.open = G.open.filter(i => i !== G.dia); cqToast('💎 Il diamante è tornato nel suo nascondiglio.'); }
+  }
+  // cosa c'e' nel mobile aperto (la cassaforte da' sempre un premio in piu')
+  function openSpot(G, i) {
+    G.open.push(i);
+    const it = G.vb.items.find(o => o.i === i && CAT[o.k].on === 'spot'), safe = spots()[i].n === 'Cassaforte';
+    if (it && it.k === 'dia') { G.has = true; beep(988, 0.1, 0.05); beep(1319, 0.2, 0.05, 0.1); if (safe) { G.bonus += 10; cqToast('💎 <b>Colpo da maestro!</b> Il diamante era in cassaforte: −10 secondi sul tuo tempo. Ora al portone!'); } else cqToast('💎 <b>Trovato!</b> Ora riportalo al portone, presto!'); return; }
+    if (safe) { G.camOff = G.time + 10; cqToast('📺 In cassaforte c\'era il <b>telecomando</b>: le telecamere del padrone sono spente per 10 secondi!'); }
+    if (it && it.k === 'fake') { G.stun = G.time + 3; G.stunT = '🎂 Torta in faccia!'; G.cake = G.time; beep(140, 0.25, 0.06); cqToast('🎂 <b>Era un diamante finto!</b> Torta in faccia…'); }
+    else if (it && it.k === 'box') { G.cake = 0; hit(G, '🥊 PAF!', 1.5); cqToast('🥊 <b>Scatola a sorpresa!</b> Un guantone in faccia.'); }
+    else if (!safe) { beep(220, 0.08, 0.03); cqToast(cqPickOne(['Vuoto…', 'Niente qui.', 'Solo polvere.', 'Acqua…', 'Qui non c\'è.'])); }
+  }
+  // le trappole sotto i piedi (o accanto, l'armatura) che non sono ancora scattate
+  function trapTick(G, dt) {
+    const x = Math.floor(cq.x), y = Math.floor(cq.y);
+    for (const it of G.vb.items) {
+      if (G.used.has(it.key) || G.fall) continue;
+      const k = it.k, on = k === 'armatura' ? Math.hypot(cq.x - it.x - 0.5, cq.y - it.y - 0.5) < 1.15 : CAT[k].on === 'door' ? DOOR_IN(it, x, y) : it.x === x && it.y === y;
+      if (!on || !['botola', 'buccia', 'rastrello', 'piano', 'vernice', 'finta', 'armatura'].includes(k)) continue;
+      G.used.add(it.key); G.fx.push({ k, x: it.x + 0.5, y: it.y + 0.5, t: G.time, it });
+      if (k === 'botola') { G.fall = { t: G.time, x: it.x + 0.5, y: it.y + 0.5 }; G.slide = null; hit(G, '🕳️ Botola! Aaaah…', 1.0); beep(500, 0.5, 0.05); beep(250, 0.5, 0.05, 0.2); }
+      else if (k === 'buccia') { const l = Math.hypot(cq.wdx || 0, cq.wdy || 0) || 1; G.slide = { dx: (cq.wdx || 0.7) / l, dy: (cq.wdy || 0.7) / l, d: 0 }; hit(G, '🍌 Scivolone!', 1.3); beep(900, 0.3, 0.04); }
+      else if (k === 'rastrello') hit(G, '🧹 SDENG!', 1.2);
+      else if (k === 'piano') { G.pianos.push({ x: it.x + 0.5, y: it.y + 0.5, t: G.time }); beep(1400, 0.08, 0.03); beep(1200, 0.08, 0.03, 0.1); }
+      else if (k === 'vernice') { G.paint = G.time; beep(300, 0.2, 0.05); cqToast('🪣 <b>SPLASH!</b> Vernice addosso: ora lasci le impronte, il padrone ti vede ovunque.'); }
+      else if (k === 'finta') { G.rev.add(it.key); const l = Math.hypot(cq.wdx || 0, cq.wdy || 0) || 1; cq.x -= (cq.wdx || 0) / l * 0.7; cq.y -= (cq.wdy || 0) / l * 0.7; if (!cqFree(cq.x, cq.y)) { cq.x = G.px; cq.y = G.py; } hit(G, '🚧 BONK! Porta dipinta!', 1.0); }
+      else if (k === 'armatura') hit(G, '🛡️ CLANG!', 1.0);
+    }
+    // pianoforti che cadono: chi e' ancora sotto dopo mezzo secondo viene preso
+    for (const p of G.pianos) if (!p.done && G.time - p.t >= 0.55) {
+      p.done = 1; beep(80, 0.5, 0.09); beep(160, 0.3, 0.06);
+      if (Math.hypot(cq.x - p.x, cq.y - p.y) < 0.85) hit(G, '🎹 CRASH!', 2.0); else cqToast('🎹 <b>Per un pelo!</b> Il pianoforte ti è caduto alle spalle.');
+    }
+  }
+  // cani: dormono; se passi vicino CORRENDO si svegliano, abbaiano e ti inseguono (7 s), poi tornano a cuccia. Quello della cucina dorme e basta
+  function dogTick(G, dt, running) {
+    for (const d of G.dogs) {
+      if (!d.armed) continue;
+      const dist = Math.hypot(cq.x - d.x, cq.y - d.y);
+      if (d.st === 'sleep') { if (dist < 2.4 && running && !G.resp) { d.st = 'chase'; d.t = G.time; d.think = 0; d.bark = G.time; d.barkP = performance.now(); beep(520, 0.09, 0.06); beep(440, 0.12, 0.06, 0.12); } continue; }
+      if ((d.think -= dt) <= 0) { d.think = 0.35; d.path = d.st === 'chase' ? cqPath(d.x, d.y, cq.x, cq.y) : cqPath(d.x, d.y, d.hx, d.hy); if (!d.path.length) d.path = [[d.st === 'chase' ? cq.x : d.hx, d.st === 'chase' ? cq.y : d.hy]]; }
+      cqModeStep(d, dt, d.st === 'chase' ? 1.12 : 0.7);
+      if (d.st === 'chase') {
+        if (G.time - d.bark > 0.9) { d.bark = G.time; d.barkP = performance.now(); beep(500, 0.08, 0.05); }
+        if (dist < 0.6 && !(G.stun > G.time)) { hit(G, '🐕 Morso!', 1.2); d.st = 'home'; d.think = 0; }
+        else if (G.time - d.t > 7 || G.resp) { d.st = 'home'; d.think = 0; }
+      } else if (Math.hypot(d.x - d.hx, d.y - d.hy) < 0.3) { d.st = 'sleep'; d.x = d.hx; d.y = d.hy; d.walk = 0; }
+    }
+  }
+
+  // ---- CASSAFORTE: orecchio e manopola. Giri la manopola; sul numero giusto senti il clic (e il telefono vibra): resta li' fermo e si blocca. Tre numeri. ----
+  function safeOpen(G, i) {
+    const nums = []; while (nums.length < 3) { const n = Math.floor(Math.random() * 40); if (!nums.some(m => Math.abs(m - n) < 6)) nums.push(n); }
+    G.safe = { i, nums, k: 0, val: 0, hold: 0, last: 0 };
+    buildCss();
+    const el = document.createElement('div'); el.id = 'trSafe';
+    el.innerHTML = `<b>🔒 Cassaforte</b><div id="trSafeT">Gira la manopola. Quando senti il <b>clic</b>, fermati lì.</div><canvas id="trDial"></canvas><div id="trSafeN"></div><button class="btn" id="trSafeX" type="button">Lascia stare</button>`;
+    document.body.appendChild(el);
+    $('#trSafeX').onclick = () => closeSafe(G);
+    const cv = $('#trDial'), sz = Math.min(260, window.innerWidth - 60), dpr = Math.min(3, window.devicePixelRatio || 1);
+    cv.width = sz * dpr; cv.height = sz * dpr; cv.style.width = cv.style.height = sz + 'px';
+    let drag = null;
+    const ang = e => { const r = cv.getBoundingClientRect(); return Math.atan2(e.clientY - r.top - sz / 2, e.clientX - r.left - sz / 2); };
+    cv.addEventListener('pointerdown', e => { drag = { a: ang(e), v: G.safe ? G.safe.fv || 0 : 0 }; cv.setPointerCapture(e.pointerId); });
+    cv.addEventListener('pointermove', e => {
+      const S = G.safe; if (!drag || !S) return;
+      let da = ang(e) - drag.a; da = Math.atan2(Math.sin(da), Math.cos(da)); drag.a = ang(e);
+      S.fv = ((S.fv || 0) + da / (Math.PI * 2) * 40 + 40) % 40; const v = Math.round(S.fv) % 40;
+      if (v !== S.val) { S.val = v; S.hold = 0; if (v === S.nums[S.k]) { beep(2400, 0.05, 0.06); beep(1800, 0.04, 0.05, 0.03); try { navigator.vibrate && navigator.vibrate(35); } catch {} } else beep(1200 + Math.random() * 300, 0.012, 0.012); }
+    });
+    cv.addEventListener('pointerup', () => { drag = null; });
+    safeDraw(G);
+  }
+  function closeSafe(G) { const el = document.getElementById('trSafe'); if (el) el.remove(); if (G) G.safe = null; }
+  function safeDraw(G) {
+    const S = G.safe, cv = document.getElementById('trDial'); if (!S || !cv) return;
+    const g = cv.getContext('2d'), sz = cv.width, r = sz / 2;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, sz, sz); g.translate(r, r);
+    g.fillStyle = '#2a3634'; g.beginPath(); g.arc(0, 0, r * 0.98, 0, 7); g.fill();
+    g.fillStyle = '#b8c0c8'; g.beginPath(); g.arc(0, 0, r * 0.86, 0, 7); g.fill();
+    g.save(); g.rotate(-(S.fv || 0) / 40 * Math.PI * 2);
+    g.fillStyle = '#22262e'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = '700 ' + Math.round(r * 0.11) + 'px system-ui';
+    for (let i = 0; i < 40; i++) { const a = i / 40 * Math.PI * 2 - Math.PI / 2; g.fillRect(Math.cos(a) * r * 0.78 - 1, Math.sin(a) * r * 0.78 - 1, 2, 2); if (i % 5 === 0) g.fillText(i, Math.cos(a) * r * 0.66, Math.sin(a) * r * 0.66); }
+    g.fillStyle = '#5a6068'; g.beginPath(); g.arc(0, 0, r * 0.38, 0, 7); g.fill(); g.fillStyle = '#8a9098'; g.fillRect(-r * 0.06, -r * 0.36, r * 0.12, r * 0.72);
+    g.restore();
+    g.fillStyle = '#e2553a'; g.beginPath(); g.moveTo(0, -r * 0.99); g.lineTo(-r * 0.06, -r * 0.88); g.lineTo(r * 0.06, -r * 0.88); g.fill();
+    const n = document.getElementById('trSafeN'); if (n) { const t = S.nums.map((v, i) => i < S.k ? '✅' : i === S.k ? (S.val === v && S.hold > 0 ? '⏳' : '❔') : '🔒').join(' '); if (n.textContent !== t) n.textContent = t; }
+  }
+  function safeTick(G, dt) {
+    const S = G.safe; if (!S) return;
+    if (S.val === S.nums[S.k]) { S.hold += dt; if (S.hold >= 0.6) { S.k++; S.hold = 0; beep(880, 0.08, 0.05); beep(1320, 0.1, 0.05, 0.08); if (S.k >= 3) { const i = S.i; closeSafe(G); beep(660, 0.1, 0.05); beep(990, 0.18, 0.05, 0.1); openSpot(G, i); return; } } }
+    safeDraw(G);
+  }
+
+  // ---- disegni del furto (sopra la mappa, in pixel dello schermo): cani, trappole scattate, segni, impronte ----
+  function dogDraw(g, X, Y, TW, d, now) {
+    const u = TW / 34, f = d.face || 1;
+    g.save(); g.translate(X, Y); g.scale(f, 1);
+    if (d.st === 'sleep') {
+      g.fillStyle = '#a83434'; g.beginPath(); g.ellipse(0, 0, 15 * u, 7 * u, 0, 0, 7); g.fill();
+      g.fillStyle = '#c88a4a'; g.beginPath(); g.ellipse(2 * u, -4 * u, 10 * u, 5.5 * u, 0, 0, 7); g.fill(); g.beginPath(); g.ellipse(-8 * u, -5 * u, 5 * u, 4.5 * u, 0, 0, 7); g.fill();
+      g.fillStyle = '#7a4a2a'; g.beginPath(); g.ellipse(-6 * u, -2 * u, 2.5 * u, 4 * u, 0.3, 0, 7); g.fill();
+      g.strokeStyle = '#222'; g.lineWidth = u; g.beginPath(); g.moveTo(-11 * u, -6 * u); g.lineTo(-8 * u, -6 * u); g.stroke();
+      g.restore(); g.fillStyle = 'rgba(255,255,255,.75)'; g.font = Math.round(9 * u) + 'px system-ui'; g.textAlign = 'center'; g.fillText('z', X + 10 * u, Y - 14 * u - (now / 400 % 1) * 6 * u); return;
+    }
+    const b = Math.sin(now / 70) * 1.5 * u;
+    g.fillStyle = '#b07a3a'; for (const lx of [-7, -3, 4, 8]) g.fillRect(lx * u, -6 * u, 2.5 * u, 6 * u + (lx % 2 ? b : -b));
+    g.fillStyle = '#c88a4a'; g.beginPath(); g.ellipse(1 * u, -9 * u, 11 * u, 5.5 * u, 0, 0, 7); g.fill();
+    g.beginPath(); g.ellipse(-11 * u, -15 * u, 5.5 * u, 5 * u, 0, 0, 7); g.fill(); g.fillStyle = '#7a4a2a'; g.beginPath(); g.ellipse(-9 * u, -12 * u, 2.5 * u, 4.5 * u, 0.4, 0, 7); g.fill();
+    g.fillStyle = '#222'; g.beginPath(); g.arc(-13 * u, -16 * u, 1.2 * u, 0, 7); g.fill(); g.beginPath(); g.arc(-16 * u, -14 * u, 1.5 * u, 0, 7); g.fill();
+    g.strokeStyle = '#c88a4a'; g.lineWidth = 2.5 * u; g.beginPath(); g.moveTo(11 * u, -11 * u); g.lineTo(15 * u, -17 * u + b); g.stroke();
+    g.restore();
+    if (d.st === 'chase' && now - (d.barkP || 0) < 350) { g.font = '900 ' + Math.round(12 * u) + 'px system-ui'; g.textAlign = 'center'; g.lineWidth = 3; g.strokeStyle = '#000'; g.strokeText('WOOF!', X, Y - 28 * u); g.fillStyle = '#ffd24a'; g.fillText('WOOF!', X, Y - 28 * u); }
+  }
+  const cellPoly = (g, sx, sy, x0, y0, x1, y1, z, U) => { g.beginPath(); g.moveTo(sx(x0, y0), sy(x0, y0) - z * U); g.lineTo(sx(x1, y0), sy(x1, y0) - z * U); g.lineTo(sx(x1, y1), sy(x1, y1) - z * U); g.lineTo(sx(x0, y1), sy(x0, y1) - z * U); g.closePath(); };
+  const pop = (g, X, Y, txt, k, TW) => { if (k < 0 || k > 1) return; g.globalAlpha = 1 - k; g.font = '900 ' + Math.round(TW * (0.38 + 0.15 * k)) + 'px system-ui'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = '#000'; g.strokeText(txt, X, Y - k * TW * 0.5); g.fillStyle = '#ffd24a'; g.fillText(txt, X, Y - k * TW * 0.5); g.globalAlpha = 1; };
+  function raidDraw(g, G, sx, sy, TW) {
+    const U = TW * 0.575, now = performance.now(), MN = G.opt.nt ? CQ_MODES.trappole.night(G) : null, lit = (x, y) => !MN || MN.see(x, y);
+    const vis = (x, y) => { const X = sx(x, y), Y = sy(x, y); return X > -80 && Y > -80 && X < cq.w + 80 && Y < cq.h + 80; };
+    // impronte di vernice
+    if (G.paint) { g.fillStyle = 'rgba(60,120,220,.55)'; for (const [x, y, i] of G.steps) if (vis(x, y) && lit(x, y)) { g.beginPath(); g.ellipse(sx(x, y) + (i % 2 ? 3 : -3), sy(x, y), TW * 0.05, TW * 0.03, 0, 0, 7); g.fill(); } }
+    // trappole gia' scattate (restano scariche e si vedono)
+    for (const f of G.fx) {
+      if (!vis(f.x, f.y) || !lit(f.x, f.y)) continue;
+      const X = sx(f.x, f.y), Y = sy(f.x, f.y), k = (now / 1000) - (f.rt || (f.rt = now / 1000));
+      if (f.k === 'botola') { cellPoly(g, sx, sy, f.x - 0.42, f.y - 0.42, f.x + 0.42, f.y + 0.42, 0, U); g.fillStyle = '#0e0a08'; g.fill(); g.strokeStyle = '#6a4a2a'; g.lineWidth = 2; g.stroke(); pop(g, X, Y - TW * 0.4, 'AAAH!', k / 1.2, TW); }
+      else if (f.k === 'buccia') { g.fillStyle = '#e8c840'; g.beginPath(); g.ellipse(X, Y, TW * 0.13, TW * 0.05, 0.3, 0, 7); g.fill(); pop(g, X, Y - TW, 'ZIIIP!', k / 1.2, TW); }
+      else if (f.k === 'rastrello') { g.strokeStyle = '#7a5232'; g.lineWidth = Math.max(2, TW / 18); g.beginPath(); g.moveTo(X - TW * 0.3, Y + TW * 0.05); g.lineTo(X + TW * 0.25, Y - TW * 0.08); g.stroke(); g.strokeStyle = '#8a9098'; g.beginPath(); g.moveTo(X - TW * 0.33, Y - TW * 0.03); g.lineTo(X - TW * 0.27, Y + TW * 0.13); g.stroke(); pop(g, X, Y - TW * 1.4, 'SDENG!', k / 1.2, TW); }
+      else if (f.k === 'vernice') { g.fillStyle = 'rgba(60,120,220,.75)'; g.beginPath(); g.ellipse(X, Y, TW * 0.3, TW * 0.13, 0, 0, 7); g.fill(); g.fillStyle = '#8a9098'; g.fillRect(X + TW * 0.15, Y - TW * 0.2, TW * 0.16, TW * 0.18); pop(g, X, Y - TW * 1.4, 'SPLASH!', k / 1.2, TW); }
+      else if (f.k === 'finta') { for (const [a, b] of f.it.cells) { cellPoly(g, sx, sy, a + 0.38, b, a + 0.62, b + 1, 1.4, U); g.fillStyle = '#c8b48a'; g.fill(); } pop(g, X, Y - TW * 1.6, 'BONK!', k / 1.2, TW); }
+      else if (f.k === 'armatura') pop(g, X, Y - TW * 2.2, 'CLANG!', k / 1.2, TW);
+    }
+    // pianoforti: ombra che si allarga, il piano che cade, poi i rottami
+    for (const p of G.pianos) {
+      const X = sx(p.x, p.y), Y = sy(p.x, p.y), k = Math.min(1, (G.time - p.t) / 0.55);
+      if (!vis(p.x, p.y)) continue;
+      g.fillStyle = 'rgba(0,0,0,' + (0.2 + 0.4 * k) + ')'; g.beginPath(); g.ellipse(X, Y, TW * 0.55 * (0.4 + 0.6 * k), TW * 0.28 * (0.4 + 0.6 * k), 0, 0, 7); g.fill();
+      if (k < 1) { const z = (1 - k) * (1 - k) * 7 * U; g.fillStyle = '#1a1a22'; g.fillRect(X - TW * 0.45, Y - z - TW * 0.5, TW * 0.9, TW * 0.4); g.fillStyle = '#f4f2ec'; g.fillRect(X - TW * 0.4, Y - z - TW * 0.14, TW * 0.8, TW * 0.06); }
+      else { g.fillStyle = '#1a1a22'; for (let i = 0; i < 5; i++) g.fillRect(X + (i - 2) * TW * 0.16, Y - TW * 0.08 - (i % 2) * TW * 0.06, TW * 0.13, TW * 0.08); g.fillStyle = '#f4f2ec'; g.fillRect(X - TW * 0.1, Y - TW * 0.02, TW * 0.22, TW * 0.04); pop(g, X, Y - TW * 0.6, 'CRASH!', (G.time - p.t - 0.55) / 1.2, TW); }
+    }
+    // i segni delle trappole: solo camminando piano, da vicino (e di notte dove arriva la luce)
+    if (G.slow && !G.resp) for (const it of G.vb.items) {
+      if (G.used.has(it.key) || !['botola', 'buccia', 'rastrello', 'piano', 'vernice', 'finta', 'armatura'].includes(it.k)) continue;
+      const cx = it.x + 0.5, cy = it.y + 0.5; if (Math.hypot(cq.x - cx, cq.y - cy) > 1.9 || !lit(cx, cy)) continue;
+      const X = sx(cx, cy), Y = sy(cx, cy); g.globalAlpha = 0.7;
+      if (it.k === 'botola') { cellPoly(g, sx, sy, it.x + 0.12, it.y + 0.12, it.x + 0.88, it.y + 0.88, 0, U); g.strokeStyle = 'rgba(30,20,10,.8)'; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.stroke(); g.setLineDash([]); }
+      else if (it.k === 'buccia') { g.fillStyle = '#e8c840'; g.beginPath(); g.ellipse(X + TW * 0.1, Y + TW * 0.04, TW * 0.05, TW * 0.025, 0.5, 0, 7); g.fill(); }
+      else if (it.k === 'rastrello') { g.strokeStyle = '#7a5232'; g.lineWidth = 2; g.beginPath(); g.moveTo(X - TW * 0.15, Y + TW * 0.05); g.lineTo(X + TW * 0.05, Y - TW * 0.02); g.stroke(); }
+      else if (it.k === 'piano') { g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(X, Y, TW * 0.3, TW * 0.15, 0, 0, 7); g.fill(); g.strokeStyle = 'rgba(220,200,160,.8)'; g.lineWidth = 1; g.beginPath(); g.moveTo(X, Y - TW * 3); g.lineTo(X, Y - TW * 0.4); g.stroke(); }
+      else if (it.k === 'vernice' || it.k === 'finta') { for (const [a, b] of it.cells) { cellPoly(g, sx, sy, a, b, a + 1, b + 1, 0, U); g.strokeStyle = it.k === 'vernice' ? 'rgba(60,120,220,.8)' : 'rgba(255,255,255,.55)'; g.lineWidth = 1.5; g.setLineDash([3, 3]); g.stroke(); g.setLineDash([]); } if (it.k === 'vernice') { g.fillStyle = 'rgba(60,120,220,.8)'; g.beginPath(); g.arc(X, Y - TW * 0.05, TW * 0.04, 0, 7); g.fill(); } }
+      else if (it.k === 'armatura') { g.fillStyle = '#ff3a3a'; const hy = Y - 2.05 * U; g.beginPath(); g.arc(X - TW * 0.04, hy, TW * 0.022, 0, 7); g.arc(X + TW * 0.04, hy, TW * 0.022, 0, 7); g.fill(); }
+      g.globalAlpha = 1;
+    }
+  }
+  // i cani si disegnano sempre (anche nella mia villa: quello della cucina e' un mobile come gli altri)
+  function dogsDraw(g, G, sx, sy, TW) {
+    const MN = G.ph === 'raid' && G.opt.nt ? CQ_MODES.trappole.night(G) : null, now = performance.now();
+    const list = G.ph === 'raid' && G.dogs ? G.dogs : DOG0.map(([x, y]) => ({ x, y, st: 'sleep', face: 1 }));
+    for (const d of list) { if (MN && !MN.see(d.x, d.y)) continue; const X = sx(d.x, d.y), Y = sy(d.x, d.y); if (X < -60 || Y < -60 || X > cq.w + 60 || Y > cq.h + 60) continue; dogDraw(g, X, Y, TW, d, now); }
   }
 
   CQ_MODES.trappole = {
     n: 'La casa delle trappole',
-    desc: '🪤 Due ladri, due ville identiche. Riempi la tua di trappole e nascondi il diamante; poi ruba quello dell\'altro mentre lui ti guarda dalle telecamere. <b>In costruzione</b>: per ora arredi la tua villa, la guardi e poi rubi nella villa del computer (le trappole scatteranno nel prossimo passo).',
+    desc: '🪤 Due ladri, due ville identiche. Riempi la tua di trappole e nascondi il diamante; poi ruba quello dell\'altro mentre lui ti guarda dalle telecamere. <b>In costruzione</b>: per ora arredi la tua villa, la guardi e poi rubi nella villa del computer, tra botole, pianoforti, cani e la cassaforte (il padrone con le telecamere arriva nel prossimo passo).',
     maps: [['villa', 'Villa']],
     ns: [[2, '2']],
     def: { map: 'villa', n: 2, fill: true, nt: 0 },
@@ -531,18 +708,21 @@
     },
     gstart(G) { setNight(G.opt.nt); G.ph = 'build'; G.bt = BUILD; G.mine = { items: [] }; G.open = []; G.room = 'Ingresso'; G.left = TIME; G.stun = 0; cq.cam = { x: 16.5, y: 24.5 }; },
     intro: () => '🔨 Gira per la tua villa e arredala: trappole e diamante!',
-    hide: c => !!c.bot && !c.sid,   // per ora l'avversario del computer non si vede (arriva con le telecamere)
-    speed: c => { const G = cq.g; return G && c === G.me && (G.ph === 'build' || G.srch || G.stun > G.time) ? 0 : 1; },
+    hide: c => (!!c.bot && !c.sid) || !!(cq.g && c === cq.g.me && cq.g.fall && cq.g.time - cq.g.fall.t > 0.25),   // l'avversario del computer per ora non si vede; io dentro la botola
+    // muri nuovi: le porte finte scoperte
+    blk(G, x, y) { if (G.ph !== 'raid' || !G.rev || !G.rev.size) return false; const cx = Math.floor(x), cy = Math.floor(y); return G.vb.items.some(it => G.rev.has(it.key) && DOOR_IN(it, cx, cy)); },
+    // trascinare poco il dito (o Maiuscolo sulla tastiera) = camminare piano: si vedono i segni delle trappole e i cani non si svegliano
+    speed: c => { const G = cq.g; if (!G || c !== G.me) return 1; if (G.ph === 'build' || G.srch || G.safe || G.fall || G.slide || G.stun > G.time) return 0; const j = cq.joy; G.slow = G.ph === 'raid' && (j ? Math.hypot(j.x - j.x0, j.y - j.y0) < 52 : !!cq.keys.shift); return G.slow ? 0.45 : 1; },
     hud(G) {
       const P = G.ph === 'build' && cq.cam ? cq.cam : cq, r = roomName(P.x, P.y), rr = roomAt(Math.floor(P.x), Math.floor(P.y)); if (r && rr && !rr.door) G.room = r;
       const nt = G.opt.nt ? '🌙' : '☀️';
       if (G.ph === 'build') { const B = G.mine; return `🔨 📍 <b>${esc(G.room || '')}</b> · 🪙 ${BUDGET - spent(B)} · ★ ${JOLLY - count(B, it => CAT[it.k].jolly)} · ⏱ <b${G.bt < 10 ? ' style="color:#ff8a7a"' : ''}>${mmss(Math.max(0, G.bt))}</b>`; }
       if (G.ph === 'tour') return `🏠 La tua villa ${nt} · 📍 <b>${esc(G.room || '')}</b> · le trappole le vedi solo tu`;
-      return `🏚️ Villa del computer ${nt} · 📍 <b>${esc(G.room || '')}</b> · 🔍 ${G.open.length} · ${G.has ? '💎 <b>Al portone!</b> · ' : ''}⏱ ${mmss(Math.max(0, G.left))}`;
+      return `${'❤️'.repeat(Math.max(0, G.hp))}${'🖤'.repeat(Math.max(0, HP - G.hp))} ${G.slow ? '🐢' : '🏃'} · 📍 <b>${esc(G.room || '')}</b> · 🔍 ${G.open.length} · ${G.has ? '💎 <b>Al portone!</b> · ' : ''}⏱ ${mmss(Math.max(0, G.left))}`;
     },
     big: G => G.ph === 'raid' && G.left < 10 && G.left > 0 && G.phase === 'play' ? '⏱ ' + Math.ceil(G.left) + '…' : G.ph === 'raid' && G.stun > G.time ? (G.stunT || '') : '',
     spotNear(G) {
-      if (G.ph !== 'raid' || G.srch || G.has) return null;
+      if (G.ph !== 'raid' || G.srch || G.has || G.safe || G.fall || G.resp) return null;
       let best = null, bd = NEAR; spots().forEach((s, i) => { if (G.open.includes(i)) return; const d = spotDist(s, cq.x, cq.y); if (d < bd) { bd = d; best = Object.assign({}, s, { i }); } });
       return best;
     },
@@ -550,14 +730,16 @@
       if (G.ph === 'build') { const A = aim(G); if (A.item) return { t: '🗑️ Togli', on: true }; return { t: '📌 Metti', on: !!(A.t && !A.t.err) && !(CAT[U.tool].p > BUDGET - spent(G.mine)) }; }
       if (G.ph === 'tour') return { t: '▶ Ruba nella villa del computer', on: true };
       if (G.srch) return { t: '🔍 Cerco…', on: false };
-      if (G.stun > G.time) return null;
+      if (G.safe) return { t: '🔒 Scasso…', on: false };
+      if (G.stun > G.time || G.fall || G.resp) return null;
       const s = this.spotNear(G); return s ? { t: '🔍 Apri: ' + s.n, on: true } : null;
     },
     act(G) {
       if (G.ph === 'build') { buildAct(G); return; }
       if (G.ph === 'tour') { raidStart(G); return; }
-      if (G.ph !== 'raid' || G.stun > G.time) return;
+      if (G.ph !== 'raid' || G.stun > G.time || G.safe) return;
       const s = this.spotNear(G); if (!s) return;
+      if (s.n === 'Cassaforte') { safeOpen(G, s.i); beep(320, 0.05, 0.03); return; }
       G.srch = { i: s.i, t0: G.time, d: s.h >= 2 ? 2 : 1, x: s.x + 0.5, y: s.y + 0.5 };
       beep(320, 0.05, 0.03);
     },
@@ -574,25 +756,26 @@
       }
       if (G.ph !== 'raid') return;
       G.left -= dt;
+      if (G.fall && G.time - G.fall.t > 1.0) { G.fall = null; if (!G.resp) { cq.x = 17; cq.y = 28.3; cqToast('🕳️ Sei finito in cantina… e di nuovo all\'ingresso!'); } }
+      if (G.resp && G.time >= G.resp) respawn(G);
+      if (G.slide) { const st = 7 * dt, nx = cq.x + G.slide.dx * st, ny = cq.y + G.slide.dy * st; if (G.slide.d < 3 && cqFree(nx, ny) && !this.blk(G, nx, ny)) { cq.x = nx; cq.y = ny; G.slide.d += st; } else G.slide = null; }
+      const sp2 = Math.hypot(cq.x - G.px, cq.y - G.py) / Math.max(dt, 0.001); G.px = cq.x; G.py = cq.y;
+      if (G.paint && (!G.steps.length || Math.hypot(cq.x - G.steps[G.steps.length - 1][0], cq.y - G.steps[G.steps.length - 1][1]) > 0.55)) { G.steps.push([cq.x, cq.y, G.steps.length]); if (G.steps.length > 400) G.steps.shift(); }
+      trapTick(G, dt); dogTick(G, dt, sp2 > 2.4 && !G.slide); safeTick(G, dt);
       const S = G.srch;
       if (S) {
         if (Math.floor((G.time - S.t0) * 6) !== Math.floor((G.time - S.t0 - dt) * 6)) beep(180 + Math.random() * 160, 0.03, 0.015);   // fruscio mentre si fruga
         if (G.time - S.t0 >= S.d) {
-          G.srch = null; G.open.push(S.i);
-          const it = G.vb.items.find(o => o.i === S.i && CAT[o.k].on === 'spot');
-          if (it && it.k === 'dia') { G.has = true; beep(988, 0.1, 0.05); beep(1319, 0.2, 0.05, 0.1); cqToast('💎 <b>Trovato!</b> Ora riportalo al portone, presto!'); }
-          else if (it && it.k === 'fake') { G.stun = G.time + 3; G.stunT = '🎂 Torta in faccia!'; G.cake = G.time; beep(140, 0.25, 0.06); cqToast('🎂 <b>Era un diamante finto!</b> Torta in faccia…'); }
-          else if (it && it.k === 'box') { G.stun = G.time + 1.5; G.stunT = '🥊 PAF!'; beep(110, 0.2, 0.07); cqToast('🥊 <b>Scatola a sorpresa!</b> Un guantone in faccia.'); }
-          else { beep(220, 0.08, 0.03); cqToast(cqPickOne(['Vuoto…', 'Niente qui.', 'Solo polvere.', 'Acqua…', 'Qui non c\'è.'])); }
+          G.srch = null; openSpot(G, S.i);
         }
       }
-      if (G.has && atPorch(cq.x, cq.y)) { this.finish(G, true); return; }
+      if (G.has && !G.resp && atPorch(cq.x, cq.y)) { this.finish(G, true); return; }
       if (G.left <= 0) this.finish(G, false);
     },
     finish(G, ok) {
-      buildClose();
-      const sp = spots()[G.dia], name = G.me.name + ' (tu)', t = G.time - (G.t0 || 0);
-      if (ok) cqModeEnd({ t: '💎 Diamante rubato!', why: 'Ce l\'hai fatta in <b>' + mmss(t) + '</b>, aprendo ' + G.open.length + ' mobili. Era: ' + esc(sp.n) + ' (' + esc(roomName(sp.x, sp.y)) + ').', win: [G.me.id], rank: [[name, '— ' + mmss(t)]] });
+      buildClose(); closeSafe(G);
+      const sp = spots()[G.dia], name = G.me.name + ' (tu)', t = Math.max(0, G.time - (G.t0 || 0) - (G.bonus || 0)), lost = G.lost ? ' Cuori persi: ' + G.lost + '.' : ' Nessuna trappola presa!';
+      if (ok) cqModeEnd({ t: '💎 Diamante rubato!', why: 'Ce l\'hai fatta in <b>' + mmss(t) + '</b>' + (G.bonus ? ' (con lo sconto della cassaforte)' : '') + ', aprendo ' + G.open.length + ' mobili. Era: ' + esc(sp.n) + ' (' + esc(roomName(sp.x, sp.y)) + ').' + lost, win: [G.me.id], rank: [[name, '— ' + mmss(t)]] });
       else cqModeEnd({ t: '⏱ Tempo scaduto!', why: G.has ? 'Avevi il diamante, ma non sei arrivato al portone in tempo.' : 'Il diamante era: <b>' + esc(sp.n) + '</b> (' + esc(roomName(sp.x, sp.y)) + ').', win: [], rank: [[name, '— ' + G.open.length + ' mobili aperti']] });
     },
     // diamante sopra la testa di chi lo porta; torta in faccia
@@ -600,10 +783,15 @@
       if (c !== G.me) return;
       const u = TW / 34;
       if (G.has) diamond(g, X, Y - (cqTop(L) + 0.5) * TW + Math.sin(performance.now() / 200) * 2 * u, 9 * u);
+      if (G.stun > G.time && !(G.cake && G.time - G.cake < 3) && !G.fall) { const hy = Y - cqTop(L) * TW * 0.95, a0 = performance.now() / 160; for (let i = 0; i < 4; i++) { const a = a0 + i * Math.PI / 2; g.fillStyle = i % 2 ? '#ffd24a' : '#fff4a0'; g.font = Math.round(11 * u) + 'px system-ui'; g.textAlign = 'center'; g.fillText('★', X + Math.cos(a) * 12 * u, hy + Math.sin(a) * 4 * u); } }
+      if (G.paint && G.ph === 'raid') { g.fillStyle = 'rgba(60,120,220,.8)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(X + (i - 2) * 4 * u, Y - cqTop(L) * TW * (0.75 + 0.05 * (i % 2)) + (i % 3) * 3 * u, 2.4 * u, 0, 7); g.fill(); } }
       if (G.cake && G.time - G.cake < 3) { const hy = Y - cqTop(L) * TW * 0.78; g.fillStyle = '#fff6e8'; g.beginPath(); g.ellipse(X, hy, 11 * u, 8 * u, 0, 0, 7); g.fill(); g.fillStyle = '#e86a8a'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(X - 7 * u + i * 5 * u, hy - 6 * u + (i % 2) * 3 * u, 2 * u, 0, 7); g.fill(); } }
     },
     // sopra la mappa: nella mia villa le cose che ho messo (solo io le vedo); nel furto la barra del frugare e la spunta sui mobili aperti
     over(g, G, sx, sy, TW) {
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      dogsDraw(g, G, sx, sy, TW);
+      if (G.ph === 'raid') raidDraw(g, G, sx, sy, TW);
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if ((G.ph === 'tour' || G.ph === 'build') && G.mine) {
         if (G.ph === 'build') aimDraw(g, G, sx, sy, TW);
@@ -651,8 +839,8 @@
     const X = sx(c.x, c.y), Y = sy(c.x, c.y); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, TW * 0.09, 0, 7); g.moveTo(X - TW * 0.2, Y); g.lineTo(X - TW * 0.12, Y); g.moveTo(X + TW * 0.12, Y); g.lineTo(X + TW * 0.2, Y); g.stroke();
   }
   // se si esce dalla partita durante la preparazione, catalogo e pianta si chiudono da soli e la telecamera torna normale
-  setInterval(() => { const G = cq.g; if (document.getElementById('trBar') && (!G || G.mode !== 'trappole' || G.ph !== 'build' || G.phase !== 'play')) { buildClose(); if (!G || G.mode !== 'nascondino') cq.cam = null; } }, 400);
-  window.__tr = { CAT, place, target, cpuBuild, spent, spots, buildEnd, raidStart, U, aim, buildAct, planOpen, BUDGET };   // per le prove
+  setInterval(() => { const G = cq.g; if (document.getElementById('trSafe') && (!G || G.mode !== 'trappole' || G.phase !== 'play')) closeSafe(G); if (document.getElementById('trBar') && (!G || G.mode !== 'trappole' || G.ph !== 'build' || G.phase !== 'play')) { buildClose(); if (!G || G.mode !== 'nascondino') cq.cam = null; } }, 400);
+  window.__tr = { CAT, place, target, cpuBuild, spent, spots, buildEnd, raidStart, U, aim, buildAct, planOpen, BUDGET, safeOpen, closeSafe };   // per le prove
   // diamante disegnato a faccette, con lo scintillio
   function diamond(g, X, Y, r) {
     const P = [[0, -0.55], [0.6, -0.55], [1, -0.1], [0, 1], [-1, -0.1], [-0.6, -0.55]].map(([a, b]) => [X + a * r, Y + b * r]);
