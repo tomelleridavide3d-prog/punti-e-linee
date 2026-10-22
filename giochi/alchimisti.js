@@ -71,9 +71,96 @@
     return { w: N, h: N, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[6, 6], [14, 14]], button: { x: -10, y: -10 }, sabs: {},
       inn: { Laboratorio: 'nel laboratorio' }, help: '', btnTxt: '', sabTxt: '',
       pxProp: drawFurn, drawWall, floor: { lab: floorLab, rim: floorRim },
-      bg: () => '#0c0a16' };   // dietro la torre: il cielo di notte
+      bg: () => '#0c0a16', sky: skyDraw };   // dietro la torre: il paesaggio di notte (skyDraw)
   }
   CQ_MAPS.torre = { n: 'Torre dei maghi', make: mapTorre, only: 'alchimisti' };
+  // ---- IL PAESAGGIO intorno alla torre: notte al chiaro di luna vista dall'alto (cielo, stelle, luna, montagne, valle col lago, boschi, villaggi).
+  // La parte ferma si disegna UNA volta (SKY, rifatta solo se cambia lo schermo); a ogni fotogramma solo nuvole che passano e luci che tremolano.
+  // E' lontano: non si ingrandisce con la visuale e si sposta appena quando cammini (profondita'). Gancio del motore: CQ_MAP.sky(g, CX, CY) ----
+  let SKY = null;
+  const SKY_M = 0.12;   // margine per lo spostamento
+  function skyBuild(w, h, dpr) {
+    const W = w * (1 + SKY_M), H = h * (1 + SKY_M), cv = document.createElement('canvas'); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); g.scale(dpr, dpr);
+    let sd = 7; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+    const m = Math.min(W, H), hy = H * 0.4;   // orizzonte in alto: siamo in cima alla torre e guardiamo giu' nella valle
+    // cielo
+    let gr = g.createLinearGradient(0, 0, 0, hy); gr.addColorStop(0, '#060919'); gr.addColorStop(0.55, '#141f4a'); gr.addColorStop(0.9, '#33467e'); gr.addColorStop(1, '#4a5c92');
+    g.fillStyle = gr; g.fillRect(0, 0, W, hy + 2);
+    // luna con l'alone
+    const mx = W * 0.8, my = H * 0.27, mr = m * 0.05;
+    gr = g.createRadialGradient(mx, my, mr, mx, my, m * 0.32); gr.addColorStop(0, 'rgba(210,222,255,.32)'); gr.addColorStop(1, 'rgba(210,222,255,0)'); g.fillStyle = gr; g.fillRect(0, 0, W, hy);
+    // stelle (non dentro l'alone della luna)
+    for (let i = 0; i < 190; i++) {
+      const x = rnd() * W, y = rnd() * hy * 0.95, d = Math.hypot(x - mx, y - my); if (d < m * 0.12) continue;
+      const r = 0.4 + rnd() * rnd() * 1.4, a = 0.35 + rnd() * 0.65 * (1 - y / hy * 0.5);
+      g.fillStyle = `rgba(${230 + rnd() * 25 | 0},${230 + rnd() * 25 | 0},255,${a})`; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill();
+      if (r > 1.35) { g.strokeStyle = `rgba(220,230,255,${a * 0.5})`; g.lineWidth = 0.6; g.beginPath(); g.moveTo(x - r * 3, y); g.lineTo(x + r * 3, y); g.moveTo(x, y - r * 3); g.lineTo(x, y + r * 3); g.stroke(); }
+    }
+    g.fillStyle = '#f4f1de'; g.beginPath(); g.arc(mx, my, mr, 0, 7); g.fill();
+    g.fillStyle = 'rgba(190,186,165,.45)'; for (const [a, b, r] of [[-0.3, -0.2, 0.22], [0.25, 0.1, 0.3], [-0.1, 0.4, 0.16], [0.35, -0.38, 0.12]]) { g.beginPath(); g.arc(mx + a * mr, my + b * mr, r * mr, 0, 7); g.fill(); }
+    // montagne lontane (due file), con il crinale illuminato dalla luna
+    const ridge = (base, amp, col, rim, ph) => {   // sagome morbide: somma di onde, cime un po' appuntite
+      const P = []; for (let i = 0; i <= 120; i++) { const u = i / 120 * 6.283, v = Math.abs(Math.sin(u * 1.3 + ph)) * 0.55 + Math.abs(Math.sin(u * 3.1 + ph * 2)) * 0.3 + Math.abs(Math.sin(u * 7.7 + ph * 3)) * 0.15; P.push([i / 120 * W, base - amp * v]); }
+      g.fillStyle = col; g.beginPath(); g.moveTo(0, H); for (const [x, yy] of P) g.lineTo(x, yy); g.lineTo(W, H); g.closePath(); g.fill();
+      g.strokeStyle = rim; g.lineWidth = 1; g.beginPath(); P.forEach(([x, yy], i) => i ? g.lineTo(x, yy) : g.moveTo(x, yy)); g.stroke();
+    };
+    ridge(hy + 3, h * 0.085, '#1c2650', 'rgba(150,170,230,.35)', 0.7);
+    ridge(hy + h * 0.03, h * 0.05, '#111934', 'rgba(120,145,210,.25)', 2.1);
+    // la valle sotto (scura, piu' scura verso di noi)
+    const vy = hy + h * 0.04; gr = g.createLinearGradient(0, vy, 0, H); gr.addColorStop(0, '#13213a'); gr.addColorStop(0.5, '#0b1526'); gr.addColorStop(1, '#050a14');
+    g.fillStyle = gr; g.fillRect(0, vy, W, H - vy);
+    // campi un po' piu' chiari
+    for (let i = 0; i < 14; i++) { const y = vy + Math.pow(rnd(), 1.5) * (H - vy) * 0.8, s = 0.3 + (y - vy) / (H - vy), x = rnd() * W; g.fillStyle = rnd() < 0.5 ? 'rgba(40,60,70,.35)' : 'rgba(30,48,62,.35)'; g.beginPath(); g.ellipse(x, y, W * 0.06 * s, h * 0.012 * s, 0, 0, 7); g.fill(); }
+    // il lago con il riflesso della luna e il fiume che scende verso di noi
+    const lx = mx - W * 0.04, ly = vy + h * 0.035;
+    g.fillStyle = '#2e4878'; g.beginPath(); g.ellipse(lx, ly, W * 0.17, h * 0.026, 0, 0, 7); g.fill();
+    { const Pt = k => { const u = k, a = 1 - u; return [a * a * a * (lx - W * 0.09) + 3 * a * a * u * (lx - W * 0.32) + 3 * a * u * u * (lx + W * 0.12) + u * u * u * (lx - W * 0.2), a * a * a * (ly + h * 0.01) + 3 * a * a * u * (ly + h * 0.12) + 3 * a * u * u * (ly + h * 0.3) + u * u * u * (H + 4)]; };
+      const L = [], Rr = []; for (let i = 0; i <= 30; i++) { const k = i / 30, [x, y] = Pt(k), wd = W * (0.004 + 0.035 * k * k); L.push([x - wd, y]); Rr.push([x + wd, y]); }   // il fiume si allarga venendo verso di noi
+      g.fillStyle = '#22385f'; g.beginPath(); L.forEach(([x, y], i) => i ? g.lineTo(x, y) : g.moveTo(x, y)); for (const [x, y] of Rr.reverse()) g.lineTo(x, y); g.closePath(); g.fill();
+      for (let i = 3; i < 30; i += 3) { const [x, y] = Pt(i / 30); g.fillStyle = 'rgba(170,195,240,.35)'; g.fillRect(x - W * 0.01 * (i / 30), y, W * 0.02 * (i / 30), 1.2); } }
+    for (let i = 0; i < 9; i++) { const yy = ly - h * 0.012 + i * h * 0.003, ww = W * (0.012 + 0.04 * (1 - Math.abs(i - 4) / 5)) * (0.6 + rnd() * 0.5); g.fillStyle = 'rgba(200,215,250,.55)'; g.fillRect(lx + W * 0.02 - ww / 2 + (rnd() - 0.5) * 6, yy, ww, 1.2); }
+    // boschi: file di alberelli (piu' piccoli lontano)
+    for (let row = 0; row < 7; row++) {
+      const y0 = vy + h * 0.02 + Math.pow(row / 6, 1.6) * (H - vy) * 0.85, s = 0.35 + row * 0.22;
+      for (let i = 0; i < 40; i++) { if (rnd() < 0.45) continue; const x = rnd() * W, y = y0 + (rnd() - 0.5) * h * 0.03, th = h * 0.012 * s * (0.7 + rnd() * 0.6); g.fillStyle = rnd() < 0.5 ? '#08111e' : '#0b1626'; g.beginPath(); g.moveTo(x - th * 0.45, y); g.lineTo(x, y - th * 1.4); g.lineTo(x + th * 0.45, y); g.fill(); g.fillStyle = 'rgba(110,135,190,.18)'; g.beginPath(); g.moveTo(x, y - th * 1.4); g.lineTo(x + th * 0.45, y); g.lineTo(x + th * 0.15, y); g.fill(); }
+    }
+    // villaggi: case scure e finestre accese (le luci che tremolano si ridisegnano a ogni fotogramma: SKY.lights)
+    const lights = [];
+    for (const [vx, vyy, n, s] of [[0.18, 0.03, 9, 0.6], [0.52, 0.07, 7, 0.8], [0.9, 0.05, 6, 0.7], [0.3, 0.28, 11, 1.4], [0.75, 0.42, 8, 1.8], [0.08, 0.5, 6, 2]]) {
+      const cx = vx * W, cy = vy + vyy * (H - vy) * 1.6;
+      for (let i = 0; i < n; i++) {
+        const x = cx + (rnd() - 0.5) * W * 0.07 * s, y = cy + (rnd() - 0.5) * h * 0.02 * s, hs = 2.6 * s;
+        g.fillStyle = '#0a1018'; g.fillRect(x - hs, y - hs, hs * 2, hs * 1.3); g.beginPath(); g.moveTo(x - hs * 1.2, y - hs); g.lineTo(x, y - hs * 2); g.lineTo(x + hs * 1.2, y - hs); g.fill();
+        if (rnd() < 0.8) { lights.push([x, y - hs * 0.4, 0.6 + 0.5 * s, rnd() * 6]); g.fillStyle = 'rgba(255,190,100,.16)'; g.beginPath(); g.arc(x, y - hs * 0.4, 3 + 2.2 * s, 0, 7); g.fill(); }
+      }
+      if (s > 1) { g.fillStyle = '#0a1018'; g.fillRect(cx - 1.5 * s, cy - 9 * s, 3 * s, 7 * s); g.beginPath(); g.moveTo(cx - 2.5 * s, cy - 9 * s); g.lineTo(cx, cy - 15 * s); g.lineTo(cx + 2.5 * s, cy - 9 * s); g.fill(); }   // campanile
+    }
+    // foschia: veli chiari sull'orizzonte e nella valle
+    for (const [y, a] of [[hy + h * 0.03, 0.16], [vy + h * 0.12, 0.08], [vy + h * 0.3, 0.06]]) { gr = g.createLinearGradient(0, y - h * 0.03, 0, y + h * 0.03); gr.addColorStop(0, 'rgba(150,170,215,0)'); gr.addColorStop(0.5, `rgba(150,170,215,${a})`); gr.addColorStop(1, 'rgba(150,170,215,0)'); g.fillStyle = gr; g.fillRect(0, y - h * 0.03, W, h * 0.06); }
+    // nuvole (a ogni fotogramma): forma fissa, posizione che scorre
+    const clouds = []; for (let i = 0; i < 6; i++) { const blobs = []; for (let k = 0; k < 7; k++) blobs.push([(k - 3) * 0.16 + (rnd() - 0.5) * 0.08, (rnd() - 0.5) * 0.18 - (k > 1 && k < 5 ? 0.12 : 0), 0.12 + rnd() * 0.1]); clouds.push({ x: rnd(), y: i < 4 ? 0.05 + i * 0.075 + rnd() * 0.04 : hy / H + 0.06 + rnd() * 0.25, sz: (i < 4 ? 0.28 : 0.4) + rnd() * 0.12, sp: 0.004 + rnd() * 0.006, low: i >= 4, blobs }); }
+    return { cv, w, h, dpr, W, H, lights, clouds, mx, my };
+  }
+  function skyDraw(g, CX, CY) {
+    const w = cq.w, h = cq.h, dpr = cq.dpr;
+    if (!SKY || SKY.w !== w || SKY.h !== h || SKY.dpr !== dpr) SKY = skyBuild(w, h, dpr);
+    const S = SKY, t = performance.now() / 1000;
+    // profondita': il paesaggio si sposta appena quando ti muovi nella torre
+    const ox = -w * SKY_M / 2 - Math.max(-1, Math.min(1, ((CX - C) - (CY - C)) / 16)) * w * SKY_M * 0.45, oy = -h * SKY_M / 2 - Math.max(-1, Math.min(1, ((CX - C) + (CY - C)) / 16)) * h * SKY_M * 0.45;
+    g.save(); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    g.drawImage(S.cv, ox, oy, S.W, S.H);
+    // nuvole che passano (una ogni tanto copre la luna)
+    for (const c of S.clouds) {
+      const cw = S.W * c.sz, x = ox + ((c.x + t * c.sp * 0.1) % 1) * (S.W + cw) - cw / 2, y = oy + c.y * S.H, a = c.low ? 0.22 : 0.8;
+      for (const [bx, by, br] of c.blobs) { g.fillStyle = c.low ? `rgba(120,140,190,${a})` : `rgba(34,44,86,${a})`; g.beginPath(); g.ellipse(x + bx * cw, y + by * cw * 0.4, br * cw, br * cw * 0.45, 0, 0, 7); g.fill(); }
+      if (!c.low) for (const [bx, by, br] of c.blobs) { g.fillStyle = 'rgba(150,168,220,.22)'; g.beginPath(); g.ellipse(x + bx * cw - br * cw * 0.15, y + by * cw * 0.4 - br * cw * 0.2, br * cw * 0.7, br * cw * 0.22, 0, 0, 7); g.fill(); }
+    }
+    // luci dei villaggi che tremolano
+    for (const [x, y, r, p] of S.lights) { g.fillStyle = `rgba(255,${200 + (Math.sin(t * 2.3 + p) * 30 | 0)},120,${0.7 + 0.3 * Math.sin(t * 1.7 + p * 3)})`; g.beginPath(); g.arc(ox + x, oy + y, Math.min(r * 1.3, 1.8), 0, 7); g.fill(); }
+    g.restore();
+  }
+
 
   // ---- PAVIMENTI (si disegnano una volta sola nella mappa pronta: qui le trasparenze vanno bene) ----
   const clipCell = (K, x, y) => { const { g, S } = K; g.save(); g.beginPath(); for (const [i, p] of [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)].entries()) i ? g.lineTo(...p) : g.moveTo(...p); g.closePath(); g.clip(); };
