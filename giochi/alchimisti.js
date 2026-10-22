@@ -1127,7 +1127,25 @@
     G.fl.push(f); return f;
   }
   const flPos = (f, t) => { const u = Math.max(0, Math.min(1, (t - f.t0) / f.d)); return { x: f.x0 + (f.x1 - f.x0) * u, y: f.y0 + (f.y1 - f.y0) * u, z: 1.1 * (1 - u) + f.pk * 4 * u * (1 - u), u }; };
+  // SCONTRO IN VOLO: due ampolle di giocatori diversi che si incrociano (vicine e alla stessa altezza) scoppiano insieme IN ARIA:
+  // i loro ingredienti si sommano in una sola miscela (brew fa le reazioni con la stessa tabella REACT) e l'effetto cade li' sotto.
+  // Si controlla tutto il tratto fatto dall'ultimo giro (5 punti), cosi' non si incrociano senza vedersi anche se l'host va a scatti
+  const AIR_D = 0.65, AIR_Z = 1.2;
+  function airHits(G) {
+    const tp = G.flT != null && G.flT < G.time ? G.flT : G.time - 0.05; G.flT = G.time;
+    const L = G.fl.filter(f => !f.done);
+    for (let a = 0; a < L.length; a++) for (let b = a + 1; b < L.length; b++) {
+      const f = L[a], h = L[b]; if (f.o === h.o || f.done || h.done) continue;
+      const t0 = Math.max(tp, f.t0 + 0.12, h.t0 + 0.12), t1 = Math.min(G.time, f.t0 + Math.min(f.d, f.fz), h.t0 + Math.min(h.d, h.fz)); if (t1 < t0) continue;
+      for (let s = 0; s <= 4; s++) {
+        const t = t0 + (t1 - t0) * s / 4, p = flPos(f, t), q = flPos(h, t);
+        if (Math.hypot(p.x - q.x, p.y - q.y) > AIR_D || Math.abs(p.z - q.z) > AIR_Z) continue;
+        f.done = h.done = 1; burst(G, potKey([...f.k, ...h.k]), (p.x + q.x) / 2, (p.y + q.y) / 2, h.t0 >= f.t0 ? h.o : f.o, false, 'air'); break;
+      }
+    }
+  }
   function flTick(G) {
+    airHits(G);
     for (const f of G.fl) {
       if (f.done) continue;
       const te = f.t0 + Math.min(f.d, f.fz), now2 = Math.min(G.time, te), p = flPos(f, now2);
@@ -1155,9 +1173,9 @@
     G.fl = G.fl.filter(f => !f.done);
   }
   // ---- la pozione si rompe: ogni elemento fa il suo effetto (tabella FX), con la sua forza ----
-  function burst(G, key, x, y, o, early) {
+  function burst(G, key, x, y, o, early, how) {
     const P = brew(key); if (!P) return;
-    note(G, key, x, y, early ? 'early' : '');
+    note(G, key, x, y, how || (early ? 'early' : ''));
     const st = Object.assign({}, P.s);
     for (const k of Object.keys(st)) if (FX[k] && FX[k].chaos) { const e = cqPickOne(CHAOS); st[e] = (st[e] || 0) + st[k]; delete st[k]; }   // occhio di rospo: un elemento a caso
     // REAZIONI SUL CAMPO: la pozione cade su una pozza (anche dell'altro) e i due elementi reagiscono come nel calderone (stessa tabella REACT).
@@ -1401,6 +1419,11 @@
       const dd = Math.hypot(c.x - e.x, c.y - e.y), need = P3.area * 1.3 + 0.6; if (dd > need) continue;
       let ax = c.x - e.x, ay = c.y - e.y; const al = Math.hypot(ax, ay) || 1; ax /= al; ay /= al;
       if (Math.random() < 0.4) botDrink(G, c, ['dash', 'shield', 'stone', 'skate'], -ay, ax);   // a volte si salva bevendo
+      else if (Math.random() < 0.2 && (c.thT || 0) <= G.time) {   // o risponde con un CONTRO-LANCIO dritto verso chi ha lanciato: le ampolle si scontrano a meta' strada
+        let ci = -1, cs = 1e9; const dl = Math.hypot(f.x0 - c.x, f.y0 - c.y);
+        c.belt.forEach((k, i) => { const P4 = k && brew(k); if (!P4 || P4.spd * Math.min(P4.fuse, 9) < dl * 0.6) return; const v = potScore(G, P4, { x: C, y: C }); if (v < cs) { cs = v; ci = i; } });
+        if (ci >= 0) throwFrom(G, c, ci, f.x0 + gauss() * 0.5, f.y0 + gauss() * 0.5);
+      }
       for (const sg of [1, -1, 0]) { const nx = c.x + (ax * 0.6 + (sg ? -ay * sg : 0)) * (need - dd + 0.8), ny = c.y + (ay * 0.6 + (sg ? ax * sg : 0)) * (need - dd + 0.8); if (inArena(nx, ny) && Math.hypot(nx - C, ny - C) > PIT + 1.2 && cqCellFree(Math.floor(nx), Math.floor(ny))) { c.path = cqPath(c.x, c.y, nx, ny).slice(0, 4); c.dodge = G.time + 0.8; c.think = 0.9; c.goal = 'd'; break; } }
       c.rt = 0; break;
     }
@@ -1587,10 +1610,11 @@
       g.save(); g.globalAlpha = 1 - k; g.strokeStyle = col; g.lineWidth = Math.max(3, TW / 10) * (1 - k); g.beginPath(); g.ellipse(X, Y, r, r / 2, 0, 0, 7); g.stroke();
       g.fillStyle = col; for (let i = 0; i < 10; i++) { const an = i * 0.628, px = X + Math.cos(an) * r * 0.8, py = Y + Math.sin(an) * r * 0.4 - Math.sin(k * Math.PI) * U * (0.8 + (i % 3) * 0.3); g.beginPath(); g.arc(px, py, Math.max(2, TW / 22), 0, 7); g.fill(); }
       if (s.how === 'early' || (P && P.inst >= 0.45)) { g.fillStyle = '#fff4c0'; g.beginPath(); g.arc(X, Y - U * 0.8, TW * 0.5 * (1 - k), 0, 7); g.fill(); }
+      if (s.how === 'air') { g.fillStyle = '#fff8d8'; g.beginPath(); g.arc(X, Y - U * 1.9, TW * 0.8 * (1 - k), 0, 7); g.fill(); g.strokeStyle = '#ffd24a'; g.lineWidth = 3; for (let i = 0; i < 12; i++) { const an = i * 0.5236, r1 = TW * (0.3 + 1.4 * k), rr = r1 + TW * 0.4; g.beginPath(); g.moveTo(X + Math.cos(an) * r1, Y - U * 1.9 + Math.sin(an) * r1 * 0.6); g.lineTo(X + Math.cos(an) * rr, Y - U * 1.9 + Math.sin(an) * rr * 0.6); g.stroke(); } }   // scontro in volo: stella di luce in aria
       g.restore();
     }
     if (P && name && s.how !== 'bounce' && a < 2) {   // il nome della pozione sale dal punto dello scoppio
-      const k = a / 2, txt = P.e + ' ' + P.n + (s.how === 'early' ? ' 💥' : '');
+      const k = a / 2, txt = (s.how === 'air' ? '💥 IN VOLO! ' : '') + P.e + ' ' + P.n + (s.how === 'early' ? ' 💥' : '');
       g.save(); g.globalAlpha = Math.min(1, (1 - k) * 2); g.font = '800 ' + Math.round(Math.max(12, TW / 3.2)) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
       const y = Y - U * (1.6 + k * 1.4), w = g.measureText(txt).width + 14; g.fillStyle = 'rgba(16,10,24,.75)'; cqRR(g, X - w / 2, y - 12, w, 24, 12); g.fill(); g.fillStyle = P.c; g.fillRect(X - w / 2 + 6, y + 8, w - 12, 2); g.fillStyle = '#fff'; g.fillText(txt, X, y); g.restore();
     }
@@ -1711,7 +1735,8 @@
     for (const b of G.bx) if (b[0] > (G.bxSeen || 0)) {
       G.bxSeen = b[0]; if (G.time - b[4] > 1.5) continue;
       G.spl = (G.spl || []).filter(s => performance.now() / 1000 - s.t < 2.2); G.spl.push({ k: b[1], x: b[2], y: b[3], t: performance.now() / 1000, how: b[5] });
-      if (b[1] && b[5] !== 'react' && b[5] !== 'mirror') bookNote(b[1]);
+      if (b[1] && b[5] !== 'react' && b[5] !== 'mirror' && b[5] !== 'air') bookNote(b[1]);
+      if (b[5] === 'air') { SFX.boom(); SFX.smash(''); swp(1800, 300, 0.5, 0.04, 0.05, 'triangle'); if (G.guest) G.fl = G.fl.filter(f => !(f.loc && Math.hypot(flPos(f, G.time).x - b[2], flPos(f, G.time).y - b[3]) < 1.3)); continue; }   // scontro in volo
       if (b[5] === 'react') { SFX.boom(); swp(400, 1600, 0.3, 0.04, 0.05, 'triangle'); continue; }
       const P = b[1] && brew(b[1]); if (b[5] !== 'bounce') { SFX.smash(P ? P.main : ''); if (b[5] === 'early' || (P && P.inst >= 0.45)) SFX.boom(); } else swp(400, 900, 0.12, 0.04);
       if (G.guest) G.fl = G.fl.filter(f => !(f.loc && Math.hypot(f.x1 - b[2], f.y1 - b[3]) < 0.1));
@@ -1912,5 +1937,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr']) { const e = document.getElementById(id); if (e) e.remove(); } U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos };   // per le prove (prove/alc*.js)
 })();
