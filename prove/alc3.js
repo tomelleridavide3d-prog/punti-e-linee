@@ -42,12 +42,12 @@
   fresh(); const hp6 = bot.hp; place(bot, 3.2, 10.5); A.burst(G, 'vv', 5.0, 10.5, G.me.id); step(1); freeze();
   out.push('6) 💫 spinto contro il muro: cuori ' + hp6 + ' -> ' + bot.hp + ', incollato un attimo ' + !!(bot.fx.stuck));
   // 7) ricarica al mio calderone
-  fresh(); G.me.belt = ['', '', '', '']; place(G.me, 6.5, 7.5); const b7 = M.btn(G); M.act(G); step(2.3);
+  fresh(); G.me.belt = ['', '', '', '']; place(G.me, 6.5, 7.5); const b7 = M.btn(G); M.act(G); step(2.8);
   out.push('7) 🫕 vicino al calderone: pulsante "' + (b7 ? b7.t : 'NESSUNO') + '" -> cintura ' + G.me.belt.map(k => k ? A.brew(k).n : '-').join(' | '));
   // 8) il computer combatte da solo per 40 s contro di me fermo
-  fresh(); place(G.me, 13.5, 13.5); bot.hold = 0; bot.think = 0; bot.aimT = 0; G.st.t0 = G.time; G.me.belt = ['', '', '', ''];
+  fresh(); place(G.me, 13.5, 13.5); bot.hold = 0; bot.think = 0; bot.aimT = 0; G.st.t0 = G.time; G.me.belt = ["", "", "", ""]; bot.rf = 4;
   let thr = 0; const fl0 = G.flN; const hpLog = [];
-  for (let i = 0; i < 40; i++) { step(1); hpLog.push(G.me.hp); if (G.me.hp <= 1) { G.me.hp = 3; } if (bot.hp <= 1) bot.hp = 3; if (G.st.ph !== 'duel') break; }
+  for (let i = 0; i < 40; i++) { step(1); hpLog.push(G.me.hp); if (G.me.hp <= 2) { G.me.hp = 3; } if (bot.hp <= 1) bot.hp = 3; if (G.st.ph !== 'duel') break; }
   out.push('8) computer in 40 s: lanci ' + (G.flN - fl0) + ', cuori miei nel tempo ' + hpLog.join('') + ', cintura ora ' + bot.belt.map(k => k || '-').join(','));
   // 9) manche: mi tolgo i cuori -> risultato -> manche 2 (preparazione 30 s)
   G.zn = []; G.me.fx = {}; G.me.iv = 0; G.me.hp = 1; A.burst(G, 'f', cq.x, cq.y, bot.id); step(0.2);

@@ -2,7 +2,7 @@
 // uso: node prove/cdp.mjs . prove/alc7.js [foto.png]   (foto: in alto la serra, in basso la sala dell'orologio, viste in partita)
 (async () => {
   const w = ms => new Promise(r => setTimeout(r, ms)), out = [];
-  store.settings.myName = 'zzAlProva'; saveStore(); try { localStorage.setItem('alcHelp', '{"prep":1,"duel":1}'); } catch {}
+  store.settings.myName = 'zzAlProva'; saveStore(); try { localStorage.setItem('alcHelp2', '{"prep":1,"duel":1}'); } catch {}
   const inp = [...document.querySelectorAll('input')].find(i => i.placeholder === 'Il tuo nome' && i.offsetParent);
   if (inp) { inp.value = 'zzAlProva'; inp.dispatchEvent(new Event('input', { bubbles: true })); const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Continua' && b.offsetParent); b && b.click(); }
   await w(300); openCiack(); $('#pkGo').click(); await w(500);

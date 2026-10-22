@@ -2,7 +2,7 @@
 // uso: node prove/cdp.mjs . prove/alc6.js [foto.png]   (foto: il ricettario aperto sopra il calderone)
 (async () => {
   const w = ms => new Promise(r => setTimeout(r, ms)), out = [];
-  store.settings.myName = 'zzAlProva'; saveStore(); try { localStorage.removeItem('alcHelp'); } catch {}
+  store.settings.myName = 'zzAlProva'; saveStore(); try { localStorage.removeItem('alcHelp2'); } catch {}
   const inp = [...document.querySelectorAll('input')].find(i => i.placeholder === 'Il tuo nome' && i.offsetParent);
   if (inp) { inp.value = 'zzAlProva'; inp.dispatchEvent(new Event('input', { bubbles: true })); const b = [...document.querySelectorAll('button')].find(b => b.textContent.trim() === 'Continua' && b.offsetParent); b && b.click(); }
   await w(300); openCiack(); $('#pkGo').click(); await w(500);
