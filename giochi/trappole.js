@@ -1,28 +1,27 @@
 // La casa delle trappole (gioco 1 contro 1, vedi CLAUDE.md "PROSSIMA SESSIONE: Minigioco La casa delle trappole").
-// Passo 1: la VILLA in pixel art (stessi attrezzi della hall: giochi/lib/pixel.js -> PXK) e una prima prova: il computer nasconde il diamante
-// in un mobile, tu lo cerchi aprendo i mobili e lo riporti al portone entro 90 s. Giorno o notte (con la torcia) dalle impostazioni.
+// La VILLA disegnata con gli attrezzi del motore (blocchetti, come tutti gli altri minigiochi: scelta dell'utente del 22-10-2026,
+// prima era in pixel art). Preparazione girando per la villa, villa del computer, furto. Giorno o notte (con la torcia) dalle impostazioni.
 (() => {
-  const { Pix, put, sh, mix, hx, fr, h2, dith, ZS } = window.PXK;
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const TIME = 90, NEAR = 1.35;
 
   // ---- PIANTA: 9 stanze a griglia 3x3 (piu' il corridoio di servizio), muri di una casella tra le stanze ----
   // colonne x: 1-9 | 11-22 | 24-32 ; righe y: 1-8 | 10-19 | 21-28 ; muri esterni a x 0, 33 e y 0, 29
+  // vk = tipo di stanza (pianta mini), k = pavimento del motore (wood/tile/carpet/stone), c = i due colori a scacchi, wc = colore dei muri
   const W = 34, H = 30;
-  const R = (n, x, y, w, h, k, c, paper) => ({ n, x, y, w, h, k, c: [c, sh0(c)], wc: paper, nl: 1, paper });
-  const sh0 = c => { const v = hx(c).map(a => Math.round(a * 0.94)); return '#' + v.map(a => a.toString(16).padStart(2, '0')).join(''); };
+  const R = (n, x, y, w, h, vk, k, c0, c1, wc) => ({ n, x, y, w, h, vk, k, c: [c0, c1], wc, nl: 1 });
   const ROOMS = [
-    R('Biblioteca', 1, 1, 9, 8, 'biblio', '#6a2a2a', '#4a2a1a'),
-    R('Studio', 11, 1, 12, 8, 'noce', '#5a3a26', '#2a3a5a'),
-    R('Camera da letto', 24, 1, 9, 8, 'legno', '#8a5a3a', '#7a6a9a'),
-    R('Serra', 1, 10, 9, 10, 'serra', '#a8a090', '#9ab8a0'),
-    R('Salone', 11, 10, 12, 10, 'parquet', '#b9824a', '#6a2a3a'),
-    R('Bagno', 24, 10, 9, 10, 'scacchi', '#d8d8d4', '#9ac0d0'),
-    R('Cantina', 1, 21, 6, 8, 'pietra', '#6a6560', '#7a4a3a'),
-    R('Corridoio', 8, 21, 2, 8, 'corr', '#8a5a3a', '#c8b48a'),
-    R('Ingresso', 11, 21, 12, 8, 'marmo', '#d8ccb4', '#2e5a4a'),
-    R('Cucina', 24, 21, 9, 8, 'cotto', '#c0603a', '#e0d4a0')];
-  // porte: caselle di pavimento nei muri (k = di che porta si tratta)
+    R('Biblioteca', 1, 1, 9, 8, 'biblio', 'carpet', '#7a2e30', '#742a2c', '#5a3a2a'),
+    R('Studio', 11, 1, 12, 8, 'noce', 'wood', '#6a4a32', '#634530', '#3a4a6a'),
+    R('Camera da letto', 24, 1, 9, 8, 'legno', 'wood', '#9a6a44', '#93653f', '#7a6a9a'),
+    R('Serra', 1, 10, 9, 10, 'serra', 'stone', '#b4ad9a', '#aca591', '#6a8a6a'),
+    R('Salone', 11, 10, 12, 10, 'parquet', 'wood', '#b9824a', '#b07a44', '#7a3a46'),
+    R('Bagno', 24, 10, 9, 10, 'scacchi', 'tile', '#e8e8e4', '#3a3a44', '#7aa8bc'),
+    R('Cantina', 1, 21, 6, 8, 'pietra', 'stone', '#6e6964', '#68635e', '#7a4a3a'),
+    R('Corridoio', 8, 21, 2, 8, 'corr', 'wood', '#8a5a3a', '#84553a', '#a8946a'),
+    R('Ingresso', 11, 21, 12, 8, 'marmo', 'tile', '#e2d8c2', '#4a6a5c', '#3e6a5a'),
+    R('Cucina', 24, 21, 9, 8, 'cotto', 'tile', '#c0603a', '#b85a36', '#c8b88a')];
+  // porte: caselle di pavimento nei muri
   const DOORS = [
     [15, 20, 3, 1, 'Salone', 'Ingresso'], [23, 24, 1, 2, 'Ingresso', 'Cucina'], [10, 25, 1, 2, 'Corridoio', 'Ingresso'], [8, 20, 2, 1, 'Serra', 'Corridoio'],
     [3, 20, 2, 1, 'Serra', 'Cantina'], [4, 9, 2, 1, 'Biblioteca', 'Serra'], [10, 14, 1, 2, 'Serra', 'Salone'], [19, 9, 2, 1, 'Studio', 'Salone'],
@@ -72,615 +71,246 @@
     ['winerack', 1, 26, { f: 'x' }], ['winerack', 1, 27, { f: 'x' }], ['winerack', 1, 28, { f: 'x' }],
     ['jarshelf', 5, 21, { f: 'y', h: 1, n: 'Barattoli' }], ['crate', 6, 21], ['crate', 6, 22, { h: 1, n: 'Cassa' }], ['crate', 6, 23], ['oldtrunk', 4, 27, { h: 2, n: 'Baule vecchio' }]];
 
-  // ---- colori ----
-  const C = {
-    wood: hx('#6a3a24'), wood2: hx('#874c2e'), wood3: hx('#a5643c'), woodD: hx('#4a2818'), oak: hx('#b07a48'), oak2: hx('#c89058'),
-    cream: hx('#e8dcbc'), cream2: hx('#cdb88a'), brass: hx('#c8a050'), brassD: hx('#8a6a2c'), gold: hx('#e8c46a'),
-    white: hx('#ecebe6'), white2: hx('#d4d0c6'), steel: hx('#8a9098'), steel2: hx('#b8c0c8'), steelD: hx('#4a5058'),
-    leaf: [hx('#2e6a3a'), hx('#3e8a46'), hx('#5aa854')], terra: hx('#b8603a'), black: hx('#22222a'),
-  };
-  const BOOKS = ['#8a2a2a', '#2a4a7a', '#3a6a3a', '#7a5a2a', '#5a2a5a', '#2a5a5a', '#9a7a3a', '#6a3a2a', '#c8b48a'].map(hx);
-
-  // ---- luce: ambiente + lampade + finestre (sole di giorno, luna di notte) ----
-  let NIGHT = 0, LIGHTS = [];
-  const WIN_B = [[13.2, 14.8], [19.2, 20.8], [24.3, 25.7]];   // finestre sul muro in fondo (y = 0): studio (2) e camera
-  const WIN_L = [[24.4, 25.6]];   // finestrella della cantina (x = 0); la serra ha tutto il muro di vetro
-  function setup(props) {
-    LIGHTS = [{ x: 16.5, y: 14.5, r: 6, c: [0.26, 0.2, 0.08] }];   // lampadario del salone
-    for (const [t, x, y] of props) {
-      if (t === 'lamp' || t === 'rlamp') LIGHTS.push({ x: x + 0.5, y: y + 0.5, r: 3.4, c: [0.42, 0.3, 0.1] });
-      if (t === 'nightstand') LIGHTS.push({ x: x + 0.5, y: y + 0.5, r: 2.2, c: [0.3, 0.2, 0.06] });
-    }
-    const sun = NIGHT ? [-0.06, 0.0, 0.14] : [0.2, 0.17, 0.08];
-    for (const [a, b] of WIN_B) LIGHTS.push({ x: (a + b) / 2, y: 2, r: 3, c: sun });
-    for (let y = 11; y < 20; y += 2) LIGHTS.push({ x: 2, y, r: 2.6, c: sun });
-    for (const [a, b] of WIN_L) LIGHTS.push({ x: 2, y: (a + b) / 2, r: 2.2, c: sun.map(v => v * 0.6) });
-    LIGHTS.push({ x: 4, y: 24.5, r: 3, c: [0.16, 0.08, 0.0] });   // lanterna della cantina (calda, poca)
-  }
-  const AMB = [0.86, 0.82, 0.8];
-  const lightAt = (wx, wy) => {
-    let r = AMB[0], g = AMB[1], b = AMB[2];
-    for (const L of LIGHTS) { const dd = Math.hypot(wx - L.x, wy - L.y); if (dd >= L.r) continue; const f = (1 - dd / L.r) ** 2; r += L.c[0] * f; g += L.c[1] * f; b += L.c[2] * f; }
-    if (wx < 7 && wy > 21) { r *= 0.86; g *= 0.84; b *= 0.86; }   // la cantina e' piu' buia
-    return [r, g, b];
-  };
-
+  let NIGHT = 0;
   // stanza (o porta) di una casella
   const roomAt = (x, y) => { const i = cqRoomOf[y] && cqRoomOf[y][x]; return i >= 0 ? CQ_ROOMS[i] : null; };
   const isWall = (x, y) => !!(cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].wall);
   const propAt = (x, y) => { const o = cqSolid[y] && cqSolid[y][x]; return o && o.prop ? o.prop : null; };
 
-  // ---- PAVIMENTI ----
-  const RUGS = [{ x0: 13.2, y0: 12.4, x1: 20.2, y1: 17.4, c: hx('#7a2a3a'), b: hx('#d8b060') }, { x0: 25.4, y0: 3.4, x1: 30.6, y1: 6.6, c: hx('#4a5a8a'), b: hx('#d8c8a0') },
-    { x0: 15.3, y0: 21, x1: 17.7, y1: 29, c: hx('#8a2028'), b: hx('#c99a44'), run: 1 }, { x0: 30.6, y0: 12.2, x1: 32.4, y1: 13.2, c: hx('#e8eef2'), b: hx('#9ac0d0') },
-    { x0: 27.2, y0: 24, x1: 30.8, y1: 26.8, c: hx('#9a3a2a'), b: hx('#e8d8b0') }];
-  function floorPx(k, x, y, u, v, X, Y) {
-    const wx = x + u, wy = y + v, Xg = (x - y) * 16 + X, Yg = (x + y) * 8 + Y, n = h2(Xg, Yg);
-    for (const r of RUGS) if (wx >= r.x0 && wx < r.x1 && wy >= r.y0 && wy < r.y1) {
-      const e = Math.min(wx - r.x0, r.x1 - wx, wy - r.y0, r.y1 - wy);
-      if (e < 0.06) return sh(r.b, 0.8);
-      if (e < 0.16) return r.b;
-      if (e < 0.22) return sh(r.c, 0.8);
-      if (r.run) return fr(wy * 2) < 0.08 ? sh(r.c, 1.15) : r.c;
-      const a = fr((wx - r.x0) * 1.5), b = fr((wy - r.y0) * 1.5), d = Math.abs(a - 0.5) + Math.abs(b - 0.5);
-      return d < 0.12 ? r.b : d > 0.42 ? sh(r.c, 0.88) : Math.abs(d - 0.28) < 0.03 ? sh(r.b, 0.85) : r.c;
-    }
-    switch (k) {
-      case 'parquet': {   // quadrotti di listelli alternati (meta' casella)
-        const bx = Math.floor(wx * 2), by = Math.floor(wy * 2), alt = (bx + by) & 1, s = alt ? fr(wy * 2) : fr(wx * 2), p = Math.floor((alt ? fr(wx * 2) : fr(wy * 2)) * 4);
-        const col = [hx('#b9824a'), hx('#a8743f'), hx('#c99458'), hx('#b07a44')][(p + bx * 3 + by * 5) & 3];
-        if ((alt ? fr(wx * 2) : fr(wy * 2)) * 4 % 1 < 0.12 || s < 0.04) return hx('#7a4a28');
-        return sh(col, 0.97 + n * 0.06);
-      }
-      case 'legno': case 'noce': case 'corr': case 'door': case 'biblio': {   // assi di legno (studio e corridoio per lungo)
-        const along = k === 'noce' || k === 'corr', a = along ? wx : wy, b = along ? wy : wx, j = Math.floor(a * 4);
-        const cs = k === 'legno' ? ['#8a5a3a', '#7a4e32', '#966442'] : k === 'door' ? ['#b07a48', '#a06c3c', '#c08850'] : k === 'biblio' ? ['#4e2e1e', '#5a3422', '#462818'] : ['#5a3422', '#64402a', '#4e2e1e'];
-        if (fr(a * 4) < 0.1) return hx('#2e1a10');
-        if (fr(b * 0.6 + h2(j, 3) ) < 0.025) return hx('#3a2214');
-        return sh(hx(cs[(j + Math.floor(b * 0.6 + h2(j, 3))) % 3]), 0.97 + n * 0.05);
-      }
-      case 'marmo': {   // marmo a scacchi crema e verde scuro con le venature
-        let c = (x + y) % 2 ? hx('#3e5a50') : hx('#e6dcc6');
-        const f = Math.sin(wx * 5.1 + Math.sin(wy * 3.7 + wx * 1.3) * 2.2 + wy * 3.3);
-        if (Math.abs(f) < 0.05) c = sh(c, (x + y) % 2 ? 1.25 : 0.9);
-        if (u < 1 / 16 || v < 1 / 16) return hx('#8a7a60');
-        if (u > 15 / 16 || v > 15 / 16) return sh(c, 0.86);
-        return sh(c, 0.98 + n * 0.04);
-      }
-      case 'cotto': {   // piastrelle di cotto
-        const a = fr(wx * 2), b = fr(wy * 2); if (a < 0.07 || b < 0.07) return hx('#7a4a34');
-        const t = h2(Math.floor(wx * 2), Math.floor(wy * 2)); return sh([hx('#c0603a'), hx('#b05634'), hx('#c8704a')][Math.floor(t * 3)], (a > 0.9 || b > 0.9 ? 0.86 : 1) * (0.97 + n * 0.05));
-      }
-      case 'scacchi': {   // bagno: piastrelle bianche e nere
-        const a = fr(wx * 2), b = fr(wy * 2); if (a < 0.06 || b < 0.06) return hx('#9a9aa0');
-        const blk = (Math.floor(wx * 2) + Math.floor(wy * 2)) & 1; return sh(blk ? hx('#2a2a34') : hx('#ecebe6'), (a > 0.92 || b > 0.92 ? 0.9 : 1) * (0.98 + n * 0.03));
-      }
-      case 'serra': {   // lastre di pietra chiara con il muschio nelle fughe
-        const row = Math.floor(wy * 2), a = fr(wx * 2 + (row & 1) * 0.5), b = fr(wy * 2);
-        if (a < 0.08 || b < 0.08) return n > 0.55 ? hx('#5a7a3a') : hx('#7a7262');
-        const t = h2(Math.floor(wx * 2 + (row & 1) * 0.5), row); return sh(t < 0.33 ? hx('#b8b0a0') : t < 0.66 ? hx('#aaa292') : hx('#c2bba8'), 0.97 + n * 0.05);
-      }
-      case 'pietra': {   // cantina: ciottoli
-        const row = Math.floor(wy * 3), a = fr(wx * 3 + (row & 1) * 0.5) - 0.5, b = fr(wy * 3) - 0.5, d = a * a + b * b * 1.3;
-        if (d > 0.17) return hx('#3a3634');
-        const t = h2(Math.floor(wx * 3 + (row & 1) * 0.5), row); return sh(t < 0.5 ? hx('#7a7570') : hx('#6a6560'), (a < -0.1 && b < -0.1 ? 1.12 : d > 0.11 ? 0.82 : 1) * (0.96 + n * 0.06));
-      }
-      case 'stairs': {   // scalini di pietra che scendono in cantina
-        const s = fr(wy * 3); return s < 0.12 ? hx('#4a4542') : s < 0.3 ? hx('#9a958e') : sh(hx('#7a7570'), 1 - Math.floor(wy * 3 - 63) * 0.1);
-      }
-      case 'porch': {   // zerbino davanti al portone
-        const e = Math.min(wx - 16, 18 - wx, v, 1 - v); if (e < 0.1) return hx('#4a3020');
-        return fr(wx * 6) < 0.5 ? hx('#7a5a34') : hx('#6a4a2a');
-      }
-      case 'secret': return fr(wy * 4) < 0.1 ? hx('#2e1a10') : hx('#4e2e1e');
-    }
-    return hx('#808080');
+  // ---- DISEGNO con gli attrezzi del motore (K di cqTools: bx scatola, qL faccia davanti, cyl, dot, line, glow, S punto 3D) ----
+  const BOOKS = ['#a83a3a', '#3a5a9a', '#4a8a4a', '#c8a040', '#6a3a7a', '#3a7a7a', '#e8dcc0'];
+  // faccia verticale sul piano x (verso destra), come qL ma di lato
+  const qR = (K, x, y0, y1, z0, z1, col) => K.poly([K.S(x, y0, z1), K.S(x, y1, z1), K.S(x, y1, z0), K.S(x, y0, z0)], col);
+  // davanti di un mobile: f 'y' = faccia verso sinistra (piano y = Y), 'x' = verso destra (piano x = X); u lungo il davanti 0..1
+  const frontF = (K, fy, X0, Y0, X1, Y1) => (u0, u1, z0, z1, col) => fy ? K.qL(X0 + u0 * (X1 - X0), X0 + u1 * (X1 - X0), Y1, z0, z1, col) : qR(K, X1, Y0 + u0 * (Y1 - Y0), Y0 + u1 * (Y1 - Y0), z0, z1, K.shade(col, 0.75));
+  // mobile a cassetti (dr) o ad ante (dw) con lo zoccolo, le righe e i pomelli
+  function cabinet(K, x, y, fy, b, h, col, kind, n, top) {
+    const [a0, b0, a1, b1] = b, X0 = x + a0, Y0 = y + b0, X1 = x + a1, Y1 = y + b1, F = frontF(K, fy, X0, Y0, X1, Y1);
+    K.bx(X0, Y0, X1, Y1, 0, h, col); K.bx(X0 - 0.02, Y0 - 0.02, X1 + 0.02, Y1 + 0.02, h, h + 0.06, top || K.shade(col, 1.15));
+    F(0, 1, 0, 0.08, K.shade(col, 0.5));
+    if (kind === 'dr') for (let i = 0; i < n; i++) { const z0 = 0.1 + (h - 0.12) * i / n, z1 = 0.1 + (h - 0.12) * (i + 1) / n; F(0.06, 0.94, z1 - 0.03, z1, K.shade(col, 0.55)); F(0.44, 0.56, (z0 + z1) / 2 - 0.03, (z0 + z1) / 2 + 0.03, '#d8b050'); }
+    else { F(0.49, 0.51, 0.1, h - 0.04, K.shade(col, 0.5)); F(0.4, 0.46, h * 0.55, h * 0.55 + 0.08, '#d8b050'); F(0.54, 0.6, h * 0.55, h * 0.55 + 0.08, '#d8b050'); }
   }
-  const FL = new Map();
-  function floorSpr(x, y) {
-    const key = x + ',' + y; if (FL.has(key)) return FL.get(key);
-    const S = new Pix(32, 17, 16, 0), rm = roomAt(x, y);
-    let k = rm ? rm.k : 'legno';
-    if (x >= 3 && x <= 4 && y === 21) k = 'stairs';
-    const solid = propAt(x, y), wl = isWall(x - 1, y), wu = isWall(x, y - 1), tall = x === 1 || y === 1;
-    S.top(0, 0, 1, 1, 0, (u, v, X, Y) => {
-      let c = floorPx(k, x, y, u, v, X, Y);
-      // ombra dei muri dietro (in alto a sinistra e a destra) e sotto i mobili
-      if ((wl && u < (tall && x === 1 ? 0.22 : 0.12)) || (wu && v < (tall && y === 1 ? 0.22 : 0.12))) c = mix(sh(c, 0.78), [70, 60, 112], 0.14);
-      else if ((wl && u < 0.2) || (wu && v < 0.2)) { if (dith(X, Y) < 0.5) c = sh(c, 0.88); }
-      if (solid) { const e = Math.min(u, 1 - u, v, 1 - v); if (e > 0.1 || (e > 0.05 && dith(X, Y) < 0.5)) c = sh(c, 0.76); }
-      return c;
-    });
-    S.light((X, Y) => { const a = X + 0.5 - 16, b = Y + 0.5; return lightAt(x + (a / 16 + b / 8) / 2, y + (b / 8 - a / 16) / 2); });
-    const s = S.canvas(); FL.set(key, s); return s;
+  // libri su un ripiano (davanti di una libreria)
+  function books(K, F, z0, z1, rows, seed) {
+    for (let r = 0; r < rows; r++) {
+      const zb = z0 + (z1 - z0) * r / rows + 0.06, zt = z0 + (z1 - z0) * (r + 1) / rows - 0.04;
+      F(0.04, 0.96, zb - 0.06, zb, '#4a2e1a');
+      let u = 0.06; for (let i = 0; u < 0.94; i++) { const w = 0.07 + 0.05 * K.hsh(seed, r, i), hh = 0.55 + 0.4 * K.hsh(seed, i, r + 3); F(u, Math.min(0.94, u + w), zb, zb + (zt - zb) * hh, BOOKS[Math.floor(K.hsh(seed + i, r, 9) * BOOKS.length)]); u += w + 0.01; }
+    }
   }
-
-  // ---- MURI: in fondo (y = 0) e a sinistra (x = 0) alti con la carta da parati e le finestre; tutti gli altri bassi (si vede dentro le stanze) ----
-  const WH = 3.3, LH = 1.15, FH = 0.95;
-  let EM = 0;
-  function paperTex(rm, w, z, X, Y, tallW) {
-    const k = rm ? rm.pk || rm.k : '', p = hx(rm && rm.paper || '#c8b48a');
-    if (z < 0.16) return z > 0.12 ? C.wood3 : C.woodD;   // battiscopa
-    if (k === 'biblio') {   // librerie dipinte su tutto il muro
-      if (!tallW) return z > LH - 0.08 ? C.wood3 : fr(z * 2.4) < 0.18 ? C.woodD : BOOKS[Math.floor(h2(Math.floor(w * 9), Math.floor(z * 2.4)) * BOOKS.length)];
-      const sz = fr(z * 1.6); if (sz < 0.14) return sh(C.wood, 1.1); if (sz > 0.94) return C.woodD;
-      const bi = Math.floor(w * 10 + Math.floor(z * 1.6) * 3.3), bb = BOOKS[Math.floor(h2(bi, Math.floor(z * 1.6)) * BOOKS.length)], top = 0.55 + 0.35 * h2(bi, 7);
-      if (sz > top) return hx('#1e120c');
-      return fr(w * 10 + Math.floor(z * 1.6) * 3.3) < 0.12 ? sh(bb, 0.7) : Math.abs(sz - top * 0.7) < 0.04 ? C.gold : bb;
-    }
-    if (k === 'pietra') {   // mattoni
-      const row = Math.floor(z * 5), a = fr(w * 2.5 + (row & 1) * 0.5), b = fr(z * 5);
-      if (a < 0.07 || b < 0.12) return hx('#4a3a32');
-      return sh(hx('#7a4a3a'), 0.9 + 0.2 * h2(Math.floor(w * 2.5 + (row & 1) * 0.5), row));
-    }
-    if (k === 'cotto' || k === 'scacchi') {   // piastrelle fino a 1,4, sopra la carta
-      if (z < (tallW ? 1.4 : LH)) { const a = fr(w * 4), b = fr(z * 4); if (a < 0.08 || b < 0.08) return sh(p, 0.78); return sh(p, a > 0.85 || b > 0.85 ? 0.92 : 1.04); }
-      return sh(p, 0.92);
-    }
-    if (k === 'serra') return p;
-    // boiserie fino a 0,9, cornice, carta da parati con il disegno della stanza
-    if (z < 0.9) { const ps = fr(w * 2); return ps < 0.08 || ps > 0.92 || z < 0.24 || z > 0.82 ? sh(C.wood, 1.02) : ps < 0.12 || z > 0.78 ? C.wood3 : C.wood2; }
-    if (z < 0.98) return z > 0.95 ? C.gold : C.brassD;
-    if (k === 'parquet') { const a = fr(w * 3), b = fr(z * 2.4), d = Math.abs(a - 0.5) + Math.abs(b - 0.5) * 1.3; return d < 0.12 ? sh(p, 1.35) : d < 0.2 ? sh(p, 1.12) : p; }   // damasco
-    if (k === 'noce') return fr(w * 4) < 0.08 ? sh(C.gold, 0.8) : p;   // righe d'oro
-    if (k === 'legno') return h2(Math.floor(w * 5), Math.floor(z * 5)) > 0.8 && fr(w * 5) > 0.3 && fr(w * 5) < 0.7 && fr(z * 5) > 0.3 && fr(z * 5) < 0.7 ? hx('#e8d8f0') : p;   // fiorellini
-    if (k === 'marmo') return fr(w * 3) < 0.1 ? sh(p, 1.3) : p;
-    return fr(w * 3 + z) < 0.05 ? sh(p, 0.9) : p;
-  }
-  // finestre e quadri dei muri alti
-  function wallDeco(side, w, z, X, Y, rm) {
-    if (side === 'b') {
-      for (const [a, b] of WIN_B) if (w > a && w < b && z > 0.95 && z < 2.75) {
-        if (w < a + 0.08 || w > b - 0.08 || z < 1.03 || z > 2.67) return C.cream;
-        if (Math.abs(w - (a + b) / 2) < 0.04 || Math.abs(z - 1.9) < 0.04) return C.cream2;
-        EM = 1; return sky(fr((z - 1.03) / 1.64), X, Y, w);
-      }
-      if (rm && rm.n === 'Studio' && w > 16 && w < 18.4 && z > 1.35 && z < 2.45) {   // quadro: veliero al tramonto
-        if (w < 16.1 || w > 18.3 || z < 1.45 || z > 2.35) return fr(w * 10 + z * 4) < 0.5 ? C.gold : C.brassD;
-        const hz = 1.75 + 0.03 * Math.sin(w * 9);
-        if (z < hz) return fr(w * 7 + z * 3) < 0.3 ? hx('#3a5a8a') : hx('#2a4a72');
-        if (Math.abs(w - 17.2) < 0.03 && z < 2.2) return hx('#3a2a1a');
-        if (Math.abs(w - 17.2) < 0.3 - (z - hz) * 0.5 && w > 17.2 && z > hz + 0.08 && z < 2.15) return hx('#f2ecd8');
-        return mix(hx('#e8a868'), hx('#5a6ab0'), Math.min(1, (z - hz) / 0.6));
-      }
-      if (rm && rm.n === 'Camera da letto' && w > 27.3 && w < 28.7 && z > 1.55 && z < 2.3) {   // quadretto sopra il letto
-        if (w < 27.38 || w > 28.62 || z < 1.62 || z > 2.23) return C.gold;
-        return z < 1.85 ? hx('#5a8a4a') : fr(w * 3) < 0.5 ? hx('#a8c8e8') : hx('#b8d4ec');
-      }
-    } else {
-      if (rm && rm.k === 'serra' && z > 0.5 && z < 3.1) {   // muro di vetro della serra
-        const a = fr(w * 1.0), b = (z - 0.5) / 2.6;
-        if (a < 0.05 || a > 0.95 || b < 0.02 || b > 0.98 || Math.abs(b - 0.5) < 0.02) return hx('#e8ecef');
-        EM = 1; return sky(b, X, Y, w);
-      }
-      for (const [a, b] of WIN_L) if (w > a && w < b && z > 2.0 && z < 2.8) {   // finestrella con le sbarre della cantina
-        if (w < a + 0.07 || w > b - 0.07 || z < 2.06 || z > 2.74 || fr((w - a) * 4) < 0.15) return hx('#3a3634');
-        EM = 1; return sky((z - 2) / 0.8, X, Y, w);
-      }
-    }
-    return null;
-  }
-  // cielo nelle finestre: di giorno azzurro con le nuvole, di notte blu con le stelle (e la luna in una finestra)
-  function sky(t, X, Y, w) {
-    if (NIGHT) { if (h2(X * 3, Y * 7) > 0.97) return hx('#e6e8ff'); if (w > 19.6 && w < 20.2 && t > 0.6 && t < 0.8) return hx('#f2ecd0'); return mix(hx('#0e1430'), hx('#24386e'), Math.floor((1 - t) * 4 + dith(X, Y)) / 4); }
-    const cl = Math.sin(w * 7 + t * 5) + Math.sin(w * 3.1 - t * 9); if (cl > 1.3 && t > 0.4) return hx('#f4f8fc');
-    return mix(hx('#bfe0f4'), hx('#6aa8e0'), Math.floor(t * 4 + dith(X, Y)) / 4);
-  }
-  const WL = new Map();
-  function wallSpr(x, y) {
-    const key = x + ',' + y; if (WL.has(key)) return WL.get(key);
-    const S = new Pix(48, 104, 24, 84);
-    const back = y === 0, left = x === 0;
-    if (back || left) {
-      // muro alto: la faccia verso la stanza ha la carta da parati della stanza davanti
-      const rmB = roomAt(x, 1) || roomAt(x - 1, 1) || roomAt(x + 1, 1), rmL = roomAt(1, y) || roomAt(1, y - 1) || roomAt(1, y + 1);
-      const tex = (side, rm, w0, w1) => (s, t, X, Y) => {
-        const w = w0 + s * (w1 - w0), z = t * WH; EM = 0;
-        if (z > WH - 0.14) return z > WH - 0.06 ? C.cream : C.cream2;
-        const d = wallDeco(side, w, z, X, Y, rm); if (EM) return d;
-        const c = d || paperTex(rm, w, z, X, Y, 1);
-        const L = side === 'b' ? lightAt(w, 1.05) : lightAt(1.05, w), k = 0.86 + 0.14 * Math.min(1, z / 1.2);
-        return [c[0] * Math.round(L[0] * k * 24) / 24, c[1] * Math.round(L[1] * k * 24) / 24, c[2] * Math.round(L[2] * k * 24) / 24];
-      };
-      if (back && left) S.box(0.76, 0.76, 1, 1, 0, WH, C.cream2, { l: sh(C.cream2, 0.7), r: sh(C.cream2, 0.6), t: C.woodD });
-      else if (back) { const x1 = x === W - 1 ? 0.24 : 1; S.box(0, 0.76, x1, 1, 0, WH, C.cream2, { l: tex('b', rmB, x, x + x1), r: sh(hx(rmB ? rmB.paper : '#888'), 0.55), t: C.woodD }); }
-      else { const y1 = y === H - 1 ? 0.24 : 1; S.box(0.76, 0, 1, y1, 0, WH, C.cream2, { l: sh(hx(rmL ? rmL.paper : '#888'), 0.6), r: tex('l', rmL, y, y + y1), t: C.woodD }); }
-    } else {
-      // muro basso: un pilastrino al centro e un braccio verso ogni muro vicino; ogni faccia ha la carta della stanza che guarda
-      const front = y === H - 1 || x === W - 1, hh = front ? FH : LH, A = 0.38, B = 0.62;
-      const face = (rm, wdir) => (s, t, X, Y) => {
-        const z = t * hh;
-        if (z > hh - 0.07) return C.woodD;
-        if (front && !rm) { if (z < 0.3) return fr(s * 3 + (x + y) * 0.5) < 0.06 ? hx('#5a5048') : hx('#8a8070'); return fr(z * 6) < 0.06 ? hx('#c8b898') : hx('#d8c8a8'); }   // fuori: intonaco e zoccolo di pietra
-        const w = wdir(s), c = paperTex(rm, w, z, X, Y, 0), L = rm ? lightAt(rm === roomAt(x, y + 1) ? x + 0.5 : x + 1.05, rm === roomAt(x, y + 1) ? y + 1.05 : y + 0.5) : [0.8, 0.78, 0.8];
-        return [c[0] * Math.round(L[0] * 24) / 24, c[1] * Math.round(L[1] * 24) / 24, c[2] * Math.round(L[2] * 24) / 24];
-      };
-      const fy = face(roomAt(x, y + 1), s => x + s), fx = face(roomAt(x + 1, y), s => y + s), top = C.woodD;
-      const seg = (x0, y0, x1, y1) => S.box(x0, y0, x1, y1, 0, hh, C.wood, { l: (s, t, X, Y) => fy(x0 + s * (x1 - x0), t, X, Y), r: (s, t, X, Y) => fx(y0 + s * (y1 - y0), t, X, Y), t: top });
-      // bracci verso i muri vicini, dal dietro al davanti
-      const lib = DOORS.some(d => d[6] === 'secret' && d[0] === x && Math.abs(d[1] - y) === 1);
-      if (lib) {   // le due librerie alte accanto al passaggio segreto
-        const y0 = y < 4 ? 0 : 0.0, y1 = 1;
-        S.box(0.3, y0, 0.7, y1, 0, 2.3, C.wood, { l: C.woodD, r: (s, t) => { const z = t * 2.3, sz = fr(z * 1.6); if (z > 2.2) return C.wood3; if (sz < 0.14) return C.wood2; const bi = Math.floor(s * 10 + y * 7); return fr(s * 10) < 0.12 ? C.woodD : sz > 0.6 + 0.3 * h2(bi, 3) ? hx('#1e120c') : BOOKS[Math.floor(h2(bi, Math.floor(z * 1.6)) * BOOKS.length)]; }, t: C.wood3 });
-        if (y === 3) { const [X, Y] = S.P(0.7, 0.85, 1.3); S.set(Math.round(X), Math.round(Y), C.gold); S.set(Math.round(X) + 1, Math.round(Y), C.gold); }   // il libro-leva
-      } else {
-        if (isWall(x, y - 1)) seg(A, 0, B, 0.5);
-        if (isWall(x - 1, y)) seg(0, A, 0.5, B);
-        seg(A, A, B, B);
-        if (isWall(x + 1, y)) seg(0.5, A, 1, B);
-        if (isWall(x, y + 1)) seg(A, 0.5, B, 1);
-      }
-      // lanterne ai lati del portone
-      if (y === PORCH.y && (x === PORCH.x0 - 1 || x === PORCH.x1)) {
-        S.box(0.4, 0.4, 0.6, 0.6, hh, hh + 0.5, C.black);
-        S.emit = 1; S.box(0.36, 0.36, 0.64, 0.64, hh + 0.5, hh + 0.9, hx('#ffd890'), { l: hx('#ffcc70'), r: hx('#e8b058'), t: C.black }); S.emit = 0;
-        S.box(0.33, 0.33, 0.67, 0.67, hh + 0.9, hh + 1.0, C.black);
-      }
-      S.outline();
-    }
-    const s = S.canvas(); WL.set(key, s); return s;
-  }
-
-  // ---- MOBILI in pixel art ----
-  const same = (x, y, t) => propAt(x, y) === t;
-  // davanti di un mobile: cassetti (dr) o ante (dw), con la cornice, i pomelli d'ottone e lo zoccolo
-  const front = (c, kind, n = 2) => (s, t) => {
-    if (t < 0.07) return sh(c, 0.55);
-    if (s < 0.05 || s > 0.95 || t > 0.95) return sh(c, 0.8);
-    if (kind === 'dr') {
-      const q = (t - 0.07) / 0.88 * n, b = fr(q);
-      if (b < 0.07) return sh(c, 0.62);
-      if (Math.abs(s - 0.5) < 0.05 && Math.abs(b - 0.55) < 0.12) return C.brass;
-      return b > 0.88 ? sh(c, 1.12) : c;
-    }
-    if (Math.abs(s - 0.5) < 0.025) return sh(c, 0.6);
-    if (Math.abs(s - 0.5) < 0.09 && Math.abs(s - 0.5) > 0.05 && Math.abs(t - 0.55) < 0.05) return C.brass;
-    const ps = fr(s * 2); if (ps < 0.14 || ps > 0.86 || t < 0.14 || t > 0.88) return sh(c, 1.06);
-    return c;
-  };
-  const legs = (S, x0, y0, x1, y1, h, c, w = 0.06) => { for (const [a, b] of [[x0, y0], [x1 - w, y0], [x0, y1 - w], [x1 - w, y1 - w]]) S.box(a, b, a + w, b + w, 0, h, c); };
-  const PR = new Map();
-  function propSpr(t, x, y, o) {
-    o = o || {};
-    const key = t + ',' + x + ',' + y; if (PR.has(key)) return PR.get(key);
-    const S = new Pix(112, 150, 56, 120), glow = [];
-    let skip = null;
-    const fy = o.f !== 'x';   // davanti verso sinistra (faccia y) o verso destra (faccia x)
-    const ffront = (c, kind, n) => fy ? { l: front(c, kind, n), r: sh(c, 0.64) } : { l: sh(c, 0.8), r: (s, tt) => sh(front(c, kind, n)(s, tt), 0.82) };
-    if (o.part) { const s = Object.assign(S.canvas(), { glow }); PR.set(key, s); return s; }   // la seconda casella di un mobile lungo: lo disegna l'altra
+  let inner = 0;   // mentre si chiede al motore un suo oggetto (K.prop), il gancio dei disegni non interviene
+  const eng = (K, t, x, y, o) => { inner = 1; try { K.prop(t, x, y, o); } finally { inner = 0; } };
+  function drawFurn(K, t, x, y, o) {
+    if (inner) return false;
+    o = o || {}; if (o.part) return true;   // seconda casella di un mobile lungo: lo disegna l'altra
+    const { bx, cyl, qL, dot, glow, S, line, shade } = K, fy = o.f !== 'x', TW = K.TW;
     switch (t) {
-      case 'shelf': {   // libreria piena di libri; quelle in fila fanno un mobile solo
-        const books = (s, tt) => {
-          const z = tt * 2.5, sz = fr(z * 1.4); if (z > 2.4) return C.wood3; if (sz < 0.12) return sh(C.wood, 1.08);
-          const bi = Math.floor(s * 9 + (fy ? x : y) * 9 + Math.floor(z * 1.4) * 4), top = 0.55 + 0.38 * h2(bi, 11), bb = BOOKS[Math.floor(h2(bi, Math.floor(z * 1.4)) * BOOKS.length)];
-          if (s < 0.03 || s > 0.97) return C.woodD;
-          if (sz > top) return hx('#1e120c');
-          return fr(s * 9) < 0.12 ? sh(bb, 0.7) : Math.abs(sz - top * 0.75) < 0.035 ? C.gold : bb;
-        };
-        if (fy) { S.box(0, 0.52, 1, 0.98, 0, 2.5, C.wood, { l: books, r: C.woodD, t: C.wood3 }); const jl = same(x - 1, y, t), jr = same(x + 1, y, t); skip = i => { const u = S.ux[i]; return (jl && u < 0.06) || (jr && u > 0.94); }; }
-        else { S.box(0.02, 0, 0.48, 1, 0, 2.5, C.wood, { l: C.woodD, r: books, t: C.wood3 }); }
-        break;
+      case 'shelf': {   // libreria piena di libri
+        if (fy) { bx(x + 0.02, y + 0.5, x + 0.98, y + 0.95, 0, 2.3, '#6b4a2e'); books(K, frontF(K, true, x + 0.02, y + 0.5, x + 0.98, y + 0.95), 0.1, 2.25, 4, x * 7 + y); }
+        else { bx(x + 0.05, y + 0.02, x + 0.5, y + 0.98, 0, 2.3, '#6b4a2e'); books(K, frontF(K, false, x + 0.05, y + 0.02, x + 0.5, y + 0.98), 0.1, 2.25, 4, x * 7 + y); }
+        return true;
       }
-      case 'globe': {   // mappamondo d'epoca sul treppiede
-        legs(S, 0.3, 0.3, 0.7, 0.7, 0.55, C.woodD, 0.07); S.cyl(0.5, 0.5, 0.26, 0.55, 0.62, C.wood, { top: C.wood3 });
-        const [cx, cy] = S.P(0.5, 0.5, 1.05); S.ell(cx, cy, 10, 10, (dx, dy) => { const land = Math.sin(dx * 5 + 1) + Math.sin(dy * 6 - dx * 3) > 0.6; const c = land ? hx('#c8a860') : hx('#3a6a9a'); return sh(c, dx < -0.3 && dy < -0.2 ? 1.2 : dx > 0.4 || dy > 0.5 ? 0.75 : 1); });
-        S.line(cx - 1, cy - 12, cx + 4, cy + 11, C.brass); S.line(cx - 2, cy - 12, cx + 3, cy + 11, C.brassD);
-        break;
+      case 'globe':   // mappamondo sul treppiede
+        bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0, 0.75, '#5a3a24'); cyl(x + 0.5, y + 0.5, 0.25, 0, 0.06, '#5a3a24');
+        dot(x + 0.5, y + 0.5, 1.15, 0.2, '#3a6aa8'); dot(x + 0.45, y + 0.48, 1.2, 0.09, '#5aa058'); dot(x + 0.58, y + 0.56, 1.05, 0.06, '#c8a860'); line(S(x + 0.5, y + 0.5, 0.75), S(x + 0.5, y + 0.5, 1.6), '#c8a050', Math.max(1.5, TW / 30)); return true;
+      case 'armchair': {   // poltrona: seduta, schienale dal lato opposto a dove guarda, braccioli
+        const c = o.c || '#7a2a2a', d = o.d || 's', back = { s: [0.12, 0.1, 0.88, 0.3], n: [0.12, 0.7, 0.88, 0.9], e: [0.1, 0.12, 0.3, 0.88], w: [0.7, 0.12, 0.9, 0.88] }[d];
+        const side = d === 's' || d === 'n', A1 = side ? [0.1, 0.2, 0.26, 0.88] : [0.2, 0.1, 0.88, 0.26], A2 = side ? [0.74, 0.2, 0.9, 0.88] : [0.2, 0.74, 0.88, 0.9];
+        const parts = [[back, 0.1, 1.3], [A1, 0.1, 0.72], [A2, 0.1, 0.72], [[0.2, 0.2, 0.8, 0.8], 0.1, 0.48]].sort((p, q) => (p[0][0] + p[0][1] + p[0][2] + p[0][3]) - (q[0][0] + q[0][1] + q[0][2] + q[0][3]));
+        bx(x + 0.15, y + 0.15, x + 0.85, y + 0.85, 0, 0.1, '#3a2418');
+        for (const [b, z0, z1] of parts) bx(x + b[0], y + b[1], x + b[2], y + b[3], z0, z1, z1 > 1 ? shade(c, 0.92) : c);
+        return true;
       }
-      case 'armchair': case 'kchair': case 'chair': {   // poltrona (velluto) o sedia (legno); d = verso dove guarda
-        const kc = t !== 'armchair', v = kc ? C.wood2 : hx(o.c || '#7a2a2a'), v2 = sh(v, 1.18), d = o.d || 's';
-        const B = { s: [0.16, 0.14, 0.84, 0.3], n: [0.16, 0.7, 0.84, 0.86], e: [0.14, 0.16, 0.3, 0.84], w: [0.7, 0.16, 0.86, 0.84] }[d];
-        const bh = kc ? 1.45 : 1.3, sz = kc ? 0.62 : 0.45;
-        if (kc) legs(S, 0.2, 0.2, 0.8, 0.8, sz, C.woodD, 0.06);
-        const parts = [{ b: B, z: [kc ? sz : 0.1, bh], back: 1 }, { b: [0.18, 0.18, 0.82, 0.82], z: [kc ? sz - 0.06 : 0.1, sz], seat: 1 }];
-        if (!kc) { const side = d === 's' || d === 'n'; parts.push({ b: side ? [0.12, 0.2, 0.28, 0.84] : [0.2, 0.12, 0.84, 0.28], z: [0.1, 0.72] }, { b: side ? [0.72, 0.2, 0.88, 0.84] : [0.2, 0.72, 0.84, 0.88], z: [0.1, 0.72] }); }
-        const ctr = p => (p.b[0] + p.b[2]) / 2 + (p.b[1] + p.b[3]) / 2;
-        parts.sort((p, q) => ctr(p) - ctr(q)).forEach(p => {
-          const tuft = (s2, tt) => kc ? (fr(s2 * 4) < 0.15 ? sh(v, 0.8) : v) : (Math.abs(fr(s2 * 3) - 0.5) < 0.08 && Math.abs(fr(tt * 2.5) - 0.5) < 0.1 ? sh(v, 0.62) : v);
-          if (p.seat) S.box(...p.b.slice(0, 2), ...p.b.slice(2), p.z[0], p.z[1], v, { t: kc ? C.wood3 : v2, l: sh(v, 0.82), r: sh(v, 0.66) });
-          else if (p.back) S.box(p.b[0], p.b[1], p.b[2], p.b[3], p.z[0], p.z[1], v, { l: d === 's' ? tuft : sh(v, 0.8), r: d === 'e' ? (s2, tt) => sh(tuft(s2, tt), 0.85) : sh(v, 0.64), t: v2 });
-          else S.box(p.b[0], p.b[1], p.b[2], p.b[3], p.z[0], p.z[1], v, { t: v2 });
-        });
-        if (!kc) for (const [a, b] of [[0.18, 0.82], [0.82, 0.82], [0.82, 0.18]]) S.box(a - 0.04, b - 0.04, a + 0.04, b + 0.04, 0, 0.1, C.woodD);
-        break;
+      case 'chair': case 'kchair': eng(K, 'dchair', x, y, ['#8a5a32', { s: 'n', n: 's', e: 'w', w: 'e' }[o.d || 's']]); return true;
+      case 'lamp': case 'rlamp': {   // lampada a stelo con il paralume acceso
+        const cz = t === 'rlamp' ? 1.5 : 1.8;
+        cyl(x + 0.5, y + 0.5, 0.18, 0, 0.06, '#8a6a2c'); bx(x + 0.47, y + 0.47, x + 0.53, y + 0.53, 0.06, cz, '#c8a050');
+        cyl(x + 0.5, y + 0.5, 0.27, cz, cz + 0.45, t === 'rlamp' ? '#3a8a52' : '#f4dca0'); glow(x + 0.5, y + 0.5, cz + 0.2, 1.6, 'rgba(255,214,140,.32)'); return true;
       }
-      case 'lamp': case 'rlamp': {   // lampada a stelo con il paralume acceso (rlamp: da lettura, piegata)
-        S.cyl(0.5, 0.5, 0.18, 0, 0.06, C.brassD, { top: C.brass }); S.box(0.47, 0.47, 0.53, 0.53, 0.06, t === 'rlamp' ? 1.6 : 1.85, C.brass, { l: C.brass, r: C.brassD });
-        const cz = t === 'rlamp' ? 1.5 : 1.75, cc = t === 'rlamp' ? hx('#3a7a4a') : hx('#f4dca0');
-        S.emit = 1; S.cyl(0.5, 0.5, 0.28, cz, cz + 0.5, cc, { side: (dx, tt) => sh(cc, (dx < -0.3 ? 1.04 : dx < 0.4 ? 0.96 : 0.86) * (tt < 0.15 ? 0.9 : 1)), top: sh(cc, 1.15) }); S.emit = 0;
-        glow.push([0.5, 0.5, cz + 0.2, 2.0, 'rgba(255,196,110,.3)']);
-        break;
+      case 'sidetable': {   // tavolino con il cassetto e il vaso di fiori
+        legs4(K, x, y, 0.22, 0.22, 0.78, 0.78, 0.5, '#4a2e1a'); bx(x + 0.18, y + 0.18, x + 0.82, y + 0.82, 0.5, 0.72, '#874c2e'); bx(x + 0.16, y + 0.16, x + 0.84, y + 0.84, 0.72, 0.78, '#a5643c');
+        frontF(K, fy, x + 0.18, y + 0.18, x + 0.82, y + 0.82)(0.42, 0.58, 0.58, 0.65, '#d8b050');
+        cyl(x + 0.5, y + 0.5, 0.08, 0.78, 1.02, '#dfe6f2'); dot(x + 0.46, y + 0.48, 1.12, 0.05, '#e8c040'); dot(x + 0.56, y + 0.52, 1.1, 0.05, '#f2f2f2'); return true;
       }
-      case 'sidetable': case 'nightstand': case 'console': case 'rdesk': case 'dresser': case 'filecab': case 'kcounter': case 'bathcab': case 'sideboard': {
-        const D = {   // [x0, y0, x1, y1, altezza, colore, davanti, cassetti]
-          sidetable: [0.2, 0.2, 0.8, 0.8, 0.72, C.wood2, 'dr', 1], nightstand: [0.18, 0.4, 0.82, 0.9, 0.66, C.wood2, 'dr', 2], console: [0.08, 0.45, 0.92, 0.92, 0.9, C.wood, 'dr', 1],
-          rdesk: [0.08, 0.15, 0.92, 0.85, 0.88, C.wood, 'dr', 2], dresser: [0.45, 0.06, 0.92, 0.94, 1.1, C.wood2, 'dr', 3], filecab: [0.12, 0.42, 0.88, 0.95, 1.6, hx('#5a6a5a'), 'dr', 3],
-          kcounter: [0, 0.38, 1, 0.98, 1.0, hx('#e8e0cc'), 'dr', 2], bathcab: [0.5, 0.12, 0.95, 0.88, 1.55, C.white, 'dw'], sideboard: [0, 0.45, 1, 0.95, 1.05, C.wood, 'dw'] }[t];
-        const [x0, y0, x1, y1, hh, col, kind, n] = D, fr2 = t === 'dresser' || t === 'bathcab' ? { l: sh(col, 0.8), r: (s, tt) => sh(front(col, kind, n)(s, tt), 0.82) } : ffront(col, kind, n);
-        if (t === 'sidetable') { legs(S, x0, y0, x1, y1, 0.5, C.woodD); S.box(x0, y0, x1, y1, 0.5, hh, col, ffront(col, 'dr', 1)); }
-        else S.box(x0, y0, x1, y1, 0, hh, col, fr2);
-        const topC = t === 'kcounter' ? hx('#8a6a4a') : t === 'bathcab' ? C.white2 : sh(col, 1.12);
-        S.box(x0 - 0.02, y0 - 0.02, x1 + 0.02, y1 + 0.02, hh, hh + 0.06, topC, { t: t === 'kcounter' ? (u, v) => fr(u * 5 + x) < 0.06 ? hx('#6a4a32') : hx('#a07a52') : topC });
-        const z = hh + 0.06;
-        if (t === 'sidetable') { S.cyl(0.5, 0.5, 0.08, z, z + 0.28, hx('#dfe6f2'), { top: hx('#2a6a3a') }); for (let i = 0; i < 5; i++) { const [fx, fy2] = S.P(0.5 + 0.1 * Math.cos(i * 1.3), 0.5 + 0.1 * Math.sin(i * 1.3), z + 0.38 + 0.06 * (i % 2)); S.ell(fx, fy2, 2.2, 1.8, i % 2 ? hx('#e8c040') : hx('#f0f0f0')); } }
-        if (t === 'nightstand') { S.cyl(0.5, 0.65, 0.07, z, z + 0.3, C.brass); S.emit = 1; S.cyl(0.5, 0.65, 0.17, z + 0.3, z + 0.55, hx('#f4dca0')); S.emit = 0; glow.push([0.5, 0.65, z + 0.4, 1.2, 'rgba(255,200,120,.28)']); }
-        if (t === 'console') { S.cyl(0.35, 0.68, 0.14, z, z + 0.08, hx('#c8d8e8')); S.box(0.62, 0.6, 0.8, 0.76, z, z + 0.05, hx('#7a2a22')); }
-        if (t === 'rdesk') { S.box(0.2, 0.3, 0.5, 0.55, z, z + 0.04, hx('#f2ecd8'), { t: (u, v) => fr(v * 8) < 0.2 ? hx('#9a9080') : hx('#f2ecd8') }); S.cyl(0.72, 0.4, 0.05, z, z + 0.14, hx('#2a2a32')); S.line(...S.P(0.6, 0.6, z + 0.05), ...S.P(0.75, 0.62, z + 0.3), hx('#e8e0d0')); }
-        if (t === 'dresser') { S.box(0.7, 0.3, 0.9, 0.7, z, z + 0.25, hx('#e8d8f0')); S.cyl(0.6, 0.75, 0.06, z, z + 0.2, hx('#c86a8a')); }
-        if (t === 'sideboard') { if (!same(x - 1, y, t)) S.cyl(0.4, 0.7, 0.12, z, z + 0.45, hx('#e8ecf4'), { side: (dx, tt) => sh(Math.abs(tt - 0.5) < 0.2 ? hx('#2c4e86') : hx('#e8ecf4'), dx < -0.3 ? 1.05 : dx < 0.4 ? 0.92 : 0.78) }); else { S.box(0.3, 0.6, 0.7, 0.68, z, z + 0.5, C.gold); } const jl = same(x - 1, y, t), jr = same(x + 1, y, t); skip = i => { const u = S.ux[i]; return (jl && u < 0.06) || (jr && u > 0.94); }; }
-        if (t === 'kcounter') { const jl = same(x - 1, y, 'kcounter') || same(x - 1, y, 'ksink') || same(x - 1, y, 'stove'), jr = same(x + 1, y, 'kcounter') || same(x + 1, y, 'ksink') || same(x + 1, y, 'stove'); skip = i => { const u = S.ux[i]; return (jl && u < 0.06) || (jr && u > 0.94); }; if (x === 26) { S.box(0.2, 0.55, 0.45, 0.8, z, z + 0.28, hx('#c8402a')); S.box(0.55, 0.5, 0.85, 0.75, z, z + 0.12, C.wood3); } }
-        if (t === 'bathcab') { S.box(0.55, 0.3, 0.92, 0.7, z, z + 0.08, hx('#9ac0d0')); }
-        break;
+      case 'nightstand': cabinet(K, x, y, true, [0.18, 0.4, 0.82, 0.9], 0.66, '#874c2e', 'dr', 2); cyl(x + 0.5, y + 0.62, 0.06, 0.72, 0.98, '#c8a050'); cyl(x + 0.5, y + 0.62, 0.16, 0.98, 1.22, '#f4dca0'); glow(x + 0.5, y + 0.65, 1.1, 1.0, 'rgba(255,214,140,.3)'); return true;
+      case 'console': cabinet(K, x, y, true, [0.06, 0.45, 0.94, 0.92], 0.9, '#6a3a24', 'dr', 1); cyl(x + 0.35, y + 0.68, 0.13, 0.96, 1.04, '#c8d8e8'); bx(x + 0.6, y + 0.58, x + 0.82, y + 0.78, 0.96, 1.02, '#7a2a22'); return true;
+      case 'rdesk': cabinet(K, x, y, true, [0.08, 0.18, 0.92, 0.85], 0.86, '#6a3a24', 'dr', 2); bx(x + 0.2, y + 0.3, x + 0.5, y + 0.55, 0.92, 0.95, '#f2ecd8'); cyl(x + 0.72, y + 0.42, 0.05, 0.92, 1.04, '#1a1a2a'); return true;
+      case 'dresser': cabinet(K, x, y, false, [0.45, 0.06, 0.92, 0.94], 1.1, '#874c2e', 'dr', 3); bx(x + 0.6, y + 0.3, x + 0.85, y + 0.7, 1.16, 1.4, '#e8d8f0'); return true;
+      case 'filecab': cabinet(K, x, y, true, [0.12, 0.42, 0.88, 0.95], 1.6, '#5a6a5a', 'dr', 3); return true;
+      case 'kcounter': cabinet(K, x, y, true, [0, 0.38, 1, 0.98], 1.0, '#e8e0cc', 'dr', 2, '#a07a52'); if (x === 26) { bx(x + 0.2, y + 0.55, x + 0.45, y + 0.8, 1.06, 1.34, '#c8402a'); bx(x + 0.55, y + 0.5, x + 0.85, y + 0.75, 1.06, 1.16, '#c8945a'); } return true;
+      case 'bathcab': cabinet(K, x, y, false, [0.5, 0.12, 0.95, 0.88], 1.55, '#ecebe6', 'dw', 0, '#d4d0c6'); bx(x + 0.55, y + 0.3, x + 0.92, y + 0.7, 1.61, 1.7, '#9ac0d0'); return true;
+      case 'sideboard': cabinet(K, x, y, true, [0, 0.45, 1, 0.95], 1.05, '#6a3a24', 'dw'); if (!(propAt(x - 1, y) === 'sideboard')) { cyl(x + 0.4, y + 0.7, 0.12, 1.11, 1.55, '#e8ecf4'); cyl(x + 0.4, y + 0.7, 0.125, 1.25, 1.35, '#2c4e86'); } else bx(x + 0.3, y + 0.62, x + 0.7, y + 0.7, 1.11, 1.6, '#e0b84a'); return true;
+      case 'desk': {   // scrivania lunga di noce (questa casella e quella a sinistra), con la lampada verde
+        const c = '#6a3a24';
+        cabinet(K, x - 1, y, true, [0.08, 0.2, 0.55, 0.8], 0.85, c, 'dr', 3); cabinet(K, x, y, true, [0.45, 0.2, 0.92, 0.8], 0.85, c, 'dr', 3);
+        bx(x - 0.96, y + 0.15, x + 0.96, y + 0.85, 0.85, 0.93, '#874c2e'); bx(x - 0.4, y + 0.3, x + 0.4, y + 0.7, 0.93, 0.95, '#2e5a3a');
+        bx(x - 0.2, y + 0.38, x + 0.2, y + 0.6, 0.95, 0.98, '#f2ecd8'); bx(x + 0.68, y + 0.38, x + 0.74, y + 0.44, 0.93, 1.3, '#c8a050'); bx(x + 0.55, y + 0.3, x + 0.85, y + 0.5, 1.3, 1.42, '#2e8a4a'); glow(x + 0.7, y + 0.45, 1.3, 1.0, 'rgba(190,255,170,.22)'); return true;
       }
-      case 'desk': {   // scrivania lunga di noce (2 caselle: questa e quella a sinistra) con la lampada verde, i fogli e il calamaio
-        const c = C.wood;
-        S.box(-0.92, 0.2, -0.45, 0.8, 0, 0.85, c, { l: front(c, 'dr', 3), r: sh(c, 0.64) }); S.box(0.45, 0.2, 0.92, 0.8, 0, 0.85, c, { l: front(c, 'dr', 3), r: sh(c, 0.64) });
-        S.box(-0.45, 0.25, 0.45, 0.3, 0.3, 0.85, sh(c, 0.7));
-        S.box(-0.96, 0.15, 0.96, 0.85, 0.85, 0.93, C.wood2, { t: (u, v) => u > 0.2 && u < 0.7 && v > 0.15 && v < 0.85 ? hx('#2e5a3a') : C.wood2 });
-        S.box(-0.2, 0.35, 0.2, 0.6, 0.93, 0.96, hx('#f2ecd8')); S.cyl(0.7, 0.4, 0.05, 0.93, 1.3, C.brass); S.emit = 1; S.box(0.55, 0.32, 0.85, 0.48, 1.3, 1.42, hx('#2e7a4a'), { t: hx('#3e9a5a') }); S.emit = 0;
-        glow.push([0.7, 0.45, 1.3, 1.2, 'rgba(190,255,170,.22)']); S.cyl(-0.6, 0.45, 0.05, 0.93, 1.03, hx('#1a1a2a'));
-        break;
+      case 'safe':   // cassaforte di ghisa verde scuro con la manopola e la maniglia
+        bx(x + 0.12, y + 0.25, x + 0.88, y + 0.9, 0, 1.35, '#3a4a46'); qL(x + 0.18, x + 0.82, y + 0.9, 0.1, 1.28, '#46584f'); qL(x + 0.16, x + 0.84, y + 0.9, 1.22, 1.26, '#c8a050');
+        dot(x + 0.42, y + 0.9, 0.75, 0.07, '#b8c0c8'); dot(x + 0.42, y + 0.9, 0.75, 0.035, '#4a5058'); qL(x + 0.66, x + 0.7, y + 0.9, 0.55, 0.95, '#b8c0c8'); return true;
+      case 'plant': eng(K, 'plant', x, y); return true;
+      case 'bigpot':   // vaso grande di terracotta con un cespuglio fiorito
+        cyl(x + 0.5, y + 0.5, 0.34, 0, 0.7, '#b8603a'); cyl(x + 0.5, y + 0.5, 0.37, 0.6, 0.72, '#c8704a');
+        dot(x + 0.5, y + 0.5, 1.2, 0.3, '#2f7a40'); dot(x + 0.36, y + 0.58, 1.45, 0.2, '#3a9050'); dot(x + 0.64, y + 0.42, 1.55, 0.2, '#2a6a38'); dot(x + 0.5, y + 0.5, 1.85, 0.19, '#46a85a');
+        for (let i = 0; i < 5; i++) dot(x + 0.3 + 0.4 * K.hsh(x, y, i), y + 0.3 + 0.4 * K.hsh(y, x, i), 1.3 + 0.6 * K.hsh(x + i, y, 2), 0.035, '#e86a8a'); return true;
+      case 'palm':   // palma nel vaso
+        cyl(x + 0.5, y + 0.5, 0.3, 0, 0.55, '#b8603a'); bx(x + 0.45, y + 0.45, x + 0.55, y + 0.55, 0.55, 2.4, '#8a6a42');
+        for (let i = 0; i < 7; i++) { const a = i * 0.9; for (let k = 1; k <= 4; k++) dot(x + 0.5 + Math.cos(a) * 0.14 * k, y + 0.5 + Math.sin(a) * 0.14 * k, 2.45 - 0.07 * k * k, 0.07, k < 3 ? '#4aa058' : '#3a8a48'); }
+        dot(x + 0.5, y + 0.5, 2.45, 0.09, '#2a7a3a'); return true;
+      case 'planter':   // aiuola di legno con la terra e i fiori
+        bx(x, y + 0.12, x + 1, y + 0.88, 0, 0.5, '#7a5232'); bx(x + 0.04, y + 0.16, x + 0.96, y + 0.84, 0.5, 0.52, '#3a2a1a');
+        for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { dot(x + 0.2 + i * 0.3, y + 0.32 + j * 0.36, 0.65, 0.08, j ? '#3a8a48' : '#4aa058'); if ((i + j + y) % 2) dot(x + 0.2 + i * 0.3, y + 0.32 + j * 0.36, 0.78, 0.04, ['#e86a8a', '#e8c040', '#f0f0f0'][(i + x) % 3]); }
+        return true;
+      case 'sack': eng(K, 'sack', x, y); return true;
+      case 'bed': {   // letto matrimoniale 2x2 (questa e' la casella davanti a destra)
+        bx(x - 0.95, y - 0.95, x + 0.95, y - 0.82, 0, 1.35, '#874c2e'); qL(x - 0.8, x + 0.8, y - 0.82, 0.55, 1.2, '#7a4428');
+        bx(x - 0.95, y - 0.82, x + 0.95, y + 0.95, 0, 0.3, '#4a2818'); bx(x - 0.9, y - 0.8, x + 0.9, y + 0.9, 0.3, 0.5, '#f2f0ea');
+        bx(x - 0.85, y - 0.78, x - 0.08, y - 0.38, 0.5, 0.66, '#ffffff'); bx(x + 0.08, y - 0.78, x + 0.85, y - 0.38, 0.5, 0.66, '#ffffff');
+        bx(x - 0.92, y - 0.25, x + 0.92, y + 0.92, 0.3, 0.6, '#6a4a8a'); bx(x - 0.92, y - 0.25, x + 0.92, y - 0.1, 0.6, 0.62, '#f2f0ea');
+        for (let i = 0; i < 3; i++) dot(x - 0.5 + i * 0.5, y + 0.4, 0.61, 0.05, '#e8c46a');
+        bx(x - 0.95, y + 0.88, x + 0.95, y + 0.95, 0, 0.75, '#874c2e'); return true;
       }
-      case 'safe': {   // cassaforte di ghisa verde scuro con la manopola, la maniglia e le cerniere d'ottone
-        const c = hx('#3a4a46');
-        S.box(0.1, 0.25, 0.9, 0.92, 0, 0.12, C.black);
-        S.box(0.12, 0.27, 0.88, 0.9, 0.12, 1.35, c, { l: (s, tt) => s < 0.08 || s > 0.92 || tt < 0.06 || tt > 0.94 ? sh(c, 1.25) : (s > 0.86 && (Math.abs(tt - 0.25) < 0.05 || Math.abs(tt - 0.75) < 0.05)) ? C.brass : Math.abs(s - 0.5) < 0.4 && Math.abs(tt - 0.88) < 0.04 ? C.gold : c, r: sh(c, 0.7), t: sh(c, 1.2) });
-        const [dx, dy] = S.P(0.45, 0.9, 0.8); S.ell(dx, dy, 4.5, 5, (a, b) => a * a + b * b > 0.6 ? C.steel2 : a * a + b * b < 0.12 ? C.steelD : C.steel);
-        S.line(Math.round(dx) + 6, Math.round(dy) + 1, Math.round(dx) + 6, Math.round(dy) + 7, C.steel2); S.line(Math.round(dx) + 7, Math.round(dy) + 1, Math.round(dx) + 7, Math.round(dy) + 7, C.steel);
-        break;
+      case 'wardrobe': cabinet(K, x, y, true, [0.06, 0.4, 0.94, 0.96], 2.6, '#6a3a24', 'dw', 0, '#a5643c'); return true;
+      case 'trunk': case 'oldtrunk': {   // baule di cuoio con gli angoli d'ottone (vecchio: piu' scuro e impolverato)
+        const c = t === 'oldtrunk' ? '#5a4a3a' : '#7a4a2a';
+        bx(x + 0.08, y + 0.18, x + 0.92, y + 0.82, 0, 0.62, c); bx(x + 0.06, y + 0.16, x + 0.94, y + 0.84, 0.62, 0.78, shade(c, 1.12));
+        qL(x + 0.08, x + 0.92, y + 0.84, 0.6, 0.66, '#3a2414'); qL(x + 0.45, x + 0.55, y + 0.82, 0.4, 0.66, '#d8a830');
+        for (const a of [0.08, 0.86]) qL(x + a, x + a + 0.06, y + 0.82, 0, 0.62, '#c8a050');
+        if (t === 'oldtrunk') { dot(x + 0.3, y + 0.4, 0.79, 0.04, 'rgba(220,215,200,.6)'); dot(x + 0.65, y + 0.6, 0.79, 0.05, 'rgba(220,215,200,.5)'); }
+        return true;
       }
-      case 'plant': {   // vaso blu con la pianta folta
-        S.cyl(0.5, 0.5, 0.24, 0, 0.42, hx('#2c4e86'), { side: (dx, tt) => sh(Math.abs(tt - 0.75) < 0.08 ? hx('#e8ecf4') : hx('#2c4e86'), dx < -0.5 ? 1.12 : dx < 0 ? 1 : dx < 0.5 ? 0.86 : 0.72), top: hx('#3a2a1a') });
-        bush(S, x, y, 0.55, 1.6, 22, 1); break;
+      case 'gbench':   // panchina da giardino
+        legs4(K, x, y, 0.12, 0.22, 0.88, 0.78, 0.45, '#2a2a30'); bx(x + 0.08, y + 0.2, x + 0.92, y + 0.8, 0.45, 0.52, '#3a6a4a'); bx(x + 0.82, y + 0.2, x + 0.92, y + 0.8, 0.52, 1.1, '#3a6a4a'); return true;
+      case 'armor': {   // armatura sul piedistallo, con il pennacchio rosso e l'alabarda
+        bx(x + 0.2, y + 0.2, x + 0.8, y + 0.8, 0, 0.18, '#4a2818');
+        bx(x + 0.34, y + 0.42, x + 0.46, y + 0.58, 0.18, 1.05, '#8a9098'); bx(x + 0.54, y + 0.42, x + 0.66, y + 0.58, 0.18, 1.05, '#8a9098');
+        bx(x + 0.3, y + 0.35, x + 0.7, y + 0.65, 1.05, 1.85, '#a8b0b8'); bx(x + 0.24, y + 0.38, x + 0.3, y + 0.62, 1.2, 1.8, '#8a9098'); bx(x + 0.7, y + 0.38, x + 0.76, y + 0.62, 1.2, 1.8, '#8a9098');
+        cyl(x + 0.5, y + 0.5, 0.15, 1.85, 2.25, '#b8c0c8'); qL(x + 0.4, x + 0.6, y + 0.62, 2.0, 2.06, '#22262e');
+        dot(x + 0.5, y + 0.5, 2.38, 0.07, '#c8303a'); dot(x + 0.46, y + 0.54, 2.45, 0.06, '#e04850');
+        line(S(x + 0.85, y + 0.5, 0.18), S(x + 0.85, y + 0.5, 2.7), '#5a3a24', Math.max(2, TW / 22)); K.poly([S(x + 0.85, y + 0.5, 2.7), S(x + 0.85, y + 0.5, 2.4), S(x + 1.05, y + 0.5, 2.45), S(x + 1.05, y + 0.5, 2.62)], '#c9ccd4'); return true;
       }
-      case 'bigpot': {   // vaso grande di terracotta con un cespuglio fiorito
-        S.cyl(0.5, 0.5, 0.36, 0, 0.7, C.terra, { side: (dx, tt) => sh(Math.abs(tt - 0.85) < 0.07 ? sh(C.terra, 1.2) : C.terra, dx < -0.5 ? 1.12 : dx < 0 ? 1 : dx < 0.5 ? 0.86 : 0.72), top: hx('#3a2a1a') });
-        bush(S, x, y, 0.8, 1.9, 26, 1.25, hx('#e86a8a')); break;
+      case 'sofa': {   // divano bordeaux che guarda verso di noi (quelli vicini fanno un divano solo)
+        const c = '#86263a', jl = propAt(x - 1, y) === 'sofa', jr = propAt(x + 1, y) === 'sofa';
+        bx(x, y + 0.06, x + 1, y + 0.34, 0.45, 1.35, shade(c, 0.95)); bx(x, y + 0.34, x + 1, y + 0.94, 0, 0.5, c); bx(x + 0.04, y + 0.38, x + 0.96, y + 0.9, 0.5, 0.62, shade(c, 1.15));
+        if (!jl) bx(x, y + 0.06, x + 0.16, y + 0.94, 0, 0.85, c); if (!jr) bx(x + 0.84, y + 0.06, x + 1, y + 0.94, 0, 0.85, c); return true;
       }
-      case 'palm': {   // palma nel vaso: tronco a anelli e foglie lunghe
-        S.cyl(0.5, 0.5, 0.3, 0, 0.55, C.terra, { top: hx('#3a2a1a') });
-        S.cyl(0.5, 0.5, 0.08, 0.55, 2.4, hx('#8a6a42'), { side: (dx, tt) => sh(fr(tt * 9) < 0.3 ? hx('#6a4a2a') : hx('#9a7a4a'), dx < 0 ? 1.05 : 0.8), noTop: 1 });
-        const [cx, cy] = S.P(0.5, 0.5, 2.45);
-        for (let i = 0; i < 8; i++) { const a = i * 0.785 + 0.3, L = 16 + 6 * h2(i, x); for (let k = 0; k <= L; k++) { const q = k / L, X = cx + Math.cos(a) * k * 1.0, Y = cy + Math.sin(a) * k * 0.55 + q * q * 9; S.set(Math.round(X), Math.round(Y), C.leaf[q < 0.5 ? 2 : 1]); S.set(Math.round(X), Math.round(Y) + 1, C.leaf[0]); if (k % 3 === 0) S.set(Math.round(X + Math.sin(a) * 2), Math.round(Y + 2), C.leaf[1]); } }
-        break;
+      case 'coffee': legs4(K, x, y, 0.14, 0.22, 0.86, 0.78, 0.38, '#4a2818'); bx(x + 0.08, y + 0.16, x + 0.92, y + 0.84, 0.38, 0.46, '#a5643c'); bx(x + 0.2, y + 0.3, x + 0.55, y + 0.6, 0.46, 0.56, '#2a4a7a'); cyl(x + 0.72, y + 0.6, 0.07, 0.46, 0.58, '#ffffff'); return true;
+      case 'piano': {   // pianoforte a coda nero (questa casella e quella a sinistra), coperchio alzato, tastiera verso di noi
+        for (const [a, b] of [[-0.8, 0.22], [0.62, 0.25], [-0.1, 0.78]]) bx(x + a, y + b, x + a + 0.1, y + b + 0.1, 0, 0.75, '#15151a');
+        bx(x - 0.95, y + 0.12, x + 0.85, y + 0.92, 0.75, 1.0, '#22222a'); bx(x - 0.85, y + 0.8, x + 0.75, y + 0.96, 0.92, 0.98, '#f4f2ec');
+        for (let i = 0; i < 11; i++) if (i % 7 !== 2 && i % 7 !== 6) qL(x - 0.8 + i * 0.145, x - 0.74 + i * 0.145, y + 0.96, 0.95, 0.99, '#15151a');
+        K.poly([S(x - 0.9, y + 0.5, 1.02), S(x + 0.8, y + 0.5, 1.02), S(x + 0.6, y + 0.14, 2.0), S(x - 0.7, y + 0.14, 2.15)], '#2e2e38');
+        line(S(x + 0.1, y + 0.5, 1.0), S(x + 0.1, y + 0.3, 1.7), '#b8c0c8', Math.max(1.5, TW / 40)); bx(x - 0.4, y + 0.72, x - 0.1, y + 0.78, 1.0, 1.3, '#f2ecd8'); return true;
       }
-      case 'bed': {   // letto matrimoniale 2x2 (questa e' la casella davanti a destra): testiera di legno, cuscini, coperta viola a rombi
-        const c = C.wood2, bl = hx('#6a4a8a');
-        S.box(-0.95, -0.95, 0.95, -0.82, 0, 1.35, c, { l: (s, tt) => tt > 0.9 ? C.wood3 : Math.abs(fr(s * 3) - 0.5) < 0.38 && tt > 0.35 && tt < 0.82 ? sh(c, 0.85) : c, t: C.wood3 });
-        S.box(-0.95, -0.82, 0.95, 0.95, 0, 0.3, C.woodD, { t: C.woodD });
-        S.box(-0.9, -0.8, 0.9, 0.9, 0.3, 0.55, C.white, { t: C.white });
-        S.box(-0.85, -0.78, -0.08, -0.35, 0.55, 0.72, C.white, { t: hx('#f8f6f0') }); S.box(0.08, -0.78, 0.85, -0.35, 0.55, 0.72, C.white, { t: hx('#f8f6f0') });
-        S.box(-0.92, -0.25, 0.92, 0.92, 0.3, 0.62, bl, { t: (u, v) => { const a = fr(u * 4), b = fr(v * 3), d = Math.abs(a - 0.5) + Math.abs(b - 0.5); return v < 0.08 ? C.white : d < 0.15 ? hx('#e8c46a') : d < 0.22 ? sh(bl, 1.2) : bl; }, l: (s, tt) => tt < 0.3 ? sh(bl, 0.7) : sh(bl, 0.85), r: sh(bl, 0.68) });
-        S.box(-0.95, 0.88, 0.95, 0.95, 0, 0.75, c, { t: C.wood3 });
-        break;
-      }
-      case 'wardrobe': {   // armadio alto di legno a due ante con la cornice in cima
-        const c = C.wood;
-        S.box(0.06, 0.4, 0.94, 0.96, 0, 2.6, c, Object.assign(ffront(c, 'dw'), { t: C.wood3 }));
-        S.box(0.02, 0.36, 0.98, 0.98, 2.6, 2.72, C.wood3, { t: C.wood3 });
-        break;
-      }
-      case 'trunk': case 'oldtrunk': {   // baule di cuoio con gli angoli d'ottone (oldtrunk: vecchio, coperchio tondo, polvere)
-        const c = t === 'oldtrunk' ? hx('#5a4a3a') : hx('#7a4a2a'), cor = (s, tt) => (s < 0.08 || s > 0.92) && (tt < 0.12 || tt > 0.88) ? C.brass : Math.abs(tt - 0.55) < 0.05 ? hx('#3a2414') : Math.abs(s - 0.5) < 0.05 && Math.abs(tt - 0.55) < 0.12 ? C.brass : null;
-        S.box(0.08, 0.18, 0.92, 0.82, 0, 0.62, c, { l: (s, tt) => cor(s, tt) || sh(c, 0.8), r: (s, tt) => cor(s, tt) || sh(c, 0.64), t: sh(c, 1.05) });
-        if (t === 'oldtrunk') { S.box(0.1, 0.2, 0.9, 0.8, 0.62, 0.75, sh(c, 1.1)); S.box(0.15, 0.25, 0.85, 0.75, 0.75, 0.82, sh(c, 1.2), { t: (u, v) => h2(Math.floor(u * 12), Math.floor(v * 12)) > 0.7 ? hx('#9a948a') : sh(c, 1.2) }); }
-        else S.box(0.4, 0.18, 0.6, 0.82, 0.62, 0.68, hx('#3a2414'));
-        break;
-      }
-      case 'gbench': {   // panchina da giardino: ferro battuto e assi verdi
-        const g = hx('#3a6a4a'); legs(S, 0.1, 0.2, 0.9, 0.8, 0.45, C.black, 0.05);
-        S.box(0.08, 0.2, 0.92, 0.8, 0.45, 0.52, g, { t: (u, v) => fr(v * 4) < 0.2 ? sh(g, 0.7) : g }); S.box(0.85, 0.2, 0.92, 0.8, 0.52, 1.1, g, { r: (s, tt) => fr(tt * 3) < 0.25 ? sh(g, 0.6) : sh(g, 0.8) });
-        break;
-      }
-      case 'planter': {   // aiuola di legno con la terra, le piantine e i fiori (quelle in fila fanno un'aiuola sola)
-        const c = hx('#7a5232'); S.box(0, 0.12, 1, 0.88, 0, 0.5, c, { l: (s, tt) => fr(tt * 3) < 0.12 ? sh(c, 0.7) : c, t: hx('#3a2a1a') });
-        for (let i = 0; i < 3; i++) for (let j = 0; j < 2; j++) { const [fx, fy2] = S.P(0.2 + i * 0.3, 0.32 + j * 0.36, 0.62); S.ell(fx, fy2, 4, 3, (dx, dy) => sh(C.leaf[(i + j) % 3], dy < -0.2 ? 1.15 : 0.85)); if ((i + j + y) % 2) S.ell(fx, fy2 - 3, 1.6, 1.4, [hx('#e86a8a'), hx('#e8c040'), hx('#f0f0f0')][(i + x) % 3]); }
-        const jl = same(x - 1, y, t), jr = same(x + 1, y, t); skip = i => { const u = S.ux[i]; return (jl && u < 0.06) || (jr && u > 0.94); };
-        break;
-      }
-      case 'sack': {   // sacco di juta pieno di terra
-        const c = hx('#b89a68'); const [cx, cy] = S.P(0.5, 0.5, 0.32); S.ell(cx, cy, 11, 9, (dx, dy) => sh(c, dx < -0.3 && dy < 0 ? 1.15 : dx > 0.4 || dy > 0.5 ? 0.72 : fr(dx * 6 + dy * 3) < 0.15 ? 0.86 : 1));
-        S.ell(cx, cy - 8, 6, 3, sh(c, 0.8)); S.ell(cx, cy - 9, 4, 2, hx('#3a2a1a'));
-        break;
-      }
-      case 'armor': {   // armatura sul piedistallo: gambali, corazza, elmo con il pennacchio rosso, alabarda
-        const m = C.steel, mh = (dx, base) => sh(base || m, dx < -0.4 ? 1.25 : dx < 0.1 ? 1.05 : dx < 0.5 ? 0.85 : 0.65);
-        S.box(0.2, 0.2, 0.8, 0.8, 0, 0.18, C.woodD, { t: C.wood });
-        S.cyl(0.4, 0.5, 0.08, 0.18, 1.05, m, { side: dx => mh(dx) }); S.cyl(0.6, 0.5, 0.08, 0.18, 1.05, m, { side: dx => mh(dx) });
-        S.cyl(0.5, 0.5, 0.2, 1.05, 1.85, m, { side: (dx, tt) => mh(dx, Math.abs(tt - 0.5) < 0.04 ? C.steel2 : m) });
-        S.cyl(0.5, 0.5, 0.25, 1.75, 1.88, m, { side: dx => mh(dx, C.steel2) });
-        S.cyl(0.5, 0.5, 0.14, 1.88, 2.28, m, { side: (dx, tt) => Math.abs(tt - 0.55) < 0.12 && Math.abs(dx) < 0.6 ? C.black : mh(dx) });
-        const [px0, py0] = S.P(0.5, 0.5, 2.3); for (let i = 0; i < 9; i++) S.ell(px0 - 2 + i * 0.6, py0 - 2 - i * 0.7, 2.2, 1.8, i % 2 ? hx('#c8303a') : hx('#e04850'));
-        const [ax, ay] = S.P(0.85, 0.5, 0.2), [bx2, by2] = S.P(0.85, 0.5, 2.7); S.line(ax, ay, bx2, by2, C.woodD); S.line(ax + 1, ay, bx2 + 1, by2, C.wood);
-        S.fill([[bx2 - 1, by2 + 3], [bx2 + 6, by2 + 1], [bx2 + 6, by2 + 7], [bx2 - 1, by2 + 6]], C.steel2); S.line(bx2, by2 - 4, bx2, by2 + 2, C.steel2);
-        break;
-      }
-      case 'sofa': {   // divano Chesterfield bordeaux che guarda verso di noi; quelli vicini fanno un divano solo
-        const jl = same(x - 1, y, t), jr = same(x + 1, y, t), c = hx('#86263a');
-        const tuft = (s, tt) => { const a = fr((x + s) * 5), b = fr(tt * 3); return (Math.abs(a - 0.5) < 0.08 && Math.abs(b - 0.5) < 0.1) ? sh(c, 0.6) : Math.abs(a - 0.5) + Math.abs(b - 0.5) < 0.12 ? sh(c, 0.85) : sh(c, 0.95); };
-        S.box(0, 0.06, 1, 0.34, 0.45, 1.35, c, { l: tuft, t: sh(c, 1.15) });
-        S.box(0, 0.34, 1, 0.94, 0, 0.5, c, { l: (s, tt) => tt < 0.15 ? C.woodD : sh(c, 0.72), t: (u, v) => (Math.abs(fr(x + u) - 0.5) > 0.47 ? sh(c, 0.8) : v < 0.15 ? sh(c, 0.9) : sh(c, 1.08)) });
-        if (!jl) S.box(0, 0.06, 0.18, 0.94, 0, 0.85, c, { t: sh(c, 1.15), l: sh(c, 0.82) });
-        if (!jr) S.box(0.82, 0.06, 1, 0.94, 0, 0.85, c, { t: sh(c, 1.15) });
-        skip = i => { const u = S.ux[i]; return (jl && u < 0.06) || (jr && u > 0.94); };
-        break;
-      }
-      case 'coffee': {   // tavolino basso con i libri e la tazza
-        legs(S, 0.12, 0.2, 0.88, 0.8, 0.38, C.woodD); S.box(0.08, 0.16, 0.92, 0.84, 0.38, 0.46, C.wood2, { t: C.wood3 });
-        S.box(0.2, 0.3, 0.55, 0.6, 0.46, 0.54, hx('#2a4a7a')); S.box(0.22, 0.32, 0.5, 0.56, 0.54, 0.6, hx('#8a2a2a')); S.cyl(0.72, 0.6, 0.07, 0.46, 0.56, C.white);
-        break;
-      }
-      case 'piano': {   // pianoforte a coda nero (2 caselle: questa e quella a sinistra), coperchio alzato, tastiera verso di noi
-        const k = C.black, kk = hx('#3a3a48');
-        for (const [a, b] of [[-0.8, 0.25], [0.6, 0.3], [-0.1, 0.8]]) S.box(a, b, a + 0.1, b + 0.1, 0, 0.75, k);
-        const body = []; for (let i = 0; i <= 16; i++) { const q = i / 16, ang = Math.PI * q; body.push([0.2 + Math.cos(ang) * 0.75 - 0.3 * q, 0.5 - Math.sin(ang) * 0.38]); }
-        S.box(-0.95, 0.55, 0.85, 0.92, 0.75, 1.0, k, { l: (s, tt) => tt > 0.8 ? sh(kk, 1.3) : kk, r: sh(kk, 0.7), t: kk });
-        S.box(-0.95, 0.12, 0.85, 0.55, 0.75, 1.0, k, { l: kk, r: sh(kk, 0.7), t: kk });
-        S.box(-0.85, 0.8, 0.75, 0.98, 0.92, 0.98, C.white, { t: (u) => fr(u * 22) < 0.18 ? hx('#8a8a90') : fr(u * 22 / 7 * 2) < 0.3 && fr(u * 22) > 0.5 ? k : C.white, l: C.white2 });
-        // coperchio alzato: una lastra inclinata sorretta dall'asta
-        const L0 = S.P(-0.9, 0.5, 1.02), L1 = S.P(0.8, 0.5, 1.02), L2 = S.P(0.6, 0.12, 2.0), L3 = S.P(-0.7, 0.12, 2.15);
-        S.fill([L0, L1, L2, L3], (X, Y) => sh(kk, 0.9 + 0.3 * ((X + Y) % 7 === 0)));
-        S.line(...S.P(0.1, 0.5, 1.0), ...S.P(0.1, 0.3, 1.7), C.steel2);
-        S.box(-0.4, 0.7, -0.1, 0.78, 1.0, 1.32, C.cream);   // spartito
-        break;
-      }
-      case 'vase': {   // vaso cinese bianco e blu
-        const prof = [[0, 0.16], [0.15, 0.26], [0.45, 0.3], [0.75, 0.22], [0.95, 0.12], [1.15, 0.14], [1.25, 0.17]];
-        for (let i = 0; i + 1 < prof.length; i++) { const [z0, r0] = prof[i], [z1, r1] = prof[i + 1]; S.cyl(0.5, 0.5, (r0 + r1) / 2, z0, z1, C.white, { side: (dx, tt) => sh(i === 2 || i === 4 ? hx('#2c4e86') : (Math.round(dx * 5 + i) & 1) && i === 3 ? hx('#3a6aa8') : C.white, dx < -0.4 ? 1.06 : dx < 0.3 ? 0.94 : 0.78), noTop: i + 2 < prof.length }); }
-        break;
-      }
-      case 'clock': {   // pendolo: cassa alta di legno, quadrante crema, finestrella con il pendolo d'ottone
-        const c = C.wood;
-        S.box(0.18, 0.45, 0.82, 0.92, 0, 0.3, c, { t: c }); S.box(0.24, 0.5, 0.76, 0.88, 0.3, 2.1, c, { l: (s, tt) => s > 0.25 && s < 0.75 && tt > 0.15 && tt < 0.85 ? (Math.abs(s - 0.5) < 0.04 ? C.brass : tt < 0.3 && Math.abs(s - 0.5) < 0.12 ? C.gold : hx('#2a1a10')) : c, r: sh(c, 0.64) });
-        S.box(0.15, 0.42, 0.85, 0.95, 2.1, 2.8, c, { t: C.wood3, r: sh(c, 0.64), l: c });
-        const [qx, qy] = S.P(0.5, 0.95, 2.45); S.ell(qx, qy, 6, 6, (dx, dy) => dx * dx + dy * dy > 0.7 ? C.gold : C.cream);
-        S.line(Math.round(qx), Math.round(qy), Math.round(qx), Math.round(qy) - 4, C.black); S.line(Math.round(qx), Math.round(qy), Math.round(qx) + 3, Math.round(qy), C.black);
-        break;
-      }
-      case 'coatrack': {   // appendiabiti con il cappotto, la sciarpa e il cappello
-        S.cyl(0.5, 0.5, 0.2, 0, 0.06, C.woodD); S.box(0.47, 0.47, 0.53, 0.53, 0.06, 2.3, C.wood2);
-        const [hx0, hy0] = S.P(0.5, 0.5, 1.9); S.ell(hx0 - 4, hy0 + 8, 6, 12, (dx, dy) => sh(hx('#3a4a6a'), dx < -0.2 ? 1.1 : 0.8)); S.ell(hx0 + 4, hy0 + 4, 3, 9, hx('#c8402a'));
-        S.ell(hx0, hy0 - 6, 6, 2.5, hx('#2a2a2a')); S.ell(hx0, hy0 - 9, 3.5, 3.5, hx('#3a3a3a'));
-        break;
-      }
-      case 'umbrella': {   // portaombrelli d'ottone con tre ombrelli
-        S.cyl(0.5, 0.5, 0.2, 0, 0.75, C.brass, { side: (dx, tt) => sh(fr(tt * 4) < 0.15 ? C.brassD : C.brass, dx < -0.3 ? 1.15 : dx < 0.3 ? 0.95 : 0.75), top: hx('#2a1a10') });
-        for (const [a, b, c] of [[0.42, 0.45, hx('#2a2a32')], [0.56, 0.5, hx('#c8402a')], [0.5, 0.6, hx('#3a6aa8')]]) { const [X0, Y0] = S.P(a, b, 0.7), [X1, Y1] = S.P(a + 0.04, b - 0.04, 1.5); S.line(X0, Y0, X1, Y1, c); S.line(X0 + 1, Y0, X1 + 1, Y1, sh(c, 0.7)); S.set(Math.round(X1) - 1, Math.round(Y1) - 1, C.woodD); }
-        break;
-      }
-      case 'bench': {   // cassapanca di legno intagliato con il cuscino
-        const c = C.wood2;
-        S.box(0.1, 0.12, 0.9, 0.88, 0, 0.6, c, { l: (s, tt) => tt < 0.1 ? C.woodD : Math.abs(fr(s * 2) - 0.5) < 0.36 && tt > 0.25 && tt < 0.8 ? sh(c, 0.85) : c, r: (s, tt) => tt < 0.1 ? C.woodD : sh(c, 0.68), t: C.wood3 });
-        S.box(0.14, 0.16, 0.86, 0.84, 0.6, 0.72, hx('#2e5a4a'), { t: (u, v) => fr(u * 3) < 0.08 ? hx('#1e4a3a') : hx('#3e6a5a') });
-        break;
-      }
-      case 'toilet': {   // water bianco con lo sciacquone
-        S.box(0.25, 0.1, 0.75, 0.35, 0.4, 1.05, C.white, { t: C.white2 }); S.cyl(0.5, 0.58, 0.22, 0, 0.45, C.white, { top: (dx, dy) => dx * dx + dy * dy < 0.4 ? hx('#9ac0d0') : C.white });
-        S.box(0.66, 0.15, 0.72, 0.2, 0.85, 0.95, C.steel2);
-        break;
-      }
-      case 'sink': {   // lavandino a colonna con lo specchio tondo
-        S.cyl(0.5, 0.45, 0.1, 0, 0.75, C.white); S.box(0.15, 0.2, 0.85, 0.7, 0.75, 0.95, C.white, { t: (u, v) => Math.abs(u - 0.5) < 0.3 && Math.abs(v - 0.55) < 0.25 ? hx('#b8d0dc') : C.white });
-        S.box(0.47, 0.2, 0.53, 0.3, 0.95, 1.15, C.steel2);
-        const [mx, my] = S.P(0.5, 0.08, 1.8); S.ell(mx, my, 8, 9, (dx, dy) => dx * dx + dy * dy > 0.75 ? C.gold : dx < -0.2 && dy < -0.1 ? hx('#e8f4fa') : hx('#a8c8dc'));
-        break;
-      }
-      case 'washer': {   // lavatrice bianca con l'oblo'
-        S.box(0.1, 0.2, 0.9, 0.9, 0, 1.05, C.white, { l: (s, tt) => tt > 0.82 ? (s < 0.4 && s > 0.1 ? hx('#c8d0d8') : Math.abs(s - 0.8) < 0.06 ? hx('#e2553a') : C.white2) : C.white, r: C.white2, t: C.white });
-        const [cx, cy] = S.P(0.5, 0.9, 0.45); S.ell(cx - 2, cy - 1, 8, 8, (dx, dy) => { const d = dx * dx + dy * dy; return d > 0.7 ? C.steel : d > 0.45 ? hx('#3a4a5a') : dx < -0.2 && dy < -0.2 ? hx('#8ab8d8') : hx('#5a8ab0'); });
-        break;
-      }
-      case 'basket': {   // cesto di vimini con i panni
-        const c = hx('#c8a060'); S.cyl(0.5, 0.5, 0.28, 0, 0.62, c, { side: (dx, tt) => sh(fr(tt * 6 + dx * 2) < 0.5 ? c : sh(c, 0.85), dx < -0.3 ? 1.1 : dx < 0.3 ? 0.95 : 0.75), top: hx('#e8e0d0') });
-        const [cx, cy] = S.P(0.5, 0.5, 0.66); S.ell(cx - 3, cy, 4, 2.5, hx('#3a6aa8')); S.ell(cx + 3, cy - 1, 4, 2.5, hx('#e86a8a'));
-        break;
-      }
-      case 'tub': {   // vasca da bagno con i piedini (2 caselle: questa e quella dietro), l'acqua e la paperella
-        const c = C.white;
-        for (const [a, b] of [[0.2, -0.85], [0.8, -0.85], [0.2, 0.85], [0.8, 0.85]]) S.box(a - 0.05, b - 0.05, a + 0.05, b + 0.05, 0, 0.15, C.brass);
-        S.box(0.1, -0.95, 0.9, 0.95, 0.15, 0.7, c, { l: c, r: (s, tt) => sh(c, tt > 0.85 ? 0.95 : 0.75), t: (u, v) => { const e = Math.min(u, 1 - u, v, 1 - v); return e < 0.08 ? C.white : e < 0.12 ? C.white2 : hx('#8ac8e0'); } });
-        const [dx, dy] = S.P(0.5, 0.3, 0.72); S.ell(dx, dy, 2.5, 2, hx('#f2c230')); S.set(Math.round(dx) + 2, Math.round(dy), hx('#e2553a'));
-        S.box(0.45, -0.95, 0.55, -0.88, 0.7, 1.05, C.steel2);
-        break;
-      }
-      case 'ksink': case 'stove': {   // bancone con il lavello / cucina economica smaltata con il forno
-        const jl = same(x - 1, y, 'kcounter') || same(x - 1, y, 'ksink'), jr = same(x + 1, y, 'kcounter') || same(x + 1, y, 'stove');
-        if (t === 'ksink') {
-          S.box(0, 0.38, 1, 0.98, 0, 1.0, hx('#e8e0cc'), { l: front(hx('#e8e0cc'), 'dw'), r: sh(hx('#e8e0cc'), 0.64) });
-          S.box(-0.02, 0.36, 1.02, 1.0, 1.0, 1.06, hx('#a07a52'), { t: (u, v) => Math.abs(u - 0.5) < 0.3 && Math.abs(v - 0.55) < 0.28 ? (Math.abs(u - 0.5) < 0.26 && Math.abs(v - 0.55) < 0.24 ? hx('#8a9aa8') : C.steel2) : hx('#a07a52') });
-          S.box(0.47, 0.42, 0.53, 0.48, 1.06, 1.35, C.steel2); S.box(0.47, 0.42, 0.53, 0.6, 1.32, 1.36, C.steel2);
-        } else {
-          const c = hx('#e8dcc4');
-          S.box(0.02, 0.38, 0.98, 0.98, 0, 1.0, c, { l: (s, tt) => tt < 0.08 ? C.black : s > 0.12 && s < 0.88 && tt > 0.2 && tt < 0.7 ? (s > 0.25 && s < 0.75 && tt > 0.3 && tt < 0.6 ? hx('#3a2a1a') : C.black) : tt > 0.78 && tt < 0.88 && fr(s * 5) < 0.4 ? C.black : c, r: sh(c, 0.64) });
-          S.box(0, 0.36, 1, 1.0, 1.0, 1.06, C.black, { t: (u, v) => { for (const [a, b] of [[0.28, 0.55], [0.72, 0.55], [0.28, 0.85], [0.72, 0.85]]) if (Math.hypot(u - a, (v - b) * 1.4) < 0.13) return Math.hypot(u - a, (v - b) * 1.4) < 0.07 ? hx('#5a5a60') : hx('#3a3a40'); return hx('#2a2a30'); } });
-          S.cyl(0.3, 0.6, 0.14, 1.06, 1.3, C.steel, { top: C.steel2 });   // pentola
-        }
-        skip = i => { const u = S.ux[i]; return (jl && u < 0.06) || (jr && u > 0.94); };
-        break;
-      }
-      case 'fridge': {   // frigorifero anni '50 color menta con la maniglia cromata
-        const c = hx('#cfe6dc');
-        S.box(0.08, 0.38, 0.92, 0.96, 0, 2.15, c, { l: (s, tt) => tt < 0.04 ? C.steelD : Math.abs(tt - 0.62) < 0.012 ? sh(c, 0.7) : s > 0.8 && s < 0.86 && (Math.abs(tt - 0.5) < 0.06 || Math.abs(tt - 0.78) < 0.06) ? C.steel2 : s < 0.06 || s > 0.94 ? sh(c, 0.9) : (tt > 0.88 && s > 0.3 && s < 0.7) ? C.steel2 : c, r: sh(c, 0.68), t: sh(c, 1.08) });
-        break;
-      }
-      case 'cupboard': {   // credenza della cucina: ante sotto, piattaia sopra con i piatti
-        const c = hx('#7a9a8a');
-        S.box(0.06, 0.4, 0.94, 0.96, 0, 1.0, c, { l: front(c, 'dw'), r: sh(c, 0.64) });
-        S.box(0.02, 0.38, 0.98, 0.98, 1.0, 1.06, hx('#a07a52'));
-        S.box(0.08, 0.7, 0.92, 0.96, 1.06, 2.3, c, { l: (s, tt) => { if (s < 0.06 || s > 0.94 || tt > 0.92) return sh(c, 0.85); const sz = fr(tt * 3); if (sz < 0.1) return sh(c, 1.1); const pl = fr(s * 4), d = Math.hypot(pl - 0.5, (sz - 0.55) * 1.3); return d < 0.3 ? (d < 0.18 ? hx('#f4f0e8') : hx('#3a6aa8')) : sh(c, 0.6); }, r: sh(c, 0.64), t: sh(c, 1.1) });
-        break;
-      }
-      case 'ktable': {   // tavolo della cucina (2 caselle) con la tovaglia a quadretti, il pane e la brocca
-        legs(S, -0.85, 0.15, 0.85, 0.85, 0.75, C.wood2, 0.07);
-        S.box(-0.92, 0.08, 0.92, 0.92, 0.75, 0.82, hx('#e8e0d0'), { t: (u, v) => ((Math.floor(u * 10) + Math.floor(v * 5)) & 1) ? hx('#c8402a') : hx('#f4f0e8'), l: (s, tt) => (Math.floor(s * 10) & 1) ? hx('#c8402a') : hx('#f4f0e8') });
-        const [bx2, by2] = S.P(-0.3, 0.45, 0.88); S.ell(bx2, by2, 6, 3, hx('#c8904a')); S.ell(bx2 - 1, by2 - 1, 4, 1.5, hx('#e0b070'));
-        S.cyl(0.35, 0.5, 0.08, 0.82, 1.1, hx('#e8ecf4'), { top: hx('#9ac0d0') });
-        break;
-      }
-      case 'dog': {   // cane che dorme sul cuscino (orecchie lunghe, coda arricciata)
-        const [cx, cy] = S.P(0.5, 0.5, 0.1); S.ell(cx, cy, 15, 7, (dx, dy) => sh(hx('#a83434'), dy < -0.3 ? 1.15 : dy > 0.5 ? 0.75 : 1));
-        const c = hx('#c88a4a'); S.ell(cx + 1, cy - 4, 10, 5.5, (dx, dy) => sh(c, dx < -0.3 && dy < 0 ? 1.15 : dy > 0.4 ? 0.8 : 1));
-        S.ell(cx - 9, cy - 5, 5, 4.5, (dx, dy) => sh(c, dx < 0 && dy < 0 ? 1.15 : 0.9)); S.ell(cx - 12, cy - 4, 3, 2.2, sh(c, 1.1)); S.set(Math.round(cx) - 14, Math.round(cy) - 5, C.black);
-        S.ell(cx - 7, cy - 2, 2.5, 4, hx('#7a4a2a')); S.line(Math.round(cx) - 10, Math.round(cy) - 6, Math.round(cx) - 8, Math.round(cy) - 6, C.black);
-        S.ell(cx + 11, cy - 7, 2.5, 2.5, sh(c, 0.9));
-        break;
-      }
-      case 'barrel': {   // botte di rovere con i cerchi di ferro
-        const c = hx('#8a5a32'); S.cyl(0.5, 0.5, 0.36, 0, 1.1, c, { side: (dx, tt) => { const hp = Math.abs(tt - 0.18) < 0.05 || Math.abs(tt - 0.82) < 0.05; return sh(hp ? C.steelD : fr(dx * 4 + 0.5) < 0.12 ? sh(c, 0.75) : c, dx < -0.4 ? 1.12 : dx < 0.1 ? 1 : dx < 0.6 ? 0.84 : 0.68); }, top: (dx, dy) => dx * dx + dy * dy > 0.8 ? C.steelD : fr(dx * 3) < 0.1 ? sh(c, 0.8) : sh(c, 1.05) });
-        break;
-      }
-      case 'winerack': {   // scaffale delle bottiglie
-        const c = C.wood; S.box(0.05, 0, 0.45, 1, 0, 2.2, c, { l: C.woodD, t: C.wood3, r: (s, tt) => { const a = fr(s * 4), b = fr(tt * 2.2 * 2.5); if (a < 0.12 || b < 0.12) return sh(c, 1.05); const d = Math.hypot(a - 0.56, (b - 0.56) * 1.2); return d < 0.26 ? (d < 0.12 ? hx('#1a2a1a') : hx('#2e5a3a')) : hx('#1e120c'); } });
-        break;
-      }
-      case 'crate': {   // cassa di legno inchiodata
-        const c = hx('#a8793c'), pl = (s, tt) => fr(tt * 3) < 0.12 || s < 0.06 || s > 0.94 ? sh(c, 0.72) : Math.abs(s - tt) < 0.07 ? sh(c, 0.85) : c;
-        S.box(0.1, 0.1, 0.9, 0.9, 0, 0.75, c, { l: pl, r: (s, tt) => sh(pl(s, tt), 0.8), t: (u, v) => fr(u * 3) < 0.1 ? sh(c, 0.8) : sh(c, 1.1) });
-        break;
-      }
-      case 'jarshelf': {   // mensola con i barattoli di marmellata e conserve
-        const c = C.wood2; S.box(0.05, 0.6, 0.95, 0.95, 0, 2.0, c, { l: (s, tt) => fr(tt * 3) < 0.1 ? C.wood3 : hx('#2a1a10'), r: sh(c, 0.64), t: C.wood3 });
-        for (let r = 0; r < 3; r++) for (let i = 0; i < 3; i++) S.cyl(0.2 + i * 0.3, 0.8, 0.09, r * 0.667 + 0.07, r * 0.667 + 0.4, [hx('#c8402a'), hx('#e8a030'), hx('#6a2a6a'), hx('#4a8a3a')][(r + i * 2) % 4], { top: hx('#e8dcc4') });
-        break;
-      }
-      default: return null;
+      case 'vase':   // vaso cinese bianco e blu
+        cyl(x + 0.5, y + 0.5, 0.18, 0, 0.2, '#ecebe6'); cyl(x + 0.5, y + 0.5, 0.28, 0.2, 0.8, '#ecebe6'); cyl(x + 0.5, y + 0.5, 0.285, 0.42, 0.58, '#2c4e86'); cyl(x + 0.5, y + 0.5, 0.15, 0.8, 1.25, '#ecebe6'); cyl(x + 0.5, y + 0.5, 0.155, 1.0, 1.08, '#2c4e86'); return true;
+      case 'clock':   // pendolo: cassa alta, quadrante, finestrella con il pendolo d'ottone
+        bx(x + 0.2, y + 0.45, x + 0.8, y + 0.92, 0, 2.75, '#6a3a24'); qL(x + 0.32, x + 0.68, y + 0.92, 0.5, 1.7, '#2a1a10'); qL(x + 0.47, x + 0.53, y + 0.92, 0.8, 1.65, '#c8a050'); dot(x + 0.5, y + 0.92, 0.85, 0.06, '#e8c46a');
+        dot(x + 0.5, y + 0.92, 2.3, 0.13, '#e8c46a'); dot(x + 0.5, y + 0.92, 2.3, 0.105, '#f4ecd8'); line(S(x + 0.5, y + 0.92, 2.3), S(x + 0.5, y + 0.92, 2.42), '#222', 1.5); line(S(x + 0.5, y + 0.92, 2.3), S(x + 0.58, y + 0.92, 2.3), '#222', 1.5); return true;
+      case 'coatrack':   // appendiabiti con il cappotto e il cappello
+        cyl(x + 0.5, y + 0.5, 0.2, 0, 0.06, '#4a2818'); bx(x + 0.47, y + 0.47, x + 0.53, y + 0.53, 0.06, 2.3, '#874c2e');
+        bx(x + 0.28, y + 0.55, x + 0.48, y + 0.7, 0.9, 2.05, '#3a4a6a'); bx(x + 0.52, y + 0.55, x + 0.64, y + 0.66, 1.3, 2.0, '#c8402a'); cyl(x + 0.5, y + 0.5, 0.2, 2.25, 2.3, '#2a2a2a'); cyl(x + 0.5, y + 0.5, 0.12, 2.3, 2.5, '#3a3a3a'); return true;
+      case 'umbrella':   // portaombrelli d'ottone con tre ombrelli
+        cyl(x + 0.5, y + 0.5, 0.2, 0, 0.75, '#c8a050');
+        for (const [a, b, c] of [[0.42, 0.45, '#2a2a32'], [0.56, 0.5, '#c8402a'], [0.5, 0.6, '#3a6aa8']]) { line(S(x + a, y + b, 0.7), S(x + a + 0.04, y + b - 0.04, 1.5), c, Math.max(2, TW / 22)); dot(x + a + 0.04, y + b - 0.04, 1.52, 0.025, '#4a2818'); }
+        return true;
+      case 'bench':   // cassapanca con il cuscino
+        bx(x + 0.1, y + 0.12, x + 0.9, y + 0.88, 0, 0.6, '#874c2e'); qL(x + 0.2, x + 0.8, y + 0.88, 0.15, 0.48, '#7a4428'); bx(x + 0.14, y + 0.16, x + 0.86, y + 0.84, 0.6, 0.72, '#2e5a4a'); return true;
+      case 'toilet':   // water bianco con lo sciacquone
+        bx(x + 0.25, y + 0.1, x + 0.75, y + 0.35, 0.4, 1.05, '#ecebe6'); cyl(x + 0.5, y + 0.58, 0.22, 0, 0.45, '#ecebe6'); dot(x + 0.5, y + 0.58, 0.46, 0.1, '#9ac0d0'); bx(x + 0.64, y + 0.15, x + 0.7, y + 0.2, 0.85, 0.95, '#b8c0c8'); return true;
+      case 'sink':   // lavandino a colonna con lo specchio tondo
+        cyl(x + 0.5, y + 0.45, 0.1, 0, 0.75, '#ecebe6'); bx(x + 0.15, y + 0.2, x + 0.85, y + 0.7, 0.75, 0.95, '#ecebe6'); bx(x + 0.3, y + 0.32, x + 0.7, y + 0.6, 0.95, 0.96, '#b8d0dc'); bx(x + 0.47, y + 0.2, x + 0.53, y + 0.3, 0.95, 1.15, '#b8c0c8');
+        dot(x + 0.5, y + 0.1, 1.8, 0.2, '#c8a050'); dot(x + 0.5, y + 0.1, 1.8, 0.17, '#a8c8dc'); dot(x + 0.45, y + 0.1, 1.86, 0.05, '#e8f4fa'); return true;
+      case 'washer':   // lavatrice bianca con l'oblo'
+        bx(x + 0.1, y + 0.2, x + 0.9, y + 0.9, 0, 1.05, '#ecebe6'); qL(x + 0.15, x + 0.45, y + 0.9, 0.88, 1.0, '#c8d0d8'); dot(x + 0.75, y + 0.9, 0.94, 0.025, '#e2553a');
+        dot(x + 0.5, y + 0.9, 0.45, 0.17, '#8a9098'); dot(x + 0.5, y + 0.9, 0.45, 0.13, '#5a8ab0'); dot(x + 0.45, y + 0.9, 0.5, 0.04, '#bfe0f0'); return true;
+      case 'basket':   // cesto di vimini con i panni
+        cyl(x + 0.5, y + 0.5, 0.28, 0, 0.62, '#c8a060'); cyl(x + 0.5, y + 0.5, 0.285, 0.25, 0.3, '#a8803e'); dot(x + 0.42, y + 0.48, 0.66, 0.1, '#3a6aa8'); dot(x + 0.58, y + 0.54, 0.68, 0.09, '#e86a8a'); return true;
+      case 'tub':   // vasca da bagno con i piedini (questa casella e quella dietro), l'acqua e la paperella
+        for (const [a, b] of [[0.2, -0.85], [0.8, -0.85], [0.2, 0.85], [0.8, 0.85]]) bx(x + a - 0.05, y + b - 0.05, x + a + 0.05, y + b + 0.05, 0, 0.15, '#c8a050');
+        bx(x + 0.1, y - 0.95, x + 0.9, y + 0.95, 0.15, 0.7, '#ecebe6'); bx(x + 0.18, y - 0.85, x + 0.82, y + 0.85, 0.66, 0.68, '#8ac8e0');
+        dot(x + 0.5, y + 0.3, 0.74, 0.05, '#f2c230'); bx(x + 0.45, y - 0.95, x + 0.55, y - 0.88, 0.7, 1.05, '#b8c0c8'); return true;
+      case 'ksink':   // bancone con il lavello e il rubinetto
+        cabinet(K, x, y, true, [0, 0.38, 1, 0.98], 1.0, '#e8e0cc', 'dw', 0, '#a07a52'); bx(x + 0.22, y + 0.5, x + 0.78, y + 0.86, 1.06, 1.07, '#8a9aa8'); bx(x + 0.47, y + 0.42, x + 0.53, y + 0.48, 1.06, 1.35, '#b8c0c8'); bx(x + 0.47, y + 0.42, x + 0.53, y + 0.6, 1.3, 1.35, '#b8c0c8'); return true;
+      case 'stove':   // cucina smaltata con il forno e la pentola
+        bx(x + 0.02, y + 0.38, x + 0.98, y + 0.98, 0, 1.0, '#e8dcc4'); qL(x + 0.14, x + 0.86, y + 0.98, 0.18, 0.7, '#22222a'); qL(x + 0.28, x + 0.72, y + 0.98, 0.3, 0.6, '#3a2a1a'); qL(x + 0.1, x + 0.9, y + 0.98, 0.78, 0.84, '#22222a');
+        bx(x, y + 0.36, x + 1, y + 1, 1.0, 1.06, '#2a2a30'); for (const [a, b] of [[0.3, 0.55], [0.7, 0.55], [0.3, 0.85], [0.7, 0.85]]) dot(x + a, y + b, 1.07, 0.07, '#4a4a52'); cyl(x + 0.3, y + 0.6, 0.14, 1.06, 1.3, '#8a9098'); return true;
+      case 'fridge': eng(K, 'fridge', x, y); return true;
+      case 'cupboard':   // credenza della cucina: ante sotto, piattaia sopra con i piatti
+        cabinet(K, x, y, true, [0.06, 0.4, 0.94, 0.96], 1.0, '#7a9a8a', 'dw', 0, '#a07a52'); bx(x + 0.08, y + 0.72, x + 0.92, y + 0.96, 1.06, 2.3, '#7a9a8a'); qL(x + 0.12, x + 0.88, y + 0.96, 1.12, 2.2, '#3a4a42');
+        for (let r = 0; r < 2; r++) for (let i = 0; i < 3; i++) dot(x + 0.25 + i * 0.25, y + 0.96, 1.4 + r * 0.5, 0.07, i % 2 ? '#3a6aa8' : '#f4f0e8'); return true;
+      case 'ktable':   // tavolo della cucina (questa casella e quella a sinistra) con la tovaglia a quadretti
+        legs4(K, x - 1, y, 0.12, 0.15, 1.88, 0.85, 0.75, '#874c2e');
+        bx(x - 0.92, y + 0.08, x + 0.92, y + 0.92, 0.75, 0.82, '#f4f0e8'); for (let i = 0; i < 9; i++) for (let j = 0; j < 4; j++) if ((i + j) % 2) K.poly([S(x - 0.92 + i * 0.205, y + 0.08 + j * 0.21, 0.82), S(x - 0.715 + i * 0.205, y + 0.08 + j * 0.21, 0.82), S(x - 0.715 + i * 0.205, y + 0.29 + j * 0.21, 0.82), S(x - 0.92 + i * 0.205, y + 0.29 + j * 0.21, 0.82)], '#c8402a');
+        dot(x - 0.3, y + 0.45, 0.88, 0.1, '#c8904a'); cyl(x + 0.35, y + 0.5, 0.08, 0.82, 1.1, '#e8ecf4'); return true;
+      case 'dog':   // cane che dorme sul cuscino
+        cyl(x + 0.5, y + 0.5, 0.42, 0, 0.12, '#a83434'); bx(x + 0.25, y + 0.38, x + 0.72, y + 0.66, 0.12, 0.4, '#c88a4a'); bx(x + 0.18, y + 0.4, x + 0.36, y + 0.62, 0.15, 0.48, '#c88a4a');
+        bx(x + 0.22, y + 0.6, x + 0.3, y + 0.66, 0.2, 0.4, '#7a4a2a'); bx(x + 0.12, y + 0.46, x + 0.2, y + 0.56, 0.15, 0.3, '#d89a5a'); dot(x + 0.12, y + 0.5, 0.3, 0.02, '#222'); bx(x + 0.72, y + 0.48, x + 0.86, y + 0.54, 0.2, 0.28, '#c88a4a'); return true;
+      case 'barrel':   // botte di rovere con i cerchi di ferro
+        cyl(x + 0.5, y + 0.5, 0.34, 0, 1.1, '#8a5a32'); cyl(x + 0.5, y + 0.5, 0.355, 0.18, 0.26, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.355, 0.84, 0.92, '#3a3f49'); cyl(x + 0.5, y + 0.5, 0.25, 1.1, 1.12, '#a87a4a'); return true;
+      case 'winerack':   // scaffale delle bottiglie
+        bx(x + 0.05, y + 0.02, x + 0.45, y + 0.98, 0, 2.2, '#6a3a24'); qR(K, x + 0.45, y + 0.06, y + 0.94, 0.06, 2.14, '#2a1a10');
+        for (let r = 0; r < 5; r++) for (let i = 0; i < 4; i++) dot(x + 0.45, y + 0.16 + i * 0.22, 0.25 + r * 0.4, 0.055, r % 2 ? '#2e5a3a' : '#5a1a2a'); return true;
+      case 'crate': eng(K, 'crate', x, y); return true;
+      case 'jarshelf':   // mensola con i barattoli
+        bx(x + 0.05, y + 0.6, x + 0.95, y + 0.95, 0, 2.0, '#874c2e'); qL(x + 0.1, x + 0.9, y + 0.95, 0.06, 1.95, '#2a1a10');
+        for (let r = 0; r < 3; r++) { qL(x + 0.08, x + 0.92, y + 0.95, r * 0.66, r * 0.66 + 0.06, '#a5643c'); for (let i = 0; i < 3; i++) cyl(x + 0.22 + i * 0.28, y + 0.82, 0.08, r * 0.66 + 0.06, r * 0.66 + 0.38, ['#c8402a', '#e8a030', '#6a2a6a', '#4a8a3a'][(r + i * 2) % 4]); }
+        return true;
     }
-    S.outline(skip);
-    const L = lightAt(x + 0.5, y + 0.5).map(v => 0.3 + 0.7 * v);
-    S.light(() => L);
-    const s = Object.assign(S.canvas(), { glow }); PR.set(key, s); return s;
+    return false;
   }
-  // cespuglio a ciuffi (piante e vasi grandi): dal basso scuro all'alto chiaro, qualche fiore
-  function bush(S, x, y, z0, z1, n, sc, flower) {
-    for (let i = 0; i < n; i++) {
-      const q = i / n, a = i * 2.4 + h2(x, i) * 0.6, rr = (0.12 + 0.24 * h2(i, y)) * (1 - q * 0.55) * sc, zz = z0 + (z1 - z0) * q * 0.7 + 0.15 * h2(x + i, y + i);
-      const [cx, cy] = S.P(0.5 + Math.cos(a) * rr, 0.5 + Math.sin(a) * rr, zz), rx = (6 + 4 * h2(i, x) - q * 2) * sc, ry = (4.5 + 2.5 * h2(y, i) - q) * sc, col = C.leaf[Math.min(2, Math.floor(q * 3 + h2(i, x) * 0.6))];
-      S.ell(cx, cy, rx, ry, (dx, dy) => sh(col, dy < -0.3 && dx < 0.2 ? 1.18 : dy > 0.4 ? 0.78 : 1));
-      if (flower && i % 4 === 3) S.ell(cx - 1, cy - 2, 1.8, 1.5, flower);
+  // quattro gambe sottili (tavolini, panchine)
+  function legs4(K, x, y, a0, b0, a1, b1, h, col) { const w = 0.06; for (const [a, b] of [[a0, b0], [a1 - w, b0], [a0, b1 - w], [a1 - w, b1 - w]]) K.bx(x + a, y + b, x + a + w, y + b + w, 0, h, col); }
+  // muri: come quelli del motore (blocco di mattoncini alto 0,9), piu' le librerie del passaggio segreto e le lanterne del portone
+  function drawWall(K, x, y, col) {
+    const { bx, S, g, TW } = K;
+    if (x === 10 && (y === 3 || y === 5)) {   // librerie alte accanto al passaggio segreto
+      bx(x + 0.2, y, x + 0.8, y + 1, 0, 2.3, '#5a3a24'); books(K, frontF(K, false, x + 0.2, y, x + 0.8, y + 1), 0.1, 2.25, 4, y * 13);
+      if (y === 3) K.dot(x + 0.8, y + 0.85, 1.3, 0.025, '#e8c46a');   // il libro-leva
+      return;
+    }
+    bx(x, y, x + 1, y + 1, 0, 0.9, col); bx(x, y, x + 1, y + 1, 0.82, 0.9, K.shade(col, 1.3));
+    if (TW >= 40) {   // mattoncini (come wallTex del motore)
+      const FS = (u, z) => S(x + u, y + 1, z), FE = (v, z) => S(x + 1, y + v, z);
+      for (const [F, k] of [[FS, 0.74], [FE, 0.52]]) {
+        const base = K.shade(col, k * 0.6), ln = K.shade(col, k * 0.78), L = [];
+        g.fillStyle = base; g.beginPath(); g.moveTo(...F(0, 0)); g.lineTo(...F(1, 0)); g.lineTo(...F(1, 0.13)); g.lineTo(...F(0, 0.13)); g.closePath(); g.fill();
+        const rows = [0.13, 0.35, 0.57, 0.8]; for (const z of rows) L.push([F(0, z), F(1, z)]);
+        for (let r = 0; r < 3; r++) for (const u of (r + x + y) % 2 ? [0.25, 0.75] : [0.5]) L.push([F(u, rows[r]), F(u, rows[r + 1])]);
+        K.strokes(L, ln);
+      }
+      K.strokes([[S(x, y, 0.9), S(x + 1, y, 0.9)], [S(x, y, 0.9), S(x, y + 1, 0.9)]], 'rgba(255,255,255,.18)');
+    }
+    if (y === PORCH.y && (x === PORCH.x0 - 1 || x === PORCH.x1)) {   // lanterne ai lati del portone
+      bx(x + 0.42, y + 0.42, x + 0.58, y + 0.58, 0.9, 1.5, '#22262e'); bx(x + 0.34, y + 0.34, x + 0.66, y + 0.66, 1.5, 1.9, '#ffd890'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 1.9, 2.0, '#22262e');
+      K.glow(x + 0.5, y + 0.5, 1.7, 1.6, 'rgba(255,210,140,.35)');
     }
   }
+  // tappeti, scalini della cantina e zerbino (disegnati sopra il pavimento)
+  const RUG = (x, y, w, h, c, b) => [[x, y, w, h, b], [x + 0.12, y + 0.12, w - 0.24, h - 0.24, c], [x + 0.3, y + 0.3, w - 0.6, h - 0.6, b], [x + 0.36, y + 0.36, w - 0.72, h - 0.72, c]];
+  const DECALS = [
+    ...RUG(13.2, 12.4, 7, 5, '#7a2a3a', '#d8b060'), ...RUG(25.4, 3.4, 5.2, 3.2, '#4a5a8a', '#d8c8a0'), ...RUG(27.2, 24, 3.6, 2.8, '#9a3a2a', '#e8d8b0'),
+    [15.3, 21, 2.4, 8, '#c99a44'], [15.45, 21, 2.1, 8, '#8a2028'],   // passatoia rossa dall'ingresso al salone
+    [30.6, 12.2, 1.8, 1, '#9ac0d0'], [30.7, 12.3, 1.6, 0.8, '#e8eef2'],   // tappetino del bagno
+    [3, 21, 2, 1, '#4a4542'], [3, 21.33, 2, 0.67, '#6a6560'], [3, 21.66, 2, 0.34, '#8a8580'],   // scalini che scendono in cantina
+    [16, 29, 2, 1, '#4a3020'], [16.1, 29.1, 1.8, 0.8, '#7a5a34'],   // zerbino del portone
+    [10, 4, 1, 1, '#3a2418']];   // passaggio segreto (pavimento scuro)
 
   // ---- la mappa per il motore ----
   function mapVilla() {
     const rooms = ROOMS.map(r => Object.assign({}, r));
-    for (const [x, y, w, h, a, b, k] of DOORS) { const ra = ROOMS.find(r => r.n === a); rooms.push({ n: k === 'porch' ? 'Ingresso' : a, x, y, w, h, k: k || 'door', c: ['#b07a48', '#a06c3c'], wc: '#4a2818', nl: 1, nm: 1, door: [a, b], paper: ra.paper, pk: ra.k }); }
+    for (const [x, y, w, h, a, b, k] of DOORS) rooms.push({ n: k === 'porch' ? 'Ingresso' : a, x, y, w, h, vk: k || 'door', k: 'wood', c: ['#a8794a', '#a0734a'], wc: ROOMS.find(r => r.n === a).wc, nl: 1, nm: 1, door: [a, b] });
     const props = FURN.map(([t, x, y, o]) => [t, x, y, o || {}]);
-    setup(props); FL.clear(); WL.clear(); PR.clear();
-    return { w: W, h: H, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[16, 28], [17, 28], [15, 27], [18, 27]], button: { x: -10, y: -10 }, sabs: {},
+    return { w: W, h: H, rooms, doors: [], decals: DECALS, props, tasks: [], hall: 0, cams: [], vending: [], ring: [[16, 28], [17, 28], [15, 27], [18, 27]], button: { x: -10, y: -10 }, sabs: {},
       inn: Object.fromEntries(ROOMS.map(r => [r.n, 'in ' + r.n.toLowerCase()])), help: '', btnTxt: '', sabTxt: '',
-      pxFloor: (K, x, y) => put(K, floorSpr(x, y), x, y),
-      pxProp: (K, t, x, y, o) => { const s = propSpr(t, x, y, o); if (!s) return false; put(K, s, x, y); for (const [a, b, z, r, col] of s.glow) K.glow(x + a, y + b, z * ZS, r, col); return true; },
-      drawWall: (K, x, y) => {
-        put(K, wallSpr(x, y), x, y);
-        if (y === PORCH.y && (x === PORCH.x0 - 1 || x === PORCH.x1)) K.glow(x + 0.5, y + 0.5, (FH + 0.7) * ZS, 1.6, 'rgba(255,210,140,.35)');
-      } };
+      pxProp: drawFurn,   // gancio dei disegni degli oggetti (chiamato per primo): qui disegna i mobili della villa con gli attrezzi del motore
+      drawWall };
   }
   CQ_MAPS.villa = { n: 'Villa', make: mapVilla, only: 'trappole' };
-  // giorno o notte: cambiano il cielo nelle finestre e la luce che entra; si rifanno i disegni e la mappa pronta
-  function setNight(v) {
-    v = v ? 1 : 0; if (v === NIGHT) return;
-    NIGHT = v; setup(CQ_PROPS); FL.clear(); WL.clear(); PR.clear(); cq.bg = null;
-  }
+  // giorno o notte: cambia solo il buio (M.night); la mappa resta la stessa
+  function setNight(v) { NIGHT = v ? 1 : 0; }
 
   // ---- nascondigli (mobili che si aprono) ----
   const SPOTS = () => CQ_PROPS.filter(p => p[3] && p[3].h).map(([t, x, y, o]) => ({ t, x, y, h: o.h, n: o.n, cells: t === 'bed' ? [[x, y], [x - 1, y], [x, y - 1], [x - 1, y - 1]] : t === 'desk' ? [[x, y], [x - 1, y]] : [[x, y]] }));
@@ -858,7 +488,7 @@
     const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
     for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
       const o = cqSolid[y][x]; if (o && o.wall) { g.fillStyle = '#3a2a22'; g.fillRect(x * cs, y * cs, cs, cs); continue; }
-      if (!cqFloor[y][x]) continue; const r = roomAt(x, y); g.fillStyle = PLAN_C[r && r.k] || '#888'; g.fillRect(x * cs, y * cs, cs, cs);
+      if (!cqFloor[y][x]) continue; const r = roomAt(x, y); g.fillStyle = PLAN_C[r && r.vk] || '#888'; g.fillRect(x * cs, y * cs, cs, cs);
       if (o && o.prop) { g.fillStyle = 'rgba(30,18,12,.45)'; g.fillRect(x * cs + cs * 0.15, y * cs + cs * 0.15, cs * 0.7, cs * 0.7); }
     }
     g.textAlign = 'center'; g.textBaseline = 'middle';

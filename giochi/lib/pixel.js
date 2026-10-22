@@ -5,6 +5,7 @@
 // Si aggancia alla mappa con CQ_MAP.pxFloor / pxProp / drawWall (vedi cqTools). Hall DEFINITIVA (20-10-2026): niente piu' scelta della grafica di prima.
 (() => {
   try { localStorage.removeItem('cqPx'); } catch {}   // chi aveva scelto la grafica di prima (?pixel=0) torna alla nuova
+  if (typeof cqMapHotel !== 'function') return;
   // UA = altezza di un'unita' del motore (U = TH * 1,15 = 18,4 pixel d'arte). ZS: un po' piu' alto, in proporzione ai personaggi (alti ~2,7 U):
   // porte ~3,3 U, banco ~1,25 U, pareti ~3,7 U
   const ZS = 1.12, UA = 18.4 * ZS;
@@ -87,9 +88,6 @@
   const spr = (w, h, ox, oy) => new Pix(w, h, ox, oy);
   // figurina incollata con la cella x, y al suo posto (pixel netti)
   const put = (K, s, x, y) => { const [X, Y] = K.S(x, y, 0), p = K.TW / 32, g = K.g, sm = g.imageSmoothingEnabled; g.imageSmoothingEnabled = false; g.drawImage(s.c, X - s.ox * p, Y - s.oy * p, s.c.width * p, s.c.height * p); g.imageSmoothingEnabled = sm; };
-  // attrezzi per le mappe in pixel art dei giochi (es. la villa della Casa delle trappole)
-  window.PXK = { Pix, spr, put, sh, mix, hx, fr, h2, dith, ZS, UA };
-  if (typeof cqMapHotel !== 'function') return;
 
   // ---- palette della hall ----
   const C = {
