@@ -1639,12 +1639,14 @@
 #alSel button{width:46px;border:2px solid transparent;border-radius:10px;background:rgba(255,255,255,.06);padding:4px 0 2px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff}#alSel button.on{border-color:#ffd24a;background:rgba(90,70,30,.6)}
 #alSel .vi{width:18px;height:24px;border-radius:5px 5px 9px 9px;border:2px solid rgba(220,230,240,.8)}#alSel .ig{font-size:9px;min-height:11px;line-height:1}#alSel .rf{align-self:center;font:700 12px system-ui;color:#f2dca0;margin-left:2px;white-space:nowrap}
 #alDr{position:absolute;right:calc(max(20px,6%) + 18px);bottom:258px;width:60px;height:60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);padding:0;background:radial-gradient(circle at 40% 35%,#6a3a5a,#2a1628);box-shadow:0 4px 12px rgba(0,0,0,.45);color:#fff;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent}#alDr b{font-size:22px;line-height:1}#alDr i{font-style:normal;font:800 9.5px system-ui;color:#f2dca0;margin-top:2px}#alDr.off{opacity:.4}#alDr:active{transform:scale(.92)}
+#ciack.alDuel #cqKill{right:calc(max(20px,6%) + 8px);bottom:330px;width:80px;height:80px;font-size:13px;line-height:1.15;padding:0 6px}
 #alNm{position:absolute;left:50%;bottom:108px;transform:translateX(-50%);z-index:5;background:rgba(20,14,28,.8);color:#f2ead8;font:600 12.5px system-ui,sans-serif;padding:4px 10px;border-radius:10px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none}#alNm.cb{background:rgba(150,40,20,.92);color:#fff}`;
     document.head.appendChild(st);
   }
   function duelUI(G, on) {
     duelCss();
     let th = document.getElementById('alTh'), sel = document.getElementById('alSel');
+    $('#ciack').classList.toggle('alDuel', !!on);   // il pulsante del motore (ricarica) va sopra la fionda e sopra Bevi
     if (!on) { if (th) th.remove(); if (sel) sel.remove(); for (const id of ['alNm', 'alDr']) { const e = document.getElementById(id); if (e) e.remove(); } G.aim = null; return; }
     if (!document.getElementById('alNm')) { const nm = document.createElement('div'); nm.id = 'alNm'; $('#ciack').appendChild(nm); }
     if (!document.getElementById('alDr')) {   // BEVI: la stessa ampolla scelta, bevuta invece che lanciata
@@ -2157,6 +2159,6 @@
     }
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
-  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } U2.ph = ''; } });
+  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } $('#ciack').classList.remove('alDuel'); U2.ph = ''; } });
   window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck };   // per le prove (prove/alc*.js)
 })();
