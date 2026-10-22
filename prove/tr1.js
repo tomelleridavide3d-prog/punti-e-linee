@@ -1,4 +1,4 @@
-// La casa delle trappole, passo 1: villa (tutto raggiungibile, nascondigli raggiungibili), disegno, partita finta (trova il diamante e torna al portone).
+// La casa delle trappole, passo 1 (aggiornata al passo 2: si salta la costruzione): villa (tutto raggiungibile, nascondigli raggiungibili), disegno, partita finta (trova il diamante e torna al portone).
 // uso: node prove/cdp.mjs . prove/tr1.js [foto.png]   (window.__NT = 1: di notte; window.__SHOT = 'map': la foto e' tutta la villa)
 window.__SHOT = window.__SHOT || 'map';
 (async () => {
@@ -30,11 +30,11 @@ window.__SHOT = window.__SHOT || 'map';
   out.push('barra: ' + $('#cqModeBar').textContent + ' | scritta: ' + $('#cqCount').textContent);
   // ---- partita finta: il diamante in un posto noto, apro un mobile sbagliato e poi quello giusto, torno al portone ----
   cq.on = false; cancelAnimationFrame(cq.raf); const toasts = []; window.cqToast = t => toasts.push(t);
-  const SP = CQ_PROPS.filter(p => p[3] && p[3].h), di = SP.findIndex(p => p[3].n === 'Armadio'), wr = SP.findIndex(p => p[3].n === 'Cassapanca');
-  G.dia = di;
+  const SP = window.__tr.spots(), di = SP.findIndex(p => p.n === 'Armadio'), wr = SP.findIndex(p => p.n === 'Cassapanca');
   for (let i = 0; i < 70; i++) cqModeTick(0.05);   // i 3 s di "pronti"
+  window.__tr.buildEnd(G); window.__tr.raidStart(G); G.vb = { items: [{ k: 'dia', i: di }] }; G.dia = di;
   const go = (x, y) => { cq.x = x; cq.y = y; };
-  const open = (k) => { const s = SP[k]; go(s[1] + 0.5, s[2] + 1.6); const b = G.M.btn(G); G.M.act(G); for (let i = 0; i < 50; i++) cqModeTick(0.05); return b ? b.t : 'nessun pulsante'; };
+  const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) cqModeTick(0.05); return b ? b.t : 'nessun pulsante'; };
   out.push('mobile sbagliato: ' + open(wr) + ' -> ' + toasts.slice(-1)[0]);
   out.push('mobile giusto: ' + open(di) + ' -> ' + (G.has ? 'diamante preso' : 'NIENTE'));
   go(16.8, 28.6); cqModeTick(0.05);

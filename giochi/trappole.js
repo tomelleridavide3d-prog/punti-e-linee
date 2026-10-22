@@ -682,15 +682,212 @@
     NIGHT = v; setup(CQ_PROPS); FL.clear(); WL.clear(); PR.clear(); cq.bg = null;
   }
 
-  // ---- nascondigli ----
+  // ---- nascondigli (mobili che si aprono) ----
   const SPOTS = () => CQ_PROPS.filter(p => p[3] && p[3].h).map(([t, x, y, o]) => ({ t, x, y, h: o.h, n: o.n, cells: t === 'bed' ? [[x, y], [x - 1, y], [x, y - 1], [x - 1, y - 1]] : t === 'desk' ? [[x, y], [x - 1, y]] : [[x, y]] }));
+  let SPC = null, SPP = null;
+  const spots = () => SPP === CQ_PROPS ? SPC : (SPP = CQ_PROPS, SPC = SPOTS());
   const spotDist = (s, px, py) => Math.min(...s.cells.map(([a, b]) => Math.hypot(Math.max(a - px, 0, px - a - 1), Math.max(b - py, 0, py - b - 1))));
   const roomName = (x, y) => { const r = roomAt(Math.floor(x), Math.floor(y)); return r ? r.n : ''; };
   const atPorch = (x, y) => y > 27.6 && x > PORCH.x0 - 0.2 && x < PORCH.x1 + 0.2;
 
+  // ---- COSTRUZIONE: catalogo, regole di posa, villa del computer ----
+  const BUDGET = 100, JOLLY = 2, BUILD = 90;
+  // on = dove si mette: spot (dentro un mobile), floor (pavimento libero), door (porta), armor (armatura), room (una per stanza)
+  const CAT = {
+    dia: { e: '💎', n: 'Diamante', p: 0, on: 'spot', max: 1, d: 'Il tuo diamante: nascondilo in un mobile. È quello che l\'altro deve rubare.' },
+    fake: { e: '🎂', n: 'Diamante finto', p: 0, on: 'spot', max: 2, d: 'Chi lo apre si prende una torta in faccia (resta fermo 3 s).' },
+    box: { e: '🥊', n: 'Scatola a sorpresa', p: 10, on: 'spot', d: 'Dentro un mobile: un guantone a molla in faccia, -1 cuore.' },
+    botola: { e: '🕳️', n: 'Botola', p: 25, on: 'floor', d: 'Il pavimento cede: -1 cuore e di nuovo all\'ingresso.' },
+    piano: { e: '🎹', n: 'Pianoforte', p: 20, on: 'floor', d: 'Cade dall\'alto su chi ci passa sotto: -1 cuore, stordito.' },
+    cane: { e: '🐕', n: 'Cane', p: 15, on: 'floor', d: 'Dorme. Se gli passi vicino di corsa si sveglia, abbaia e ti insegue.' },
+    buccia: { e: '🍌', n: 'Buccia di banana', p: 8, on: 'floor', d: 'Scivoli dritto per 3 caselle: -1 cuore.' },
+    rastrello: { e: '🧹', n: 'Rastrello', p: 8, on: 'floor', d: 'Lo pesti e il manico ti arriva in faccia: -1 cuore.' },
+    vernice: { e: '🪣', n: 'Secchio di vernice', p: 12, on: 'door', d: 'Sopra una porta: chi passa lascia impronte e lo vedi ovunque.' },
+    finta: { e: '🚧', n: 'Porta finta', p: 10, on: 'door', d: 'La porta è dipinta sul muro: ci sbatti contro, -1 cuore.' },
+    armatura: { e: '🛡️', n: 'Armatura', p: 12, on: 'armor', d: 'Su un\'armatura: si gira di colpo quando le passi accanto.' },
+    cam: { e: '📹', n: 'Telecamera', p: 15, on: 'room', max: 3, d: 'Una per stanza: durante il furto da lì vedi il ladro.' },
+    jl: { e: '💡', n: 'Lampadario', p: 0, on: 'floor', jolly: 1, d: 'JOLLY: lo fai cadere tu quando il ladro è sotto. Colpisce tutto intorno.' },
+    jp: { e: '💨', n: 'Porta che sbatte', p: 0, on: 'door', jolly: 1, d: 'JOLLY: la chiudi tu in faccia al ladro.' },
+    ja: { e: '⚔️', n: 'Armatura che cade', p: 0, on: 'armor', jolly: 1, d: 'JOLLY: la fai cadere tu addosso al ladro.' }
+  };
+  const ON_TXT = { spot: 'Va dentro un mobile (quelli con il bordo giallo).', floor: 'Va sul pavimento libero: non sulle porte, non sulle scale, non davanti al portone.', door: 'Va su una porta.', armor: 'Va su un\'armatura.', room: 'Tocca la stanza dove la vuoi.' };
+  const SPAWN = (x, y) => (y >= 26 && x >= 14 && x <= 19) || y === PORCH.y;
+  const doorAt = (x, y) => DOORS.findIndex(d => d[6] !== 'porch' && x >= d[0] && x < d[0] + d[2] && y >= d[1] && y < d[1] + d[3]);
+  const spotAt = (x, y) => spots().findIndex(s => s.cells.some(([a, b]) => a === x && b === y));
+  const mainRoom = (x, y) => { const r = roomAt(x, y); return r && !r.door ? r : null; };
+  const floorOk = (x, y) => !!(cqFloor[y] && cqFloor[y][x]) && !cqSolid[y][x] && doorAt(x, y) < 0 && !SPAWN(x, y) && !(y === 21 && x >= 3 && x <= 4);
+  // dove andrebbe la cosa k toccando la casella x, y: { key, x, y, cells } oppure { err }
+  function target(k, x, y) {
+    const on = CAT[k].on;
+    if (on === 'spot') { const i = spotAt(x, y); if (i < 0) return { err: ON_TXT.spot }; const s = spots()[i]; return { key: 's' + i, x: s.x, y: s.y, cells: s.cells, i }; }
+    if (on === 'floor') return floorOk(x, y) ? { key: 'f' + x + ',' + y, x, y, cells: [[x, y]] } : { err: ON_TXT.floor };
+    if (on === 'door') { const d = doorAt(x, y); if (d < 0) return { err: ON_TXT.door }; const D = DOORS[d], cells = []; for (let j = 0; j < D[3]; j++) for (let i = 0; i < D[2]; i++) cells.push([D[0] + i, D[1] + j]); return { key: 'd' + d, x: D[0], y: D[1], cells, i: d }; }
+    if (on === 'armor') return propAt(x, y) === 'armor' ? { key: 'a' + x + ',' + y, x, y, cells: [[x, y]] } : { err: ON_TXT.armor };
+    const r = mainRoom(x, y); if (!r) return { err: ON_TXT.room }; return { key: 'r' + r.n, x: r.x, y: r.y, cells: [[r.x, r.y]], room: r.n };
+  }
+  const spent = B => B.items.reduce((s, it) => s + CAT[it.k].p, 0);
+  const count = (B, f) => B.items.filter(f).length;
+  // un'altra cosa nella stessa casella? (diverse regole: un mobile = una cosa, una porta = una cosa, una stanza = una telecamera)
+  const itemAt = (B, x, y) => B.items.find(it => it.cells.some(([a, b]) => a === x && b === y));
+  function place(B, k, x, y) {
+    const C2 = CAT[k], t = target(k, x, y); if (t.err) return t.err;
+    if (B.items.some(it => it.key === t.key)) return k === 'cam' ? 'In questa stanza c\'è già una telecamera: toccala per toglierla.' : 'Qui c\'è già qualcosa: toccalo per toglierlo.';
+    if (C2.max && count(B, it => it.k === k) >= C2.max) { if (k !== 'dia') return 'Ne puoi mettere al massimo ' + C2.max + '.'; B.items = B.items.filter(it => it.k !== 'dia'); }
+    if (C2.jolly && count(B, it => CAT[it.k].jolly) >= JOLLY) return 'Hai già messo i ' + JOLLY + ' jolly.';
+    if (spent(B) + C2.p > BUDGET) return 'Non ti bastano le monete.';
+    B.items.push({ k, key: t.key, x: t.x, y: t.y, cells: t.cells, i: t.i, room: t.room });
+    return null;
+  }
+  // villa del computer, "con buon senso": diamante lontano dall'ingresso (a volte proprio nel posto ovvio, per bluff),
+  // diamanti finti nei posti ovvi, telecamere dove serve, trappole sulla strada piu' comoda e sulle porte
+  function cpuBuild() {
+    const B = { items: [] }, S = spots(), pick = a => a[Math.floor(Math.random() * a.length)];
+    const far = s => Math.abs(s.x - 16) + Math.abs(s.y - 28);
+    const obvious = S.filter(s => ['Cassaforte', 'Sotto il letto', 'Baule vecchio', 'Botte'].includes(s.n));
+    let dia;
+    if (Math.random() < 0.25) dia = pick(obvious);
+    else { const wt = s => 0.5 + far(s) / 40, tot = S.reduce((a, s) => a + wt(s), 0); let r = Math.random() * tot; dia = S.find(s => (r -= wt(s)) <= 0) || S[0]; }
+    place(B, 'dia', dia.x, dia.y);
+    const fk = obvious.filter(s => s !== dia); place(B, 'fake', ...(s => [s.x, s.y])(pick(fk)));
+    const other = S.filter(s => s !== dia && roomName(s.x, s.y) !== roomName(dia.x, dia.y) && !B.items.some(it => it.x === s.x && it.y === s.y)); const f2 = pick(other); place(B, 'fake', f2.x, f2.y);
+    // la strada dal portone al diamante: trappole sulla parte piu' comoda
+    const nb = dia.cells.flatMap(([a, b]) => [[a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]]).find(([a, b]) => cqCellFree(a, b)) || [dia.x, dia.y + 1];
+    const path = cqPath(16.5, 28.5, nb[0] + 0.5, nb[1] + 0.5).map(([a, b]) => [Math.floor(a), Math.floor(b)]);
+    const onPath = path.filter(([a, b]) => floorOk(a, b)), doors = [...new Set(path.map(([a, b]) => doorAt(a, b)).filter(d => d >= 0))];
+    const dr = roomAt(dia.x, dia.y) || roomAt(nb[0], nb[1]);
+    place(B, 'cam', nb[0], nb[1]); place(B, 'cam', 16, 14); { const c3 = pick([[16, 24], [5, 15], [28, 15]]); place(B, 'cam', c3[0], c3[1]); }
+    if (onPath.length > 6) { const c = onPath[Math.floor(onPath.length * (0.45 + Math.random() * 0.2))]; place(B, 'botola', c[0], c[1]); }
+    if (doors.length) { const d = DOORS[doors[doors.length - 1]]; place(B, Math.random() < 0.5 ? 'vernice' : 'jp', d[0], d[1]); }
+    // lampadario jolly vicino al diamante
+    const near = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (floorOk(x, y) && Math.hypot(x - nb[0], y - nb[1]) < 3 && x !== nb[0]) near.push([x, y]);
+    if (near.length) { const c = pick(near); place(B, 'jl', c[0], c[1]); }
+    if (onPath.length > 3) { const c = onPath[onPath.length - 2]; place(B, 'buccia', c[0], c[1]); }
+    const arm = CQ_PROPS.filter(p => p[0] === 'armor'); place(B, Math.random() < 0.5 ? 'ja' : 'armatura', ...pick(arm).slice(1, 3));
+    // il resto delle monete: trappole sparse sulle altre strade, una porta finta su una porta che non e' sulla strada comoda
+    const free = []; for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (floorOk(x, y)) free.push([x, y]);
+    const otherDoors = DOORS.map((d, i) => i).filter(i => !doors.includes(i) && DOORS[i][6] !== 'porch');
+    if (otherDoors.length) { const d = DOORS[pick(otherDoors)]; place(B, 'finta', d[0], d[1]); }
+    place(B, 'box', ...(s => [s.x, s.y])(pick(S.filter(s => !B.items.some(it => it.x === s.x && it.y === s.y)))));
+    for (let tries = 0; tries < 40 && spent(B) < BUDGET - 7; tries++) { const c = pick(free); place(B, pick(['piano', 'cane', 'buccia', 'rastrello', 'rastrello', 'buccia']), c[0], c[1]); }
+    return B;
+  }
+
+  // ---- PREPARAZIONE girando per la villa: telecamera libera come il fantasmino di Nascondino (cq.cam), mirino al centro,
+  // catalogo in alto, pulsante grande "📌 Metti" / "🗑️ Togli". Il tasto 📋 apre una pianta mini per volare in una stanza ----
+  // icone dei mobili sulla pianta mini (diverse da quelle delle trappole)
+  const PROP_E = { shelf: '📚', globe: '🌍', armchair: '🛋️', sofa: '🛋️', chair: '🪑', kchair: '🪑', gbench: '🪑', bench: '🪑', lamp: '🕯️', rlamp: '🕯️', sidetable: '🗄️', nightstand: '🗄️', console: '🗄️', rdesk: '🗄️', dresser: '🗄️', filecab: '🗄️', kcounter: '🗄️', bathcab: '🗄️', sideboard: '🗄️', desk: '🗄️', safe: '🔒', plant: '🪴', bigpot: '🪴', palm: '🌴', planter: '🌱', sack: '🌾', bed: '🛏️', wardrobe: '👔', trunk: '🧳', oldtrunk: '🧳', armor: '🗡️', coffee: '☕', piano: '🎼', vase: '🏺', clock: '🕰️', coatrack: '🧥', umbrella: '☂️', toilet: '🚽', sink: '🚰', ksink: '🚰', washer: '🌀', basket: '🧺', tub: '🛁', stove: '🍳', fridge: '🧊', cupboard: '🍽️', ktable: '🍞', dog: '🐶', barrel: '🛢️', winerack: '🍷', crate: '📦', jarshelf: '🫙' };
+  const PLAN_C = { biblio: '#8a4a3a', noce: '#6a4a36', legno: '#9a6a48', serra: '#94a688', parquet: '#c8945a', scacchi: '#c4c4c0', pietra: '#706a64', corr: '#8a6a4a', marmo: '#d2c6ae', cotto: '#c8704a', door: '#b08a60', secret: '#5a3a28', porch: '#6a4a2a' };
+  const U = { tool: 'dia' };
+  const BUILD2 = 40;   // nelle manche dopo: solo per spostare le cose
+  function buildCss() {
+    if (document.getElementById('trCss')) return;
+    const st = document.createElement('style'); st.id = 'trCss';
+    st.textContent = `#trBar{position:absolute;left:8px;right:8px;top:104px;display:flex;gap:6px;align-items:stretch;z-index:5;touch-action:pan-x}
+#trBar .fix{flex:0 0 auto;border:0;border-radius:10px;font:700 14px system-ui,sans-serif;padding:0 10px;min-width:44px;color:#fff;background:rgba(20,22,28,.78)}#trBar .fix.go{background:#2f8a4a}
+#trCat{flex:1 1 auto;display:flex;gap:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}#trCat::-webkit-scrollbar{display:none}
+#trCat button{flex:0 0 auto;width:52px;border:1px solid rgba(255,255,255,.18);background:rgba(20,22,28,.78);color:#f2ead8;border-radius:10px;padding:3px 1px;font:10px system-ui,sans-serif;line-height:1.1;min-height:48px}
+#trCat button .e{font-size:20px;display:block}#trCat button.on{border-color:#ffd24a;background:rgba(90,70,30,.92);box-shadow:0 0 0 1px #ffd24a inset}#trCat button.off{opacity:.4}#trCat button.jo{border-style:dashed}
+#trTip{position:absolute;left:12px;right:12px;top:160px;z-index:5;color:#fff;font:13px system-ui,sans-serif;text-align:center;pointer-events:none;text-shadow:0 1px 3px #000}
+#trPlan{position:fixed;inset:0;z-index:60;background:rgba(16,12,22,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:12px;box-sizing:border-box;color:#f2ead8;font:14px system-ui,sans-serif}
+#trPlan canvas{display:block;touch-action:none;max-width:100%}`;
+    document.head.appendChild(st);
+  }
+  function buildOpen(G) {
+    buildCss();
+    if (document.getElementById('trBar')) return;
+    const box = $('#ciack'), bar = document.createElement('div'); bar.id = 'trBar';
+    bar.innerHTML = `<button class="fix" id="trMap" type="button" title="Pianta">📋</button><div id="trCat"></div><button class="fix go" id="trDone" type="button">✔ Fatto</button>`;
+    const tip = document.createElement('div'); tip.id = 'trTip';
+    box.appendChild(bar); box.appendChild(tip);
+    for (const ev of ['pointerdown', 'touchstart', 'mousedown']) bar.addEventListener(ev, e => e.stopPropagation(), { passive: true });   // toccare il catalogo non muove la telecamera
+    $('#trDone').onclick = () => { const G2 = cq.g; if (G2 && G2.ph === 'build') buildEnd(G2); };
+    $('#trMap').onclick = () => planOpen();
+    $('#trCat').innerHTML = Object.entries(CAT).map(([k, c]) => `<button type="button" data-k="${k}" class="${c.jolly ? 'jo' : ''}"><span class="e">${c.e}</span>${c.jolly ? '★' : c.p ? '🪙' + c.p : 'gratis'}</button>`).join('');
+    $('#trCat').querySelectorAll('button').forEach(b => { b.onclick = () => { U.tool = b.dataset.k; beep(700, 0.03, 0.02); buildBar(G); }; });
+    U.tool = 'dia'; buildBar(G);
+  }
+  function buildClose() { for (const id of ['trBar', 'trTip', 'trPlan']) { const el = document.getElementById(id); if (el) el.remove(); } }
+  function buildBar(G) {
+    const B = G.mine, left = BUDGET - spent(B), jo = count(B, it => CAT[it.k].jolly);
+    $('#trCat') && $('#trCat').querySelectorAll('button').forEach(b => { const k = b.dataset.k, c = CAT[k]; b.classList.toggle('on', k === U.tool); b.classList.toggle('off', !!((c.p > left) || (c.max && k !== 'dia' && count(B, it => it.k === k) >= c.max) || (c.jolly && jo >= JOLLY))); });
+  }
+  // dove punta il mirino: la casella al centro dello schermo; per mobili, porte e armature va bene anche quello piu' vicino (entro 1 casella)
+  function aim(G) {
+    const c = cq.cam || { x: cq.x, y: cq.y }, x = Math.floor(c.x), y = Math.floor(c.y), B = G.mine;
+    const dist = (a, b) => Math.hypot(Math.max(a - c.x, 0, c.x - a - 1), Math.max(b - c.y, 0, c.y - b - 1));
+    // 1) proprio sotto il mirino c'e' una cosa messa: si toglie
+    const it0 = itemAt(B, x, y); if (it0) return { item: it0, x, y };
+    const k = U.tool; if (!k) return { x, y };
+    // 2) dove andrebbe la cosa scelta: la casella del mirino, o il mobile/la porta/l'armatura libera piu' vicina (entro 1 casella)
+    const free = t2 => !t2.err && !B.items.some(o => o.key === t2.key);
+    let t = target(k, x, y);
+    if (!free(t) && ['spot', 'armor', 'door'].includes(CAT[k].on)) {
+      let bd = 1.0, best = null;
+      for (let yy = y - 1; yy <= y + 1; yy++) for (let xx = x - 1; xx <= x + 1; xx++) { const t2 = target(k, xx, yy); if (!free(t2)) continue; const d = dist(xx, yy); if (d < bd) { bd = d; best = t2; } }
+      if (best) t = best;
+    }
+    if (free(t)) return { t, x, y };
+    // 3) qui non si puo' mettere: se li' accanto c'e' una cosa messa (in un mobile, porta o armatura), si toglie quella
+    let bd = 0.6, it = null; for (const o of B.items) { if (CAT[o.k].on === 'room' || CAT[o.k].on === 'floor') continue; const d = Math.min(...o.cells.map(([a, b]) => dist(a, b))); if (d < bd) { bd = d; it = o; } }
+    if (it) return { item: it, x, y };
+    if (!t.err) t = { err: k === 'cam' ? 'In questa stanza c\'è già una telecamera.' : 'Qui c\'è già qualcosa.' };
+    return { t, x, y };
+  }
+  // nome del posto puntato (per il pulsante e la scritta sotto il mirino)
+  const aimName = t => { if (!t || t.err) return ''; if (t.i != null && CAT[U.tool].on === 'spot') return spots()[t.i].n; if (t.room) return t.room; if (CAT[U.tool].on === 'door') return 'porta'; if (CAT[U.tool].on === 'armor') return 'armatura'; return ''; };
+  function buildAct(G) {
+    const A = aim(G), B = G.mine;
+    if (A.item) { B.items = B.items.filter(o => o !== A.item); beep(330, 0.05, 0.03); buildBar(G); return; }
+    if (!A.t) return;
+    const err = A.t.err || place(B, U.tool, A.t.x, A.t.y);
+    if (err) { beep(160, 0.08, 0.03); cqToast(esc(err)); return; }
+    beep(880, 0.04, 0.03); beep(1175, 0.05, 0.03, 0.05);
+    if (U.tool === 'dia') U.tool = 'fake';
+    buildBar(G);
+  }
+  // ---- pianta mini (solo per orientarsi): le stanze con le cose messe; tocchi una stanza e la telecamera vola li' ----
+  function planOpen() {
+    const G = cq.g; if (!G || G.ph !== 'build') return;
+    let el = document.getElementById('trPlan'); if (el) { el.remove(); return; }
+    el = document.createElement('div'); el.id = 'trPlan';
+    el.innerHTML = `<b>📋 Tocca una stanza per andarci</b><canvas id="trPv"></canvas><button class="btn" id="trPx" type="button">Chiudi</button>`;
+    document.body.appendChild(el);
+    $('#trPx').onclick = () => el.remove();
+    const cv = $('#trPv'), cs = Math.max(6, Math.floor(Math.min((window.innerWidth - 24) / W, (window.innerHeight - 140) / H))), dpr = Math.min(3, window.devicePixelRatio || 1);
+    cv.width = W * cs * dpr; cv.height = H * cs * dpr; cv.style.width = W * cs + 'px'; cv.style.height = H * cs + 'px';
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const o = cqSolid[y][x]; if (o && o.wall) { g.fillStyle = '#3a2a22'; g.fillRect(x * cs, y * cs, cs, cs); continue; }
+      if (!cqFloor[y][x]) continue; const r = roomAt(x, y); g.fillStyle = PLAN_C[r && r.k] || '#888'; g.fillRect(x * cs, y * cs, cs, cs);
+      if (o && o.prop) { g.fillStyle = 'rgba(30,18,12,.45)'; g.fillRect(x * cs + cs * 0.15, y * cs + cs * 0.15, cs * 0.7, cs * 0.7); }
+    }
+    g.textAlign = 'center'; g.textBaseline = 'middle';
+    for (const it of G.mine.items) { const xs = it.cells.map(c => c[0]), ys = it.cells.map(c => c[1]); g.font = Math.max(9, cs * 0.9) + 'px system-ui'; g.fillText(CAT[it.k].e, (Math.min(...xs) + Math.max(...xs) + 1) / 2 * cs, (Math.min(...ys) + Math.max(...ys) + 1) / 2 * cs); }
+    const c = cq.cam; if (c) { g.strokeStyle = '#ffd24a'; g.lineWidth = 2; g.beginPath(); g.arc(c.x * cs, c.y * cs, cs * 0.8, 0, 7); g.stroke(); }
+    g.font = '700 ' + Math.max(9, Math.round(cs * 0.85)) + 'px system-ui'; g.lineWidth = 3; g.strokeStyle = 'rgba(0,0,0,.65)'; g.fillStyle = '#fff';
+    for (const r of ROOMS) { const nm = r.n === 'Camera da letto' ? 'Camera' : r.n === 'Corridoio' ? 'Corr.' : r.n; g.strokeText(nm, (r.x + r.w / 2) * cs, (r.y + r.h / 2) * cs); g.fillText(nm, (r.x + r.w / 2) * cs, (r.y + r.h / 2) * cs); }
+    cv.addEventListener('pointerdown', e => {
+      const rc = cv.getBoundingClientRect(), x = Math.floor((e.clientX - rc.left) / cs), y = Math.floor((e.clientY - rc.top) / cs), r = roomAt(x, y), n = r ? (r.door ? r.door[0] : r.n) : null, R2 = n && ROOMS.find(q => q.n === n);
+      if (!R2 || !cq.cam) return; cq.cam.x = R2.x + R2.w / 2; cq.cam.y = R2.y + R2.h / 2; beep(660, 0.03, 0.02); el.remove();
+    });
+  }
+  function buildEnd(G) {
+    buildClose(); cq.cam = null;
+    if (!G.mine.items.some(it => it.k === 'dia')) { const s = spots()[Math.floor(Math.random() * spots().length)]; place(G.mine, 'dia', s.x, s.y); cqToast('💎 Non avevi nascosto il diamante: l\'ho messo io in <b>' + esc(s.n) + '</b>.'); }
+    G.ph = 'tour'; G.vb = cpuBuild();
+    cq.x = 16.5; cq.y = 27.6;
+    beep(523, 0.08, 0.04); beep(784, 0.12, 0.04, 0.09);
+  }
+  function raidStart(G) {
+    G.ph = 'raid'; G.left = TIME; G.open = []; G.has = false; G.srch = null; G.stun = 0; G.t0 = G.time;
+    const d = G.vb.items.find(it => it.k === 'dia'); G.dia = d.i;
+    cq.x = 16.5 + 0.5; cq.y = 28.3; G.room = 'Ingresso';
+    cqToast('🏚️ Sei nella villa del computer: trova il <b>diamante</b> e riportalo al portone! Attento ai diamanti finti…');
+  }
+
   CQ_MODES.trappole = {
     n: 'La casa delle trappole',
-    desc: '🪤 Due ladri, due ville identiche. Riempi la tua di trappole e nascondi il diamante; poi ruba quello dell\'altro mentre lui ti guarda dalle telecamere. <b>In costruzione</b>: per ora si visita la villa e si cerca il diamante nascosto dal computer.',
+    desc: '🪤 Due ladri, due ville identiche. Riempi la tua di trappole e nascondi il diamante; poi ruba quello dell\'altro mentre lui ti guarda dalle telecamere. <b>In costruzione</b>: per ora arredi la tua villa, la guardi e poi rubi nella villa del computer (le trappole scatteranno nel prossimo passo).',
     maps: [['villa', 'Villa']],
     ns: [[2, '2']],
     def: { map: 'villa', n: 2, fill: true, nt: 0 },
@@ -698,40 +895,64 @@
     read: d => ({ nt: +d.get('nt') ? 1 : 0 }),
     start(G) {
       setNight(G.opt.nt);
-      const sp = SPOTS(); G.dia = Math.floor(Math.random() * sp.length); G.open = []; G.has = false; G.srch = null; G.left = TIME; G.room = 'Ingresso';
+      G.ph = 'build'; G.bt = BUILD; G.mine = { items: [] }; G.open = []; G.has = false; G.srch = null; G.left = TIME; G.room = 'Ingresso'; G.stun = 0;
       for (const c of G.chars) { c.x = 16.5 + (c === G.me ? 0.5 : -0.5); c.y = 28.3; }
+      cq.cam = { x: 16.5, y: 24.5 };
     },
-    gstart(G) { setNight(G.opt.nt); G.open = []; G.room = 'Ingresso'; G.left = TIME; },
-    intro: () => '💎 Il diamante è nascosto in un mobile: trovalo e riportalo al portone!',
-    hide: c => !!c.bot && !c.sid,   // per ora l'avversario del computer non c'e' (arriva con l'incursione)
-    speed: c => { const G = cq.g; return G && c === G.me && G.srch ? 0 : 1; },
+    gstart(G) { setNight(G.opt.nt); G.ph = 'build'; G.bt = BUILD; G.mine = { items: [] }; G.open = []; G.room = 'Ingresso'; G.left = TIME; G.stun = 0; cq.cam = { x: 16.5, y: 24.5 }; },
+    intro: () => '🔨 Gira per la tua villa e arredala: trappole e diamante!',
+    hide: c => !!c.bot && !c.sid,   // per ora l'avversario del computer non si vede (arriva con le telecamere)
+    speed: c => { const G = cq.g; return G && c === G.me && (G.ph === 'build' || G.srch || G.stun > G.time) ? 0 : 1; },
     hud(G) {
-      const r = roomName(cq.x, cq.y); if (r && !roomAt(Math.floor(cq.x), Math.floor(cq.y)).door) G.room = r;
-      return `🪤 ${G.opt.nt ? '🌙' : '☀️'} 📍 <b>${esc(G.room || '')}</b> · 🔍 ${G.open.length} aperti · ${G.has ? '💎 <b>Al portone!</b> · ' : ''}⏱ ${mmss(Math.max(0, G.left))}`;
+      const P = G.ph === 'build' && cq.cam ? cq.cam : cq, r = roomName(P.x, P.y), rr = roomAt(Math.floor(P.x), Math.floor(P.y)); if (r && rr && !rr.door) G.room = r;
+      const nt = G.opt.nt ? '🌙' : '☀️';
+      if (G.ph === 'build') { const B = G.mine; return `🔨 📍 <b>${esc(G.room || '')}</b> · 🪙 ${BUDGET - spent(B)} · ★ ${JOLLY - count(B, it => CAT[it.k].jolly)} · ⏱ <b${G.bt < 10 ? ' style="color:#ff8a7a"' : ''}>${mmss(Math.max(0, G.bt))}</b>`; }
+      if (G.ph === 'tour') return `🏠 La tua villa ${nt} · 📍 <b>${esc(G.room || '')}</b> · le trappole le vedi solo tu`;
+      return `🏚️ Villa del computer ${nt} · 📍 <b>${esc(G.room || '')}</b> · 🔍 ${G.open.length} · ${G.has ? '💎 <b>Al portone!</b> · ' : ''}⏱ ${mmss(Math.max(0, G.left))}`;
     },
-    big: G => G.left < 10 && G.left > 0 && G.phase === 'play' ? '⏱ ' + Math.ceil(G.left) + '…' : '',
+    big: G => G.ph === 'raid' && G.left < 10 && G.left > 0 && G.phase === 'play' ? '⏱ ' + Math.ceil(G.left) + '…' : G.ph === 'raid' && G.stun > G.time ? (G.stunT || '') : '',
     spotNear(G) {
-      if (G.srch || G.has) return null;
-      let best = null, bd = NEAR; SPOTS().forEach((s, i) => { if (G.open.includes(i)) return; const d = spotDist(s, cq.x, cq.y); if (d < bd) { bd = d; best = Object.assign(s, { i }); } });
+      if (G.ph !== 'raid' || G.srch || G.has) return null;
+      let best = null, bd = NEAR; spots().forEach((s, i) => { if (G.open.includes(i)) return; const d = spotDist(s, cq.x, cq.y); if (d < bd) { bd = d; best = Object.assign({}, s, { i }); } });
       return best;
     },
     btn(G) {
+      if (G.ph === 'build') { const A = aim(G); if (A.item) return { t: '🗑️ Togli', on: true }; return { t: '📌 Metti', on: !!(A.t && !A.t.err) && !(CAT[U.tool].p > BUDGET - spent(G.mine)) }; }
+      if (G.ph === 'tour') return { t: '▶ Ruba nella villa del computer', on: true };
       if (G.srch) return { t: '🔍 Cerco…', on: false };
+      if (G.stun > G.time) return null;
       const s = this.spotNear(G); return s ? { t: '🔍 Apri: ' + s.n, on: true } : null;
     },
     act(G) {
+      if (G.ph === 'build') { buildAct(G); return; }
+      if (G.ph === 'tour') { raidStart(G); return; }
+      if (G.ph !== 'raid' || G.stun > G.time) return;
       const s = this.spotNear(G); if (!s) return;
       G.srch = { i: s.i, t0: G.time, d: s.h >= 2 ? 2 : 1, x: s.x + 0.5, y: s.y + 0.5 };
       beep(320, 0.05, 0.03);
     },
     tick(G, dt) {
+      if (G.ph === 'build') {
+        if (!document.getElementById('trBar')) buildOpen(G);
+        if (!cq.cam) cq.cam = { x: 16.5, y: 24.5 };
+        G.bt -= dt;
+        const A = aim(G), tip = document.getElementById('trTip'), C2 = CAT[U.tool];
+        const txt = A.item ? '🗑️ ' + CAT[A.item.k].e + ' ' + CAT[A.item.k].n + ' — tocca Togli per toglierla' : !C2 ? '' : (A.t && !A.t.err ? C2.e + ' ' + C2.n + (aimName(A.t) ? ' → ' + aimName(A.t) : '') : C2.e + ' ' + C2.n + ': ' + (A.t ? A.t.err : ''));
+        if (tip && tip.textContent !== txt) tip.textContent = txt;
+        if (G.bt <= 0) buildEnd(G);
+        return;
+      }
+      if (G.ph !== 'raid') return;
       G.left -= dt;
       const S = G.srch;
       if (S) {
         if (Math.floor((G.time - S.t0) * 6) !== Math.floor((G.time - S.t0 - dt) * 6)) beep(180 + Math.random() * 160, 0.03, 0.015);   // fruscio mentre si fruga
         if (G.time - S.t0 >= S.d) {
           G.srch = null; G.open.push(S.i);
-          if (S.i === G.dia) { G.has = true; beep(988, 0.1, 0.05); beep(1319, 0.2, 0.05, 0.1); cqToast('💎 <b>Trovato!</b> Ora riportalo al portone, presto!'); }
+          const it = G.vb.items.find(o => o.i === S.i && CAT[o.k].on === 'spot');
+          if (it && it.k === 'dia') { G.has = true; beep(988, 0.1, 0.05); beep(1319, 0.2, 0.05, 0.1); cqToast('💎 <b>Trovato!</b> Ora riportalo al portone, presto!'); }
+          else if (it && it.k === 'fake') { G.stun = G.time + 3; G.stunT = '🎂 Torta in faccia!'; G.cake = G.time; beep(140, 0.25, 0.06); cqToast('🎂 <b>Era un diamante finto!</b> Torta in faccia…'); }
+          else if (it && it.k === 'box') { G.stun = G.time + 1.5; G.stunT = '🥊 PAF!'; beep(110, 0.2, 0.07); cqToast('🥊 <b>Scatola a sorpresa!</b> Un guantone in faccia.'); }
           else { beep(220, 0.08, 0.03); cqToast(cqPickOne(['Vuoto…', 'Niente qui.', 'Solo polvere.', 'Acqua…', 'Qui non c\'è.'])); }
         }
       }
@@ -739,20 +960,37 @@
       if (G.left <= 0) this.finish(G, false);
     },
     finish(G, ok) {
-      const sp = SPOTS()[G.dia], name = G.me.name + ' (tu)';
-      if (ok) cqModeEnd({ t: '💎 Diamante rubato!', why: 'Ce l\'hai fatta in <b>' + mmss(G.time) + '</b>, aprendo ' + G.open.length + ' mobili. Era: ' + esc(sp.n) + ' (' + esc(roomName(sp.x, sp.y)) + ').', win: [G.me.id], rank: [[name, '— ' + mmss(G.time)]] });
+      buildClose();
+      const sp = spots()[G.dia], name = G.me.name + ' (tu)', t = G.time - (G.t0 || 0);
+      if (ok) cqModeEnd({ t: '💎 Diamante rubato!', why: 'Ce l\'hai fatta in <b>' + mmss(t) + '</b>, aprendo ' + G.open.length + ' mobili. Era: ' + esc(sp.n) + ' (' + esc(roomName(sp.x, sp.y)) + ').', win: [G.me.id], rank: [[name, '— ' + mmss(t)]] });
       else cqModeEnd({ t: '⏱ Tempo scaduto!', why: G.has ? 'Avevi il diamante, ma non sei arrivato al portone in tempo.' : 'Il diamante era: <b>' + esc(sp.n) + '</b> (' + esc(roomName(sp.x, sp.y)) + ').', win: [], rank: [[name, '— ' + G.open.length + ' mobili aperti']] });
     },
-    // diamante sopra la testa di chi lo porta
+    // diamante sopra la testa di chi lo porta; torta in faccia
     deco(g, c, X, Y, TW, G, L) {
-      if (c !== G.me || !G.has) return;
-      const u = TW / 34, by = Y - (cqTop(L) + 0.5) * TW + Math.sin(performance.now() / 200) * 2 * u;
-      diamond(g, X, by, 9 * u);
+      if (c !== G.me) return;
+      const u = TW / 34;
+      if (G.has) diamond(g, X, Y - (cqTop(L) + 0.5) * TW + Math.sin(performance.now() / 200) * 2 * u, 9 * u);
+      if (G.cake && G.time - G.cake < 3) { const hy = Y - cqTop(L) * TW * 0.78; g.fillStyle = '#fff6e8'; g.beginPath(); g.ellipse(X, hy, 11 * u, 8 * u, 0, 0, 7); g.fill(); g.fillStyle = '#e86a8a'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(X - 7 * u + i * 5 * u, hy - 6 * u + (i % 2) * 3 * u, 2 * u, 0, 7); g.fill(); } }
     },
-    // sopra la mappa: la barra del frugare e la spunta sui mobili gia' aperti
+    // sopra la mappa: nella mia villa le cose che ho messo (solo io le vedo); nel furto la barra del frugare e la spunta sui mobili aperti
     over(g, G, sx, sy, TW) {
-      const sp = SPOTS();
-      g.font = Math.round(TW * 0.28) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      g.textAlign = 'center'; g.textBaseline = 'middle';
+      if ((G.ph === 'tour' || G.ph === 'build') && G.mine) {
+        if (G.ph === 'build') aimDraw(g, G, sx, sy, TW);
+        const bob = Math.sin(performance.now() / 300) * TW * 0.04;
+        for (const it of G.mine.items) {
+          const xs = it.cells.map(c => c[0]), ys = it.cells.map(c => c[1]), cx = (Math.min(...xs) + Math.max(...xs) + 1) / 2, cy = (Math.min(...ys) + Math.max(...ys) + 1) / 2;
+          const X = sx(cx, cy), Y = sy(cx, cy) - TW * (CAT[it.k].on === 'spot' || CAT[it.k].on === 'armor' ? 1.25 : CAT[it.k].on === 'room' ? 2.2 : 0.35) + bob;
+          if (X < -60 || Y < -60 || X > cq.w + 60 || Y > cq.h + 60) continue;
+          g.textAlign = 'center'; g.textBaseline = 'middle';
+          g.fillStyle = CAT[it.k].jolly ? 'rgba(255,210,74,.7)' : 'rgba(0,0,0,.5)'; g.beginPath(); g.arc(X, Y, TW * 0.24, 0, 7); g.fill();
+          g.font = Math.round(TW * 0.3) + 'px system-ui,sans-serif'; g.fillText(CAT[it.k].e, X, Y + 1);
+        }
+        return;
+      }
+      if (G.ph !== 'raid') return;
+      const sp = spots();
+      g.font = Math.round(TW * 0.28) + 'px system-ui,sans-serif';
       for (const i of G.open) { const s = sp[i]; if (!s) continue; const X = sx(s.x + 0.5, s.y + 0.5), Y = sy(s.x + 0.5, s.y + 0.5) - TW * 0.9; if (X < -50 || Y < -50 || X > cq.w + 50 || Y > cq.h + 50) continue; g.globalAlpha = 0.75; g.fillText('✔️', X, Y); g.globalAlpha = 1; }
       const S = G.srch; if (!S) return;
       const k = Math.min(1, (G.time - S.t0) / S.d), X = sx(cq.x, cq.y), Y = sy(cq.x, cq.y) - TW * 2.2;
@@ -760,9 +998,9 @@
       g.strokeStyle = '#ffd24a'; g.lineWidth = TW * 0.08; g.beginPath(); g.arc(X, Y, TW * 0.24, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke();
       g.fillText('🔍', X, Y + 1);
     },
-    // notte: buio, si vede solo vicino e dove punta la torcia; restano accese le lampade (poca luce)
+    // notte: buio, si vede solo vicino e dove punta la torcia; restano accese le lampade (poca luce). Nella mia villa, in costruzione e nel giro, c'e' luce
     night(G) {
-      if (!G.opt.nt) return null;
+      if (!G.opt.nt || G.ph !== 'raid') return null;
       const l = Math.hypot(cq.wdx || 0, cq.wdy || 0) || 1, dx = (cq.wdx || 0.5) / l, dy = (cq.wdy || 0.5) / l;
       const lights = [[cq.x + dx * 2.6, cq.y + dy * 2.6, 3.4, 0.92], [cq.x + dx * 4.6, cq.y + dy * 4.6, 2.2, 0.6]];
       for (const p of CQ_PROPS) if (p[0] === 'lamp' || p[0] === 'rlamp' || p[0] === 'nightstand') lights.push([p[1] + 0.5, p[2] + 0.5, 1.6, 0.45]);
@@ -770,6 +1008,21 @@
       return { a: 0.94, r: 2.2, lights, see: (x, y) => Math.hypot(x - cq.x, y - cq.y) < 2.4 || Math.hypot(x - cq.x - dx * 3, y - cq.y - dy * 3) < 2.8 };
     }
   };
+  // mirino della preparazione: rombo sulla casella (verde = si puo', rosso = no; giallo = c'e' gia' una cosa da togliere), mobile/porta evidenziati
+  function aimDraw(g, G, sx, sy, TW) {
+    const A = aim(G), c = cq.cam || cq, ok = A.item ? 'rgba(255,210,74,' : A.t && !A.t.err ? 'rgba(90,230,120,' : 'rgba(255,90,80,';
+    const cells = A.item ? A.item.cells : A.t && !A.t.err && CAT[U.tool].on !== 'room' ? A.t.cells : [[A.x, A.y]];
+    const pulse = 0.5 + 0.25 * Math.sin(performance.now() / 180);
+    for (const [x, y] of cells) {
+      g.beginPath(); g.moveTo(sx(x, y), sy(x, y)); g.lineTo(sx(x + 1, y), sy(x + 1, y)); g.lineTo(sx(x + 1, y + 1), sy(x + 1, y + 1)); g.lineTo(sx(x, y + 1), sy(x, y + 1)); g.closePath();
+      g.fillStyle = ok + (0.22 * pulse + 0.1) + ')'; g.fill(); g.strokeStyle = ok + '.95)'; g.lineWidth = Math.max(2, TW / 22); g.stroke();
+    }
+    // il centro del mirino (dove punta la telecamera)
+    const X = sx(c.x, c.y), Y = sy(c.x, c.y); g.strokeStyle = 'rgba(255,255,255,.9)'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, TW * 0.09, 0, 7); g.moveTo(X - TW * 0.2, Y); g.lineTo(X - TW * 0.12, Y); g.moveTo(X + TW * 0.12, Y); g.lineTo(X + TW * 0.2, Y); g.stroke();
+  }
+  // se si esce dalla partita durante la preparazione, catalogo e pianta si chiudono da soli e la telecamera torna normale
+  setInterval(() => { const G = cq.g; if (document.getElementById('trBar') && (!G || G.mode !== 'trappole' || G.ph !== 'build' || G.phase !== 'play')) { buildClose(); if (!G || G.mode !== 'nascondino') cq.cam = null; } }, 400);
+  window.__tr = { CAT, place, target, cpuBuild, spent, spots, buildEnd, raidStart, U, aim, buildAct, planOpen, BUDGET };   // per le prove
   // diamante disegnato a faccette, con lo scintillio
   function diamond(g, X, Y, r) {
     const P = [[0, -0.55], [0.6, -0.55], [1, -0.1], [0, 1], [-1, -0.1], [-0.6, -0.55]].map(([a, b]) => [X + a * r, Y + b * r]);
