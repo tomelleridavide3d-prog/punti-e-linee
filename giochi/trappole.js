@@ -422,7 +422,7 @@
 #trPlan canvas{display:block;touch-action:none;max-width:100%}
 #trSafe{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:60;background:rgba(16,12,22,.95);color:#f2ead8;border-radius:16px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:8px;font:14px system-ui,sans-serif;text-align:center;box-shadow:0 8px 30px rgba(0,0,0,.5)}#trSafe canvas{touch-action:none}#trSafeN{font-size:22px;letter-spacing:4px}
 #trCams{position:absolute;left:8px;right:110px;bottom:24px;z-index:5;display:flex;flex-wrap:wrap;gap:6px}#trCams button{border:1px solid rgba(255,255,255,.25);background:rgba(20,22,28,.82);color:#fff;border-radius:10px;padding:8px 10px;font:700 13px system-ui,sans-serif}#trCams button.on{border-color:#ffd24a;background:rgba(90,70,30,.92)}#trCams button.blink{background:#c8402a;border-color:#ffb0a0}#trCams .none{color:#fff;font:14px system-ui;background:rgba(20,22,28,.8);padding:8px 10px;border-radius:10px}
-#trCloak{position:absolute;left:18px;bottom:150px;z-index:5;width:76px;height:76px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(40,60,90,.85);color:#fff;font:700 13px system-ui,sans-serif}#trCloak.on{background:#3a8ac8;box-shadow:0 0 18px #9ad8ff}#trCloak.used{opacity:.4}`;
+#trCloak{position:absolute;left:18px;bottom:150px;z-index:5;width:76px;height:76px;border-radius:50%;border:2px solid rgba(255,255,255,.3);background:rgba(40,60,90,.85);color:#fff;font:700 13px system-ui,sans-serif}#trCloak.on{background:#3a8ac8;box-shadow:0 0 18px #9ad8ff}#trCloak.used{opacity:.4}\n#trHelp{position:absolute;left:12px;right:12px;bottom:250px;z-index:6;background:rgba(16,12,22,.93);color:#f2ead8;border:1px solid rgba(255,210,74,.5);border-radius:14px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)}#trHelp button{display:block;margin:10px auto 0}\n.trRules{margin-top:10px}.trRules summary{cursor:pointer;font-weight:700}.trRules p{margin:6px 0;font-size:14px;line-height:1.4}`;
     document.head.appendChild(st);
   }
   function buildOpen(G) {
@@ -513,6 +513,104 @@
     if (G.guest) cqNetSend({ k: 'vb', v: vPack(G.mine) }); else if (G.st) G.st.done[G.me.id] = 1;
   }
 
+  // ---- SUONI comici (fatti a mano con l'audio del motore: note che scivolano e rumore filtrato) ----
+  let sfxBuf = null;
+  function sfxOk() { if (!store.settings.sound) return null; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; } catch { return null; } }
+  function swp(f0, f1, d, v, delay = 0, type = 'sine') {
+    const A = sfxOk(); if (!A) return;
+    try { const t = A.currentTime + delay, o = A.createOscillator(), g = A.createGain(); o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + d);
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(Math.min(0.5, v * 3), t + Math.min(0.02, d / 4)); g.gain.exponentialRampToValueAtTime(0.0001, t + d); o.connect(g).connect(A.destination); o.start(t); o.stop(t + d + 0.03); } catch {}
+  }
+  function nz(d, fq, v, delay = 0, type = 'bandpass', q = 0.8) {
+    const A = sfxOk(); if (!A) return;
+    try { if (!sfxBuf) { sfxBuf = A.createBuffer(1, Math.floor(A.sampleRate * 1.2), A.sampleRate); const D2 = sfxBuf.getChannelData(0); for (let i = 0; i < D2.length; i++) D2[i] = Math.random() * 2 - 1; }
+      const t = A.currentTime + delay, s = A.createBufferSource(), fl = A.createBiquadFilter(), g = A.createGain(); s.buffer = sfxBuf; fl.type = type; fl.frequency.value = fq; fl.Q.value = q;
+      g.gain.setValueAtTime(Math.min(0.6, v * 3), t); g.gain.exponentialRampToValueAtTime(0.0001, t + d); s.connect(fl).connect(g).connect(A.destination); s.start(t); s.stop(t + d + 0.05); } catch {}
+  }
+  const SFX = {
+    botola: () => { swp(180, 120, 0.12, 0.05, 0, 'square'); swp(1200, 140, 0.9, 0.05, 0.08); nz(0.3, 300, 0.12, 0.95, 'lowpass'); },
+    buccia: () => { swp(260, 1400, 0.35, 0.05, 0, 'sawtooth'); nz(0.25, 200, 0.12, 0.4, 'lowpass'); },
+    rastrello: () => { swp(900, 700, 0.25, 0.05, 0, 'square'); swp(1350, 1100, 0.3, 0.04, 0.01, 'square'); nz(0.08, 2500, 0.08); },
+    piano: () => { swp(1600, 1500, 0.08, 0.03, 0, 'triangle'); swp(1300, 1250, 0.08, 0.03, 0.1, 'triangle'); },
+    crash: () => { nz(0.7, 400, 0.18, 0, 'lowpass'); for (const [f, d] of [[130, 0], [155, 0.02], [185, 0.04], [233, 0.06]]) swp(f, f * 0.7, 0.9, 0.04, d, 'triangle'); },
+    vernice: () => { nz(0.35, 1100, 0.14); swp(500, 200, 0.25, 0.03, 0.05); },
+    finta: () => { swp(220, 110, 0.2, 0.08, 0, 'triangle'); nz(0.12, 250, 0.12, 0, 'lowpass'); },
+    armatura: () => { swp(1500, 1300, 0.5, 0.04, 0, 'square'); swp(2100, 1900, 0.45, 0.03, 0.01, 'square'); nz(0.15, 4000, 0.06); },
+    bark: () => { swp(700, 420, 0.1, 0.06, 0, 'sawtooth'); swp(650, 380, 0.12, 0.06, 0.16, 'sawtooth'); },
+    bite: () => { nz(0.08, 1500, 0.15); swp(400, 200, 0.15, 0.05, 0.02, 'square'); },
+    lampadario: () => { for (let i = 0; i < 7; i++) swp(2400 + Math.random() * 1500, 2000, 0.15, 0.02, i * 0.06); },
+    jlcrash: () => { nz(0.6, 3000, 0.12, 0, 'highpass'); for (let i = 0; i < 10; i++) swp(2000 + Math.random() * 2500, 1500, 0.2, 0.025, i * 0.03); nz(0.3, 300, 0.1, 0, 'lowpass'); },
+    sbatte: () => { nz(0.25, 180, 0.2, 0, 'lowpass'); swp(150, 60, 0.3, 0.07, 0, 'triangle'); },
+    torta: () => { nz(0.3, 600, 0.12, 0, 'lowpass'); swp(300, 120, 0.3, 0.04, 0.03); },
+    boing: () => { swp(180, 700, 0.12, 0.06); swp(700, 250, 0.25, 0.05, 0.12); swp(250, 500, 0.2, 0.04, 0.35); },
+    mantello: () => { swp(400, 2400, 0.6, 0.03); swp(600, 3200, 0.6, 0.02, 0.05); },
+    fruscio: () => nz(0.35, 2500, 0.05),
+    ok: () => { for (const [f, d] of [[523, 0], [659, 0.12], [784, 0.24], [1047, 0.38]]) swp(f, f, 0.22, 0.05, d, 'triangle'); },
+    ko: () => { for (const [f, d] of [[392, 0], [330, 0.18], [262, 0.36]]) swp(f, f * 0.97, 0.3, 0.05, d, 'triangle'); }
+  };
+  const sfx = k => { try { (SFX[k] || (() => {}))(); } catch {} };
+
+  // ---- SPIEGAZIONI BREVI: la prima volta di ogni fase, una scheda in basso (non ferma il tempo) ----
+  const HELP = {
+    build: '<b>🔨 Arreda la tua villa</b><br>Trascina il dito per volare per la casa. Scegli dal catalogo in alto e premi <b>📌 Metti</b> dove il mirino è verde.<br>💎 Nascondi il diamante in un mobile · 🎂 due finti per ingannare · 🪤 trappole sul pavimento e sulle porte · 📹 telecamere (le userai per guardare il ladro) · ★ due jolly da far scattare tu.',
+    raid: '<b>🏚️ Ruba il diamante</b><br>Apri i mobili per cercarlo, poi <b>riportalo al portone</b>. Trascina <b>poco</b> il dito per andare piano 🐢: vedi i segni delle trappole e i cani non si svegliano. Il padrone ti guarda dalle telecamere: 🧥 il mantello ti rende invisibile per 5 secondi (una volta sola). La cassaforte si apre girando la manopola: fermati quando senti il clic.',
+    guard: '<b>🛡️ Difendi la tua villa</b><br>Guardi il ladro dalle telecamere: cambiale con i pulsanti in basso (lampeggiano quando nella stanza succede qualcosa). Quando il ladro è vicino a un tuo jolly compare il pulsante rosso: <b>fallo scattare al momento giusto</b>!'
+  };
+  function helpOnce(k) {
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem('trHelp') || '{}'); } catch {}
+    if (seen[k] || !HELP[k]) return; seen[k] = 1; try { localStorage.setItem('trHelp', JSON.stringify(seen)); } catch {}
+    buildCss(); const old = document.getElementById('trHelp'); if (old) old.remove();
+    const el = document.createElement('div'); el.id = 'trHelp'; el.innerHTML = HELP[k] + '<button class="btn primary" type="button">Ho capito ✓</button>';
+    for (const ev of ['pointerdown', 'touchstart', 'mousedown']) el.addEventListener(ev, e => e.stopPropagation(), { passive: true });
+    el.querySelector('button').onclick = () => el.remove(); $('#ciack').appendChild(el); setTimeout(() => el.remove(), 16000);
+  }
+  const RULES = '<details class="trRules"><summary>📖 Come si gioca</summary><p>Due ladri, due ville <b>identiche</b>. Al meglio di <b>3 manche</b>.</p><p><b>1. Preparazione</b> (90 s, poi 40 s nelle manche dopo): giri per la tua villa e nascondi il <b>diamante</b> in un mobile, metti <b>diamanti finti</b> (torta in faccia!), <b>trappole</b> (botola, pianoforte che cade, buccia, rastrello, cane che dorme, vernice, porta finta, armatura) e <b>telecamere</b>, con 100 monete. I 2 <b>jolly</b> (lampadario, porta che sbatte, armatura che cade) li fai scattare tu.</p><p><b>2. Furti</b>: uno alla volta si ruba nella villa dell\'altro. Chi ruba ha 3 ❤️ e 90 secondi per trovare il diamante e riportarlo al portone; trascinando poco il dito va piano e vede i segni delle trappole; ha il 🧥 mantello (5 s invisibile). Chi difende guarda dalle telecamere e fa scattare i jolly.</p><p><b>3.</b> Vince la manche chi ruba più in fretta. Nelle manche dopo l\'altro sa dov\'era il tuo diamante… lo sposti o no?</p></details>';
+
+  // ---- MOVIOLA: durante ogni furto ogni telefono registra il ladro (posizione e cuori) e i momenti delle trappole;
+  // a fine manche si rivede al rallentatore il momento piu' bello (lampadario in testa, pianoforte, botola…) ----
+  function recTick(G) {
+    if (G.ph !== 'raid' && G.ph !== 'guard') return; const P = TP(G); if (!P || !G.rec) return;
+    const L = G.rec.pts, last = L[L.length - 1]; if (last && G.time - last[0] < 0.1) return;
+    L.push([Math.round(G.time * 100) / 100, Math.round(P.x * 100) / 100, Math.round(P.y * 100) / 100, (P === cq ? cq.face : P.face) || 1, G.hp, G.ph === 'raid' && G.fall ? 1 : 0]); if (L.length > 1200) L.shift();
+  }
+  const MV = { jl: [10, '💡 Lampadario in testa a '], piano: [9, '🎹 Pianoforte addosso a '], botola: [8, '🕳️ Giù per la botola: '], ja: [7, '⚔️ Armatura addosso a '], jp: [6, '💨 Porta in faccia a '], buccia: [5, '🍌 Che scivolone, '], armatura: [5, '🛡️ L\'armatura colpisce '], rastrello: [4, '🧹 SDENG! Povero '], finta: [4, '🚧 Contro la porta dipinta: '], vernice: [2, '🪣 Tutto blu: '] };
+  // il momento piu' bello del furto appena finito (colpito vale di piu' di mancato, mancato per un pelo vale comunque)
+  function recBest(G) {
+    const R = G.rec; if (!R || !R.pts.length) return null; let best = null;
+    const hitAt = t => { const a = R.pts.find(p => p[0] >= t - 0.05), b = R.pts.find(p => p[0] >= t + 1.3) || R.pts[R.pts.length - 1]; return a && b && b[4] < a[4]; };
+    const cand = G.fx.filter(f => f.k !== 'piano').map(f => ({ k: f.k, t: f.t, x: f.x, y: f.y })).concat(G.pianos.map(p => ({ k: 'piano', t: p.t + 0.55, x: p.x, y: p.y })))
+      .concat(G.jfx.map(f => { const [x, y] = jCenter(f.it); return { k: f.k, t: f.t + (f.k === 'jl' ? 0.5 : f.k === 'ja' ? 0.4 : 0), x, y }; }));
+    for (const c of cand) { if (!MV[c.k]) continue; const hit = c.k === 'botola' || c.k === 'vernice' || hitAt(c.t - 0.1); const v = MV[c.k][0] * (hit ? 1 : 0.55); if (!best || v > best.v) best = Object.assign(c, { v, hit }); }
+    if (!best) return null;
+    const nm = G.thiefC ? G.thiefC.name : G.me.name;
+    return Object.assign(best, { pts: R.pts.filter(p => p[0] > best.t - 2.4 && p[0] < best.t + 2.4), look: G.thiefC && G.thiefC !== G.me ? cqLookOf(G.thiefC) : cqLook(), cap: best.hit ? MV[best.k][1] + nm + '!' : '😮 Per un pelo! ' + nm + ' la scampa…' });
+  }
+  // disegno della moviola (nella fase del risultato): il ladro al rallentatore e la trappola
+  function mvDraw(g, G, sx, sy, TW) {
+    const m = G.mv; if (!m || !m.pts.length) return;
+    const e = G.time - G.st.t0, D = 6; if (e > D) return;
+    const rt = m.t - 1.8 + e * 0.6, U2 = TW * 0.575;   // rallentatore: 0,6 volte
+    let p = m.pts[0]; for (const q of m.pts) { if (q[0] <= rt) p = q; else break; }
+    const X = sx(p[1], p[2]), Y = sy(p[1], p[2]);
+    // la trappola
+    const a = rt - m.t, MX = sx(m.x, m.y), MY = sy(m.x, m.y);
+    if (m.k === 'jl') { const k = Math.min(1, Math.max(0, (a + 0.5) / 0.5)); g.fillStyle = 'rgba(0,0,0,' + (0.15 + 0.35 * k) + ')'; g.beginPath(); g.ellipse(MX, MY, TW * 2 * k, TW * k, 0, 0, 7); g.fill(); const z = a < 0 ? (a * a) * 24 * U2 + 0.3 * U2 : 0.1 * U2; g.strokeStyle = '#c8a050'; g.lineWidth = Math.max(2, TW / 16); g.beginPath(); g.ellipse(MX, MY - z, TW * 0.5, TW * 0.22, 0, 0, 7); g.stroke(); }
+    if (m.k === 'piano') { const k = Math.min(1, Math.max(0, (a + 0.55) / 0.55)); g.fillStyle = 'rgba(0,0,0,' + (0.2 + 0.4 * k) + ')'; g.beginPath(); g.ellipse(MX, MY, TW * 0.55 * k, TW * 0.28 * k, 0, 0, 7); g.fill(); if (a < 0) { const z = (a * a) * 23 * U2; g.fillStyle = '#1a1a22'; g.fillRect(MX - TW * 0.45, MY - z - TW * 0.5, TW * 0.9, TW * 0.4); } }
+    if (m.k === 'botola' && a >= 0) { g.fillStyle = '#0e0a08'; g.beginPath(); g.ellipse(MX, MY, TW * 0.42, TW * 0.21, 0, 0, 7); g.fill(); }
+    if (m.k === 'buccia' && a < 0) { g.fillStyle = '#e8c840'; g.beginPath(); g.ellipse(MX, MY, TW * 0.13, TW * 0.05, 0.3, 0, 7); g.fill(); }
+    // il ladro (non durante la caduta nella botola)
+    if (!(m.k === 'botola' && a > 0.25) && !p[5]) { try { cqPlayer(g, X, Y, TW, m.look, Math.floor(rt * 10) % 2 ? 1 : 0, p[3] || 1); } catch {} if (a > 0 && a < 1.6 && m.hit) { g.fillStyle = '#ffd24a'; g.font = Math.round(TW * 0.3) + 'px system-ui'; for (let i = 0; i < 4; i++) { const an = rt * 6 + i * Math.PI / 2; g.fillText('★', X + Math.cos(an) * TW * 0.35, Y - TW * 1.5 + Math.sin(an) * TW * 0.12); } } }
+    if (a >= 0 && a < 1.2) { g.globalAlpha = 1 - a / 1.2; g.font = '900 ' + Math.round(TW * 0.55) + 'px system-ui'; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = '#000'; const w = { jl: 'CRASH!', piano: 'CRASH!', botola: 'AAAH!', ja: 'CLANG!', jp: 'SBAM!', buccia: 'ZIIIP!', armatura: 'CLANG!', rastrello: 'SDENG!', finta: 'BONK!', vernice: 'SPLASH!' }[m.k] || ''; g.strokeText(w, MX, MY - TW * 1.8); g.fillStyle = '#ffd24a'; g.fillText(w, MX, MY - TW * 1.8); g.globalAlpha = 1; }
+  }
+  // cornice della moviola (in pixel dello schermo): bande nere, scritta, didascalia
+  function mvFrame(g, G) {
+    const m = G.mv; if (!m) return; const e = G.time - G.st.t0; if (e > 6) return;
+    const W2 = cq.w, H2 = cq.h, bh = Math.min(70, H2 * 0.09);
+    g.fillStyle = '#000'; g.fillRect(0, 0, W2, 150); g.fillRect(0, H2 - bh, W2, bh);
+    g.font = '700 14px system-ui'; g.textAlign = 'left'; g.textBaseline = 'middle'; g.fillStyle = Math.floor(e * 2) % 2 ? '#ff3a3a' : '#fff'; g.fillText('📼 MOVIOLA ×0,6', 14, 134);
+    g.textAlign = 'center'; g.font = '700 16px system-ui'; g.fillStyle = '#fff'; g.fillText(m.cap, W2 / 2, H2 - bh / 2);
+  }
+
   // ---- PARTITA: al meglio di 3 manche. Ogni manche: preparazione (ognuno la sua villa), due furti (chi ruba per primo si alterna), risultato.
   // Le fasi le decide l'host (G.st, nello stato per gli amici). Il furto lo simula il telefono di CHI RUBA (movimento immediato) e lo manda
   // a chi guarda (rsPack/rsApply); i jolly del padrone fanno la strada opposta. Contro il computer: e' lui l'altro (ruba, guarda, sposta le cose).
@@ -538,9 +636,11 @@
   // ogni telefono, quando cambia la fase: prepara la sua parte
   function enterStage(G) {
     const st = G.st; G.stKey = stKey(st);
-    closeSafe(G); camClose(); cloakClose(); if (st.step !== 'build') buildClose();
+    if ((G.ph === 'raid' || G.ph === 'guard' || G.ph === 'wait') && G.rec && G.rec.pts.length && !G.rec.done) { G.rec.done = 1; const b = recBest(G); if (b) (G.mvc = G.mvc || []).push(b); }
+    closeSafe(G); camClose(); cloakClose(); if (st.step !== 'build') buildClose(); { const h = document.getElementById('trHelp'); if (h) h.remove(); }
     if (st.step === 'build') {
-      G.ph = 'build'; G.bt = st.n === 1 ? BUILD : BUILD2; TRCAM = true; cq.cam = { x: 16.5, y: 24.5 };
+      G.ph = 'build'; G.bt = st.n === 1 ? BUILD : BUILD2; TRCAM = true; cq.cam = { x: 16.5, y: 24.5 }; G.mvc = []; G.mv = null;
+      if (st.n === 1) helpOnce('build');
       if (st.n > 1) cqToast('🔁 <b>Manche ' + st.n + '</b>: hai ' + BUILD2 + ' secondi per spostare le cose. L\'altro ha visto dov\'era il tuo diamante… lo sposti o lo lasci lì?');
       return;
     }
@@ -551,6 +651,7 @@
       return;
     }
     G.ph = st.step; TRCAM = true; cq.cam = { x: 16.5, y: 16 };   // cambio e risultato: la villa dall'alto
+    if (st.step === 'mres') { G.mv = (G.mvc || []).sort((a, b) => b.v - a.v)[0] || null; sfx('ok'); }
   }
   // host: chi ruba per primo si alterna (manche dispari: l'altro, pari: io)
   function runStart(G, k) {
@@ -580,6 +681,7 @@
   // il mio furto (nella villa dell'altro)
   function myRaidStart(G, villa) {
     raidReset(G, 'me', villa, G.me); G.ph = 'raid'; cq.cam = null; TRCAM = false; cloakBtn(G, true);
+    helpOnce('raid');
     cqToast('🏚️ <b>Tocca a te</b>: ruba nella villa di ' + esc(G.opp.name) + '! Ti guarda dalle telecamere e ha i suoi jolly. Trascina poco il dito per camminare <b>piano</b>; 🧥 il mantello ti rende invisibile per 5 s.');
   }
   function myRaidEnd(G, ok) {
@@ -594,7 +696,7 @@
     raidReset(G, cpu ? 'cpu' : 'remote', villa, th); G.ph = 'guard';
     if (cpu) { G.bot = th; G.ai = { goal: null, think: 0, avoid: new Set(), cloakUsed: false, plan: null, vis: {}, dogs: new Set() }; th.path = []; th.walk = 0; }
     G.camList = G.mine.items.filter(it => it.k === 'cam').map(it => it.room); if (cpu) G.ai.plan = botPlan(G); G.camI = 0; G.camSw = G.time; G.camC = null; camSet(G, 0);
-    camBar(G, true);
+    camBar(G, true); helpOnce('guard');
     cqToast(G.camList.length ? '🛡️ <b>' + esc(th.name) + ' entra a rubare nella tua villa!</b> Guardalo dalle telecamere e fai scattare i jolly al momento giusto.' : '🛡️ <b>' + esc(th.name) + ' entra a rubare!</b> Non hai messo telecamere: senti solo i rumori…');
   }
   function cpuRunEnd(G, ok) {
@@ -635,7 +737,7 @@
     const find = k => G.rv.items.find(it => it.key === k), old = new Map(G.fx.map(f => [f.it.key, f])), has0 = G.has, off0 = G.camOff > G.time;
     Object.assign(G, { hp: r.hp, lost: r.lo, has: !!r.h, open: r.o || [], left: r.lf, stun: r.su, stunT: r.stT, cake: r.ck, cloak: r.cl, camOff: r.co, bonus: r.bo || 0, resp: r.re ? 1 : 0, fall: r.fa ? { t: r.fa } : null, paint: r.pt ? 1 : 0 });
     G.fx = (r.fx || []).map(([k, t]) => { const it = find(k); return it && { k: it.k, x: it.x + 0.5, y: it.y + 0.5, t, it, rt: old.has(k) ? old.get(k).rt : undefined }; }).filter(Boolean);
-    for (const f of G.fx) { G.used.add(f.it.key); if (!old.has(f.it.key)) { evAt(G, f.x, f.y); cqToast('🎯 ' + esc(G.thiefC.name) + ': ' + CAT[f.k].e + ' ' + CAT[f.k].n + '!'); } }
+    for (const f of G.fx) { G.used.add(f.it.key); if (!old.has(f.it.key)) { evAt(G, f.x, f.y); sfx(f.k); if (f.k === 'piano') setTimeout(() => sfx('crash'), 550); cqToast('🎯 ' + esc(G.thiefC.name) + ': ' + CAT[f.k].e + ' ' + CAT[f.k].n + '!'); } }
     G.pianos = (r.pi || []).map(([x, y, t]) => ({ x, y, t, done: 1 }));
     G.dogs = (r.dg || []).map(([x, y, s, f, a, b]) => ({ x, y, st: s === 's' ? 'sleep' : s === 'c' ? 'chase' : 'home', face: f, armed: !!a, barkP: b ? performance.now() : 0 }));
     for (const s of r.sp || []) if (!G.steps.some(q => q[2] === s[2])) G.steps.push(s);
@@ -662,7 +764,7 @@
     softClear(G); closeSafe(G);
     Object.assign(G, { thief, thiefC: ch, rv: items, left: TIME, open: [], has: false, srch: null, stun: 0, t0: G.time, hp: HP, used: new Set(), rev: new Set(), fx: [], pianos: [], paint: 0, steps: [],
       slide: null, fall: null, resp: 0, camOff: 0, bonus: 0, safe: null, lost: 0, cloak: 0, cloakUsed: false, jfx: [], jused: new Set(), shut: {}, cpuJ: null, ev: {}, slow: false, cake: 0 });
-    G.dia = items.items.find(it => it.k === 'dia').i;
+    G.dia = items.items.find(it => it.k === 'dia').i; G.rec = { pts: [] };
     G.dogs = DOG0.map(([x, y]) => ({ x, y, hx: x, hy: y, armed: false, st: 'sleep', path: [], face: 1, walk: 0 }))
       .concat(items.items.filter(it => it.k === 'cane').map(it => ({ x: it.x + 0.5, y: it.y + 0.5, hx: it.x + 0.5, hy: it.y + 0.5, armed: true, st: 'sleep', path: [], face: 1, walk: 0 })));
     const P = TP(G); if (thief !== 'remote') { P.x = 17; P.y = 28.3; } G.px = P.x; G.py = P.y; G.room = 'Ingresso';
@@ -688,8 +790,8 @@
     if (it && it.k === 'dia') { G.has = true; beep(988, 0.1, 0.05); beep(1319, 0.2, 0.05, 0.1); if (safe) G.bonus += 10;
       say(G, safe ? '💎 <b>Colpo da maestro!</b> Il diamante era in cassaforte: −10 secondi sul tuo tempo. Ora al portone!' : '💎 <b>Trovato!</b> Ora riportalo al portone, presto!', '😱 <b>Il ladro ha trovato il diamante!</b> Fermalo prima del portone!'); return; }
     if (safe) { G.camOff = G.time + 10; say(G, '📺 In cassaforte c\'era il <b>telecomando</b>: le telecamere del padrone sono spente per 10 secondi!', '📺 Il ladro ha preso il telecomando dalla cassaforte: <b>telecamere spente</b> per 10 secondi!'); }
-    if (it && it.k === 'fake') { G.stun = G.time + 3; G.stunT = '🎂 Torta in faccia!'; G.cake = G.time; beep(140, 0.25, 0.06); say(G, '🎂 <b>Era un diamante finto!</b> Torta in faccia…', '🎂 Il ladro ha aperto un <b>diamante finto</b>: torta in faccia!'); }
-    else if (it && it.k === 'box') { G.cake = 0; hit(G, '🥊 PAF!', 1.5); say(G, '🥊 <b>Scatola a sorpresa!</b> Un guantone in faccia.', ''); }
+    if (it && it.k === 'fake') { G.stun = G.time + 3; G.stunT = '🎂 Torta in faccia!'; G.cake = G.time; sfx('torta'); say(G, '🎂 <b>Era un diamante finto!</b> Torta in faccia…', '🎂 Il ladro ha aperto un <b>diamante finto</b>: torta in faccia!'); }
+    else if (it && it.k === 'box') { G.cake = 0; hit(G, '🥊 PAF!', 1.5); sfx('boing'); say(G, '🥊 <b>Scatola a sorpresa!</b> Un guantone in faccia.', ''); }
     else if (!safe && me) { beep(220, 0.08, 0.03); cqToast(cqPickOne(['Vuoto…', 'Niente qui.', 'Solo polvere.', 'Acqua…', 'Qui non c\'è.'])); }
   }
   // qualcosa e' successo in una stanza: il pulsante della sua telecamera lampeggia
@@ -705,17 +807,17 @@
       if (!on) continue;
       G.used.add(it.key); G.fx.push({ k, x: it.x + 0.5, y: it.y + 0.5, t: G.time, it });
       const l = Math.hypot(P.wdx || 0, P.wdy || 0) || 1;
-      if (k === 'botola') { G.fall = { t: G.time, x: it.x + 0.5, y: it.y + 0.5 }; G.slide = null; hit(G, '🕳️ Botola! Aaaah…', 1.0); beep(500, 0.5, 0.05); beep(250, 0.5, 0.05, 0.2); }
-      else if (k === 'buccia') { G.slide = { dx: (P.wdx || 0.7) / l, dy: (P.wdy || 0.7) / l, d: 0 }; hit(G, '🍌 Scivolone!', 1.3); beep(900, 0.3, 0.04); }
-      else if (k === 'rastrello') hit(G, '🧹 SDENG!', 1.2);
-      else if (k === 'piano') { G.pianos.push({ x: it.x + 0.5, y: it.y + 0.5, t: G.time }); beep(1400, 0.08, 0.03); beep(1200, 0.08, 0.03, 0.1); }
-      else if (k === 'vernice') { G.paint = G.time; beep(300, 0.2, 0.05); say(G, '🪣 <b>SPLASH!</b> Vernice addosso: ora lasci le impronte, il padrone ti vede ovunque.', '🪣 Il ladro si è sporcato di vernice: segui le <b>impronte blu</b>!'); if (!me) evAt(G, P.x, P.y); }
-      else if (k === 'finta') { G.rev.add(it.key); softSet(G, it.cells, true); P.x -= (P.wdx || 0) / l * 0.7; P.y -= (P.wdy || 0) / l * 0.7; if (!cqFree(P.x, P.y)) { P.x = G.px; P.y = G.py; } if (!me) { P.path = []; G.ai.goal = null; } hit(G, '🚧 BONK! Porta dipinta!', 1.0); }
-      else if (k === 'armatura') hit(G, '🛡️ CLANG!', 1.0);
+      if (k === 'botola') { G.fall = { t: G.time, x: it.x + 0.5, y: it.y + 0.5 }; G.slide = null; hit(G, '🕳️ Botola! Aaaah…', 1.0); sfx('botola'); }
+      else if (k === 'buccia') { G.slide = { dx: (P.wdx || 0.7) / l, dy: (P.wdy || 0.7) / l, d: 0 }; hit(G, '🍌 Scivolone!', 1.3); sfx('buccia'); }
+      else if (k === 'rastrello') { hit(G, '🧹 SDENG!', 1.2); sfx('rastrello'); }
+      else if (k === 'piano') { G.pianos.push({ x: it.x + 0.5, y: it.y + 0.5, t: G.time }); sfx('piano'); }
+      else if (k === 'vernice') { G.paint = G.time; sfx('vernice'); say(G, '🪣 <b>SPLASH!</b> Vernice addosso: ora lasci le impronte, il padrone ti vede ovunque.', '🪣 Il ladro si è sporcato di vernice: segui le <b>impronte blu</b>!'); if (!me) evAt(G, P.x, P.y); }
+      else if (k === 'finta') { G.rev.add(it.key); softSet(G, it.cells, true); P.x -= (P.wdx || 0) / l * 0.7; P.y -= (P.wdy || 0) / l * 0.7; if (!cqFree(P.x, P.y)) { P.x = G.px; P.y = G.py; } if (!me) { P.path = []; G.ai.goal = null; } hit(G, '🚧 BONK! Porta dipinta!', 1.0); sfx('finta'); }
+      else if (k === 'armatura') { hit(G, '🛡️ CLANG!', 1.0); sfx('armatura'); }
     }
     // pianoforti che cadono: chi e' ancora sotto dopo mezzo secondo viene preso
     for (const p of G.pianos) if (!p.done && G.time - p.t >= 0.55) {
-      p.done = 1; beep(80, 0.5, 0.09); beep(160, 0.3, 0.06);
+      p.done = 1; sfx('crash');
       if (Math.hypot(P.x - p.x, P.y - p.y) < 0.85) hit(G, '🎹 CRASH!', 2.0); else say(G, '🎹 <b>Per un pelo!</b> Il pianoforte ti è caduto alle spalle.', '🎹 Il pianoforte ha mancato il ladro per un pelo!');
     }
   }
@@ -725,12 +827,12 @@
     for (const d of G.dogs) {
       if (!d.armed) continue;
       const dist = Math.hypot(P.x - d.x, P.y - d.y);
-      if (d.st === 'sleep') { if (dist < 2.4 && running && !G.resp && G.time > (d.calm || 0)) { if (G.ai) G.ai.dogs.add(d); d.st = 'chase'; d.t = G.time; d.think = 0; d.bark = G.time; d.barkP = performance.now(); beep(520, 0.09, 0.06); beep(440, 0.12, 0.06, 0.12); if (!isMe(G)) { evAt(G, d.x, d.y); cqToast('🐕 Il cane abbaia in <b>' + esc(roomName(d.x, d.y)) + '</b>!'); } } continue; }
+      if (d.st === 'sleep') { if (dist < 2.4 && running && !G.resp && G.time > (d.calm || 0)) { if (G.ai) G.ai.dogs.add(d); d.st = 'chase'; d.t = G.time; d.think = 0; d.bark = G.time; d.barkP = performance.now(); sfx('bark'); if (!isMe(G)) { evAt(G, d.x, d.y); cqToast('🐕 Il cane abbaia in <b>' + esc(roomName(d.x, d.y)) + '</b>!'); } } continue; }
       if ((d.think -= dt) <= 0) { d.think = 0.35; d.path = d.st === 'chase' ? cqPath(d.x, d.y, P.x, P.y) : cqPath(d.x, d.y, d.hx, d.hy); if (!d.path.length) d.path = [[d.st === 'chase' ? P.x : d.hx, d.st === 'chase' ? P.y : d.hy]]; }
       cqModeStep(d, dt, d.st === 'chase' ? 1.12 : 0.7);
       if (d.st === 'chase') {
-        if (G.time - d.bark > 0.9) { d.bark = G.time; d.barkP = performance.now(); beep(500, 0.08, 0.05); }
-        if (dist < 0.6 && !(G.stun > G.time)) { hit(G, '🐕 Morso!', 1.2); d.st = 'home'; d.think = 0; d.calm = G.time + 10; }
+        if (G.time - d.bark > 0.9) { d.bark = G.time; d.barkP = performance.now(); sfx('bark'); }
+        if (dist < 0.6 && !(G.stun > G.time)) { hit(G, '🐕 Morso!', 1.2); sfx('bite'); d.st = 'home'; d.think = 0; d.calm = G.time + 10; }
         else if (G.time - d.t > 7 || G.resp) { d.st = 'home'; d.think = 0; }
       } else if (Math.hypot(d.x - d.hx, d.y - d.hy) < 0.3) { d.st = 'sleep'; d.x = d.hx; d.y = d.hy; d.walk = 0; }
     }
@@ -741,15 +843,15 @@
   const jCenter = it => { const xs = it.cells.map(c => c[0]), ys = it.cells.map(c => c[1]); return [(Math.min(...xs) + Math.max(...xs) + 1) / 2, (Math.min(...ys) + Math.max(...ys) + 1) / 2]; };
   function jollyFire(G, it) {
     if (G.jused.has(it.key)) return;
-    G.jused.add(it.key); G.jfx.push({ k: it.k, it, t: G.time }); beep(700, 0.06, 0.04);
+    G.jused.add(it.key); G.jfx.push({ k: it.k, it, t: G.time }); sfx(it.k === 'jl' ? 'lampadario' : it.k === 'jp' ? 'sbatte' : 'piano');
     if (it.k === 'jp') { G.shut[it.key] = G.time + 4; softSet(G, it.cells, true); const P = TP(G), [cx, cy] = jCenter(it); beep(110, 0.25, 0.08); if (DOOR_IN(it, Math.floor(P.x), Math.floor(P.y)) || Math.hypot(P.x - cx, P.y - cy) < 0.9) hit(G, '💨 Porta in faccia!', 1.2); }
   }
   function jollyTick(G) {
     const P = TP(G);
     for (const f of G.jfx) {
       if (f.done) continue; const [cx, cy] = jCenter(f.it), a = G.time - f.t;
-      if (f.k === 'jl' && a >= 0.5) { f.done = 1; beep(90, 0.4, 0.09); beep(1800, 0.15, 0.04); if (Math.hypot(P.x - cx, P.y - cy) < 2.0) hit(G, '💡 Lampadario in testa!', 2.0); else say(G, '💡 Il lampadario ti ha mancato!', '💡 Lampadario a vuoto…'); }
-      if (f.k === 'ja' && a >= 0.4) { f.done = 1; beep(200, 0.2, 0.08); if (Math.hypot(P.x - cx, P.y - cy) < 1.6) hit(G, '⚔️ Armatura addosso!', 1.5); }
+      if (f.k === 'jl' && a >= 0.5) { f.done = 1; sfx('jlcrash'); if (Math.hypot(P.x - cx, P.y - cy) < 2.0) hit(G, '💡 Lampadario in testa!', 2.0); else say(G, '💡 Il lampadario ti ha mancato!', '💡 Lampadario a vuoto…'); }
+      if (f.k === 'ja' && a >= 0.4) { f.done = 1; sfx('armatura'); if (Math.hypot(P.x - cx, P.y - cy) < 1.6) hit(G, '⚔️ Armatura addosso!', 1.5); }
       if (f.k === 'jp' && a >= 4) { f.done = 1; softSet(G, f.it.cells, false); G.soft = G.soft.filter(([x, y]) => !DOOR_IN(f.it, x, y)); }
     }
   }
@@ -771,7 +873,7 @@
   function camSet(G, i) {
     if (!G.camList.length) { G.camC = { x: 16.5, y: 24.5 }; TRCAM = true; cq.cam = { x: 16.5, y: 24.5 }; return; }
     G.camI = (i + G.camList.length) % G.camList.length; G.camSw = G.time; const R2 = ROOMS.find(r => r.n === G.camList[G.camI]);
-    G.camC = { x: R2.x + R2.w / 2, y: R2.y + R2.h / 2 }; TRCAM = true; cq.cam = { x: G.camC.x, y: G.camC.y }; beep(300 + Math.random() * 200, 0.12, 0.015); camBar(G);
+    G.camC = { x: R2.x + R2.w / 2, y: R2.y + R2.h / 2 }; TRCAM = true; cq.cam = { x: G.camC.x, y: G.camC.y }; sfx('fruscio'); camBar(G);
   }
   // cosa inquadra la telecamera: la sua stanza, entro 4,6 caselle dal punto dove guarda (nelle stanze grandi gira verso il ladro)
   const CAMR = 4.6;
@@ -891,7 +993,7 @@
   function cloakBtn(G, make) {
     buildCss();
     let el = document.getElementById('trCloak');
-    if (make && !el) { el = document.createElement('button'); el.id = 'trCloak'; el.type = 'button'; el.textContent = '🧥 Mantello'; $('#ciack').appendChild(el); for (const ev of ['pointerdown', 'touchstart', 'mousedown']) el.addEventListener(ev, e => e.stopPropagation(), { passive: true }); el.onclick = () => { const G2 = cq.g; if (G2 && G2.ph === 'raid' && !G2.cloakUsed) { G2.cloakUsed = true; G2.cloak = G2.time + 5; beep(1500, 0.2, 0.03); beep(2000, 0.3, 0.02, 0.1); cloakBtn(G2); } }; }
+    if (make && !el) { el = document.createElement('button'); el.id = 'trCloak'; el.type = 'button'; el.textContent = '🧥 Mantello'; $('#ciack').appendChild(el); for (const ev of ['pointerdown', 'touchstart', 'mousedown']) el.addEventListener(ev, e => e.stopPropagation(), { passive: true }); el.onclick = () => { const G2 = cq.g; if (G2 && G2.ph === 'raid' && !G2.cloakUsed) { G2.cloakUsed = true; G2.cloak = G2.time + 5; sfx('mantello'); cloakBtn(G2); } }; }
     if (!el) return;
     const on = G.cloak > G.time, t = on ? '🧥 ' + Math.ceil(G.cloak - G.time) + ' s' : G.cloakUsed ? '🧥 usato' : '🧥 Mantello';
     if (el.textContent !== t) el.textContent = t; el.classList.toggle('used', G.cloakUsed && !on); el.classList.toggle('on', on);
@@ -1014,7 +1116,7 @@
     maps: [['villa', 'Villa']],
     ns: [[2, '2']],
     def: { map: 'villa', n: 2, fill: true, nt: 0 },
-    opts: o => `<div class="row"><div class="lbl">Ora del giorno</div>${seg('nt', [[0, '☀️ Giorno'], [1, '🌙 Notte']], o.nt ? 1 : 0)}<div class="hint">Di notte si vede solo dove punta la torcia, e le telecamere sono in visione notturna.</div></div>`,
+    opts: o => `<div class="row"><div class="lbl">Ora del giorno</div>${seg('nt', [[0, '☀️ Giorno'], [1, '🌙 Notte']], o.nt ? 1 : 0)}<div class="hint">Di notte si vede solo dove punta la torcia, e le telecamere sono in visione notturna.</div></div>${RULES}`,
     read: d => ({ nt: +d.get('nt') ? 1 : 0 }),
     start(G) {
       setNight(G.opt.nt);
@@ -1058,7 +1160,7 @@
       if (G.phase !== 'play' || !G.st) return G.ph === 'wait' && !G.st ? '⏳ Un attimo…' : '';
       const st = G.st;
       if (G.ph === 'inter') return st.msg + ' ' + Math.max(1, Math.ceil(3.5 - (G.time - st.t0))) + '…';
-      if (G.ph === 'mres') return st.msg + (st.fin ? '' : '\nProssima manche tra ' + Math.max(1, Math.ceil(5.5 - (G.time - st.t0))) + '…');
+      if (G.ph === 'mres') return G.mv && G.time - st.t0 < 6 ? '' : st.msg + (st.fin ? '' : '\nProssima manche tra ' + Math.max(1, Math.ceil(10 - (G.time - st.t0))) + '…');
       if (G.ph === 'wait') return st.step === 'build' ? '⏳ Aspetto che ' + (G.opp ? G.opp.name : 'l\'altro') + ' finisca di preparare…' : '⏳ …';
       if (G.ph !== 'raid' && G.ph !== 'guard') return '';
       if (G.left < 10 && G.left > 0) return '⏱ ' + Math.ceil(G.left) + '…';
@@ -1112,7 +1214,7 @@
         return;
       }
       if (st.step === 'inter' && G.time - st.t0 > 3.5) runStart(G, 1);
-      else if (st.step === 'mres' && G.time - st.t0 > 5.5) { if (st.fin) finalEnd(G); else { G.st = { n: st.n + 1, step: 'build', t0: G.time, done: {} }; enterStage(G); } }
+      else if (st.step === 'mres' && G.time - st.t0 > 10) { if (st.fin) finalEnd(G); else { G.st = { n: st.n + 1, step: 'build', t0: G.time, done: {} }; enterStage(G); } }
     },
     // ogni telefono: la mia preparazione, il mio furto, le mie telecamere
     local(G, dt) {
@@ -1127,12 +1229,15 @@
         return;
       }
       if (G.ph === 'raid') {
+        recTick(G);
         const e = simRun(G, dt);
         if (G.guest && (G.rsT = (G.rsT || 0) - dt) <= 0) { G.rsT = 0.25; cqNetSend({ k: 'rs', r: rsPack(G) }); }
         if (e) myRaidEnd(G, e === 'ok');
         return;
       }
       if (G.ph === 'guard') { camTick(G, dt); camBarBlink(G); }
+      if (G.ph === 'raid' || G.ph === 'guard') recTick(G);
+      if (G.ph === 'mres' && G.mv) { const e = G.time - G.st.t0; TRCAM = true; cq.cam = e < 6 ? { x: G.mv.x, y: G.mv.y } : { x: 16.5, y: 16 }; }
     },
     // online: stato dall'host (fasi, punteggio, la sua villa, il suo furto, i suoi jolly)
     snap(G) {
@@ -1170,6 +1275,7 @@
       g.textAlign = 'center'; g.textBaseline = 'middle';
       dogsDraw(g, G, sx, sy, TW);
       if (G.ph === 'raid' || G.ph === 'guard') raidDraw(g, G, sx, sy, TW);
+      if (G.ph === 'mres' && G.mv) { mvDraw(g, G, sx, sy, TW); g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.scale(cq.dpr || 1, cq.dpr || 1); mvFrame(g, G); g.restore(); }
       g.textAlign = 'center'; g.textBaseline = 'middle';
       if (G.ph === 'build' || G.ph === 'wait' && G.st && G.st.step === 'build') { if (G.ph === 'build') aimDraw(g, G, sx, sy, TW); itemsDraw(g, G, sx, sy, TW); return; }
       if (G.ph === 'guard') {
@@ -1230,7 +1336,7 @@
     if (!mine && TRCAM) { TRCAM = false; if (!G || G.mode !== 'trappole') cq.cam = null; }
     if (G && G.mode === 'trappole' && G.phase !== 'play' && G.soft && G.soft.length) softClear(G);
   }, 400);
-  window.__tr = { CAT, place, target, cpuBuild, cpuMove, spent, spots, buildDone, runStart, recordRun, enterStage, myRaidStart, myRaidEnd, watchStart, cpuRunEnd, finalEnd, vPack, vUnpack, rsPack, rsApply, jollyFire, jollyHere, camSees, camSet, U, aim, buildAct, planOpen, BUDGET, safeOpen, closeSafe };   // per le prove
+  window.__tr = { recBest, sfx, CAT, place, target, cpuBuild, cpuMove, spent, spots, buildDone, runStart, recordRun, enterStage, myRaidStart, myRaidEnd, watchStart, cpuRunEnd, finalEnd, vPack, vUnpack, rsPack, rsApply, jollyFire, jollyHere, camSees, camSet, U, aim, buildAct, planOpen, BUDGET, safeOpen, closeSafe };   // per le prove
   // diamante disegnato a faccette, con lo scintillio
   function diamond(g, X, Y, r) {
     const P = [[0, -0.55], [0.6, -0.55], [1, -0.1], [0, 1], [-1, -0.1], [-0.6, -0.55]].map(([a, b]) => [X + a * r, Y + b * r]);
