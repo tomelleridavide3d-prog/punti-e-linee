@@ -16,7 +16,7 @@
   step(3.5);   // pronti
   G.me.belt = ['f', 'ir', 'v', 'fs']; A.setReady(G, true); step(0.2);
   out.push('fase ' + G.st.ph + ' | pulsanti: fionda ' + !!document.getElementById('alTh') + ', cintura ' + !!document.getElementById('alSel'));
-  const freeze = () => { bot.think = 1e9; bot.aimT = 1e9; bot.path = []; };
+  const freeze = () => { bot.hold = 1; bot.think = 1e9; bot.aimT = 1e9; bot.path = []; };
   const fresh = () => { for (const c of G.chars) { c.hp = 3; c.iv = 0; c.fx = {}; } G.zn = []; G.me.thT = 0; };
   const place = (c, x, y) => { if (c === G.me) { cq.x = x; cq.y = y; } else { c.x = x; c.y = y; c.path = []; } };
   freeze();
@@ -45,15 +45,15 @@
   fresh(); G.me.belt = ['', '', '', '']; place(G.me, 6.5, 7.5); const b7 = M.btn(G); M.act(G); step(2.3);
   out.push('7) 🫕 vicino al calderone: pulsante "' + (b7 ? b7.t : 'NESSUNO') + '" -> cintura ' + G.me.belt.map(k => k ? A.brew(k).n : '-').join(' | '));
   // 8) il computer combatte da solo per 40 s contro di me fermo
-  fresh(); place(G.me, 13.5, 13.5); bot.think = 0; bot.aimT = 0; G.st.t0 = G.time; G.me.belt = ['', '', '', ''];
+  fresh(); place(G.me, 13.5, 13.5); bot.hold = 0; bot.think = 0; bot.aimT = 0; G.st.t0 = G.time; G.me.belt = ['', '', '', ''];
   let thr = 0; const fl0 = G.flN; const hpLog = [];
   for (let i = 0; i < 40; i++) { step(1); hpLog.push(G.me.hp); if (G.me.hp <= 1) { G.me.hp = 3; } if (bot.hp <= 1) bot.hp = 3; if (G.st.ph !== 'duel') break; }
   out.push('8) computer in 40 s: lanci ' + (G.flN - fl0) + ', cuori miei nel tempo ' + hpLog.join('') + ', cintura ora ' + bot.belt.map(k => k || '-').join(','));
   // 9) manche: mi tolgo i cuori -> risultato -> manche 2 (preparazione 30 s)
-  G.me.iv = 0; G.me.hp = 1; A.burst(G, 'f', cq.x, cq.y, bot.id); step(0.2);
+  G.zn = []; G.me.fx = {}; G.me.iv = 0; G.me.hp = 1; A.burst(G, 'f', cq.x, cq.y, bot.id); step(0.2);
   out.push('9) manche: ' + G.st.ph + ' | ' + (G.st.msg || '').split('\n').join(' / '));
   step(5.5); out.push('   dopo il risultato: manche ' + G.st.n + ' fase ' + G.st.ph + ', pannello ' + !!document.getElementById('alPrep') + ', cuori ' + G.me.hp + ', cintura vuota ' + G.me.belt.every(v => !v) + ', io nel mio angolo ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1));
-  A.setReady(G, true); step(0.3); bot.hp = 1; bot.iv = 0; A.burst(G, 'f', bot.x, bot.y, G.me.id); step(5.6);
+  A.setReady(G, true); step(0.3); G.zn = []; bot.fx = {}; G.zn = []; bot.fx = {}; bot.hp = 1; bot.iv = 0; A.burst(G, 'f', bot.x, bot.y, G.me.id); step(5.6);
   out.push('   manche 2 a me: punteggio ' + JSON.stringify(G.st.sc) + ', fase ' + G.st.ph + ' ' + G.st.n);
   A.setReady(G, true); step(0.3); bot.hp = 1; bot.iv = 0; A.burst(G, 'f', bot.x, bot.y, G.me.id); step(5.6);
   out.push('   fine: ' + G.phase + ' | ' + $('#tkTitle').textContent + ' | ' + $('#tkBody').textContent.slice(0, 80));
