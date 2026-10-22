@@ -1,6 +1,7 @@
 // Duello degli alchimisti (gioco 1 contro 1, vedi CLAUDE.md "MINIGIOCO Duello degli alchimisti").
 // Passo 1: la TORRE DEI MAGHI (laboratorio tondo, voragine luminosa, ripari, calderoni di ricarica), alchimisti col cappello a punta, online in 2.
-// Passo 2: le POZIONI calcolate dalle proprieta' degli ingredienti (ING, EL, REACT, brew) e la PREPARAZIONE al calderone. Duello nei passi dopo.
+// Passo 2: le POZIONI calcolate dalle proprieta' degli ingredienti (ING, EL, REACT, brew) e la PREPARAZIONE al calderone.
+// Passo 3: il DUELLO (lancio a fionda, effetti dalla tabella FX, pozze ZONE, spinte, voragine, ricarica, manche al meglio di 3, computer che lancia).
 (() => {
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const HP = 3, TIME = 120;
@@ -358,7 +359,7 @@
     { id: 'r', n: 'Resina', e: '🍯', c: '#d89a2a', el: 'glue', pw: 1, spd: 0.85, d: 'incolla a terra' },
     { id: 'g', n: 'Fungo gigante', e: '🍄', c: '#c83a3a', el: 'grow', pw: 1, area: 1.1, d: 'fa diventare enormi' },
     { id: 'p', n: 'Polvere di fata', e: '✨', c: '#f0a8e8', el: 'shrink', pw: 1, spd: 1.2, d: 'rimpicciolisce' },
-    { id: 's', n: 'Sabbia del tempo', e: '⏳', c: '#e0c068', el: 'slow', pw: 1, spd: 0.3, dur: 1.3, d: 'rallenta tutto, anche il volo' },
+    { id: 's', n: 'Sabbia del tempo', e: '⏳', c: '#e0c068', el: 'slow', pw: 1, spd: 0.25, dur: 1.3, inst: 0.1, d: 'rallenta tutto, anche il volo' },
     { id: 'w', n: 'Ragnatela', e: '🕸️', c: '#c8c8d4', el: 'pull', pw: 1, d: 'tira verso il punto' },
     { id: 'v', n: 'Piuma di grifone', e: '🦅', c: '#8ae0c8', el: 'wind', pw: 1, spd: 1.3, d: 'raffica che spinge via' },
     { id: 'x', n: 'Piuma di fenice', e: '🪶', c: '#ff8a3a', el: 'fire', pw: 0.4, bnc: 1, inst: 0.05, d: 'la pozione rimbalza' },
@@ -550,29 +551,372 @@
     return out;
   }
 
-  // ---- computer: per ora gira per il laboratorio ----
-  function botTick(G, c, dt) {
-    c.think -= dt;
-    if ((!c.path || !c.path.length) && c.think <= 0) {
-      c.think = 1 + Math.random() * 2.5;
-      for (let i = 0; i < 20; i++) { const f = cqModeFree(); if (f && Math.hypot(f.x - C, f.y - C) < RAD - 1.2) { c.path = cqPath(c.x, c.y, f.x, f.y).slice(0, 12); break; } }
-    }
-    cqModeStep(c, dt, 0.9);
+  // ======================= IL DUELLO =======================
+  // EFFETTI di ogni elemento quando la pozione si rompe (v = forza dell'elemento nella pozione). Un elemento nuovo = una riga qui (e una in EL).
+  //   dmg: toglie un cuore a chi e' nella zona (se v >= 0,6); st: [stato, secondi per forza] su chi e' preso; zone: [pozza che resta, secondi];
+  //   zr: zona piu' larga (x); push: spinta in caselle per forza (+ via dal centro, - verso il centro); whirl: spinta in una direzione a caso; chaos: un elemento a caso
+  const FX = {
+    fire: { dmg: 1, zone: ['burn', 4] }, ice: { st: ['slow', 2.5], zone: ['ice', 6] }, smoke: { zone: ['smoke', 7], zr: 1.4 },
+    glue: { st: ['stuck', 2], zone: ['glue', 5] }, grow: { st: ['big', 6] }, shrink: { st: ['small', 6] },
+    slow: { st: ['slow', 4], zone: ['slowz', 5] }, pull: { push: -2.4, zr: 1.8 }, wind: { push: 2.6, zr: 1.2 },
+    mirror: { zone: ['mirror', 6] }, chaos: { chaos: 1 },
+    steam: { dmg: 1, push: 2.2, zr: 1.2 }, soot: { st: ['blind', 3.5], zone: ['smoke', 5], zr: 1.3 }, statue: { st: ['frz', 3] },
+    pop: { push: 0.8 }, blaze: { dmg: 1, zone: ['burn', 5], zr: 1.4 }, whirl: { whirl: 2.6, zr: 1.3 } };
+  const CHAOS = ['fire', 'ice', 'smoke', 'glue', 'grow', 'shrink', 'slow', 'pull', 'wind'];
+  // POZZE sul pavimento: sp = velocita' di chi ci sta dentro (x); hurt = un cuore ogni tot secondi; slide = si scivola; hide = dentro non ti vedono; mirror = rimanda le pozioni
+  const ZONE = { burn: { c: '#ff6a2a', hurt: 1.5 }, ice: { c: '#bfe8ff', sp: 0.85, slide: 1 }, glue: { c: '#d89a2a', sp: 0.3 }, slowz: { c: '#e0c068', sp: 0.5 },
+    smoke: { c: '#8a8694', hide: 1 }, mirror: { c: '#e8f0ff', mirror: 1 } };
+  // stati sul personaggio: velocita' (x) e cosa si vede
+  const STATE = { slow: { sp: 0.45, e: '⏳' }, stuck: { sp: 0, e: '🍯' }, frz: { sp: 0, e: '🧊' }, big: { sp: 0.75, e: '🍄' }, small: { sp: 1.3, e: '✨' }, blind: { e: '🌑' } };
+  const RMIN = 1.6, RMAX = 9, PULL = 110, THROW_CD = 0.6, KETTLE_T = 2, IV = 0.9, FALL_T = 2, MRES = 5, WINS = 2;
+  const r2 = v => Math.round(v * 100) / 100;
+  const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
+  const posOf = (G, c) => c === G.me ? cq : c;
+  const fxOn = (G, c, k) => !!(c.fx && c.fx[k] > G.time);
+  const out = (G, c) => fxOn(G, c, 'out');
+  const body = (G, c) => fxOn(G, c, 'big') ? 0.75 : fxOn(G, c, 'small') ? 0.18 : 0.38;
+  const inArena = (x, y) => Math.hypot(x - C, y - C) < RAD - 0.6;
+  const clampIn = (x, y) => { const d = Math.hypot(x - C, y - C), m = RAD - 0.8; return d > m ? [C + (x - C) * m / d, C + (y - C) * m / d] : [x, y]; };
+  const zonesAt = (G, x, y) => (G.zn || []).filter(z => G.time < z.te && Math.hypot(x - z.x, y - z.y) < z.r);
+  const sideIdx = (G, c) => G.chars.indexOf(c) === 1 ? 1 : 0;
+  const oppOf = (G, c) => G.chars.find(o => o !== c);
+  function speedOf(G, c) {
+    if (!G.st || G.st.ph !== 'duel' || out(G, c) || (c === G.me && G.fill)) return 0;
+    let k = 1; for (const [s, S] of Object.entries(STATE)) if (S.sp != null && fxOn(G, c, s)) k *= S.sp;
+    const p = posOf(G, c); for (const z of zonesAt(G, p.x, p.y)) if (ZONE[z.k].sp) k *= ZONE[z.k].sp;
+    return k;
   }
 
-  // ---- FASI decise dall'host in G.st = { n: manche, ph: 'prep' | 'duel', t0, rd: { id: 1 } (pronti) }; ogni telefono apre e chiude il suo pannello ----
+  // ---- le ampolle in volo: partenza, arrivo, tempo (ogni telefono le fa volare da se'); MICCIA: se finisce prima dell'arrivo scoppia in aria ----
+  function mkFlask(G, o, k, x0, y0, x1, y1, fz, bn, q) {
+    const P = brew(k);[x1, y1] = clampIn(x1, y1);
+    const dist = Math.hypot(x1 - x0, y1 - y0), f = { id: ++G.flN, o, k, q, x0: r2(x0), y0: r2(y0), x1: r2(x1), y1: r2(y1), t0: r2(G.time), d: r2(Math.max(0.25, dist / P.spd)), pk: r2(0.6 + dist * 0.22), fz: r2(fz), bn: bn || 0 };
+    G.fl.push(f); return f;
+  }
+  const flPos = (f, t) => { const u = Math.max(0, Math.min(1, (t - f.t0) / f.d)); return { x: f.x0 + (f.x1 - f.x0) * u, y: f.y0 + (f.y1 - f.y0) * u, z: 1.1 * (1 - u) + f.pk * 4 * u * (1 - u), u }; };
+  function flTick(G) {
+    for (const f of G.fl) {
+      if (f.done) continue;
+      const te = f.t0 + Math.min(f.d, f.fz), now2 = Math.min(G.time, te), p = flPos(f, now2);
+      // lo specchio dell'altro la rimanda indietro (una volta per specchio)
+      const mz = (G.zn || []).find(z => z.k === 'mirror' && z.o !== f.o && G.time < z.te && !(f.mr || []).includes(z.i) && Math.hypot(p.x - z.x, p.y - z.y) < z.r && p.z < 2.6);
+      if (mz) {
+        f.done = 1; const th = G.chars.find(c => c.id === f.o), tp = th ? posOf(G, th) : { x: f.x0, y: f.y0 };
+        const nf = mkFlask(G, mz.o, f.k, p.x, p.y, tp.x, tp.y, f.fz - (now2 - f.t0), f.bn); nf.mr = (f.mr || []).concat(mz.i);
+        G.bxN++; G.bx.push([G.bxN, '', r2(p.x), r2(p.y), r2(G.time), 'mirror']); continue;
+      }
+      if (G.time < te) continue;
+      f.done = 1;
+      if (f.d <= f.fz && f.bn > 0) {   // piuma di fenice: rimbalza avanti (meta' strada) se la miccia regge
+        const dx = f.x1 - f.x0, dy = f.y1 - f.y0, nf = mkFlask(G, f.o, f.k, f.x1, f.y1, f.x1 + dx * 0.55, f.y1 + dy * 0.55, f.fz - f.d, f.bn - 1); nf.mr = f.mr;
+        G.bxN++; G.bx.push([G.bxN, f.k, f.x1, f.y1, r2(G.time), 'bounce']); continue;
+      }
+      burst(G, f.k, p.x, p.y, f.o, f.d > f.fz);
+    }
+    G.fl = G.fl.filter(f => !f.done);
+  }
+  // ---- la pozione si rompe: ogni elemento fa il suo effetto (tabella FX), con la sua forza ----
+  function burst(G, key, x, y, o, early) {
+    const P = brew(key); if (!P) return;
+    G.bxN++; G.bx.push([G.bxN, key, r2(x), r2(y), r2(G.time), early ? 'early' : '']); if (G.bx.length > 10) G.bx.shift();
+    for (let [el, v] of Object.entries(P.s)) {
+      if (FX[el] && FX[el].chaos) el = cqPickOne(CHAOS);
+      const F = FX[el]; if (!F) continue;
+      const r = P.area * (F.zr || 1);
+      if (F.zone) addZone(G, F.zone[0], x, y, F.zone[0] === 'mirror' ? 1.1 : r, F.zone[1] * P.dur * Math.min(1.6, Math.max(0.6, v)), o);
+      for (const c of G.chars) {
+        if (out(G, c) || (c.remote && cqLagging(c))) continue;   // anti-lag: chi non manda la posizione non si colpisce
+        const p = posOf(G, c), d = Math.hypot(p.x - x, p.y - y), reach = r + body(G, c);
+        if (F.push && d < reach + 0.6) push(G, c, x, y, F.push * v * (1 - 0.4 * d / (reach + 0.6)));
+        if (F.whirl && d < reach) { const a = Math.random() * 6.283; knock(G, c, Math.cos(a) * F.whirl * v, Math.sin(a) * F.whirl * v); }
+        if (d > reach) continue;
+        if (F.dmg && v >= 0.6) hurt(G, c, EL[el].e + ' ' + EL[el].n);
+        if (F.st) setFx(G, c, F.st[0], F.st[1] * Math.min(1.8, Math.max(0.5, v)));
+      }
+    }
+  }
+  function addZone(G, k, x, y, r, dur, o) { G.zn.push({ i: ++G.znN, k, x: r2(x), y: r2(y), r: r2(r), t0: r2(G.time), te: r2(G.time + dur), o }); if (G.zn.length > 16) G.zn.shift(); }
+  function setFx(G, c, k, s) {
+    c.fx = c.fx || {};
+    if (k === 'big' && fxOn(G, c, 'small')) { c.fx.small = 0; return; }   // gigante e folletto si annullano
+    if (k === 'small' && fxOn(G, c, 'big')) { c.fx.big = 0; return; }
+    c.fx[k] = r2(Math.max(c.fx[k] || 0, G.time + s));
+  }
+  function push(G, c, x, y, k) {
+    const p = posOf(G, c); let dx = p.x - x, dy = p.y - y, d = Math.hypot(dx, dy);
+    if (d < 0.05) { const a = Math.random() * 6.283; dx = Math.cos(a); dy = Math.sin(a); d = 1; }
+    let m = k * (fxOn(G, c, 'big') ? 0.5 : fxOn(G, c, 'small') ? 1.5 : 1);
+    if (m < 0) m = -Math.min(-m, d);   // tirato verso il centro, non oltre
+    knock(G, c, dx / d * m, dy / d * m);
+  }
+  // spinta: la fa il telefono di chi la subisce (c.kb = [numero, dx, dy]); se sbatte contro un muro o finisce nella voragine lo dice all'host
+  function knock(G, c, dx, dy) { if (Math.hypot(dx, dy) < 0.15) return; c.kbN = (c.kbN || 0) + 1; c.kb = [c.kbN, r2(dx), r2(dy)]; }
+  function hurt(G, c, why) {
+    if (out(G, c) || (c.iv || 0) > G.time || !G.st || G.st.ph !== 'duel') return;
+    c.hp = Math.max(0, c.hp - 1); c.iv = r2(G.time + IV); c.hitT = r2(G.time);
+    G.hxN++; G.hx.push([G.hxN, c.id, why]); if (G.hx.length > 8) G.hx.shift();
+    if (c.hp <= 0) roundEnd(G, oppOf(G, c), '💀 ' + c.name + ' è a terra!');
+  }
+  function fell(G, c) {
+    if (out(G, c) || !G.st || G.st.ph !== 'duel') return;
+    c.fx = c.fx || {}; c.fx.out = r2(G.time + FALL_T); c.fx.fall = r2(G.time); c.iv = 0;
+    c.hp = Math.max(0, c.hp - 1); c.hitT = r2(G.time); G.hxN++; G.hx.push([G.hxN, c.id, '🕳️ giù nella voragine']);
+    if (c.hp <= 0) roundEnd(G, oppOf(G, c), '🕳️ ' + c.name + ' è caduto nella voragine!');
+  }
+  // ---- la spinta vista da chi la subisce (io sul mio telefono, i personaggi del computer sull'host) ----
+  function slideStart(G, P, kb) { const d = Math.hypot(kb[1], kb[2]); P.sl = { vx: kb[1] / d, vy: kb[2] / d, left: d, sp: Math.max(6, d / 0.32) }; }
+  function slideStep(G, P, c, dt) {
+    const S = P.sl; if (!S) return;
+    const st = Math.min(S.left, S.sp * dt), nx = P.x + S.vx * st, ny = P.y + S.vy * st;
+    if (isPit(Math.floor(nx), Math.floor(ny))) { P.x = nx; P.y = ny; P.sl = null; report(G, c, 'fall'); return; }
+    // il bordo della voragine non ferma: chi ci viene spinto ci cade dentro
+    const r = CQ_R, ok = [[-r, -r], [r, -r], [-r, r], [r, r]].every(([a, b]) => isPit(Math.floor(nx + a), Math.floor(ny + b)) || !cqBlocked(nx + a, ny + b));
+    if (!ok) { if (S.left > 0.7) report(G, c, 'bonk'); P.sl = null; return; }
+    P.x = nx; P.y = ny; S.left -= st; if (S.left <= 0.01) P.sl = null;
+  }
+  function report(G, c, k) {
+    if (k === 'fall') { if (c === G.me) { G.myFall = G.time; } else c.fallAt = G.time; }
+    if (c === G.me && G.guest) { cqNetSend({ k }); return; }
+    if (k === 'fall') fell(G, c); else { hurt(G, c, '💫 contro il muro'); setFx(G, c, 'stuck', 0.7); }
+  }
+  // ---- lancio: G.me sul mio telefono (l'amico lo chiede all'host), il computer sull'host ----
+  function throwFrom(G, c, i, tx, ty, q) {
+    const k = c.belt && c.belt[i]; if (!k || out(G, c) || fxOn(G, c, 'frz') || (c.thT || 0) > G.time || !G.st || G.st.ph !== 'duel') return null;
+    const p = posOf(G, c); c.belt[i] = ''; c.thT = r2(G.time + THROW_CD); c.face = (tx - ty) - (p.x - p.y) >= 0 ? 1 : -1;
+    return mkFlask(G, c.id, k, p.x, p.y, tx, ty, brew(k).fuse, brew(k).bnc, q);
+  }
+  function myThrow(G, tx, ty) {
+    const i = G.sel, k = G.me.belt[i]; if (!k || (G.me.thT || 0) > G.time || out(G, G.me) || fxOn(G, G.me, 'frz')) return;
+    SFX.whoosh();
+    if (G.guest) { const q = (G.q = (G.q || 0) + 1); cqNetSend({ k: 'th', i, p: k, x: r2(tx), y: r2(ty), q }); const P = brew(k); G.me.belt[i] = ''; G.me.thT = G.time + THROW_CD; const d = Math.hypot(tx - cq.x, ty - cq.y);
+      G.fl.push({ id: -q, o: G.me.id, k, q, x0: cq.x, y0: cq.y, x1: clampIn(tx, ty)[0], y1: clampIn(tx, ty)[1], t0: G.time, d: Math.max(0.25, d / P.spd), pk: 0.6 + d * 0.22, fz: P.fuse, bn: 0, loc: 1 }); }
+    else throwFrom(G, G.me, i, tx, ty);
+    nextSel(G);
+  }
+  function nextSel(G) { const b = G.me.belt; if (b[G.sel]) return; for (let j = 1; j <= BELT_N; j++) { const i = (G.sel + j) % BELT_N; if (b[i]) { G.sel = i; return; } } }
+  // ---- ricarica al calderone del mio angolo: fermo KETTLE_T secondi, poi una pozione a caso nella prima ampolla vuota ----
+  const nearKettle = (G, c) => { const p = posOf(G, c), [kx, ky] = KETTLE[sideIdx(G, c)]; return Math.hypot(p.x - kx - 0.5, p.y - ky - 0.5) < 1.45; };
+  function fillDone(G, c) { const b = c.belt, i = b.findIndex(v => !v); if (i < 0) return; b[i] = cpuBelt()[0]; if (c === G.me) { SFX.bottle(); G.sel = b[G.sel] ? G.sel : i; sendBelt(G); cqToast('🫕 Nuova pozione dal calderone: ' + brew(b[i]).ings.map(g => g.e).join('') + ' (chissà cosa fa…)'); } }
+
+  // ---- IL COMPUTER nel duello: sta a distanza, gira intorno, evita le pozze, lancia con un piccolo errore, ricarica quando e' a secco ----
+  function botTick(G, c, dt) {
+    const P = c;
+    if (P.sl) { slideStep(G, P, c, dt); return; }
+    if (out(G, c)) { c.path = []; return; }
+    const o = oppOf(G, c), po = o ? posOf(G, o) : { x: C, y: C }, d = Math.hypot(po.x - c.x, po.y - c.y);
+    const sp = speedOf(G, c);
+    if (!c.belt.some(Boolean)) {   // a secco: al calderone
+      const [kx, ky] = KETTLE[sideIdx(G, c)];
+      if (nearKettle(G, c)) { c.path = []; c.fillT = (c.fillT || 0) + dt; if (c.fillT >= KETTLE_T) { c.fillT = 0; fillDone(G, c); fillDone(G, c); } return; }
+      if (!c.path || !c.path.length || c.goal !== 'k') { c.goal = 'k'; c.path = cqPath(c.x, c.y, kx + 0.5, ky + 1.3); if (!c.path.length) c.path = cqPath(c.x, c.y, kx + 1.3, ky + 0.5); }
+      cqModeStep(c, dt, 0.95 * sp); return;
+    }
+    c.fillT = 0; c.think -= dt;
+    if (c.think <= 0 || c.goal === 'k' || ((!c.path || !c.path.length) && Math.random() < dt)) {
+      c.think = 1.2 + Math.random() * 1.6; c.goal = 'f';
+      let best = null, bs = -1e9;
+      for (let i = 0; i < 18; i++) {
+        const a = Math.random() * 6.283, r = 4.2 + Math.random() * 2.6, x = po.x + Math.cos(a) * r, y = po.y + Math.sin(a) * r;
+        if (!inArena(x, y) || Math.hypot(x - C, y - C) < PIT + 1 || !cqCellFree(Math.floor(x), Math.floor(y))) continue;
+        const bad = zonesAt(G, x, y).filter(z => z.o !== c.id && z.k !== 'mirror').length;
+        const s = -bad * 5 - Math.hypot(x - c.x, y - c.y) * 0.3 + Math.random();
+        if (s > bs) { bs = s; best = [x, y]; }
+      }
+      if (best) c.path = cqPath(c.x, c.y, best[0], best[1]).slice(0, 8);
+    }
+    cqModeStep(c, dt, 0.92 * sp);
+    // lancio
+    if ((c.thT || 0) <= G.time && o && !out(G, o) && d < RMAX + 0.5 && G.time > (c.aimT || 0)) {
+      c.aimT = G.time + 1.3 + Math.random() * 1.4;
+      const opts = c.belt.map((k, i) => [k, i]).filter(([k]) => k && brew(k).spd * Math.min(brew(k).fuse, 9) >= d * 0.9 && d > brew(k).area + 0.9);
+      if (opts.length) {
+        const [k, i] = cqPickOne(opts), P2 = brew(k), tf = d / P2.spd, vx = (o.x - (o.px != null ? o.px : o.x)) / Math.max(dt, 0.016), vy = (o.y - (o.py != null ? o.py : o.y)) / Math.max(dt, 0.016);
+        const er = 0.4 + d * 0.07, tx = po.x + (Math.abs(vx) < 8 ? vx : 0) * tf * 0.6 + gauss() * er, ty = po.y + (Math.abs(vy) < 8 ? vy : 0) * tf * 0.6 + gauss() * er;
+        throwFrom(G, c, i, tx, ty);
+      }
+    }
+    if (o) { o.px = po.x; o.py = po.y; }
+  }
+
+  // ---- MANCHE: al meglio di 3; chi toglie tutti i cuori all'altro o, allo scadere, chi ne ha di piu' ----
+  function roundEnd(G, win, why) {
+    const st = G.st; if (!st || st.ph !== 'duel') return;
+    st.sc = st.sc || {}; if (win) st.sc[win.id] = (st.sc[win.id] || 0) + 1;
+    st.ph = 'mres'; st.t0 = G.time; st.win = win ? win.id : -1;
+    const a = G.chars[0], b = G.chars[1], s = c => st.sc[c.id] || 0;
+    st.msg = (win ? '🏆 Manche a ' + win.name + '!' : '🤝 Manche pari!') + '\n' + why + '\n' + a.name + ' ' + s(a) + ' – ' + s(b) + ' ' + b.name;
+    st.fin = G.chars.some(c => s(c) >= WINS) || st.n >= 3 ? 1 : 0;
+  }
+  function newRound(G) {
+    const st = G.st;
+    G.st = { n: st.n + 1, ph: 'prep', t0: G.time, rd: {}, sc: st.sc };
+    G.fl = []; G.zn = [];
+    G.chars.forEach((c, i) => { c.hp = HP; c.fx = {}; c.iv = 0; c.belt = Array(BELT_N).fill(''); c.thT = 0; if (c.bot && !c.remote) { [c.x, c.y] = SPAWN[i % 2]; c.path = []; c.sl = null; c.belt = cpuBelt(); G.st.rd[c.id] = 1; } });
+  }
+  function finalEnd(G) {
+    const st = G.st, a = G.chars[0], b = G.chars[1], s = c => st.sc[c.id] || 0, w = s(a) > s(b) ? a : s(b) > s(a) ? b : null;
+    cqModeEnd({ t: w ? '🏆 Vince ' + esc(w.name) + '!' : '🤝 Pari!', why: 'Manche ' + s(a) + ' – ' + s(b), rank: (w === b ? [b, a] : [a, b]).map(c => [c.name, s(c) + (s(c) === 1 ? ' manche' : ' manche')]), win: w ? [w.id] : [] });
+  }
+
+  // ---- I PULSANTI DEL DUELLO: la fionda (trascina indietro e lascia) e la cintura (scegli l'ampolla) ----
+  function duelCss() {
+    if (document.getElementById('alCss2')) return;
+    const st = document.createElement('style'); st.id = 'alCss2';
+    st.textContent = `#alTh{position:absolute;right:max(20px,6%);bottom:150px;width:96px;height:96px;border-radius:50%;border:3px solid rgba(255,255,255,.35);padding:0;background:radial-gradient(circle at 40% 35%,#4a3a5e,#1e1628);box-shadow:0 5px 16px rgba(0,0,0,.45);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;z-index:5}
+#alTh .vi{position:absolute;left:50%;top:44%;width:30px;height:38px;margin:-19px 0 0 -15px;border-radius:7px 7px 15px 15px;border:2px solid rgba(230,236,244,.9);pointer-events:none;transition:transform .05s}#alTh .vi::before{content:'';position:absolute;top:-8px;left:9px;width:8px;height:7px;background:#8a6a42;border-radius:2px}
+#alTh i{position:absolute;left:0;right:0;bottom:9px;font-style:normal;font-size:9.5px;font-weight:800;color:#f2dca0;letter-spacing:.03em;pointer-events:none;text-align:center}#alTh.off{opacity:.4}#alTh.aim{border-color:#ffd24a;box-shadow:0 0 0 4px rgba(255,210,74,.3),0 5px 16px rgba(0,0,0,.45)}
+#alSel{position:absolute;left:50%;bottom:46px;transform:translateX(-50%);display:flex;gap:8px;z-index:5;background:rgba(20,14,28,.72);padding:6px 10px;border-radius:14px;border:1px solid rgba(200,160,80,.4)}
+#alSel button{width:46px;border:2px solid transparent;border-radius:10px;background:rgba(255,255,255,.06);padding:4px 0 2px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff}#alSel button.on{border-color:#ffd24a;background:rgba(90,70,30,.6)}
+#alSel .vi{width:18px;height:24px;border-radius:5px 5px 9px 9px;border:2px solid rgba(220,230,240,.8)}#alSel .ig{font-size:9px;min-height:11px;line-height:1}`;
+    document.head.appendChild(st);
+  }
+  function duelUI(G, on) {
+    duelCss();
+    let th = document.getElementById('alTh'), sel = document.getElementById('alSel');
+    if (!on) { if (th) th.remove(); if (sel) sel.remove(); G.aim = null; return; }
+    if (!th) {
+      th = document.createElement('button'); th.id = 'alTh'; th.type = 'button'; th.innerHTML = '<span class="vi"></span><i>TIRA INDIETRO</i>'; $('#ciack').appendChild(th);
+      let ptr = null;
+      th.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); const G2 = cq.g; if (!G2 || G2.mode !== 'alchimisti' || !G2.me.belt[G2.sel]) return; ptr = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { th.setPointerCapture(e.pointerId); } catch {} th.classList.add('aim'); G2.aim = { ok: false }; });
+      th.addEventListener('pointermove', e => { if (!ptr || ptr.id !== e.pointerId) return; const G2 = cq.g; if (!G2) return; const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y; G2.aim = aimFrom(dx, dy); const m = Math.min(1, Math.hypot(dx, dy) / PULL), v = th.querySelector('.vi'), l = Math.hypot(dx, dy) || 1; v.style.transform = 'translate(' + (dx / l * m * 20) + 'px,' + (dy / l * m * 20) + 'px)'; });
+      const up = e => { if (!ptr || ptr.id !== e.pointerId) return; ptr = null; th.classList.remove('aim'); th.querySelector('.vi').style.transform = ''; const G2 = cq.g; if (!G2) return; const A = G2.aim; G2.aim = null; if (A && A.ok && e.type === 'pointerup') myThrow(G2, A.x, A.y); };
+      th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); th.oncontextmenu = e => e.preventDefault();
+    }
+    if (!sel) {
+      sel = document.createElement('div'); sel.id = 'alSel'; sel.innerHTML = Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-s="${i}"><span class="vi"></span><span class="ig"></span></button>`).join(''); $('#ciack').appendChild(sel);
+      sel.addEventListener('pointerdown', e => { e.stopPropagation(); const b = e.target.closest && e.target.closest('button'); if (!b) return; e.preventDefault(); const G2 = cq.g; if (G2 && G2.me.belt[+b.dataset.s]) { G2.sel = +b.dataset.s; beep(660, 0.04, 0.02); } });
+      sel.addEventListener('pointerup', e => e.stopPropagation());
+    }
+  }
+  function duelUITick(G) {
+    const th = document.getElementById('alTh'), sel = document.getElementById('alSel'); if (!th || !sel) return;
+    const b = G.me.belt, P = b[G.sel] ? brew(b[G.sel]) : null, ok = !!P && (G.me.thT || 0) <= G.time && !out(G, G.me) && !fxOn(G, G.me, 'frz');
+    const key = (P ? P.c : '') + ok + b.join(',') + G.sel;
+    if (th.dataset.k === key) return; th.dataset.k = key;
+    th.querySelector('.vi').style.background = P ? P.c : 'transparent'; th.classList.toggle('off', !ok);
+    th.querySelector('i').textContent = !b.some(Boolean) ? 'VAI AL CALDERONE' : 'TIRA INDIETRO';
+    sel.querySelectorAll('[data-s]').forEach(x => { const k = b[+x.dataset.s], Q = k && brew(k); x.querySelector('.vi').style.background = Q ? Q.c : 'transparent'; x.querySelector('.ig').textContent = Q ? Q.ings.map(g => g.e).join('') : ''; x.classList.toggle('on', +x.dataset.s === G.sel && !!Q); });
+  }
+  // trascino il pulsante: direzione opposta (fionda), distanza = quanto tiro (come l'arco dell'Assedio)
+  function aimFrom(dx, dy) {
+    const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), m = Math.hypot(dx, dy); if (m < 14) return { ok: false };
+    let wx = -dx / TW - 2 * dy / TW, wy = dx / TW - 2 * dy / TW; const wl = Math.hypot(wx, wy) || 1; wx /= wl; wy /= wl;
+    const dist = RMIN + (RMAX - RMIN) * Math.min(1, (m - 14) / (PULL - 14)), [x, y] = clampIn(cq.x + wx * dist, cq.y + wy * dist);
+    return { ok: true, x, y };
+  }
+
+  // ---- disegni del duello (sopra alla mappa): pozze, ampolle in volo, schizzi col NOME della pozione, mira ----
+  function zoneDraw(g, G, z, sx, sy, TW, t) {
+    const Z = ZONE[z.k], a = Math.min(1, (G.time - z.t0) / 0.3, (z.te - G.time) / 0.6); if (a <= 0) return;
+    const X = sx(z.x, z.y), Y = sy(z.x, z.y), rx = z.r * TW * 0.7071, ry = rx / 2, U = TW * 0.575;
+    g.save(); g.globalAlpha = a;
+    if (z.k === 'smoke') {
+      for (let i = 0; i < 9; i++) { const an = i * 0.7 + t * 0.2, rr = (0.25 + 0.55 * ((i * 0.37) % 1)) * z.r, px = sx(z.x + Math.cos(an) * rr, z.y + Math.sin(an) * rr), py = sy(z.x + Math.cos(an) * rr, z.y + Math.sin(an) * rr) - (0.5 + 0.5 * Math.sin(t + i)) * U; g.fillStyle = i % 2 ? 'rgba(120,116,130,.55)' : 'rgba(150,146,160,.5)'; g.beginPath(); g.arc(px, py, TW * (0.45 + 0.15 * Math.sin(t * 1.3 + i)), 0, 7); g.fill(); }
+    } else if (z.k === 'mirror') {
+      g.strokeStyle = 'rgba(230,240,255,.85)'; g.lineWidth = Math.max(2, TW / 14); g.beginPath(); g.ellipse(X, Y - 1.1 * U, TW * 0.55, 1.15 * U, 0, 0, 7); g.stroke();
+      g.fillStyle = 'rgba(200,220,255,.22)'; g.fill(); g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X - TW * 0.2, Y - 1.8 * U + Math.sin(t * 3) * 4); g.lineTo(X + TW * 0.05, Y - 0.6 * U); g.stroke();
+      g.fillStyle = 'rgba(230,240,255,.25)'; g.beginPath(); g.ellipse(X, Y, rx, ry, 0, 0, 7); g.fill();
+    } else {
+      g.fillStyle = Z.c; g.globalAlpha = a * (z.k === 'ice' ? 0.5 : 0.42); g.beginPath(); g.ellipse(X, Y, rx, ry, 0, 0, 7); g.fill();
+      g.globalAlpha = a;
+      if (z.k === 'burn') for (let i = 0; i < 7; i++) { const an = i * 0.9, rr = z.r * 0.6 * ((i * 0.53) % 1), px = sx(z.x + Math.cos(an) * rr, z.y + Math.sin(an) * rr), py = sy(z.x + Math.cos(an) * rr, z.y + Math.sin(an) * rr), h = TW * (0.25 + 0.12 * Math.sin(t * 9 + i * 2)); g.fillStyle = i % 2 ? '#ff8a2a' : '#ffc24a'; g.beginPath(); g.moveTo(px - TW * 0.08, py); g.quadraticCurveTo(px, py - h * 2, px + TW * 0.08, py); g.fill(); }
+      else if (z.k === 'ice') { g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 1.5; for (let i = 0; i < 4; i++) { const an = i * 1.6 + 0.4, px = sx(z.x + Math.cos(an) * z.r * 0.5, z.y + Math.sin(an) * z.r * 0.5), py = sy(z.x + Math.cos(an) * z.r * 0.5, z.y + Math.sin(an) * z.r * 0.5); g.beginPath(); g.moveTo(px - 5, py); g.lineTo(px + 5, py); g.moveTo(px, py - 3); g.lineTo(px, py + 3); g.stroke(); } }
+      else if (z.k === 'glue') { g.fillStyle = '#f0c060'; for (let i = 0; i < 4; i++) { const ph = (t * 0.6 + i / 4) % 1, an = i * 1.9, px = sx(z.x + Math.cos(an) * z.r * 0.4, z.y + Math.sin(an) * z.r * 0.4), py = sy(z.x + Math.cos(an) * z.r * 0.4, z.y + Math.sin(an) * z.r * 0.4); g.globalAlpha = a * (1 - ph); g.beginPath(); g.arc(px, py - ph * 6, 2 + ph * 4, 0, 7); g.fill(); } }
+      else if (z.k === 'slowz') { g.strokeStyle = 'rgba(255,230,150,.7)'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, Y, rx * 0.6, ry * 0.6, 0, t % 6.283, t % 6.283 + 4); g.stroke(); }
+    }
+    g.restore();
+  }
+  function flaskDraw(g, f, sx, sy, TW, t) {
+    const p = flPos(f, Math.min(t, f.t0 + Math.min(f.d, f.fz))), P = brew(f.k); if (!P) return;
+    const X = sx(p.x, p.y), Y = sy(p.x, p.y), U = TW * 0.575, Z = Y - p.z * U, s = TW * 0.13, sp = (t - f.t0) * 12;
+    g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(X, Y, s * 1.2, s * 0.5, 0, 0, 7); g.fill();
+    g.save(); g.translate(X, Z); g.rotate(sp);
+    g.fillStyle = P.c; g.beginPath(); g.arc(0, s * 0.3, s, 0, 7); g.fill(); g.fillStyle = '#d8e0e8'; g.fillRect(-s * 0.3, -s * 1.2, s * 0.6, s * 0.9); g.fillStyle = '#8a6a42'; g.fillRect(-s * 0.35, -s * 1.45, s * 0.7, s * 0.3);
+    g.fillStyle = 'rgba(255,255,255,.6)'; g.beginPath(); g.arc(-s * 0.35, 0, s * 0.25, 0, 7); g.fill();
+    g.restore();
+    // pozione instabile: la miccia sfrigola
+    if (P.inst >= 0.3) { g.fillStyle = Math.sin(t * 40) > 0 ? '#ffe070' : '#ff7a2a'; g.beginPath(); g.arc(X + Math.sin(t * 50) * 3, Z - s * 1.7, 2.5, 0, 7); g.fill(); }
+  }
+  function splashDraw(g, G, s, sx, sy, TW, t, name) {
+    const a = t - s.t, P = s.k ? brew(s.k) : null, X = sx(s.x, s.y), Y = sy(s.x, s.y), U = TW * 0.575;
+    if (a < 0.6) {
+      const k = a / 0.6, col = P ? P.c : '#e8f0ff', r = (P ? P.area : 1) * TW * 0.7071 * (0.3 + 0.7 * k);
+      g.save(); g.globalAlpha = 1 - k; g.strokeStyle = col; g.lineWidth = Math.max(3, TW / 10) * (1 - k); g.beginPath(); g.ellipse(X, Y, r, r / 2, 0, 0, 7); g.stroke();
+      g.fillStyle = col; for (let i = 0; i < 10; i++) { const an = i * 0.628, px = X + Math.cos(an) * r * 0.8, py = Y + Math.sin(an) * r * 0.4 - Math.sin(k * Math.PI) * U * (0.8 + (i % 3) * 0.3); g.beginPath(); g.arc(px, py, Math.max(2, TW / 22), 0, 7); g.fill(); }
+      if (s.how === 'early' || (P && P.inst >= 0.45)) { g.fillStyle = '#fff4c0'; g.beginPath(); g.arc(X, Y - U * 0.8, TW * 0.5 * (1 - k), 0, 7); g.fill(); }
+      g.restore();
+    }
+    if (P && name && s.how !== 'bounce' && a < 2) {   // il nome della pozione sale dal punto dello scoppio
+      const k = a / 2, txt = P.e + ' ' + P.n + (s.how === 'early' ? ' 💥' : '');
+      g.save(); g.globalAlpha = Math.min(1, (1 - k) * 2); g.font = '800 ' + Math.round(Math.max(12, TW / 3.2)) + 'px system-ui,sans-serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+      const y = Y - U * (1.6 + k * 1.4), w = g.measureText(txt).width + 14; g.fillStyle = 'rgba(16,10,24,.75)'; cqRR(g, X - w / 2, y - 12, w, 24, 12); g.fill(); g.fillStyle = P.c; g.fillRect(X - w / 2 + 6, y + 8, w - 12, 2); g.fillStyle = '#fff'; g.fillText(txt, X, y); g.restore();
+    }
+    if (s.how === 'mirror' && a < 1.2) { g.save(); g.globalAlpha = 1 - a / 1.2; g.font = '800 14px system-ui'; g.textAlign = 'center'; g.fillStyle = '#e8f0ff'; g.fillText('🪞 Rimandata!', X, Y - U * (1.5 + a)); g.restore(); }
+  }
+  function aimDraw(g, G, sx, sy, TW) {
+    const A = G.aim; if (!A || !A.ok) return; const P = brew(G.me.belt[G.sel] || ''); if (!P) return;
+    const U = TW * 0.575, d = Math.hypot(A.x - cq.x, A.y - cq.y), pk = 0.6 + d * 0.22;
+    g.save(); g.fillStyle = P.c;
+    for (let i = 1; i < 14; i++) { const u = i / 14, x = cq.x + (A.x - cq.x) * u, y = cq.y + (A.y - cq.y) * u, z = 1.1 * (1 - u) + pk * 4 * u * (1 - u); g.globalAlpha = 0.85; g.beginPath(); g.arc(sx(x, y), sy(x, y) - z * U, Math.max(2, TW / 22), 0, 7); g.fill(); }
+    const rx = P.area * TW * 0.7071; g.globalAlpha = 0.9; g.strokeStyle = P.c; g.lineWidth = Math.max(2, TW / 18); g.setLineDash([6, 5]); g.beginPath(); g.ellipse(sx(A.x, A.y), sy(A.x, A.y), rx, rx / 2, 0, 0, 7); g.stroke();
+    g.restore();
+  }
+  SFX.whoosh = () => { swp(300, 900, 0.18, 0.03, 0, 'triangle'); };
+  SFX.smash = (el) => { const A = sfxOk(); if (!A) return; for (let i = 0; i < 6; i++) swp(2200 + Math.random() * 1800, 1600, 0.12, 0.02, i * 0.025, 'triangle');
+    if (el === 'fire' || el === 'blaze') swp(200, 60, 0.4, 0.06, 0.03, 'sawtooth'); else if (el === 'ice' || el === 'statue') swp(2400, 3200, 0.3, 0.03, 0.04, 'sine'); else if (el === 'wind' || el === 'steam' || el === 'whirl') swp(800, 200, 0.4, 0.04, 0.02, 'sawtooth'); else if (el === 'pop') swp(300, 1200, 0.1, 0.06, 0.02, 'square'); else swp(500, 150, 0.25, 0.04, 0.03); };
+  SFX.boom = () => { swp(120, 40, 0.5, 0.09, 0, 'sawtooth'); swp(300, 80, 0.3, 0.05, 0.02, 'square'); };
+  SFX.ouch = () => { swp(500, 220, 0.2, 0.05, 0, 'square'); };
+  SFX.fall = () => { swp(900, 80, 1.1, 0.05, 0, 'triangle'); };
+
+  // ---- FASI decise dall'host in G.st = { n: manche, ph: prep | duel | mres, t0, rd: pronti, sc: manche vinte, msg, fin } ----
   function stage(G) {
-    const ph = G.st ? G.st.ph : ''; if (ph === U2.ph) return;
-    if (U2.ph === 'prep' && U2.pot.length && G.me.belt.some(v => !v)) bottle(G);   // tempo scaduto: quello che bolle si imbottiglia da solo
-    U2.ph = ph;
-    if (ph === 'prep') { G.myRdy = false; prepOpen(G); }
-    else prepClose();
-    if (ph === 'duel') cqToast('⚔️ <b>Duello!</b> Guarda la cintura dell\'altro: i colori delle sue ampolle sono le sue pozioni. (Il lancio arriva nel prossimo passo.)');
+    const ph = G.st ? G.st.ph + G.st.n : ''; if (ph === U2.ph) return;
+    const was = U2.ph; U2.ph = ph;
+    if (was.startsWith('prep') && U2.pot.length && G.me.belt.some(v => !v)) bottle(G);   // tempo scaduto: quello che bolle si imbottiglia da solo
+    const p = G.st ? G.st.ph : '';
+    if (p === 'prep') {
+      G.myRdy = false; G.me.belt = G.me.belt && !was ? G.me.belt : Array(BELT_N).fill(''); G.fl = []; G.zn = []; cq.x = SPAWN[sideIdx(G, G.me)][0]; cq.y = SPAWN[sideIdx(G, G.me)][1]; cq.sl = null; G.myFall = null; G.fill = null;
+      duelUI(G, false); prepOpen(G);
+    } else prepClose();
+    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelUI(G, true); cqToast('⚔️ <b>Duello!</b> Trascina <b>indietro</b> il pulsante dell\'ampolla e lascia per lanciare. Il colore delle ampolle dell\'altro ti dice cosa ha preparato.'); }
+    else duelUI(G, false);
+    if (p === 'mres') SFX[G.st.win === G.me.id ? 'bottle' : 'pour']();
   }
   const vials = (G, c) => !c.belt || (G.st && G.st.ph === 'prep' && c !== G.me) ? null : c.belt.map(k => { const P = k && brew(k); return P ? P.c : null; });
   const cleanBelt = s => String(s || '').split(',').slice(0, BELT_N).map(k => [...k].filter(id => ING_BY[id]).slice(0, MAXI).sort().join('')).concat(Array(BELT_N).fill('')).slice(0, BELT_N);
+  // il mio personaggio: spinte, voragine, ghiaccio che fa scivolare, ricarica, ritorno nell'angolo dopo la caduta
+  function meTick(G, dt) {
+    const me = G.me;
+    if (me.kb && me.kb[0] !== G.kbSeen) { G.kbSeen = me.kb[0]; if (G.kbSeen && !out(G, me)) slideStart(G, cq, me.kb); }
+    if (cq.sl) slideStep(G, cq, me, dt);
+    if (G.myFall != null && G.time - G.myFall > FALL_T - 0.1) { G.myFall = null; [cq.x, cq.y] = SPAWN[sideIdx(G, me)]; }
+    // ghiaccio: si scivola (il movimento segue la spinta di prima)
+    const on = zonesAt(G, cq.x, cq.y).some(z => ZONE[z.k].slide);
+    if (G.lx != null && dt > 0) {
+      const rx = (cq.x - G.lx) / dt, ry = (cq.y - G.ly) / dt;
+      if (on && !cq.sl) { G.vx = (G.vx || 0) * 0.93 + rx * 0.07; G.vy = (G.vy || 0) * 0.93 + ry * 0.07; const nx = G.lx + G.vx * dt * 1.15, ny = G.ly + G.vy * dt * 1.15; if (cqFree(nx, ny)) { cq.x = nx; cq.y = ny; } else { G.vx = G.vy = 0; } }
+      else { G.vx = rx; G.vy = ry; }
+    }
+    G.lx = cq.x; G.ly = cq.y;
+    // ricarica
+    if (G.fill) { if (!nearKettle(G, me) || out(G, me)) G.fill = null; else if (G.time - G.fill > KETTLE_T) { G.fill = null; fillDone(G, me); } }
+  }
+  // scoppi e colpi arrivati dall'host (o fatti da me): suoni e scritte su ogni telefono
+  function fxEvents(G) {
+    for (const b of G.bx) if (b[0] > (G.bxSeen || 0)) {
+      G.bxSeen = b[0]; if (G.time - b[4] > 1.5) continue;
+      G.spl = (G.spl || []).filter(s => performance.now() / 1000 - s.t < 2.2); G.spl.push({ k: b[1], x: b[2], y: b[3], t: performance.now() / 1000, how: b[5] });
+      const P = b[1] && brew(b[1]); if (b[5] !== 'bounce') { SFX.smash(P ? P.main : ''); if (b[5] === 'early' || (P && P.inst >= 0.45)) SFX.boom(); } else swp(400, 900, 0.12, 0.04);
+      if (G.guest) G.fl = G.fl.filter(f => !(f.loc && Math.hypot(f.x1 - b[2], f.y1 - b[3]) < 0.1));
+    }
+    for (const h of G.hx) if (h[0] > (G.hxSeen || 0)) {
+      G.hxSeen = h[0]; const c = G.chars.find(o => o.id === h[1]); if (!c) continue;
+      if (h[2].startsWith('🕳️')) SFX.fall(); else SFX.ouch();
+      cqToast((c === G.me ? '💔 <b>-1 cuore</b>: ' : '💥 <b>' + esc(c.name) + '</b> -1 cuore: ') + esc(h[2]));
+    }
+  }
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b>: al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Gli ingredienti si combinano in centinaia di modi… e qualche pozione ti scoppia in mano. Se il calderone trema e ribolle forte, la miscela è instabile!</p><p><b>2. Duello</b>: lanci le pozioni ad arco. 3 cuori a testa; le esplosioni ti sbalzano contro i muri o giù nella <b>voragine</b>.</p><p><i>In costruzione: per ora preparazione e giro nella torre.</i></p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b> (60 s, poi 30 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Gli ingredienti si combinano in centinaia di modi: lo scopri solo lanciando! Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte. <b>3 cuori</b> a testa: li perdi con le pozioni che bruciano o esplodono, sbattendo contro i muri e cadendo nella <b>voragine</b>. Finite le ampolle, ricarica al <b>calderone del tuo angolo</b> (resti fermo 2 s).</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
 
   CQ_MODES.alchimisti = {
     n: 'Duello degli alchimisti',
@@ -584,54 +928,122 @@
     read: () => ({}),
     start(G) {
       G.opp = G.chars.find(c => c !== G.me) || null;
-      G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
-      G.st = { n: 1, ph: 'prep', t0: 0, rd: {} }; U2.ph = '';
+      Object.assign(G, { fl: [], zn: [], bx: [], hx: [], flN: 0, znN: 0, bxN: 0, hxN: 0, sel: 0 });
+      G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.fx = {}; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
+      G.st = { n: 1, ph: 'prep', t0: 0, rd: {}, sc: {} }; U2.ph = '';
       for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(); G.st.rd[c.id] = 1; }
     },
-    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; G.chars.forEach(c => { c.hp = HP; c.belt = Array(BELT_N).fill(''); }); },
+    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
     intro: () => '⚗️ Benvenuto nella torre dei maghi!',
     voice: () => 1,   // voce sempre aperta tra i due
-    speed: () => { const G = cq.g; return G && G.st && G.st.ph === 'prep' ? 0 : 1; },
+    speed: c => { const G = cq.g; return G ? speedOf(G, c) : 1; },
+    hide(c) {   // nel fumo non ti vedono (se non da vicino); caduto nella voragine sparisce
+      const G = cq.g; if (!G || !G.st) return false;
+      if (c.fx && c.fx.fall && c.fx.out > G.time && G.time - c.fx.fall > 0.6) return true;
+      if (c === G.me) return false;
+      return zonesAt(G, c.x, c.y).some(z => ZONE[z.k].hide) && Math.hypot(c.x - cq.x, c.y - cq.y) > 1.6;
+    },
     hud(G) {
       const h = c => c ? '❤️'.repeat(Math.max(0, c.hp)) + '🖤'.repeat(Math.max(0, HP - c.hp)) : '';
-      const st = G.st, left = !st ? 0 : st.ph === 'prep' ? (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0) : DUEL - (G.time - st.t0);
-      return `⚗️ ${h(G.me)}${G.opp ? ' · ' + esc(G.opp.name) + ' ' + h(G.opp) : ''} · ${st && st.ph === 'prep' ? '🧪' : '⚔️'} ${mmss(Math.max(0, left))}`;
+      const st = G.st; if (!st) return '⚗️';
+      const left = st.ph === 'prep' ? (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0) : st.ph === 'duel' ? DUEL - (G.time - st.t0) : 0, sc = st.sc || {};
+      return `M${st.n} 🏆 ${sc[G.me.id] || 0}-${G.opp ? sc[G.opp.id] || 0 : 0} · ${h(G.me)}${G.opp ? ' · ' + esc(G.opp.name) + ' ' + h(G.opp) : ''} · ${st.ph === 'prep' ? '🧪' : '⚔️'} ${mmss(Math.max(0, left))}`;
     },
     big(G) {
       const st = G.st; if (!st) return '⏳ Un attimo…';
-      if (st.ph === 'duel') { const l = DUEL - (G.time - st.t0); return l < 10 && l > 0 ? '⏱ ' + Math.ceil(l) + '…' : ''; }
+      if (st.ph === 'mres') return st.msg + (st.fin ? '' : '\nProssima manche tra ' + Math.max(1, Math.ceil(MRES - (G.time - st.t0))) + '…');
+      if (st.ph === 'duel') {
+        if (G.fill) return '🫕 Ricarico… ' + Math.max(0, KETTLE_T - (G.time - G.fill)).toFixed(1);
+        if (G.myFall != null) return '🕳️ Giù nella voragine!';
+        const l = DUEL - (G.time - st.t0); return l < 10 && l > 0 ? '⏱ ' + Math.ceil(l) + '…' : '';
+      }
       return '';
     },
-    view: () => ({ z: 0.84, x: 0, y: 0 }),
+    btn(G) {
+      if (!G.st || G.st.ph !== 'duel' || out(G, G.me)) return null;
+      if (G.fill) return { t: '🫕 Ricarico…', on: false };
+      return nearKettle(G, G.me) && G.me.belt.some(v => !v) ? { t: '🫕 Ricarica', on: true } : null;
+    },
+    act(G) { if (!G.fill && nearKettle(G, G.me) && G.me.belt.some(v => !v)) { G.fill = G.time; swp(200, 500, 0.4, 0.04); } },
+    view(G) {   // mirando lontano la telecamera va un po' verso il punto d'arrivo
+      const V = G.vw || (G.vw = { z: 0.84, x: 0, y: 0 }), A = G.aim && G.aim.ok ? G.aim : null, k = 0.12;
+      const tx = A ? (A.x - cq.x) * 0.4 : 0, ty = A ? (A.y - cq.y) * 0.4 : 0, tz = A && Math.hypot(A.x - cq.x, A.y - cq.y) > 5 ? 0.74 : 0.84;
+      V.x += (tx - V.x) * k; V.y += (ty - V.y) * k; V.z += (tz - V.z) * k; return V;
+    },
     tick(G, dt) {
       const st = G.st;
-      for (const c of G.chars) if (c.bot && !c.remote && st.ph === 'duel') botTick(G, c, dt);
       if (st.ph === 'prep') {
         const left = (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0);
         if (G.chars.every(c => st.rd[c.id]) || left < -1.5) { st.ph = 'duel'; st.t0 = G.time; st.rd = {}; }
-      } else if (st.ph === 'duel' && G.time - st.t0 > DUEL) cqModeEnd({ t: '⚗️ Fine della prova', why: 'Per ora si preparano le pozioni e si gira nella torre: il lancio arriva nel prossimo passo!', rank: G.chars.map(c => [c.name, '']), win: [] });
+        return;
+      }
+      if (st.ph === 'mres') { if (G.time - st.t0 > MRES) { if (st.fin) finalEnd(G); else newRound(G); } return; }
+      // duello
+      for (const c of G.chars) {
+        if (c.bot && !c.remote) {
+          if (c.kb && c.kb[0] !== c.kbSeen) { c.kbSeen = c.kb[0]; if (!out(G, c)) slideStart(G, c, c.kb); }
+          if (c.fallAt != null && G.time - c.fallAt > FALL_T - 0.1) { c.fallAt = null; [c.x, c.y] = SPAWN[sideIdx(G, c)]; c.path = []; }
+          botTick(G, c, dt);
+        }
+      }
+      flTick(G);
+      for (const z of G.zn) if (ZONE[z.k].hurt && G.time < z.te) for (const c of G.chars) {   // pozza che brucia: un cuore ogni tanto
+        const p = posOf(G, c); if (Math.hypot(p.x - z.x, p.y - z.y) < z.r && (c.burnT || 0) < G.time && !(c.remote && cqLagging(c))) { c.burnT = G.time + ZONE[z.k].hurt; if (G.time - z.t0 > 0.3) hurt(G, c, '🔥 bruciato'); }
+      }
+      G.zn = G.zn.filter(z => G.time < z.te);
+      if (st.ph === 'duel' && G.time - st.t0 > DUEL) { const a = G.chars[0], b = G.chars[1]; roundEnd(G, a.hp > b.hp ? a : b.hp > a.hp ? b : null, '⏱ Tempo scaduto'); }
     },
-    local(G) { stage(G); },
+    local(G, dt) { stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); },
     ev(G, c, o) {
-      if (o.k === 'belt' && G.st && (G.st.ph === 'prep' || G.time - G.st.t0 < 3)) c.belt = cleanBelt(o.b);
+      if (o.k === 'belt' && G.st && G.st.ph !== 'mres') c.belt = cleanBelt(o.b);
       else if (o.k === 'rdy' && G.st && G.st.ph === 'prep') { if (o.on) G.st.rd[c.id] = 1; else delete G.st.rd[c.id]; }
+      else if (o.k === 'th' && +o.i >= 0 && +o.i < BELT_N) { const p = cleanBelt(o.p)[0]; if (p) c.belt[+o.i] = p; throwFrom(G, c, +o.i, +o.x || 0, +o.y || 0, o.q); }   // la pozione viaggia col lancio: cintura sempre uguale sui due telefoni
+      else if (o.k === 'fall') fell(G, c);
+      else if (o.k === 'bonk') { hurt(G, c, '💫 contro il muro'); setFx(G, c, 'stuck', 0.7); }
     },
-    snap: G => ({ st: G.st }),
-    apply(G, x) { if (x.st) { G.st = x.st; if (G.st.ph !== 'prep') G.myRdy = false; } },
-    csnap: c => [c.hp, (c.belt || []).join(',')],
-    capply(G, c, a) { if (a[0] != null) c.hp = a[0]; if (c !== G.me && a[1] != null) c.belt = cleanBelt(a[1]); },
+    snap: G => ({ st: G.st, fl: G.fl.map(f => [f.id, f.o, f.k, f.x0, f.y0, f.x1, f.y1, f.t0, f.d, f.pk, f.fz, f.q || 0]), zn: G.zn.map(z => [z.i, z.k, z.x, z.y, z.r, z.t0, z.te, z.o]), bx: G.bx, hx: G.hx }),
+    apply(G, x) {
+      if (x.st) { G.st = x.st; if (G.st.ph !== 'prep') G.myRdy = false; }
+      if (x.fl) { const mine = G.fl.filter(f => f.loc && !x.fl.some(v => v[1] === G.me.id && v[11] === f.q) && G.time - f.t0 < Math.min(f.d, f.fz) + 0.4); G.fl = x.fl.map(v => ({ id: v[0], o: v[1], k: v[2], x0: v[3], y0: v[4], x1: v[5], y1: v[6], t0: v[7], d: v[8], pk: v[9], fz: v[10], q: v[11] })).concat(mine); }
+      if (x.zn) G.zn = x.zn.map(v => ({ i: v[0], k: v[1], x: v[2], y: v[3], r: v[4], t0: v[5], te: v[6], o: v[7] }));
+      if (x.bx) G.bx = x.bx; if (x.hx) G.hx = x.hx;
+    },
+    csnap: c => [c.hp, (c.belt || []).join(','), c.fx || {}, c.kb || 0, c.hitT || 0],
+    capply(G, c, a) {
+      if (a[0] != null) c.hp = a[0]; if (c !== G.me && a[1] != null) c.belt = cleanBelt(a[1]);
+      if (a[2]) c.fx = a[2]; if (a[3]) c.kb = a[3]; if (a[4] != null) c.hitT = a[4];
+      if (c === G.me && G.kbSeen == null) G.kbSeen = c.kb ? c.kb[0] : 0;   // entrando non rifaccio le spinte vecchie
+    },
     draw(c) {
       const G = cq.g, s = sideOf(G, c), L = cqLookOf(c), key = s + (L.skin || '');
-      if (c.__dk !== key) { c.__dk = key; c.__dr = (g, X, Y, TW, L2, w, f) => wizard(g, X, Y, TW, L2, w, f, s, vials(cq.g, c)); c.__dr.top = cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75); }
+      if (c.__dk !== key) {
+        c.__dk = key;
+        c.__dr = (g, X, Y, TW, L2, w, f) => {
+          const G2 = cq.g, sc = fxOn(G2, c, 'big') ? 1.5 : fxOn(G2, c, 'small') ? 0.6 : 1, fall = c.fx && c.fx.fall && c.fx.out > G2.time ? Math.min(1, (G2.time - c.fx.fall) / 0.6) : 0;
+          const sh = c.hitT && G2.time - c.hitT < 0.35 ? Math.sin((G2.time - c.hitT) * 60) * 3 : 0;
+          if (sc === 1 && !fall && !sh) { wizard(g, X, Y, TW, L2, w, f, s, vials(G2, c)); return; }
+          g.save(); g.translate(X + sh, Y + fall * TW * 0.8); g.scale(sc * (1 - fall * 0.7), sc * (1 - fall * 0.7)); if (fall) g.rotate(fall * 3 * f);
+          wizard(g, 0, 0, TW, L2, w, f, s, vials(G2, c)); g.restore();
+        };
+        c.__dr.top = cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75);
+      }
       return c.__dr;
     },
-    deco(g, c, X, Y, TW) {
-      const L = cqLookOf(c), top = Y - TW * (cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75)) - 16;
-      hearts(g, X, top, c.hp == null ? HP : c.hp);
+    deco(g, c, X, Y, TW, G) {
+      const L = cqLookOf(c), sc = fxOn(G, c, 'big') ? 1.5 : fxOn(G, c, 'small') ? 0.6 : 1, H = TW * (cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75));
+      if (fxOn(G, c, 'frz')) { g.save(); g.globalAlpha = 0.55; g.fillStyle = '#bfe8ff'; cqRR(g, X - TW * 0.42 * sc, Y - H * 0.85 * sc, TW * 0.84 * sc, H * 0.88 * sc, 6); g.fill(); g.globalAlpha = 0.9; g.strokeStyle = '#ffffff'; g.lineWidth = 1.5; g.stroke(); g.restore(); }
+      if (fxOn(G, c, 'stuck')) { g.save(); g.globalAlpha = 0.8; g.fillStyle = '#d89a2a'; g.beginPath(); g.ellipse(X, Y, TW * 0.45 * sc, TW * 0.2 * sc, 0, 0, 7); g.fill(); g.restore(); }
+      if (fxOn(G, c, 'blind')) { g.save(); g.fillStyle = 'rgba(20,16,24,.85)'; for (let i = 0; i < 5; i++) { g.beginPath(); g.arc(X + (i - 2) * TW * 0.12, Y - H * 0.78 * sc + Math.sin(i + G.time * 3) * 3, TW * 0.16, 0, 7); g.fill(); } g.restore(); }
+      if (c.hitT && G.time - c.hitT < 1) { const a = G.time - c.hitT; g.save(); g.font = '14px system-ui'; g.textAlign = 'center'; for (let i = 0; i < 3; i++) { const an = a * 5 + i * 2.1; g.fillText('⭐', X + Math.cos(an) * TW * 0.35, Y - H * 0.9 * sc + Math.sin(an) * TW * 0.1); } g.restore(); }
+      const ic = Object.entries(STATE).filter(([k]) => fxOn(G, c, k)).map(([, S]) => S.e).join('');
+      const top = Y - H * Math.max(1, sc) - 16;
+      if (!out(G, c)) hearts(g, X, top, c.hp == null ? HP : c.hp);
+      if (ic) { g.font = '13px system-ui'; g.textAlign = 'center'; g.fillText(ic, X, top - 16); }
     },
-    // sopra alla mappa: la luce che sale dalla voragine (puntini che salgono) e le bolle dei calderoni
+    // sopra alla mappa: luce dalla voragine, bolle dei calderoni, pozze, ampolle in volo, schizzi, mira
     over(g, G, sx, sy, TW) {
       const t = performance.now() / 1000, U = TW * 0.575;
+      for (const z of G.zn || []) if (z.k !== 'smoke') zoneDraw(g, G, z, sx, sy, TW, t);
       for (let i = 0; i < 22; i++) {
         const ph = (t * 0.22 + i / 22) % 1, a = i * 2.39 + t * 0.15, r = 0.3 + 1.6 * ((i * 0.618) % 1), x = C + Math.cos(a) * r, y = C + Math.sin(a) * r, z = -1.5 + ph * 5;
         g.globalAlpha = Math.sin(ph * Math.PI) * 0.8; g.fillStyle = i % 3 ? '#c8b8ff' : '#9ae8ff';
@@ -642,10 +1054,18 @@
         g.globalAlpha = (1 - ph) * 0.9; g.fillStyle = SIDE[k].liq; g.beginPath(); g.arc(sx(bx2, by2), sy(bx2, by2) - (0.75 + ph * 0.5) * U, Math.max(1.5, TW / 30) * (0.6 + ph), 0, 7); g.fill();
       }
       g.globalAlpha = 1;
+      for (const z of G.zn || []) if (z.k === 'smoke') zoneDraw(g, G, z, sx, sy, TW, t);
+      for (const f of G.fl || []) flaskDraw(g, f, sx, sy, TW, G.time);
+      { const L = G.spl || [], nm = L.filter(s => s.k && s.how !== 'bounce'); for (const s of L) splashDraw(g, G, s, sx, sy, TW, t, nm.indexOf(s) >= nm.length - 3); }   // al massimo 3 nomi alla volta
+      if (G.fill) { const [kx, ky] = KETTLE[sideIdx(G, G.me)], k = Math.min(1, (G.time - G.fill) / KETTLE_T), X = sx(kx + 0.5, ky + 0.5), Y = sy(kx + 0.5, ky + 0.5) - 1.6 * U; g.fillStyle = 'rgba(0,0,0,.6)'; cqRR(g, X - 24, Y, 48, 8, 4); g.fill(); g.fillStyle = SIDE[sideIdx(G, G.me)].liq; cqRR(g, X - 22, Y + 2, 44 * k, 4, 2); g.fill(); }
+      aimDraw(g, G, sx, sy, TW);
     },
-    night: () => ({ a: 0.42, r: 5, lights: LIGHTS, see: () => true })
+    night(G) {
+      if (G.st && G.st.ph === 'duel' && fxOn(G, G.me, 'blind')) return { a: 0.94, r: 1.4, lights: [], see: (x, y) => Math.hypot(x - cq.x, y - cq.y) < 2 };
+      return { a: 0.42, r: 5, lights: LIGHTS, see: () => true };
+    }
   };
-  // esce dalla partita (fine, abbandono): via il pannello
-  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && document.getElementById('alPrep')) { prepClose(); U2.ph = ''; } });
-  window.__alc = { mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen };   // per le prove (prove/alc*.js)
+  // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
+  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); const th = document.getElementById('alTh'), sl = document.getElementById('alSel'); if (th) th.remove(); if (sl) sl.remove(); U2.ph = ''; } });
+  window.__alc = { mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
 })();

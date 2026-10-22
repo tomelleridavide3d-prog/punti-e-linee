@@ -19,6 +19,13 @@ export default [
   [0, `(() => { const G = cq.g, o = G.chars.find(c => c.remote); return 'host: fase ' + G.st.ph + ', pronti ' + JSON.stringify(G.st.rd) + ', cintura amico ' + (o.belt || []).join(','); })()`, 0],
   [0, `(async () => { const J = id => document.querySelector('#alJars [data-i="' + id + '"]').click(); J('f'); J('s'); $('#alBot').click(); $('#alRdy').click(); await new Promise(r => setTimeout(r, 1500)); return 'host: fase ' + cq.g.st.ph + ', pannello ' + !!document.getElementById('alPrep'); })()`, 1000],
   [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me); return 'amico: fase ' + G.st.ph + ', pannello ' + !!document.getElementById('alPrep') + ', cintura host vista ' + (h.belt || []).join(','); })()`, 0],
+  // duello: l'amico lancia fuoco sull'host, l'host lancia vento vicino all'amico (spinta fatta dal telefono dell'amico)
+  [0, `(() => { const G = cq.g; cq.x = 9.5; cq.y = 13.5; G.me.belt = ['f', 'v', 'ir', '']; return 'host: in posizione 9.5,13.5'; })()`, 800],
+  [1, `(async () => { const G = cq.g; cq.x = 12.5; cq.y = 13.5; G.me.belt = ['f', '', '', '']; G.sel = 0; await new Promise(r => setTimeout(r, 600)); window.__alc.myThrow(G, 9.5, 13.5); return 'amico: lancio 🔥 sull\\'host, in volo ' + G.fl.length; })()`, 2200],
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); return 'host: miei cuori ' + G.me.hp + ', scoppi ' + G.bx.map(b => b[1]).join(',') + ', cintura amico ' + a.belt.join(','); })()`, 0],
+  [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me); window.__P0 = [cq.x, cq.y]; return 'amico: cuori host visti ' + h.hp + ', pozze ' + G.zn.map(z => z.k).join(','); })()`, 0],
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); G.me.thT = 0; G.me.fx = {}; G.sel = 1; window.__alc.myThrow(G, a.x - 0.4, a.y); return 'host: lancio 🦅 vento accanto all\\'amico (' + a.x.toFixed(1) + ',' + a.y.toFixed(1) + ')'; })()`, 2200],
+  [1, `(() => { const G = cq.g; return 'amico: spinto da ' + window.__P0.map(v => v.toFixed(1)).join(',') + ' a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ', cuori ' + G.me.hp + ', scritte viste ' + (G.spl || []).length; })()`, 0],
   [1, `(async () => { for (let i = 0; i < 20; i++) { cq.x -= 0.1; cq.walk += 0.5; await new Promise(r => setTimeout(r, 60)); } return 'amico: cammino fino a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1); })()`, 1500],
   [0, pos('host'), 0],
   [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me), d = G.M.draw(h), dm = G.M.draw(G.me); return 'amico: cappello host lato ' + G.chars.indexOf(h) + ', mio lato ' + G.chars.indexOf(G.me) + ', disegni ' + (typeof d) + '/' + (typeof dm); })()`, 0],
