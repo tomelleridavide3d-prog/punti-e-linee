@@ -878,6 +878,9 @@
   }
 
   // ======================= PREPARAZIONE: il CALDERONE a tutto schermo (ognuno dietro il suo paravento) =======================
+  // AMPOLLA dei pulsanti (cintura nel calderone, barra in basso, fionda): la stessa forma di quelle che si lanciano. Colore = --c (vuota: trasparente)
+  const FLASK = '<svg viewBox="0 0 24 33" aria-hidden="true"><path d="M8.6 4.6h6.8v8.3a9.6 9.6 0 1 1-6.8 0z" fill="rgba(255,255,255,.1)"/><circle cx="12" cy="22.1" r="8.1" fill="var(--c,transparent)"/><rect x="9.9" y="11" width="4.2" height="4.5" fill="var(--c,transparent)"/><path d="M8.6 4.6h6.8v8.3a9.6 9.6 0 1 1-6.8 0z" fill="none" stroke="rgba(232,238,246,.92)" stroke-width="1.6"/><rect x="7.6" y="0.8" width="8.8" height="4.6" rx="1.3" fill="#8a6a42"/><rect x="7.6" y="3.8" width="8.8" height="1.6" fill="#6a4e2e"/><ellipse cx="8.4" cy="19.6" rx="1.7" ry="2.7" fill="rgba(255,255,255,.6)"/></svg>';
+  const setFlask = (el, col) => { if (el) el.style.setProperty('--c', col || 'transparent'); };
   const BELT_N = 4, MAXI = 3, PREP = 90, PREP2 = 60, DUEL = 90;   // (giocabilita': +30 s per pensare alle miscele)
   const U2 = { pot: [], ph: '', fx: [], shake: 0, drain: 0, msg: '', msgT: 0 };
   const now = () => performance.now() / 1000;
@@ -908,7 +911,7 @@
 #alJars button{position:relative;min-height:80px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.22);border-radius:14px 14px 10px 10px;overflow:hidden;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:600;font-size:11px;line-height:1.1}
 #alJars button .lq{position:absolute;left:0;right:0;bottom:0;height:38%;opacity:.55}#alJars button .e{font-size:26px;position:relative;margin-top:2px}#alJars button .n{position:relative;margin-top:2px}#alJars button .d{position:relative;font-weight:600;font-size:10.5px;color:#ffe6b0;margin-top:2px}#alJars button:active{transform:scale(.94)}#alJars button.off{opacity:.4}
 #alBelt{display:flex;gap:10px;align-items:flex-end;justify-content:center;width:100%;max-width:480px;padding:6px 0 2px;border-top:2px solid #6a4a2e}#alBelt .lb{font-weight:700;margin-right:2px;align-self:center}
-#alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:30px;height:40px;border-radius:7px 7px 15px 15px;border:2px solid rgba(220,230,240,.8);position:relative;overflow:hidden;background:rgba(255,255,255,.06)}#alBelt .vi::before{content:'';position:absolute;top:-2px;left:8px;width:10px;height:7px;background:#8a6a42;border-radius:2px}#alBelt .vi .lq{position:absolute;left:0;right:0;bottom:0;height:72%}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
+#alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:36px;height:50px;display:block}#alBelt .vi svg,#alSel .vi svg,#alTh .vi svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
 #alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}
 #alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alFl{width:100%;max-width:480px;text-align:center;font-size:14px;line-height:1.3;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 10px;box-sizing:border-box}#alFl small{font-size:12px;opacity:.9}#alPot .bkl{flex-basis:100%;text-align:center;font-size:12.5px;line-height:1.3;color:#f2ead8;max-width:480px}
 #alBook{position:absolute;inset:0;z-index:9;background:rgba(10,6,18,.86);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 60px) 12px 20px;box-sizing:border-box;overflow-y:auto}
@@ -931,7 +934,7 @@
       <canvas id="alCv"></canvas><div id="alPot"></div><div id="alMsg"></div>
       <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
       <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${g.e}</span><span class="n">${esc(g.n)}</span><span class="d">${esc(g.d)}</span></button>`).join('')}</div>
-      <div id="alBelt"><span class="lb">Cintura</span>${Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-b="${i}"><span class="vi"><span class="lq"></span></span><span class="ig"></span></button>`).join('')}</div>`;
+      <div id="alBelt"><span class="lb">Cintura</span>${Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-b="${i}"><span class="vi">${FLASK}</span><span class="ig"></span></button>`).join('')}</div>`;
     $('#ciack').appendChild(el);
     el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
@@ -975,7 +978,7 @@
     const full = G.me.belt.every(Boolean);
     $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length;
     el.querySelectorAll('[data-i]').forEach(b => b.classList.toggle('off', U2.pot.length >= MAXI));
-    el.querySelectorAll('[data-b]').forEach(b => { const k = G.me.belt[+b.dataset.b], P = k && brew(k); b.querySelector('.lq').style.background = P ? P.c : 'transparent'; b.querySelector('.ig').textContent = P ? P.ings.map(g => g.e).join('') : '—'; });
+    el.querySelectorAll('[data-b]').forEach(b => { const k = G.me.belt[+b.dataset.b], P = k && brew(k); setFlask(b.querySelector('.vi'), P && P.c); b.querySelector('.ig').textContent = P ? P.ings.map(g => g.e).join('') : '—'; });
     const r = $('#alRdy'), on = ready(G); r.classList.toggle('on', on); r.textContent = on ? '⏳ Aspetto…' : '✔ Pronto';
   }
   // ======================= LA SALITA: tra un piano e l'altro la telecamera sale FUORI dalla torre, sotto la luna (si tocca per saltarla) =======================
@@ -1633,11 +1636,11 @@
     if (document.getElementById('alCss2')) return;
     const st = document.createElement('style'); st.id = 'alCss2';
     st.textContent = `#alTh{position:absolute;right:max(20px,6%);bottom:150px;width:96px;height:96px;border-radius:50%;border:3px solid rgba(255,255,255,.35);padding:0;background:radial-gradient(circle at 40% 35%,#4a3a5e,#1e1628);box-shadow:0 5px 16px rgba(0,0,0,.45);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;z-index:5}
-#alTh .vi{position:absolute;left:50%;top:44%;width:30px;height:38px;margin:-19px 0 0 -15px;border-radius:7px 7px 15px 15px;border:2px solid rgba(230,236,244,.9);pointer-events:none;transition:transform .05s}#alTh .vi::before{content:'';position:absolute;top:-8px;left:9px;width:8px;height:7px;background:#8a6a42;border-radius:2px}
+#alTh .vi{position:absolute;left:50%;top:42%;width:36px;height:50px;margin:-27px 0 0 -18px;pointer-events:none;transition:transform .05s}
 #alTh i{position:absolute;left:0;right:0;bottom:9px;font-style:normal;font-size:9.5px;font-weight:800;color:#f2dca0;letter-spacing:.03em;pointer-events:none;text-align:center}#alTh.off{opacity:.4}#alTh.aim{border-color:#ffd24a;box-shadow:0 0 0 4px rgba(255,210,74,.3),0 5px 16px rgba(0,0,0,.45)}
 #alSel{position:absolute;left:50%;bottom:46px;transform:translateX(-50%);display:flex;gap:8px;z-index:5;background:rgba(20,14,28,.72);padding:6px 10px;border-radius:14px;border:1px solid rgba(200,160,80,.4)}
 #alSel button{width:46px;border:2px solid transparent;border-radius:10px;background:rgba(255,255,255,.06);padding:4px 0 2px;display:flex;flex-direction:column;align-items:center;gap:2px;color:#fff}#alSel button.on{border-color:#ffd24a;background:rgba(90,70,30,.6)}
-#alSel .vi{width:18px;height:24px;border-radius:5px 5px 9px 9px;border:2px solid rgba(220,230,240,.8)}#alSel .ig{font-size:9px;min-height:11px;line-height:1}#alSel .rf{align-self:center;font:700 12px system-ui;color:#f2dca0;margin-left:2px;white-space:nowrap}
+#alSel .vi{width:24px;height:33px;display:block}#alSel .ig{font-size:9px;min-height:11px;line-height:1}#alSel .rf{align-self:center;font:700 12px system-ui;color:#f2dca0;margin-left:2px;white-space:nowrap}
 #alDr{position:absolute;right:calc(max(20px,6%) + 18px);bottom:258px;width:60px;height:60px;border-radius:50%;border:3px solid rgba(255,255,255,.35);padding:0;background:radial-gradient(circle at 40% 35%,#6a3a5a,#2a1628);box-shadow:0 4px 12px rgba(0,0,0,.45);color:#fff;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent}#alDr b{font-size:22px;line-height:1}#alDr i{font-style:normal;font:800 9.5px system-ui;color:#f2dca0;margin-top:2px}#alDr.off{opacity:.4}#alDr:active{transform:scale(.92)}
 #ciack.alDuel #cqKill{right:calc(max(20px,6%) + 8px);bottom:330px;width:80px;height:80px;font-size:13px;line-height:1.15;padding:0 6px}
 #alNm{position:absolute;left:50%;bottom:108px;transform:translateX(-50%);z-index:5;background:rgba(20,14,28,.8);color:#f2ead8;font:600 12.5px system-ui,sans-serif;padding:4px 10px;border-radius:10px;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis;pointer-events:none}#alNm.cb{background:rgba(150,40,20,.92);color:#fff}`;
@@ -1655,7 +1658,7 @@
       dr.addEventListener('pointerup', e => e.stopPropagation()); dr.oncontextmenu = e => e.preventDefault();
     }
     if (!th) {
-      th = document.createElement('button'); th.id = 'alTh'; th.type = 'button'; th.innerHTML = '<span class="vi"></span><i>TIRA INDIETRO</i>'; $('#ciack').appendChild(th);
+      th = document.createElement('button'); th.id = 'alTh'; th.type = 'button'; th.innerHTML = '<span class="vi">' + FLASK + '</span><i>TIRA INDIETRO</i>'; $('#ciack').appendChild(th);
       let ptr = null;
       th.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); const G2 = cq.g; if (!G2 || G2.mode !== 'alchimisti' || !G2.me.belt[G2.sel]) return; ptr = { id: e.pointerId, x: e.clientX, y: e.clientY }; try { th.setPointerCapture(e.pointerId); } catch {} th.classList.add('aim'); G2.aim = { ok: false }; });
       th.addEventListener('pointermove', e => { if (!ptr || ptr.id !== e.pointerId) return; const G2 = cq.g; if (!G2) return; const dx = e.clientX - ptr.x, dy = e.clientY - ptr.y; G2.aim = aimFrom(dx, dy); const m = Math.min(1, Math.hypot(dx, dy) / PULL), v = th.querySelector('.vi'), l = Math.hypot(dx, dy) || 1; v.style.transform = 'translate(' + (dx / l * m * 20) + 'px,' + (dy / l * m * 20) + 'px)'; });
@@ -1663,7 +1666,7 @@
       th.addEventListener('pointerup', up); th.addEventListener('pointercancel', up); th.oncontextmenu = e => e.preventDefault();
     }
     if (!sel) {
-      sel = document.createElement('div'); sel.id = 'alSel'; sel.innerHTML = Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-s="${i}"><span class="vi"></span><span class="ig"></span></button>`).join('') + '<span class="rf"></span>'; $('#ciack').appendChild(sel);
+      sel = document.createElement('div'); sel.id = 'alSel'; sel.innerHTML = Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-s="${i}"><span class="vi">${FLASK}</span><span class="ig"></span></button>`).join('') + '<span class="rf"></span>'; $('#ciack').appendChild(sel);
       sel.addEventListener('pointerdown', e => { e.stopPropagation(); const b = e.target.closest && e.target.closest('button'); if (!b) return; e.preventDefault(); const G2 = cq.g; if (G2 && G2.me.belt[+b.dataset.s]) { G2.sel = +b.dataset.s; beep(660, 0.04, 0.02); } });
       sel.addEventListener('pointerup', e => e.stopPropagation());
     }
@@ -1678,9 +1681,9 @@
     if (nm) { nm.style.display = P ? '' : 'none'; nm.classList.toggle('cb', cb); if (P) nm.textContent = (secret(P) ? '❓ Miscela segreta' : P.e + ' ' + P.n + (cb ? '' : ' · 🍷 ' + ([...new Set(drinkOf(P).map(([s]) => s === 'dash' ? '💨' : s === 'chaos' ? '🎲' : STATE[s].e))].join('') || '—'))) + (cb ? ' · 💥 ORA: COMBO!' : ''); }
     const dr = document.getElementById('alDr'); if (dr) dr.classList.toggle('off', !ok);
     sel.querySelector('.rf').textContent = '🫕 ' + (G.me.rf || 0);
-    th.querySelector('.vi').style.background = P ? P.c : 'transparent'; th.classList.toggle('off', !ok);
+    setFlask(th.querySelector('.vi'), P && P.c); th.classList.toggle('off', !ok);
     th.querySelector('i').textContent = !b.some(Boolean) ? 'VAI AL CALDERONE' : 'TIRA INDIETRO';
-    sel.querySelectorAll('[data-s]').forEach(x => { const k = b[+x.dataset.s], Q = k && brew(k); x.querySelector('.vi').style.background = Q ? Q.c : 'transparent'; x.querySelector('.ig').textContent = Q ? Q.ings.map(g => g.e).join('') : ''; x.classList.toggle('on', +x.dataset.s === G.sel && !!Q); });
+    sel.querySelectorAll('[data-s]').forEach(x => { const k = b[+x.dataset.s], Q = k && brew(k); setFlask(x.querySelector('.vi'), Q && Q.c); x.querySelector('.ig').textContent = Q ? Q.ings.map(g => g.e).join('') : ''; x.classList.toggle('on', +x.dataset.s === G.sel && !!Q); });
   }
   // trascino il pulsante: direzione opposta (fionda), distanza = quanto tiro (come l'arco dell'Assedio)
   function aimFrom(dx, dy) {
