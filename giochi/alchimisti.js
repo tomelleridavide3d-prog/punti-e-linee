@@ -2,6 +2,7 @@
 // Passo 1: la TORRE DEI MAGHI (laboratorio tondo, voragine luminosa, ripari, calderoni di ricarica), alchimisti col cappello a punta, online in 2.
 // Passo 2: le POZIONI calcolate dalle proprieta' degli ingredienti (ING, EL, REACT, brew) e la PREPARAZIONE al calderone.
 // Passo 3: il DUELLO (lancio a fionda, effetti dalla tabella FX, pozze ZONE, spinte, voragine, ricarica, manche al meglio di 3, computer che lancia).
+// Passo 5: COMPUTER FURBO (cintura valutata con le tabelle e contro quello che lanci, schiva, ti spinge nella voragine, sfrutta le pozze, specchi).
 // Passo 4: REAZIONI SUL CAMPO (pozione + pozza = la reazione della tabella REACT) e AMPOLLE INSTABILI che scoppiano alla cintura se ti colpisce il fuoco.
 (() => {
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
@@ -23,7 +24,8 @@
   const WC = '#575064';
 
   // muri decorati in fondo (scelti in ordine lungo il giro) e oggetti lungo il bordo; luci per il buio
-  let WD = {}, LIGHTS = [];
+  let QC = {}, QOWN = [], DEC = [], LIGHTS = [];
+  const RI = 9.35, RO = 10.05, RM = (RI + RO) / 2, NQ = 720;   // muro tondo: raggio dentro (copre gli spigoli del pavimento) e fuori; spicchi del giro
   const WSEQ = ['shelf', 'torch', 'win', 'shelf', 'banner', 'potions', 'torch', 'chart', 'win', 'shelf', 'banner', 'torch', 'potions', 'shelf', 'win', 'chart'];
   const BSEQ = ['cauldron', 'globe', 'crystal', 'shelfp', 'owl', 'chest', 'telescope', 'skull', 'shelfp', 'books', 'cauldron2', 'crystal'];
   const FSEQ = ['candles', 'barrel', 'books', 'crate', 'candles', 'sack'];
@@ -58,15 +60,16 @@
       if (x + y <= 2 * C - 2) put(BSEQ[bi++ % BSEQ.length], x, y);
       else if (x + y >= 2 * C + 1 && fi < 9 && k % 3 === 1) put(FSEQ[fi++ % FSEQ.length], x, y);
     }
-    // muri decorati: quelli di fondo che guardano una casella libera
-    WD = {}; let wi = 0;
-    const wl = [];
-    for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (wall(x, y) && back(x, y) && (inside(x, y + 1) || inside(x + 1, y))) wl.push([x, y]);
-    wl.sort((a, b) => ang(a[0], a[1]) - ang(b[0], b[1]));
-    for (const [x, y] of wl) WD[x + ',' + y] = WSEQ[wi++ % WSEQ.length];
+    // MURA TONDE: il giro e' diviso in NQ spicchi; ogni spicchio lo disegna la casella che contiene il suo centro (raggio RM).
+    // Le caselle fuori dal pavimento che non sono gia' muri per il motore diventano oggetti 'ring' (cosi' vengono disegnate anche loro)
+    QC = {}; QOWN = [];
+    for (let i = 0; i < NQ; i++) { const th = (i + 0.5) / NQ * 6.2832, key = Math.floor(C + RM * Math.cos(th)) + ',' + Math.floor(C + RM * Math.sin(th)); (QC[key] || (QC[key] = [])).push(i); QOWN.push(key); }
+    for (const key of Object.keys(QC)) { const [x, y] = key.split(',').map(Number); if (!inside(x, y) && ![-1, 0, 1].some(a => [-1, 0, 1].some(b => inside(x + a, y + b)))) props.push(['ring', x, y]); }
+    // decorazioni sulla parete curva in fondo (dove il muro e' alto), una ogni ~1,2 caselle
+    DEC = []; { const B = Math.PI * 1.25; let i = 0; for (let d = -1.12; d <= 1.121; d += 1.2 / RI) { const th = (B + d + 6.2832) % 6.2832; DEC.push({ th, t: WSEQ[i % WSEQ.length], i: i++, own: QOWN[Math.floor(th / 6.2832 * NQ) % NQ] }); } }
     // luci (per il buio): voragine, torce, finestre, sfere di cristallo, calderoni
     LIGHTS = [[C, C, 4.6, 1]];
-    for (const [key, t] of Object.entries(WD)) { const [x, y] = key.split(',').map(Number), fy = inside(x, y + 1); if (t === 'torch') LIGHTS.push([fy ? x + 0.5 : x + 1.4, fy ? y + 1.4 : y + 0.5, 3.2, 0.85]); else if (t === 'win') LIGHTS.push([fy ? x + 0.5 : x + 1.4, fy ? y + 1.4 : y + 0.5, 2.2, 0.4]); }
+    for (const d of DEC) { const lx = C + (RI - 0.7) * Math.cos(d.th), ly = C + (RI - 0.7) * Math.sin(d.th); if (d.t === 'torch') LIGHTS.push([lx, ly, 3.2, 0.85]); else if (d.t === 'win') LIGHTS.push([lx, ly, 2.2, 0.4]); }
     for (const [t, x, y] of props) if (t === 'crystal' || t === 'kettle' || t === 'cauldron' || t === 'cauldron2' || t === 'candles' || t === 'bench') LIGHTS.push([x + 0.5, y + 0.5, t === 'candles' ? 1.8 : 2.4, 0.6]);
     return { w: N, h: N, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[6, 6], [14, 14]], button: { x: -10, y: -10 }, sabs: {},
       inn: { Laboratorio: 'nel laboratorio' }, help: '', btnTxt: '', sabTxt: '',
@@ -125,24 +128,70 @@
       const y0 = vy + h * 0.02 + Math.pow(row / 6, 1.6) * (H - vy) * 0.85, s = 0.35 + row * 0.22;
       for (let i = 0; i < 40; i++) { if (rnd() < 0.45) continue; const x = rnd() * W, y = y0 + (rnd() - 0.5) * h * 0.03, th = h * 0.012 * s * (0.7 + rnd() * 0.6); g.fillStyle = rnd() < 0.5 ? '#08111e' : '#0b1626'; g.beginPath(); g.moveTo(x - th * 0.45, y); g.lineTo(x, y - th * 1.4); g.lineTo(x + th * 0.45, y); g.fill(); g.fillStyle = 'rgba(110,135,190,.18)'; g.beginPath(); g.moveTo(x, y - th * 1.4); g.lineTo(x + th * 0.45, y); g.lineTo(x + th * 0.15, y); g.fill(); }
     }
-    // villaggi: case scure e finestre accese (le luci che tremolano si ridisegnano a ogni fotogramma: SKY.lights)
-    const lights = [];
-    for (const [vx, vyy, n, s] of [[0.18, 0.03, 9, 0.6], [0.52, 0.07, 7, 0.8], [0.9, 0.05, 6, 0.7], [0.3, 0.28, 11, 1.4], [0.75, 0.42, 8, 1.8], [0.08, 0.5, 6, 2]]) {
-      const cx = vx * W, cy = vy + vyy * (H - vy) * 1.6;
-      for (let i = 0; i < n; i++) {
-        const x = cx + (rnd() - 0.5) * W * 0.07 * s, y = cy + (rnd() - 0.5) * h * 0.02 * s, hs = 2.6 * s;
-        g.fillStyle = '#0a1018'; g.fillRect(x - hs, y - hs, hs * 2, hs * 1.3); g.beginPath(); g.moveTo(x - hs * 1.2, y - hs); g.lineTo(x, y - hs * 2); g.lineTo(x + hs * 1.2, y - hs); g.fill();
-        if (rnd() < 0.8) { lights.push([x, y - hs * 0.4, 0.6 + 0.5 * s, rnd() * 6]); g.fillStyle = 'rgba(255,190,100,.16)'; g.beginPath(); g.arc(x, y - hs * 0.4, 3 + 2.2 * s, 0, 7); g.fill(); }
-      }
-      if (s > 1) { g.fillStyle = '#0a1018'; g.fillRect(cx - 1.5 * s, cy - 9 * s, 3 * s, 7 * s); g.beginPath(); g.moveTo(cx - 2.5 * s, cy - 9 * s); g.lineTo(cx, cy - 15 * s); g.lineTo(cx + 2.5 * s, cy - 9 * s); g.fill(); }   // campanile
-    }
     // foschia: veli chiari sull'orizzonte e nella valle
     for (const [y, a] of [[hy + h * 0.03, 0.16], [vy + h * 0.12, 0.08], [vy + h * 0.3, 0.06]]) { gr = g.createLinearGradient(0, y - h * 0.03, 0, y + h * 0.03); gr.addColorStop(0, 'rgba(150,170,215,0)'); gr.addColorStop(0.5, `rgba(150,170,215,${a})`); gr.addColorStop(1, 'rgba(150,170,215,0)'); g.fillStyle = gr; g.fillRect(0, y - h * 0.03, W, h * 0.06); }
     // nuvole (a ogni fotogramma): forma fissa, posizione che scorre
     const clouds = []; for (let i = 0; i < 6; i++) { const blobs = []; for (let k = 0; k < 7; k++) blobs.push([(k - 3) * 0.16 + (rnd() - 0.5) * 0.08, (rnd() - 0.5) * 0.18 - (k > 1 && k < 5 ? 0.12 : 0), 0.12 + rnd() * 0.1]); clouds.push({ x: rnd(), y: i < 4 ? 0.05 + i * 0.075 + rnd() * 0.04 : hy / H + 0.06 + rnd() * 0.25, sz: (i < 4 ? 0.28 : 0.4) + rnd() * 0.12, sp: 0.004 + rnd() * 0.006, low: i >= 4, blobs }); }
-    return { cv, w, h, dpr, W, H, lights, clouds, mx, my };
+    return { cv, w, h, dpr, W, H, clouds, mx, my };
   }
-  function skyDraw(g, CX, CY) {
+  // IL CORPO DELLA TORRE sotto il laboratorio: cilindro di pietra a mattoni (luce della luna da destra), cornice in cima, finestrelle accese,
+  // edera che scende, poi sfuma nel buio tra nuvole scure. Disegnato UNA volta in un'immagine (rifatta solo se cambia la grandezza delle caselle)
+  // e incollato nel punto giusto della mappa a ogni fotogramma (dietro la mappa: in cima lo coprono i muri del laboratorio)
+  let TOWER = null;
+  function towerBuild(TW, dpr) {
+    const U = TW * 0.575, r = RO + 0.02, rx = r * TW * 0.7071, ry = rx / 2, deep = 13 * U, mg = TW * 3;
+    const W = rx * 2 + mg * 2, H = ry + deep + TW * 2, cv = document.createElement('canvas'); cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
+    const g = cv.getContext('2d'); g.scale(dpr, dpr);
+    const cx = W / 2, cy = 4, X = th => cx + rx * Math.cos(th), Yt = th => cy + ry * Math.sin(th);
+    let sd = 11; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; };
+    const shade = th => 0.42 + 0.58 * Math.max(0, Math.cos(th - 0.35));   // la luna e' a destra
+    // pietra: strisce verticali (cilindro) con la luce
+    const N = 64; for (let i = 0; i < N; i++) {
+      const a = i / N * Math.PI, b = (i + 1) / N * Math.PI;
+      g.fillStyle = cqShade('#6a6478', shade((a + b) / 2)); g.beginPath(); g.moveTo(X(a), Yt(a)); g.lineTo(X(b), Yt(b)); g.lineTo(X(b), Yt(b) + deep); g.lineTo(X(a), Yt(a) + deep); g.closePath(); g.fill();
+    }
+    // mattoni: file orizzontali (archi) e giunti sfalsati
+    const rowH = U * 0.36, rows = Math.ceil(deep / rowH); g.lineWidth = Math.max(1, TW / 60);
+    for (let k = 1; k < rows; k++) { g.strokeStyle = 'rgba(20,16,30,.45)'; g.beginPath(); g.ellipse(cx, cy + k * rowH, rx, ry, 0, 0, Math.PI); g.stroke(); }
+    const step = 0.75 / r; g.strokeStyle = 'rgba(20,16,30,.4)'; g.beginPath();
+    for (let k = 0; k < rows; k++) for (let th = (k % 2) * step / 2; th < Math.PI; th += step) { const y = Yt(th) + k * rowH; g.moveTo(X(th), y); g.lineTo(X(th), y + rowH); }
+    g.stroke();
+    for (let i = 0; i < 260; i++) { const th = rnd() * Math.PI, k = Math.floor(rnd() * rows); g.fillStyle = rnd() < 0.5 ? 'rgba(255,255,255,.06)' : 'rgba(0,0,0,.12)'; g.fillRect(X(th) - TW * 0.08, Yt(th) + k * rowH + 1, TW * 0.16 * Math.abs(Math.sin(th)) + 2, rowH - 2); }   // mattoni un po' diversi
+    // cornice in cima (sotto il parapetto)
+    for (const [o, c, w2] of [[U * 0.15, '#8a8496', U * 0.22], [U * 0.42, '#3e3a4a', U * 0.08]]) { g.strokeStyle = c; g.lineWidth = w2; g.beginPath(); g.ellipse(cx, cy + o, rx * 1.01, ry * 1.01, 0, 0.02, Math.PI - 0.02); g.stroke(); }
+    // finestrelle accese (archetto, inferriata, luce calda intorno)
+    for (const [th, k] of [[0.55, 6], [1.25, 10], [1.9, 5], [2.55, 12], [0.95, 17], [2.2, 19], [1.6, 24]]) {
+      const x = X(th), y = Yt(th) + k * rowH, ww = TW * 0.22 * Math.max(0.35, Math.sin(th)), hh = TW * 0.42;
+      const gl = g.createRadialGradient(x, y, 0, x, y, TW * 0.9); gl.addColorStop(0, 'rgba(255,190,100,.35)'); gl.addColorStop(1, 'rgba(255,190,100,0)'); g.fillStyle = gl; g.fillRect(x - TW, y - TW, TW * 2, TW * 2);
+      g.fillStyle = '#2a2430'; g.beginPath(); g.moveTo(x - ww / 2 - 2, y + hh / 2 + 2); g.lineTo(x - ww / 2 - 2, y - hh / 4); g.quadraticCurveTo(x, y - hh / 2 - ww / 2 - 4, x + ww / 2 + 2, y - hh / 4); g.lineTo(x + ww / 2 + 2, y + hh / 2 + 2); g.fill();
+      g.fillStyle = '#ffc870'; g.beginPath(); g.moveTo(x - ww / 2, y + hh / 2); g.lineTo(x - ww / 2, y - hh / 4); g.quadraticCurveTo(x, y - hh / 2 - ww / 2, x + ww / 2, y - hh / 4); g.lineTo(x + ww / 2, y + hh / 2); g.fill();
+      g.strokeStyle = '#3a2a1a'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(x, y - hh / 2); g.lineTo(x, y + hh / 2); g.moveTo(x - ww / 2, y); g.lineTo(x + ww / 2, y); g.stroke();
+    }
+    // edera: rami che scendono dalla cima con le foglie (piu' fitta a sinistra, nell'ombra)
+    for (const [a0, a1, n, len] of [[2.25, 3.05, 16, 9], [0.15, 0.6, 9, 6], [1.35, 1.7, 6, 4.5]]) for (let i = 0; i < n; i++) {
+      const th = a0 + rnd() * (a1 - a0), L = (0.35 + rnd() * 0.65) * len * U, x0 = X(th), y0 = Yt(th) + U * 0.3; let x = x0;
+      g.strokeStyle = '#1e3018'; g.lineWidth = Math.max(1, TW / 50); g.beginPath(); g.moveTo(x0, y0);
+      const pts = []; for (let y = y0; y < y0 + L; y += U * 0.25) { x += (rnd() - 0.5) * TW * 0.08; g.lineTo(x, y); pts.push([x, y]); } g.stroke();
+      for (const [px, py] of pts) for (let k = 0; k < 2; k++) { const lit = shade(th); g.fillStyle = cqShade(['#2f5a2a', '#3e7a34', '#24461f'][Math.floor(rnd() * 3)], 0.7 + lit * 0.5); g.beginPath(); g.ellipse(px + (rnd() - 0.5) * TW * 0.2, py + (rnd() - 0.5) * U * 0.2, TW * 0.06, TW * 0.04, rnd() * 3, 0, 7); g.fill(); }
+    }
+    // sfuma nel buio...
+    let gr = g.createLinearGradient(0, cy + ry + U * 1.5, 0, cy + ry + U * 9.5); gr.addColorStop(0, 'rgba(7,10,22,0)'); gr.addColorStop(1, 'rgba(7,10,22,1)'); g.fillStyle = gr; g.fillRect(0, cy, W, H);
+    // ...tra nuvole scure che girano intorno alla torre
+    for (let i = 0; i < 26; i++) {
+      const x = rnd() * W, y = cy + ry + U * (5 + rnd() * 5), rr = TW * (0.6 + rnd() * 1.1);
+      g.fillStyle = '#0b1024'; g.beginPath(); g.ellipse(x, y, rr * 1.6, rr * 0.7, 0, 0, 7); g.fill();
+      g.fillStyle = 'rgba(110,125,175,.16)'; g.beginPath(); g.ellipse(x + rr * 0.2, y - rr * 0.35, rr * 1.1, rr * 0.25, 0, 0, 7); g.fill();
+    }
+    g.fillStyle = '#070a16'; g.fillRect(0, cy + ry + U * 10.5, W, H);
+    return { cv, TW, dpr, W, H, cx, cy };
+  }
+  function towerDraw(g, tx, ty, TW) {
+    const dpr = cq.dpr;
+    if (!TOWER || TOWER.TW !== TW || TOWER.dpr !== dpr) TOWER = towerBuild(TW, dpr);
+    const T = TOWER, X = tx + 0, Y = ty + C * TW / 2;   // centro della torre: px(C, C) = 0, py(C, C) = C x TW / 2
+    g.drawImage(T.cv, X - T.cx, Y - T.cy, T.W, T.H);
+  }
+  function skyDraw(g, CX, CY, tx, ty, TW) {
     const w = cq.w, h = cq.h, dpr = cq.dpr;
     if (!SKY || SKY.w !== w || SKY.h !== h || SKY.dpr !== dpr) SKY = skyBuild(w, h, dpr);
     const S = SKY, t = performance.now() / 1000;
@@ -156,11 +205,9 @@
       for (const [bx, by, br] of c.blobs) { g.fillStyle = c.low ? `rgba(120,140,190,${a})` : `rgba(34,44,86,${a})`; g.beginPath(); g.ellipse(x + bx * cw, y + by * cw * 0.4, br * cw, br * cw * 0.45, 0, 0, 7); g.fill(); }
       if (!c.low) for (const [bx, by, br] of c.blobs) { g.fillStyle = 'rgba(150,168,220,.22)'; g.beginPath(); g.ellipse(x + bx * cw - br * cw * 0.15, y + by * cw * 0.4 - br * cw * 0.2, br * cw * 0.7, br * cw * 0.22, 0, 0, 7); g.fill(); }
     }
-    // luci dei villaggi che tremolano
-    for (const [x, y, r, p] of S.lights) { g.fillStyle = `rgba(255,${200 + (Math.sin(t * 2.3 + p) * 30 | 0)},120,${0.7 + 0.3 * Math.sin(t * 1.7 + p * 3)})`; g.beginPath(); g.arc(ox + x, oy + y, Math.min(r * 1.3, 1.8), 0, 7); g.fill(); }
     g.restore();
+    if (tx != null) towerDraw(g, tx, ty, TW);
   }
-
 
   // ---- PAVIMENTI (si disegnano una volta sola nella mappa pronta: qui le trasparenze vanno bene) ----
   const clipCell = (K, x, y) => { const { g, S } = K; g.save(); g.beginPath(); for (const [i, p] of [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)].entries()) i ? g.lineTo(...p) : g.moveTo(...p); g.closePath(); g.clip(); };
@@ -239,30 +286,46 @@
   }
 
   // ---- MURI: in fondo alti con le decorazioni, davanti un parapetto basso ----
-  function drawWall(K, x, y, col) {
-    const { bx, S, g, TW, strokes } = K;
-    if (!back(x, y)) {   // parapetto davanti
-      bx(x, y, x + 1, y + 1, 0, HL, col); bx(x - 0.03, y - 0.03, x + 1.03, y + 1.03, HL, HL + 0.1, K.shade(col, 1.3));
-      if (TW >= 40) strokes([[S(x + 0.5, y + 1, 0), S(x + 0.5, y + 1, HL)], [S(x + 1, y + 0.5, 0), S(x + 1, y + 0.5, HL)], [S(x, y + 1, HL * 0.5), S(x + 1, y + 1, HL * 0.5)], [S(x + 1, y, HL * 0.5), S(x + 1, y + 1, HL * 0.5)]], K.shade(col, 0.45));
-      return;
+  // altezza del muro lungo il giro: alta in fondo (x + y piccoli), scende morbida ai lati, parapetto basso davanti
+  const hOf = th => { const a = -(Math.cos(th) + Math.sin(th)) / Math.SQRT2, k = Math.max(0, Math.min(1, (a + 0.2) / 0.6)); return HL + (HT - HL) * k * k * (3 - 2 * k); };
+  // luce sul muro: dentro, un po' piu' chiaro dove guarda verso di noi; fuori, la luna da destra (come il corpo della torre)
+  const litIn = th => 0.72 + 0.28 * Math.max(0, -(Math.cos(th) + Math.sin(th)) / Math.SQRT2);
+  const litOut = th => { const c = (Math.cos(th) - Math.sin(th)) / Math.SQRT2; return 0.42 + 0.58 * Math.max(0, Math.cos(Math.acos(Math.max(-1, Math.min(1, c))) - 0.35)); };
+  function drawWall(K, x, y, col) { ringPiece(K, x, y, col); }
+  function ringPiece(K, x, y, col) {
+    const { S, g, TW } = K, Q = QC[x + ',' + y], P = (r, th, z) => S(C + r * Math.cos(th), C + r * Math.sin(th), z);
+    col = col || WC;
+    // il pavimento che arriva fino al muro (la parte della casella dentro il cerchio)
+    if (dC(x, y) < RI + 0.75) {
+      g.save(); g.beginPath(); for (const [i, p] of [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)].entries()) i ? g.lineTo(...p) : g.moveTo(...p); g.closePath(); g.clip();
+      const [X0, Y0] = S(C, C, 0); g.beginPath(); g.ellipse(X0, Y0, RI * TW * 0.7071, RI * TW * 0.3536, 0, 0, 7); g.clip();
+      K.poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], COLS.lab[(x + y) % 2]); if (TW >= 40) floorLab(K, x, y);
+      g.restore();
     }
-    bx(x, y, x + 1, y + 1, 0, HT, col); bx(x, y, x + 1, y + 1, HT - 0.14, HT, K.shade(col, 1.22));
-    if (TW >= 40) {   // pietre squadrate
-      const L = [], rows = [0.45, 0.9, 1.35, 1.8, 2.25];
-      for (const [F, o] of [[(u, z) => S(x + u, y + 1, z), 0], [(u, z) => S(x + 1, y + u, z), 1]]) {
-        for (const z of rows) L.push([F(0, z), F(1, z)]);
-        for (let r = 0; r <= rows.length; r++) { const z0 = r ? rows[r - 1] : 0, z1 = r < rows.length ? rows[r] : HT - 0.14; for (const u of (r + x + y + o) % 2 ? [0.5] : [0.15, 0.85]) L.push([F(u, z0), F(u, z1)]); }
+    if (!Q) return;
+    const L = [];   // righe della malta
+    for (const i of Q) {
+      const a = i / NQ * 6.2832, b = (i + 1) / NQ * 6.2832, m = (a + b) / 2, h = hOf(m), inn = -(Math.cos(m) + Math.sin(m)) > 0;
+      if (inn) K.poly([P(RI, a, 0), P(RI, b, 0), P(RI, b, h), P(RI, a, h)], K.shade(col, litIn(m)));   // in fondo si vede la parete di dentro
+      else K.poly([P(RO, a, 0), P(RO, b, 0), P(RO, b, h), P(RO, a, h)], K.shade(col, litOut(m)));     // davanti quella di fuori
+      K.poly([P(RI, a, h), P(RO, a, h), P(RO, b, h), P(RI, b, h)], K.shade(col, 1.28));                // cima
+      if (TW >= 40) {
+        const r = inn ? RI : RO;
+        for (let z = 0.45; z < h - 0.1; z += 0.45) L.push([P(r, a, z), P(r, b, z)]);
+        for (let k = 0, z = 0; z < h - 0.12; k++, z += 0.45) { const off = (k % 2) * 0.3, ja = Math.floor((a * r + off) / 0.6), jb = Math.floor((b * r + off) / 0.6); if (ja !== jb) { const tj = (jb * 0.6 - off) / r; L.push([P(r, tj, z), P(r, tj, Math.min(h - 0.12, z + 0.45))]); } }
+        L.push([P(RI, a, h), P(RI, b, h)]);
       }
-      strokes(L, K.shade(col, 0.42));
     }
-    const t = WD[x + ',' + y]; if (t) wallDeco(K, x, y, t);
+    if (L.length) K.strokes(L, K.shade(col, 0.45));
+    for (const d of DEC) if (d.own === x + ',' + y) wallDeco(K, d);
   }
   const BOOKS = ['#8a2a2a', '#2a4a7a', '#3a6a3a', '#a8842a', '#5a2a6a', '#2a6a6a', '#c8b88a', '#6a3a1a'];
-  function wallDeco(K, x, y, t) {
-    const { g, S, TW, hsh } = K, fy = inside(x, y + 1);
-    const pt = (u, z) => fy ? S(x + u, y + 1, z) : S(x + 1, y + u, z);
-    const Q = (u0, u1, z0, z1, c) => K.poly([pt(u0, z1), pt(u1, z1), pt(u1, z0), pt(u0, z0)], fy ? c : K.shade(c, 0.8));
-    const gw = (u, z, r, c) => K.glow(fy ? x + u : x + 1.05, fy ? y + 1.05 : y + u, z, r, c);
+  function wallDeco(K, d) {
+    const { g, S, TW, hsh } = K, t = d.t, x = d.i, y = 7, span = 0.95 / RI, R2 = RI - 0.03, th = u => d.th - (u - 0.5) * span;   // u: da sinistra a destra lungo la parete curva
+    const pt = (u, z) => S(C + R2 * Math.cos(th(u)), C + R2 * Math.sin(th(u)), z);
+    const sh = litIn(d.th), Q = (u0, u1, z0, z1, c) => K.poly([pt(u0, z1), pt(u1, z1), pt(u1, z0), pt(u0, z0)], K.shade(c, sh));
+    const gw = (u, z, r, c) => K.glow(C + (RI - 0.15) * Math.cos(th(u)), C + (RI - 0.15) * Math.sin(th(u)), z, r, c);
+    const fy = 1;
     if (t === 'shelf') {
       Q(0.05, 0.95, 0.05, 2.35, '#3e2a1c'); Q(0.11, 0.89, 0.12, 2.28, '#1e140c');
       for (let r = 0; r < 4; r++) {
@@ -323,6 +386,7 @@
     const { bx, cyl, dot, g, S, TW, qL } = K;
     switch (t) {
       case 'pit': pitDraw(K, x, y); return true;
+      case 'ring': ringPiece(K, x, y, WC); return true;
       case 'pillar':
         bx(x + 0.08, y + 0.08, x + 0.92, y + 0.92, 0, 0.22, '#6a6472'); bx(x + 0.14, y + 0.14, x + 0.86, y + 0.86, 0.22, 0.3, '#7a7484');
         cyl(x + 0.5, y + 0.5, 0.3, 0.3, 2.25, '#7a7484'); cyl(x + 0.5, y + 0.5, 0.305, 1.08, 1.18, '#8a7ad8'); cyl(x + 0.5, y + 0.5, 0.305, 1.6, 1.66, '#8a7ad8');
@@ -464,7 +528,7 @@
     pop: { n: 'Botto', a: 'scoppiettante', e: '🎈' }, blaze: { n: 'Incendio', a: 'divampante', e: '☄️' }, whirl: { n: 'Mulinello', a: 'turbinante', e: '🌪️' } };
   // REAZIONI tra COPPIE DI ELEMENTI (valgono nel calderone e, dal passo 4, anche sul pavimento): [a, b, prodotto, instabilita' in piu']
   const REACT = [['fire', 'ice', 'steam', 0.2], ['fire', 'smoke', 'soot', 0.1], ['glue', 'ice', 'statue', 0.05], ['grow', 'shrink', 'pop', 0.25], ['fire', 'wind', 'blaze', 0.15], ['pull', 'wind', 'whirl', 0.2]];
-  const FUSE = 2.6, AREA = 1.3, SPEED = 7;   // miccia di una pozione stabile (s), raggio della zona (caselle), velocita' di volo (caselle/s)
+  const FUSE = 3.0, AREA = 1.3, SPEED = 5.5;   // (passo 5: 7 -> 5,5 e 2,6 -> 3,0: le ampolle si vedono arrivare e si possono schivare)   // miccia di una pozione stabile (s), raggio della zona (caselle), velocita' di volo (caselle/s)
   const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const mix = cols => { const v = [0, 0, 0]; for (const c of cols) hexRgb(c).forEach((k, i) => { v[i] += k / cols.length; }); return '#' + v.map(k => Math.round(k).toString(16).padStart(2, '0')).join(''); };
   const potKey = ids => ids.slice().sort().join('');
@@ -627,17 +691,60 @@
 
   // ---- il computer prepara la sua cintura: pozioni sensate (la miccia non troppo corta), una volta su quattro con tre ingredienti ----
   const CPU_ING = ['f', 'i', 'r', 'v', 'w', 'g', 'c', 's', 'x', 'p', 'm', 'o'];
-  function cpuBelt() {
-    const out = [];
-    for (let k = 0; k < 60 && out.length < BELT_N; k++) {
+  function randPot() {   // il calderone di ricarica: una pozione a caso, ma che arrivi almeno a 6 caselle
+    for (let k = 0; k < 60; k++) {
       const n = Math.random() < 0.45 ? 1 : Math.random() < 0.7 ? 2 : 3, ids = [];
       for (let i = 0; i < n; i++) ids.push(cqPickOne(CPU_ING));
-      const P = brew(potKey(ids)); if (P.spd * P.fuse < 6 || P.main === 'pop') continue;
-      out.push(P.k);
+      const P = brew(potKey(ids)); if (P.spd * P.fuse >= 6 && P.main !== 'pop') return P.k;
+    }
+    return 'f';
+  }
+  // IL COMPUTER PREPARA LA CINTURA: prova tante miscele e le VALUTA con le stesse tabelle del gioco (potScore: danno, stati, spinte, pozze),
+  // scarta quelle che non arrivano lontano o che scoppiano in mano, tiene varieta' (al massimo 2 dello stesso elemento) e, dalla seconda manche,
+  // si prepara contro quello che l'altro ha lanciato (G.seen: elementi lanciati dalle persone): porta gli elementi che reagiscono con i suoi e uno specchio se l'altro brucia molto
+  function cpuBelt(G) {
+    const seen = (G && G.seen) || {}, tot = Object.values(seen).reduce((a, b) => a + b, 0) || 1, cand = [];
+    for (let k = 0; k < 160; k++) {
+      const n = Math.random() < 0.35 ? 1 : Math.random() < 0.75 ? 2 : 3, ids = [];
+      for (let i = 0; i < n; i++) ids.push(cqPickOne(CPU_ING));
+      const P = brew(potKey(ids)); if (cand.some(c => c.P.k === P.k) || P.spd * Math.min(P.fuse, 9) < 6.5 || P.main === 'pop') continue;
+      let sc = potScore(G, P, { x: C, y: C, pit: false, vol: false }) + Math.random() * 1.2;
+      for (const [el, v] of Object.entries(seen)) {   // contro le sue pozze: elementi che reagiscono con quelli che usa
+        if (REACT.some(([a, b]) => (a === el && P.s[b]) || (b === el && P.s[a]))) sc += 1.5 * v / tot;
+        if (FX[el] && FX[el].dmg && P.main === 'mirror') sc += 2.5 * v / tot;
+      }
+      cand.push({ P, sc });
+    }
+    cand.sort((a, b) => b.sc - a.sc);
+    const out = [], cnt = {};
+    const burns = P => Object.entries(P.s).some(([el, v]) => FX[el] && FX[el].dmg && v >= 0.6);
+    for (const { P } of cand) {   // varieta': al massimo 2 dello stesso elemento e 2 che bruciano; l'ultima, se mancano, una di controllo (stati o spinte)
+      if ((cnt[P.main] || 0) >= 2 || (burns(P) && (cnt.burn || 0) >= 2)) continue;
+      if (out.length === BELT_N - 1 && !out.some(k => !burns(brew(k))) && burns(P)) continue;
+      cnt[P.main] = (cnt[P.main] || 0) + 1; if (burns(P)) cnt.burn = (cnt.burn || 0) + 1; out.push(P.k); if (out.length >= BELT_N) break;
     }
     while (out.length < BELT_N) out.push('f');
     return out;
   }
+  // QUANTO VALE una pozione lanciata su un bersaglio (tutto dalle tabelle: se cambia un ingrediente o un effetto, il computer si adegua da solo).
+  // tg = { x, y, pit: vicino alla voragine, vol: cintura che sfrigola }; conta anche le reazioni con le pozze che ci sono gia' li'
+  const ST_VAL = { frz: 2.5, stuck: 2, slow: 1.2, blind: 1.5, big: 0.8, small: -0.6 };
+  const ZN_VAL = { burn: 1.5, ice: 0.8, glue: 1, slowz: 0.7, smoke: 0.2, mirror: 0 };
+  function potScore(G, P, tg) {
+    const st = Object.assign({}, P.s); let sc = 0;
+    if (st.chaos) { sc += 1; delete st.chaos; }
+    if (G && G.zn) for (const z of zonesAt(G, tg.x, tg.y)) { const ze = ZONE[z.k].el; for (const [a, b, to] of REACT) { const pe = ze === a ? b : ze === b ? a : null; if (pe && st[pe] > 0.01) { st[to] = (st[to] || 0) + Math.max(1, st[pe] * 1.5); st[pe] = 0; sc += 0.8; break; } } }
+    for (const [el, v] of Object.entries(st)) {
+      const F = FX[el]; if (!F || v < 0.05) continue;
+      if (F.dmg && v >= 0.6) sc += 3 * (tg.vol ? 1.6 : 1);
+      if (F.st) sc += (ST_VAL[F.st[0]] || 0) * Math.min(v, 1.5);
+      if (F.push) sc += Math.abs(F.push * v) * (tg.pit ? 1.4 : 0.35);
+      if (F.whirl) sc += tg.pit ? 2 : 0.6;
+      if (F.zone) sc += ZN_VAL[F.zone[0]] || 0;
+    }
+    return sc;
+  }
+  const pushOf = P => Object.entries(P.s).reduce((a, [el, v]) => a + ((FX[el] && FX[el].push) || 0) * v, 0);   // + spinge via, - tira
 
   // ======================= IL DUELLO =======================
   // EFFETTI di ogni elemento quando la pozione si rompe (v = forza dell'elemento nella pozione). Un elemento nuovo = una riga qui (e una in EL).
@@ -802,6 +909,7 @@
   // ---- lancio: G.me sul mio telefono (l'amico lo chiede all'host), il computer sull'host ----
   function throwFrom(G, c, i, tx, ty, q) {
     const k = c.belt && c.belt[i]; if (!k || out(G, c) || fxOn(G, c, 'frz') || (c.thT || 0) > G.time || !G.st || G.st.ph !== 'duel') return null;
+    if (!c.bot || c.remote) { G.seen = G.seen || {}; for (const [el, v] of Object.entries(brew(k).s)) G.seen[el] = (G.seen[el] || 0) + v; }   // il computer se lo ricorda
     const p = posOf(G, c); c.belt[i] = ''; c.thT = r2(G.time + THROW_CD); c.face = (tx - ty) - (p.x - p.y) >= 0 ? 1 : -1;
     return mkFlask(G, c.id, k, p.x, p.y, tx, ty, brew(k).fuse, brew(k).bnc, q);
   }
@@ -816,7 +924,7 @@
   function nextSel(G) { const b = G.me.belt; if (b[G.sel]) return; for (let j = 1; j <= BELT_N; j++) { const i = (G.sel + j) % BELT_N; if (b[i]) { G.sel = i; return; } } }
   // ---- ricarica al calderone del mio angolo: fermo KETTLE_T secondi, poi una pozione a caso nella prima ampolla vuota ----
   const nearKettle = (G, c) => { const p = posOf(G, c), [kx, ky] = KETTLE[sideIdx(G, c)]; return Math.hypot(p.x - kx - 0.5, p.y - ky - 0.5) < 1.45; };
-  function fillDone(G, c) { const b = c.belt, i = b.findIndex(v => !v); if (i < 0) return; b[i] = cpuBelt()[0]; if (c === G.me) { SFX.bottle(); G.sel = b[G.sel] ? G.sel : i; sendBelt(G); cqToast('🫕 Nuova pozione dal calderone: ' + brew(b[i]).ings.map(g => g.e).join('') + ' (chissà cosa fa…)'); } }
+  function fillDone(G, c) { const b = c.belt, i = b.findIndex(v => !v); if (i < 0) return; b[i] = randPot(); if (c === G.me) { SFX.bottle(); G.sel = b[G.sel] ? G.sel : i; sendBelt(G); cqToast('🫕 Nuova pozione dal calderone: ' + brew(b[i]).ings.map(g => g.e).join('') + ' (chissà cosa fa…)'); } }
 
   // ---- IL COMPUTER nel duello: sta a distanza, gira intorno, evita le pozze, lancia con un piccolo errore, ricarica quando e' a secco ----
   function botTick(G, c, dt) {
@@ -825,6 +933,16 @@
     if (out(G, c) || c.hold) { c.path = []; return; }   // hold: fermo (solo per le prove)
     const o = oppOf(G, c), po = o ? posOf(G, o) : { x: C, y: C }, d = Math.hypot(po.x - c.x, po.y - c.y);
     const sp = speedOf(G, c);
+    // SCHIVA: vede dove cade un'ampolla dell'altro (dopo un attimo, come una persona) e si sposta di lato
+    if (!c.dodge || G.time > c.dodge) for (const f of G.fl) {
+      if (f.o === c.id || G.time - f.t0 < 0.28 + (c.rt || (c.rt = 0.05 + Math.random() * 0.2))) continue;
+      const P3 = brew(f.k), te = f.t0 + Math.min(f.d, f.fz), e = flPos(f, te); if (!P3 || te - G.time < 0.15) continue;
+      const dd = Math.hypot(c.x - e.x, c.y - e.y), need = P3.area * 1.3 + 0.6; if (dd > need) continue;
+      let ax = c.x - e.x, ay = c.y - e.y; const al = Math.hypot(ax, ay) || 1; ax /= al; ay /= al;
+      for (const sg of [1, -1, 0]) { const nx = c.x + (ax * 0.6 + (sg ? -ay * sg : 0)) * (need - dd + 0.8), ny = c.y + (ay * 0.6 + (sg ? ax * sg : 0)) * (need - dd + 0.8); if (inArena(nx, ny) && Math.hypot(nx - C, ny - C) > PIT + 1.2 && cqCellFree(Math.floor(nx), Math.floor(ny))) { c.path = cqPath(c.x, c.y, nx, ny).slice(0, 4); c.dodge = G.time + 0.8; c.think = 0.9; c.goal = 'd'; break; } }
+      c.rt = 0; break;
+    }
+    if (c.dodge > G.time) { cqModeStep(c, dt, 0.95 * sp); return; }   // sta schivando: prima si salva, poi il resto
     if (!c.belt.some(Boolean)) {   // a secco: al calderone
       const [kx, ky] = KETTLE[sideIdx(G, c)];
       if (nearKettle(G, c)) { c.path = []; c.fillT = (c.fillT || 0) + dt; if (c.fillT >= KETTLE_T) { c.fillT = 0; fillDone(G, c); fillDone(G, c); } return; }
@@ -838,22 +956,34 @@
       for (let i = 0; i < 18; i++) {
         const a = Math.random() * 6.283, r = 4.2 + Math.random() * 2.6, x = po.x + Math.cos(a) * r, y = po.y + Math.sin(a) * r;
         if (!inArena(x, y) || Math.hypot(x - C, y - C) < PIT + 1 || !cqCellFree(Math.floor(x), Math.floor(y))) continue;
-        const bad = zonesAt(G, x, y).filter(z => z.o !== c.id && z.k !== 'mirror').length;
-        const s = -bad * 5 - Math.hypot(x - c.x, y - c.y) * 0.3 + Math.random();
+        const bad = zonesAt(G, x, y).filter(z => z.o !== c.id && z.k !== 'mirror').length, edge = Math.hypot(x - C, y - C) < PIT + 1.7 ? 1 : 0;
+        const s = -bad * 5 - edge * 4 - Math.hypot(x - c.x, y - c.y) * 0.3 + Math.random();
         if (s > bs) { bs = s; best = [x, y]; }
       }
       if (best) c.path = cqPath(c.x, c.y, best[0], best[1]).slice(0, 8);
     }
     cqModeStep(c, dt, 0.92 * sp);
-    // lancio
+    // LANCIO FURBO: per ogni ampolla calcola quanto vale li' (potScore), sceglie la migliore; vicino alla voragine mira dalla parte giusta
+    // (il vento dietro di lui = dentro; la ragnatela dentro la voragine = lo tira giu'); se la cintura dell'altro sfrigola, fuoco
     if ((c.thT || 0) <= G.time && o && !out(G, o) && d < RMAX + 0.5 && G.time > (c.aimT || 0)) {
-      c.aimT = G.time + 1.3 + Math.random() * 1.4;
-      const opts = c.belt.map((k, i) => [k, i]).filter(([k]) => k && brew(k).spd * Math.min(brew(k).fuse, 9) >= d * 0.9 && d > brew(k).area + 0.9);
-      if (opts.length) {
-        const [k, i] = cqPickOne(opts), P2 = brew(k), tf = d / P2.spd, vx = (o.x - (o.px != null ? o.px : o.x)) / Math.max(dt, 0.016), vy = (o.y - (o.py != null ? o.py : o.y)) / Math.max(dt, 0.016);
-        const er = 0.4 + d * 0.07, tx = po.x + (Math.abs(vx) < 8 ? vx : 0) * tf * 0.6 + gauss() * er, ty = po.y + (Math.abs(vy) < 8 ? vy : 0) * tf * 0.6 + gauss() * er;
-        throwFrom(G, c, i, tx, ty);
-      }
+      c.aimT = G.time + 1.2 + Math.random() * 1.3;
+      const vx = (o.x - (o.px != null ? o.px : o.x)) / Math.max(dt, 0.016), vy = (o.y - (o.py != null ? o.py : o.y)) / Math.max(dt, 0.016);
+      const tg = { x: po.x, y: po.y, pit: Math.hypot(po.x - C, po.y - C) < PIT + 1.9, vol: (o.belt || []).some(k => k && brew(k).inst >= VOLATILE) };
+      let best = null;
+      c.belt.forEach((k, i) => {
+        const P2 = k && brew(k); if (!P2) return;
+        if (P2.s.mirror && !P2.s.fire) {   // specchio: davanti a se', verso l'altro, se l'altro ha ancora ampolle
+          if ((o.belt || []).some(Boolean) && d > 3) { const sc = 2 + Math.random(); if (!best || sc > best.sc) best = { i, sc, tx: c.x + (po.x - c.x) / d * 1.6, ty: c.y + (po.y - c.y) / d * 1.6 }; }
+          return;
+        }
+        if (P2.spd * Math.min(P2.fuse, 9) < d * 0.9 || d < P2.area + 0.9) return;
+        const tf = d / P2.spd; let tx = po.x + (Math.abs(vx) < 8 ? vx : 0) * tf * 0.6, ty = po.y + (Math.abs(vy) < 8 ? vy : 0) * tf * 0.6;
+        const pu = pushOf(P2);
+        if (tg.pit && Math.abs(pu) > 0.5) { const dx = tx - C, dy = ty - C, dl = Math.hypot(dx, dy) || 1; if (pu > 0) { tx += dx / dl * 0.8; ty += dy / dl * 0.8; } else { tx -= dx / dl * 1.2; ty -= dy / dl * 1.2; } }
+        const sc = potScore(G, P2, Object.assign({}, tg, { x: tx, y: ty })) + Math.random() * 0.8;
+        if (!best || sc > best.sc) best = { i, sc, tx, ty };
+      });
+      if (best) { const er = 0.35 + d * 0.06; throwFrom(G, c, best.i, best.tx + gauss() * er, best.ty + gauss() * er); }
     }
     if (o) { o.px = po.x; o.py = po.y; }
   }
@@ -871,7 +1001,7 @@
     const st = G.st;
     G.st = { n: st.n + 1, ph: 'prep', t0: G.time, rd: {}, sc: st.sc };
     G.fl = []; G.zn = []; G.pend = [];
-    G.chars.forEach((c, i) => { c.hp = HP; c.fx = {}; c.iv = 0; c.belt = Array(BELT_N).fill(''); c.thT = 0; if (c.bot && !c.remote) { [c.x, c.y] = SPAWN[i % 2]; c.path = []; c.sl = null; c.belt = cpuBelt(); G.st.rd[c.id] = 1; } });
+    G.chars.forEach((c, i) => { c.hp = HP; c.fx = {}; c.iv = 0; c.belt = Array(BELT_N).fill(''); c.thT = 0; if (c.bot && !c.remote) { [c.x, c.y] = SPAWN[i % 2]; c.path = []; c.sl = null; c.belt = cpuBelt(G); G.st.rd[c.id] = 1; } });
   }
   function finalEnd(G) {
     const st = G.st, a = G.chars[0], b = G.chars[1], s = c => st.sc[c.id] || 0, w = s(a) > s(b) ? a : s(b) > s(a) ? b : null;
@@ -1060,7 +1190,7 @@
       Object.assign(G, { fl: [], zn: [], bx: [], hx: [], pend: [], flN: 0, znN: 0, bxN: 0, hxN: 0, sel: 0 });
       G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.fx = {}; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
       G.st = { n: 1, ph: 'prep', t0: 0, rd: {}, sc: {} }; U2.ph = '';
-      for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(); G.st.rd[c.id] = 1; }
+      for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(G); G.st.rd[c.id] = 1; }
     },
     gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
     intro: () => '⚗️ Benvenuto nella torre dei maghi!',
@@ -1199,5 +1329,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); const th = document.getElementById('alTh'), sl = document.getElementById('alSel'); if (th) th.remove(); if (sl) sl.remove(); U2.ph = ''; } });
-  window.__alc = { volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
+  window.__alc = { potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
 })();
