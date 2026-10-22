@@ -20,7 +20,7 @@
   P('finta', 10, 25);       // porta ingresso-corridoio
   P('armatura', 13, 10);    // armatura del salone
   { const t = T.target('cane', 26, 26); B.items.push({ k: 'cane', key: t.key, x: t.x, y: t.y, cells: t.cells }); }   // cane in cucina (fuori dalle monete: la villa di prova costa piu' di 100)
-  G.vb = B; G.M.act(G);     // "Ruba nella villa del computer"
+  G.vb = B; T.raidStart(G);
   cq.on = false; cancelAnimationFrame(cq.raf);
   const tk = (s, f) => { for (let i = 0; i < s * 20; i++) { if (f) f(i); cqModeTick(0.05); } };
   const st = () => 'cuori ' + G.hp + ' fermo ' + (G.stun > G.time ? 'si' : 'no') + ' pos ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1);

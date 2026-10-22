@@ -32,7 +32,7 @@ window.__SHOT = window.__SHOT || 'map';
   cq.on = false; cancelAnimationFrame(cq.raf); const toasts = []; window.cqToast = t => toasts.push(t);
   const SP = window.__tr.spots(), di = SP.findIndex(p => p.n === 'Armadio'), wr = SP.findIndex(p => p.n === 'Cassapanca');
   for (let i = 0; i < 70; i++) cqModeTick(0.05);   // i 3 s di "pronti"
-  window.__tr.buildEnd(G); window.__tr.raidStart(G); G.vb = { items: [{ k: 'dia', i: di }] }; G.dia = di;
+  window.__tr.buildEnd(G); G.vb = { items: [{ k: 'dia', i: di }] }; window.__tr.raidStart(G);
   const go = (x, y) => { cq.x = x; cq.y = y; };
   const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) cqModeTick(0.05); return b ? b.t : 'nessun pulsante'; };
   out.push('mobile sbagliato: ' + open(wr) + ' -> ' + toasts.slice(-1)[0]);

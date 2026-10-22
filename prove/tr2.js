@@ -33,9 +33,9 @@
   if (window.__SHOT !== 'no') { at(16.2, 13.6); T.U.tool = 'cane'; await w(600); return out.join('\n'); }
   // fine della preparazione -> giro nella mia villa -> furto nella villa del computer
   $('#trDone').click(); await w(300);
-  out.push('dopo Fatto: fase ' + G.ph + ' | catalogo tolto: ' + !document.getElementById('trBar') + ' | telecamera libera: ' + cq.cam + ' | barra: ' + $('#cqModeBar').textContent + ' | pulsante: ' + G.M.btn(G).t);
+  out.push('dopo Fatto: fase ' + G.ph + ' | catalogo tolto: ' + !document.getElementById('trBar') + ' | telecamere: ' + document.querySelectorAll('#trCams button').length);
   cq.on = false; cancelAnimationFrame(cq.raf);
-  G.M.act(G); out.push('furto: fase ' + G.ph + ' | ' + toasts.slice(-1)[0]);
+  T.guardEnd(G, false); for (let i = 0; i < 80 && G.ph === 'inter'; i++) cqModeTick(0.05); out.push('furto: fase ' + G.ph + ' | ' + toasts.slice(-1)[0]);
   const SP = T.spots(), fk = G.vb.items.find(o => o.k === 'fake'), di = G.vb.items.find(o => o.k === 'dia');
   const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) cqModeTick(0.05); return b ? b.t : 'nessun pulsante'; };
   out.push('diamante finto: ' + open(fk.i) + ' -> ' + toasts.slice(-1)[0] + ' | fermo: ' + (G.stun > G.time) + ' | pulsante mentre e\' fermo: ' + (G.M.btn(G) ? G.M.btn(G).t : 'nessuno'));
