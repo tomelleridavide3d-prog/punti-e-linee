@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Carte di prova</title>
+<style>
+  body { margin: 0; padding: 16px; background: radial-gradient(ellipse at 50% 30%, #2f7d47, #134226); color: #fff; font: 16px system-ui, sans-serif; min-height: 100vh; box-sizing: border-box; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p { margin: 14px 0 6px; opacity: .85; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+  canvas { filter: drop-shadow(0 5px 8px rgba(0, 0, 0, .45)); }
+</style>
+</head>
+<body>
+<h1>🃏 Carte di prova · Briscola al tavolino</h1>
+<p>Grandi, per guardare il disegno:</p>
+<div class="row" id="big"></div>
+<p>Della misura che avranno in mano sul telefono:</p>
+<div class="row" id="small"></div>
+<script src="../giochi/lib/carte.js"></script>
+<script>
+  const dpr = Math.min(3, window.devicePixelRatio || 1);
+  const put = (el, cv, w) => { cv.style.width = w + 'px'; cv.style.height = Math.round(w * CARTE.H / CARTE.W) + 'px'; document.getElementById(el).appendChild(cv); };
+  const set = [['d', 1], ['s', 10], ['c', 7]];
+  const bw = Math.min(200, Math.floor((Math.min(innerWidth, 900) - 52) / 2));
+  for (const [s, r] of set) put('big', CARTE.card(s, r, bw * dpr), bw);
+  put('big', CARTE.back(bw * dpr), bw);
+  const sw = Math.min(110, Math.floor((Math.min(innerWidth, 500) - 52) / 3));
+  for (const [s, r] of set) put('small', CARTE.card(s, r, sw * dpr), sw);
+</script>
+</body>
+</html>
