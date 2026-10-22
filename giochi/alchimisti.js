@@ -2,6 +2,7 @@
 // Passo 1: la TORRE DEI MAGHI (laboratorio tondo, voragine luminosa, ripari, calderoni di ricarica), alchimisti col cappello a punta, online in 2.
 // Passo 2: le POZIONI calcolate dalle proprieta' degli ingredienti (ING, EL, REACT, brew) e la PREPARAZIONE al calderone.
 // Passo 3: il DUELLO (lancio a fionda, effetti dalla tabella FX, pozze ZONE, spinte, voragine, ricarica, manche al meglio di 3, computer che lancia).
+// PIANI DELLA TORRE: serra carnivora, sala dell'orologio, laboratorio in cima; una manche per piano (FLOORS, makeFloor, useFloor).
 // Passo 6: RICETTARIO (60 monete; descrizioni calcolate dalle tabelle), schede la prima volta, regole.
 // Passo 5: COMPUTER FURBO (cintura valutata con le tabelle e contro quello che lanci, schiva, ti spinge nella voragine, sfrutta le pozze, specchi).
 // Passo 4: REAZIONI SUL CAMPO (pozione + pozza = la reazione della tabella REACT) e AMPOLLE INSTABILI che scoppiano alla cintura se ti colpisce il fuoco.
@@ -14,38 +15,68 @@
   const N = 21, C = 10.5, RAD = 8.6, PIT = 2.25, RIM = 3.05, HT = 2.7, HL = 0.5;
   const dC = (x, y) => Math.hypot(x + 0.5 - C, y + 0.5 - C);
   const inside = (x, y) => dC(x, y) <= RAD;
-  const isPit = (x, y) => dC(x, y) <= PIT;
+  let FL = null;   // il piano in uso (FLOORS): lo cambia useFloor
+  const isPit = (x, y) => !!(FL && FL.pit) && dC(x, y) <= PIT;
   const back = (x, y) => x + y <= 2 * C - 1;
   // i due angoli (simmetrici rispetto al centro): A in fondo, B davanti; accanto a ognuno il suo calderone di ricarica
   const SPAWN = [[6.5, 6.5], [14.5, 14.5]], KETTLE = [[5, 7], [15, 13]];
   const SIDE = [{ hat: '#4a2a7a', hat2: '#6a3fa8', band: '#e8c050', liq: '#b07aff' }, { hat: '#1f5a4a', hat2: '#2f7a64', band: '#d8dce8', liq: '#5ae0a0' }];
-  // ripari (simmetrici: ogni riparo ha il suo gemello dall'altra parte del centro)
-  const COVER = [['pillar', 5, 14], ['pillar', 15, 6], ['bench', 8, 6], ['bench', 12, 14], ['books', 6, 9], ['books', 14, 11], ['barrel', 9, 15, '#6a4a2e'], ['barrel', 11, 5, '#6a4a2e']];
-  const COLS = { lab: ['#4a4555', '#46414f'], rim: ['#6b6377', '#665e71'] };
-  const WC = '#575064';
+  // I PIANI DELLA TORRE (idea dell'utente): una manche per piano, si sale. Ogni piano = una riga: mappa, nome, consiglio, pavimenti (kind(x, y) -> tipo),
+  // colori, muro, decorazioni (WSEQ in fondo, BSEQ lungo il bordo dietro, FSEQ davanti), ripari COVER (simmetrici rispetto al centro), cosa c'e' di speciale
+  const GLASS = 'rgba(0,0,0,0)';   // caselle "di vetro": il pavimento pronto e' trasparente e sotto si disegnano ingranaggi e quadrante che girano (under)
+  const GEARS = [[7, 14, 1], [14, 7, -1]], GR = 1.9, DIAL = 3.0;   // sala dell'orologio: ingranaggi [x, y, verso] e quadrante al centro
+  const PLANTS = [[10, 10, 1], [6, 12, 0], [14, 8, 0], [12, 5, 0], [8, 15, 0]];   // serra: piante carnivore [x, y, grande]
+  const FLOORS = [
+    { id: 'serra', map: 'torre1', n: 'La serra carnivora', e: '🌿', plants: 1,
+      tip: 'Le <b>piante carnivore</b> mordono chi passa vicino! Il fuoco le brucia, il ghiaccio le congela, il fungo le fa diventare enormi, la polvere di fata le rimpicciolisce, sabbia e colla le addormentano.',
+      kind: () => 'serra', cols: { serra: ['#8a5a40', '#84553c'] }, wc: '#56604c',
+      WSEQ: ['glass', 'vines', 'torch', 'pots', 'glass', 'vines', 'glass', 'pots', 'torch', 'vines', 'glass', 'pots', 'vines', 'glass'],
+      BSEQ: ['pot', 'wcan', 'pot', 'sack', 'pot', 'crate', 'pot', 'shelfp', 'pot', 'sack'], FSEQ: ['pot', 'sack', 'wcan', 'crate', 'pot', 'candles'],
+      COVER: [['pot2', 8, 6], ['pot2', 12, 14], ['sack', 5, 14], ['sack', 15, 6], ['books', 6, 9], ['books', 14, 11]] },
+    { id: 'orologio', map: 'torre2', n: 'La sala dell\'orologio', e: '🕰️', gears: 1, pend: 1,
+      tip: 'Sotto il vetro gli <b>ingranaggi</b> girano e ti portano con loro; il <b>pendolo</b> spazza il centro e butta via chi c\'è sotto. Spingi l\'altro sotto il pendolo!',
+      kind: (x, y) => dC(x, y) <= DIAL ? 'clock' : GEARS.some(([a, b]) => Math.hypot(x + 0.5 - a, y + 0.5 - b) <= GR) ? 'gear' : 'parq',
+      cols: { parq: ['#5a3a26', '#563824'], clock: [GLASS, GLASS], gear: [GLASS, GLASS] }, wc: '#5e5446',
+      WSEQ: ['gearw', 'torch', 'clockw', 'shelf', 'gearw', 'chart', 'clockw', 'torch', 'gearw', 'shelf', 'clockw', 'banner', 'gearw', 'torch'],
+      BSEQ: ['clockgf', 'gearbox', 'globe', 'books', 'clockgf', 'chest', 'telescope', 'gearbox', 'shelfp', 'clockgf'], FSEQ: ['gearbox', 'barrel', 'books', 'crate', 'candles', 'sack'],
+      COVER: [['clockgf', 4, 11], ['clockgf', 16, 9], ['gearbox', 8, 6], ['gearbox', 12, 14], ['books', 6, 9], ['books', 14, 11], ['barrel', 9, 16, '#6a4a2e'], ['barrel', 11, 4, '#6a4a2e']] },
+    { id: 'lab', map: 'torre', n: 'Il laboratorio in cima', e: '⚗️', pit: 1,
+      tip: 'In cima alla torre: al centro la <b>voragine</b>. Chi ci cade perde un cuore. Spingi, tira… e non avvicinarti troppo al bordo!',
+      kind: (x, y) => dC(x, y) <= RIM && !isPit(x, y) ? 'rim' : 'lab', cols: { lab: ['#4a4555', '#46414f'], rim: ['#6b6377', '#665e71'] }, wc: '#575064',
+      WSEQ: ['shelf', 'torch', 'win', 'shelf', 'banner', 'potions', 'torch', 'chart', 'win', 'shelf', 'banner', 'torch', 'potions', 'shelf', 'win', 'chart'],
+      BSEQ: ['cauldron', 'globe', 'crystal', 'shelfp', 'owl', 'chest', 'telescope', 'skull', 'shelfp', 'books', 'cauldron2', 'crystal'], FSEQ: ['candles', 'barrel', 'books', 'crate', 'candles', 'sack'],
+      COVER: [['pillar', 5, 14], ['pillar', 15, 6], ['bench', 8, 6], ['bench', 12, 14], ['books', 6, 9], ['books', 14, 11], ['barrel', 9, 15, '#6a4a2e'], ['barrel', 11, 5, '#6a4a2e']] }];
+  FL = FLOORS[2];
+  const COLS = () => FL.cols, WCOL = () => FL.wc;
 
   // muri decorati in fondo (scelti in ordine lungo il giro) e oggetti lungo il bordo; luci per il buio
   let QC = {}, QOWN = [], DEC = [], LIGHTS = [];
   const RI = 9.35, RO = 10.05, RM = (RI + RO) / 2, NQ = 720;   // muro tondo: raggio dentro (copre gli spigoli del pavimento) e fuori; spicchi del giro
-  const WSEQ = ['shelf', 'torch', 'win', 'shelf', 'banner', 'potions', 'torch', 'chart', 'win', 'shelf', 'banner', 'torch', 'potions', 'shelf', 'win', 'chart'];
-  const BSEQ = ['cauldron', 'globe', 'crystal', 'shelfp', 'owl', 'chest', 'telescope', 'skull', 'shelfp', 'books', 'cauldron2', 'crystal'];
-  const FSEQ = ['candles', 'barrel', 'books', 'crate', 'candles', 'sack'];
   const ang = (x, y) => { let a = Math.atan2(y + 0.5 - C, x + 0.5 - C); if (a < -Math.PI * 0.75) a += Math.PI * 2; return a; };   // da sinistra, passando dal fondo, fino a destra
 
+  // ogni piano e' una mappa sua (stessa pianta tonda); i dati del disegno (spicchi del muro, decorazioni, luci) stanno nel pacchetto (P.alc)
+  function makeFloor(fi) {
+    const prev = FL; FL = FLOORS[fi];
+    try { const P = mapTorre(); P.fi = fi; return P; } finally { FL = prev; }
+  }
+  // cambia piano: la mappa (anche sul telefono dell'amico) e i dati del disegno
+  function useFloor(fi) { const F = FLOORS[fi]; if (cq.map !== F.map) cqUseMap(F.map, 1); syncFloor(); if (cq.g) cq.g.map = cq.map; }
+  function syncFloor() { const P = CQ_MAP; if (!P || P.fi == null) return; FL = FLOORS[P.fi]; ({ QC, QOWN, DEC, LIGHTS } = P.alc); PITF = null; }
   function mapTorre() {
-    const rooms = [], props = [];
+    const rooms = [], props = [], COVER = FL.COVER, WSEQ = FL.WSEQ, BSEQ = FL.BSEQ, FSEQ = FL.FSEQ;
     for (let y = 0; y < N; y++) {
       let cur = null;
       for (let x = 0; x < N; x++) {
-        const k = inside(x, y) ? (dC(x, y) <= RIM && !isPit(x, y) ? 'rim' : 'lab') : null;
+        const k = inside(x, y) ? FL.kind(x, y) : null;
         if (cur && cur.k === k && k) { cur.w++; continue; }
-        cur = k ? { n: 'Laboratorio', x, y, w: 1, h: 1, vk: k, k, c: COLS[k], wc: WC, nl: 1 } : null;
+        cur = k ? { n: 'Laboratorio', x, y, w: 1, h: 1, vk: k, k, c: FL.cols[k], wc: FL.wc, nl: 1 } : null;
         if (cur) rooms.push(cur);
       }
     }
     const taken = new Set(), put = (t, x, y, o) => { props.push([t, x, y, o]); taken.add(x + ',' + y); };
     for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) if (isPit(x, y)) put('pit', x, y);
     COVER.forEach(([t, x, y, o]) => put(t, x, y, o));
+    if (FL.plants) PLANTS.forEach(([x, y, b], i) => put('plantc', x, y, { i, b }));
     KETTLE.forEach(([x, y], i) => put('kettle', x, y, { s: i }));
     const wall = (x, y) => !inside(x, y);
     const near = (x, y, L, r) => L.some(([a, b]) => Math.hypot(x + 0.5 - a, y + 0.5 - b) < r);
@@ -63,21 +94,23 @@
     }
     // MURA TONDE: il giro e' diviso in NQ spicchi; ogni spicchio lo disegna la casella che contiene il suo centro (raggio RM).
     // Le caselle fuori dal pavimento che non sono gia' muri per il motore diventano oggetti 'ring' (cosi' vengono disegnate anche loro)
-    QC = {}; QOWN = [];
+    const QC = {}, QOWN = [];
     for (let i = 0; i < NQ; i++) { const th = (i + 0.5) / NQ * 6.2832, key = Math.floor(C + RM * Math.cos(th)) + ',' + Math.floor(C + RM * Math.sin(th)); (QC[key] || (QC[key] = [])).push(i); QOWN.push(key); }
     for (const key of Object.keys(QC)) { const [x, y] = key.split(',').map(Number); if (!inside(x, y) && ![-1, 0, 1].some(a => [-1, 0, 1].some(b => inside(x + a, y + b)))) props.push(['ring', x, y]); }
     // decorazioni sulla parete curva in fondo (dove il muro e' alto), una ogni ~1,2 caselle
-    DEC = []; { const B = Math.PI * 1.25; let i = 0; for (let d = -1.12; d <= 1.121; d += 1.2 / RI) { const th = (B + d + 6.2832) % 6.2832; DEC.push({ th, t: WSEQ[i % WSEQ.length], i: i++, own: QOWN[Math.floor(th / 6.2832 * NQ) % NQ] }); } }
+    const DEC = []; { const B = Math.PI * 1.25; let i = 0; for (let d = -1.12; d <= 1.121; d += 1.2 / RI) { const th = (B + d + 6.2832) % 6.2832; DEC.push({ th, t: WSEQ[i % WSEQ.length], i: i++, own: QOWN[Math.floor(th / 6.2832 * NQ) % NQ] }); } }
     // luci (per il buio): voragine, torce, finestre, sfere di cristallo, calderoni
-    LIGHTS = [[C, C, 4.6, 1]];
-    for (const d of DEC) { const lx = C + (RI - 0.7) * Math.cos(d.th), ly = C + (RI - 0.7) * Math.sin(d.th); if (d.t === 'torch') LIGHTS.push([lx, ly, 3.2, 0.85]); else if (d.t === 'win') LIGHTS.push([lx, ly, 2.2, 0.4]); }
+    const LIGHTS = FL.pit ? [[C, C, 4.6, 1]] : FL.gears ? [[C, C, 3.4, 0.7]] : [[C, C, 2.6, 0.5]];
+    for (const d of DEC) { const lx = C + (RI - 0.7) * Math.cos(d.th), ly = C + (RI - 0.7) * Math.sin(d.th); if (d.t === 'torch') LIGHTS.push([lx, ly, 3.2, 0.85]); else if (d.t === 'win' || d.t === 'glass') LIGHTS.push([lx, ly, 2.2, 0.4]); }
     for (const [t, x, y] of props) if (t === 'crystal' || t === 'cauldron' || t === 'cauldron2') LIGHTS.push([x + 0.5, y + 0.5, 2.4, 0.6]);   // solo le luci grandi: ognuna costa al buio (prove/pesi.js)
-    return { w: N, h: N, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[6, 6], [14, 14]], button: { x: -10, y: -10 }, sabs: {},
+    return { alc: { QC, QOWN, DEC, LIGHTS }, w: N, h: N, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[6, 6], [14, 14]], button: { x: -10, y: -10 }, sabs: {},
       inn: { Laboratorio: 'nel laboratorio' }, help: '', btnTxt: '', sabTxt: '',
-      pxProp: drawFurn, drawWall, floor: { lab: floorLab, rim: floorRim },
+      pxProp: drawFurn, drawWall, floor: { lab: floorLab, rim: floorRim, serra: floorSerra, parq: floorParq, clock: floorGlass, gear: floorGlass },
       bg: () => '#0c0a16', sky: skyDraw };   // dietro la torre: il paesaggio di notte (skyDraw)
   }
-  CQ_MAPS.torre = { n: 'Torre dei maghi', make: mapTorre, only: 'alchimisti' };
+  CQ_MAPS.torre1 = { n: 'Serra carnivora', make: () => makeFloor(0), only: 'alchimisti' };
+  CQ_MAPS.torre2 = { n: 'Sala dell\'orologio', make: () => makeFloor(1), only: 'alchimisti' };
+  CQ_MAPS.torre = { n: 'Torre dei maghi', make: () => makeFloor(2), only: 'alchimisti' };
   // ---- IL PAESAGGIO intorno alla torre: notte al chiaro di luna vista dall'alto (cielo, stelle, luna, montagne, valle col lago, boschi, villaggi).
   // La parte ferma si disegna UNA volta (SKY, rifatta solo se cambia lo schermo); a ogni fotogramma solo nuvole che passano e luci che tremolano.
   // E' lontano: non si ingrandisce con la visuale e si sposta appena quando cammini (profondita'). Gancio del motore: CQ_MAP.sky(g, CX, CY) ----
@@ -207,7 +240,7 @@
       if (!c.low) for (const [bx, by, br] of c.blobs) { g.fillStyle = 'rgba(150,168,220,.22)'; g.beginPath(); g.ellipse(x + bx * cw - br * cw * 0.15, y + by * cw * 0.4 - br * cw * 0.2, br * cw * 0.7, br * cw * 0.22, 0, 0, 7); g.fill(); }
     }
     g.restore();
-    if (tx != null) towerDraw(g, tx, ty, TW);
+    if (tx != null) { towerDraw(g, tx, ty, TW); if (FL && FL.gears) clockUnder(g, tx, ty, TW); }
   }
 
   // ---- PAVIMENTI (si disegnano una volta sola nella mappa pronta: qui le trasparenze vanno bene) ----
@@ -239,6 +272,47 @@
       ring(K, 4.0, 'rgba(176,150,255,.4)', Math.max(1.5, TW / 34)); ring(K, 5.05, 'rgba(176,150,255,.4)', Math.max(1.5, TW / 34)); ring(K, 5.25, 'rgba(176,150,255,.22)', Math.max(1, TW / 60));
       for (let i = 0; i < 20; i++) { const a = i / 20 * 6.283 + 0.16, gx = C + Math.cos(a) * 4.52, gy = C + Math.sin(a) * 4.52; if (Math.abs(gx - x - 0.5) < 1.3 && Math.abs(gy - y - 0.5) < 1.3) glyph(K, gx, gy, 0.26, i % 5, 'rgba(190,168,255,.55)'); }
       K.g.restore();
+    }
+  }
+  // serra: mattonelle di cotto con muschio e qualche foglia
+  function floorSerra(K, x, y) {
+    const { hsh, strokes, S, speck, TW, g } = K, P = (u, v) => S(x + u, y + v, 0);
+    strokes([[P(0.5, 0), P(0.5, 1)], [P(0, 0.5), P(1, 0.5)]], 'rgba(40,20,10,.35)', Math.max(1, TW / 50));
+    speck(x, y, 5, ['rgba(255,230,200,.08)', 'rgba(0,0,0,.14)'], TW / 22);
+    if (hsh(x, y, 71) < 0.35) speck(x, y, 7, ['rgba(80,140,60,.45)', 'rgba(60,110,40,.4)'], TW / 16);   // muschio
+    if (hsh(x, y, 72) < 0.12) { const [X, Y] = P(0.3 + 0.4 * hsh(x, y, 73), 0.3 + 0.4 * hsh(x, y, 74)); g.fillStyle = hsh(x, y, 75) < 0.5 ? '#5a8a3a' : '#8a7a2a'; g.beginPath(); g.ellipse(X, Y, TW * 0.09, TW * 0.04, hsh(x, y, 76) * 3, 0, 7); g.fill(); }
+  }
+  // sala dell'orologio: assi di legno scuro
+  function floorParq(K, x, y) {
+    const { hsh, strokes, S, TW } = K, P = (u, v) => S(x + u, y + v, 0);
+    strokes([[P(0, 0.25), P(1, 0.25)], [P(0, 0.5), P(1, 0.5)], [P(0, 0.75), P(1, 0.75)]], 'rgba(0,0,0,.28)', Math.max(1, TW / 60));
+    const j = 0.2 + 0.6 * hsh(x, y, 81); strokes([[P(j, 0), P(j, 0.25)], [P((j + 0.5) % 1, 0.25), P((j + 0.5) % 1, 0.5)], [P(j, 0.5), P(j, 0.75)], [P((j + 0.3) % 1, 0.75), P((j + 0.3) % 1, 1)]], 'rgba(0,0,0,.22)', Math.max(1, TW / 60));
+    strokes([[P(0.1, 0.12), P(0.6, 0.12)]], 'rgba(255,220,170,.06)');
+  }
+  // vetro sopra gli ingranaggi e il quadrante (si vede quello che c'e' sotto: under)
+  function floorGlass(K, x, y) { const { S, poly } = K; poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], 'rgba(170,210,255,.07)'); }
+  // SOTTO IL VETRO (a ogni fotogramma, prima della mappa): il quadrante col tempo che passa e gli ingranaggi che girano
+  const gearAng = t => { const k = Math.floor(t / 8), r = t - 8 * k; return 0.75 * (k % 2 ? 8 - r : r); };   // avanti e indietro, cambiano verso ogni 8 s
+  const gearW = t => 0.75 * (Math.floor(t / 8) % 2 ? -1 : 1);
+  function clockUnder(g, tx, ty, TW) {
+    const t = cq.g ? cq.g.time : 0, U = TW * 0.575, sp = (x, y, z) => [tx + (x - y) * TW / 2, ty + (x + y) * TW / 4 - z * U];
+    const disc = (x, y, z, r, col) => { const [X, Y] = sp(x, y, z); g.fillStyle = col; g.beginPath(); g.ellipse(X, Y, r * TW * 0.7071, r * TW * 0.3536, 0, 0, 7); g.fill(); };
+    // quadrante
+    disc(C, C, -0.35, DIAL + 0.9, '#1e1610'); disc(C, C, -0.3, DIAL + 0.25, '#b08a3a'); disc(C, C, -0.28, DIAL, '#efe4c8'); disc(C, C, -0.27, DIAL * 0.88, '#f6eedb');
+    g.fillStyle = '#3a2a1a'; g.font = '700 ' + Math.round(TW * 0.32) + 'px Georgia,serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'].forEach((n, i) => { const a = i / 12 * 6.2832 - Math.PI * 0.75, [X, Y] = sp(C + Math.cos(a) * DIAL * 0.75, C + Math.sin(a) * DIAL * 0.75, -0.27); g.save(); g.translate(X, Y); g.scale(1, 0.6); g.fillText(n, 0, 0); g.restore(); });
+    const hand = (a, l, w, col) => { const [X0, Y0] = sp(C, C, -0.26), [X1, Y1] = sp(C + Math.cos(a) * l, C + Math.sin(a) * l, -0.26); g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(X0, Y0); g.lineTo(X1, Y1); g.stroke(); };
+    hand(t / 360 * 6.2832 - Math.PI * 0.75, DIAL * 0.45, Math.max(3, TW / 9), '#2a1e14'); hand(t / 30 * 6.2832 - Math.PI * 0.75, DIAL * 0.7, Math.max(2, TW / 14), '#2a1e14'); disc(C, C, -0.25, 0.18, '#b08a3a');
+    // ingranaggi (i denti girano)
+    for (const [gx, gy, v] of GEARS) {
+      disc(gx, gy, -0.4, GR + 0.9, '#140e0a');
+      const a0 = gearAng(t) * v, [X, Y] = sp(gx, gy, -0.3), rx = TW * 0.7071, ry = TW * 0.3536;
+      g.fillStyle = '#8a6a2e'; g.beginPath();
+      for (let i = 0; i <= 64; i++) { const a = a0 + i / 64 * 6.2832, r = (Math.floor(i / 2) % 2 ? GR + 0.25 : GR); g.lineTo(X + Math.cos(a) * r * rx, Y + Math.sin(a) * r * ry); }
+      g.fill(); disc(gx, gy, -0.28, GR * 0.8, '#a8843a'); disc(gx, gy, -0.27, GR * 0.62, '#6a4e22');
+      g.strokeStyle = '#b8944a'; g.lineWidth = Math.max(2, TW / 12); g.beginPath(); for (let i = 0; i < 6; i++) { const a = a0 + i / 6 * 6.2832; g.moveTo(X, Y); g.lineTo(X + Math.cos(a) * GR * 0.62 * rx, Y + Math.sin(a) * GR * 0.62 * ry); } g.stroke();
+      disc(gx, gy, -0.26, 0.3, '#d8b860');
+      for (let i = 0; i < 3; i++) { const a = -a0 * 1.8 + i * 2.1, [X2, Y2] = sp(gx + Math.cos(i * 2.1 + 1) * (GR + 0.75), gy + Math.sin(i * 2.1 + 1) * (GR + 0.75), -0.32); g.fillStyle = '#6a5228'; g.beginPath(); for (let k = 0; k <= 24; k++) { const b = a + k / 24 * 6.2832, r = (Math.floor(k / 2) % 2 ? 0.55 : 0.45); g.lineTo(X2 + Math.cos(b) * r * rx, Y2 + Math.sin(b) * r * ry); } g.fill(); }   // ingranaggini intorno
     }
   }
   function floorRim(K, x, y) {
@@ -295,12 +369,12 @@
   function drawWall(K, x, y, col) { ringPiece(K, x, y, col); }
   function ringPiece(K, x, y, col) {
     const { S, g, TW } = K, Q = QC[x + ',' + y], P = (r, th, z) => S(C + r * Math.cos(th), C + r * Math.sin(th), z);
-    col = col || WC;
+    col = col || FL.wc;
     // il pavimento che arriva fino al muro (la parte della casella dentro il cerchio)
     if (dC(x, y) < RI + 0.75) {
       g.save(); g.beginPath(); for (const [i, p] of [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)].entries()) i ? g.lineTo(...p) : g.moveTo(...p); g.closePath(); g.clip();
       const [X0, Y0] = S(C, C, 0); g.beginPath(); g.ellipse(X0, Y0, RI * TW * 0.7071, RI * TW * 0.3536, 0, 0, 7); g.clip();
-      K.poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], COLS.lab[(x + y) % 2]); if (TW >= 40) floorLab(K, x, y);
+      const bk = Object.keys(FL.cols)[0]; K.poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], FL.cols[bk][(x + y) % 2]); if (TW >= 40) ({ lab: floorLab, serra: floorSerra, parq: floorParq })[bk](K, x, y);
       g.restore();
     }
     if (!Q) return;
@@ -358,6 +432,21 @@
         Q(0.06, 0.94, z, z + 0.06, '#5a3c24');
         for (let i = 0; i < 5; i++) { const u = 0.12 + i * 0.16, h = 0.2 + 0.16 * hsh(x, y, i + z * 10), c = PC[Math.floor(hsh(x + i, y, z * 7) * PC.length)]; Q(u, u + 0.1, z + 0.06, z + 0.06 + h, c); Q(u + 0.035, u + 0.065, z + 0.06 + h, z + 0.14 + h, '#c8d0d8'); Q(u + 0.025, u + 0.075, z + 0.14 + h, z + 0.17 + h, '#7a5a3a'); }
       }
+    } else if (t === 'glass') {   // vetrata della serra: tanti vetri con la luna dietro
+      Q(0.08, 0.92, 0.35, 2.45, '#3a4a3a'); for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) Q(0.12 + i * 0.27, 0.36 + i * 0.27, 0.42 + j * 0.5, 0.86 + j * 0.5, (i + j) % 3 ? '#1e3048' : '#24385a');
+      for (let i = 0; i < 5; i++) { const [X, Y] = pt(0.15 + 0.7 * hsh(x, y, 60 + i), 0.5 + 1.8 * hsh(x, y, 70 + i)); g.fillStyle = '#dce8ff'; g.fillRect(X - 1, Y - 1, 2, 2); }
+      gw(0.5, 1.4, 1.8, 'rgba(160,190,255,.22)');
+    } else if (t === 'vines') {   // rampicanti che scendono dal muro
+      for (let i = 0; i < 5; i++) { const u0 = 0.1 + i * 0.2; let u = u0; const P2 = []; for (let z = 2.6; z > 0.4 + (i % 3) * 0.4; z -= 0.15) { u += (hsh(x, i, Math.round(z * 10)) - 0.5) * 0.05; P2.push(pt(Math.max(0.02, Math.min(0.98, u)), z)); } g.strokeStyle = '#2a4a22'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); P2.forEach((p, k) => k ? g.lineTo(...p) : g.moveTo(...p)); g.stroke(); for (const [X, Y] of P2) { g.fillStyle = hsh(x, Math.round(X), Math.round(Y)) < 0.5 ? '#3e7a34' : '#4f9a40'; g.beginPath(); g.ellipse(X + 3, Y, TW * 0.05, TW * 0.03, 0.5, 0, 7); g.fill(); } }
+    } else if (t === 'pots') {   // mensola con i vasetti
+      for (const z of [0.95, 1.65]) { Q(0.06, 0.94, z, z + 0.06, '#5a3c24'); for (let i = 0; i < 4; i++) { const u = 0.12 + i * 0.2; Q(u, u + 0.12, z + 0.06, z + 0.22, '#b0603a'); Q(u - 0.02, u + 0.14, z + 0.22, z + 0.4, i % 2 ? '#3e7a34' : '#5a9a3a'); } }
+    } else if (t === 'clockw') {   // orologio a muro
+      const [X, Y] = pt(0.5, 1.55); g.fillStyle = '#6a4a28'; g.beginPath(); g.ellipse(X, Y, TW * 0.36, TW * 0.4, 0, 0, 7); g.fill(); g.fillStyle = '#efe4c8'; g.beginPath(); g.ellipse(X, Y, TW * 0.28, TW * 0.32, 0, 0, 7); g.fill();
+      g.strokeStyle = '#2a1e14'; g.lineWidth = 2; g.beginPath(); g.moveTo(X, Y); g.lineTo(X, Y - TW * 0.22); g.moveTo(X, Y); g.lineTo(X + TW * 0.14, Y + TW * 0.05); g.stroke();
+      Q(0.47, 0.53, 0.6, 1.2, '#b08a3a'); { const [X2, Y2] = pt(0.5, 0.6); g.fillStyle = '#d8b050'; g.beginPath(); g.arc(X2, Y2, TW * 0.09, 0, 7); g.fill(); }
+    } else if (t === 'gearw') {   // grande ingranaggio di ottone sul muro
+      const [X, Y] = pt(0.5, 1.5); g.fillStyle = '#8a6a2e'; g.beginPath(); for (let i = 0; i <= 32; i++) { const a = i / 32 * 6.2832, r = (Math.floor(i / 2) % 2 ? 0.46 : 0.38) * TW; g.lineTo(X + Math.cos(a) * r, Y + Math.sin(a) * r * 1.05); } g.fill();
+      g.fillStyle = '#a8843a'; g.beginPath(); g.arc(X, Y, TW * 0.3, 0, 7); g.fill(); g.fillStyle = '#5a4020'; g.beginPath(); g.arc(X, Y, TW * 0.1, 0, 7); g.fill();
     } else if (t === 'chart') {
       Q(0.14, 0.86, 0.95, 2.05, '#8a6a3a'); Q(0.17, 0.83, 0.99, 2.01, '#dccb9a');
       const P = []; for (let i = 0; i < 6; i++) P.push(pt(0.24 + 0.52 * hsh(x, y, 40 + i), 1.1 + 0.8 * hsh(x, y, 50 + i)));
@@ -387,7 +476,7 @@
     const { bx, cyl, dot, g, S, TW, qL } = K;
     switch (t) {
       case 'pit': pitDraw(K, x, y); return true;
-      case 'ring': ringPiece(K, x, y, WC); return true;
+      case 'ring': ringPiece(K, x, y, FL.wc); return true;
       case 'pillar':
         bx(x + 0.08, y + 0.08, x + 0.92, y + 0.92, 0, 0.22, '#6a6472'); bx(x + 0.14, y + 0.14, x + 0.86, y + 0.86, 0.22, 0.3, '#7a7484');
         cyl(x + 0.5, y + 0.5, 0.3, 0.3, 2.25, '#7a7484'); cyl(x + 0.5, y + 0.5, 0.305, 1.08, 1.18, '#8a7ad8'); cyl(x + 0.5, y + 0.5, 0.305, 1.6, 1.66, '#8a7ad8');
@@ -457,6 +546,27 @@
         return true;
       case 'candles': for (const [a, b, h] of [[0.35, 0.4, 0.28], [0.6, 0.5, 0.2], [0.42, 0.66, 0.14]]) candle(K, x + a, y + b, 0, h); return true;
       case 'sack': bx(x + 0.22, y + 0.22, x + 0.78, y + 0.78, 0, 0.5, '#a8885a'); bx(x + 0.3, y + 0.3, x + 0.7, y + 0.7, 0.5, 0.62, '#8a6a42'); return true;
+      case 'pot': case 'pot2': {   // vaso con una pianta (pot2 = grande, fa da riparo)
+        const big = t === 'pot2', r = big ? 0.36 : 0.26;
+        cyl(x + 0.5, y + 0.5, r, 0, big ? 0.5 : 0.36, '#a85a34'); cyl(x + 0.5, y + 0.5, r * 1.08, big ? 0.46 : 0.32, big ? 0.54 : 0.4, '#c06a3e'); cyl(x + 0.5, y + 0.5, r * 0.9, big ? 0.54 : 0.4, big ? 0.56 : 0.42, '#3a2a1a');
+        const L = big ? 9 : 6; for (let i = 0; i < L; i++) { const a = i / L * 6.2832 + x, l = (big ? 0.55 : 0.35) * (0.7 + 0.3 * ((i * 7) % 3) / 2), [X0, Y0] = S(x + 0.5, y + 0.5, big ? 0.56 : 0.42), [X1, Y1] = S(x + 0.5 + Math.cos(a) * l, y + 0.5 + Math.sin(a) * l, (big ? 1.4 : 0.95) + 0.2 * Math.sin(i)); g.strokeStyle = i % 2 ? '#3e7a34' : '#4f9a40'; g.lineWidth = Math.max(3, TW / (big ? 7 : 10)); g.lineCap = 'round'; g.beginPath(); g.moveTo(X0, Y0); g.quadraticCurveTo(X0, Y1, X1, Y1); g.stroke(); }
+        if (big) dot(x + 0.5, y + 0.45, 1.5, 0.07, '#e8508a');
+        return true;
+      }
+      case 'wcan': cyl(x + 0.5, y + 0.5, 0.18, 0, 0.36, '#7a8a96'); cyl(x + 0.5, y + 0.5, 0.19, 0.34, 0.38, '#9aa8b4'); K.line(S(x + 0.62, y + 0.5, 0.25), S(x + 0.95, y + 0.4, 0.5), '#7a8a96', Math.max(3, TW / 14)); return true;
+      case 'plantc':   // vaso della pianta carnivora (la pianta che si muove la disegnano le figure extra)
+        cyl(x + 0.5, y + 0.5, o.b ? 0.44 : 0.34, 0, o.b ? 0.55 : 0.42, '#6a3a4a'); cyl(x + 0.5, y + 0.5, (o.b ? 0.44 : 0.34) * 1.08, o.b ? 0.5 : 0.38, o.b ? 0.6 : 0.46, '#8a4a5a'); cyl(x + 0.5, y + 0.5, (o.b ? 0.44 : 0.34) * 0.9, o.b ? 0.6 : 0.46, o.b ? 0.62 : 0.48, '#2a1e14');
+        return true;
+      case 'clockgf':   // pendola alta
+        bx(x + 0.22, y + 0.3, x + 0.78, y + 0.7, 0, 2.3, '#5a3420'); bx(x + 0.18, y + 0.26, x + 0.82, y + 0.74, 2.3, 2.45, '#6a4028');
+        qL(x + 0.3, x + 0.7, y + 0.7, 1.55, 2.15, '#efe4c8'); qL(x + 0.32, x + 0.68, y + 0.7, 0.4, 1.4, '#2a1a10'); dot(x + 0.5, y + 0.71, 0.7, 0.08, '#d8b050');
+        K.line(S(x + 0.5, y + 0.71, 1.85), S(x + 0.6, y + 0.71, 1.95), '#2a1e14', 2); K.line(S(x + 0.5, y + 0.71, 1.85), S(x + 0.44, y + 0.71, 2.02), '#2a1e14', 2);
+        return true;
+      case 'gearbox': {   // cassa con ingranaggi sopra
+        bx(x + 0.12, y + 0.12, x + 0.88, y + 0.88, 0, 0.6, '#7a5a34'); bx(x + 0.12, y + 0.46, x + 0.88, y + 0.54, 0.6, 0.63, '#5a4024');
+        for (const [a, b, r, z] of [[0.4, 0.4, 0.24, 0.63], [0.66, 0.6, 0.16, 0.66]]) { cyl(x + a, y + b, r, z, z + 0.08, '#b8944a'); cyl(x + a, y + b, r * 0.4, z + 0.08, z + 0.1, '#6a4e22'); }
+        return true;
+      }
     }
     return false;   // gli altri (barili, casse) li disegna il motore
   }
@@ -589,7 +699,7 @@
 #alBelt{display:flex;gap:10px;align-items:flex-end;justify-content:center;width:100%;max-width:480px;padding:6px 0 2px;border-top:2px solid #6a4a2e}#alBelt .lb{font-weight:700;margin-right:2px;align-self:center}
 #alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:30px;height:40px;border-radius:7px 7px 15px 15px;border:2px solid rgba(220,230,240,.8);position:relative;overflow:hidden;background:rgba(255,255,255,.06)}#alBelt .vi::before{content:'';position:absolute;top:-2px;left:8px;width:10px;height:7px;background:#8a6a42;border-radius:2px}#alBelt .vi .lq{position:absolute;left:0;right:0;bottom:0;height:72%}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
 #alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}
-#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alPot .bkl{flex-basis:100%;text-align:center;font-size:12.5px;line-height:1.3;color:#f2ead8;max-width:480px}
+#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alFl{width:100%;max-width:480px;text-align:center;font-size:14px;line-height:1.3;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 10px;box-sizing:border-box}#alFl small{font-size:12px;opacity:.9}#alPot .bkl{flex-basis:100%;text-align:center;font-size:12.5px;line-height:1.3;color:#f2ead8;max-width:480px}
 #alBook{position:absolute;inset:0;z-index:9;background:rgba(10,6,18,.86);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 60px) 12px 20px;box-sizing:border-box;overflow-y:auto}
 #alBook .bk{width:100%;max-width:460px;background:#2a1e36;border:2px solid #c8a050;border-radius:16px;padding:14px;color:#f2ead8;font:14px/1.4 system-ui,sans-serif}#alBook .bk>b{font-size:17px;display:block;margin-bottom:6px}
 #alBook button{display:block;width:100%;margin-top:10px;padding:11px;border:0;border-radius:12px;font:700 15px system-ui;color:#fff;background:#8a4ad0}#alBook button:disabled{opacity:.4}#alBook .cl{background:rgba(255,255,255,.14)}
@@ -602,6 +712,7 @@
     prepCss(); prepClose();
     const el = document.createElement('div'); el.id = 'alPrep';
     el.innerHTML = `<div class="top"><span class="tm" id="alTm">1:00</span><b>⚗️ Prepara</b><button id="alBk" type="button">📖</button><button id="alRdy" type="button">✔ Pronto</button></div>
+      <div id="alFl">${FL.e} <b>Piano ${G.st ? G.st.n : 1} di ${FLOORS.length}: ${FL.n}</b><br><small>${FL.tip}</small></div>
       <canvas id="alCv"></canvas><div id="alPot"></div><div id="alMsg"></div>
       <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
       <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${g.e}</span><span class="n">${esc(g.n)}</span><span class="d">${esc(g.d)}</span></button>`).join('')}</div>
@@ -754,6 +865,13 @@
     }
     return sc;
   }
+  // pericoli dei piani per il computer: vicino a una pianta sveglia, sulla strada del pendolo
+  function hazardAt(G, x, y) {
+    let h = 0;
+    if (FL && FL.plants) for (const p of G.pl || []) { const [px, py] = PLANTS[p.i]; if (plOn(G, p) && Math.hypot(px + 0.5 - x, py + 0.5 - y) < plReach(p) + 0.9) h++; }
+    if (FL && FL.pend) { const dx = x - C, dy = y - C, along = dx * PDX + dy * PDY, across = Math.abs(dx * PDY - dy * PDX); if (Math.abs(along) < PEND_A + 0.6 && across < 1.1) h++; }
+    return h;
+  }
   const pushOf = P => Object.entries(P.s).reduce((a, [el, v]) => a + ((FX[el] && FX[el].push) || 0) * v, 0);   // + spinge via, - tira
 
   // ======================= IL DUELLO =======================
@@ -841,6 +959,7 @@
       }
     }
     for (const [el, v] of Object.entries(st)) if (v > 0.01) applyEl(G, el, v, x, y, P.area, P.dur, o);
+    plantsHit(G, st, x, y, P.area);
   }
   function note(G, k, x, y, how) { G.bxN++; G.bx.push([G.bxN, k, r2(x), r2(y), r2(G.time), how]); if (G.bx.length > 10) G.bx.shift(); }
   // l'effetto di UN elemento (tabella FX) con la sua forza v, nella zona di raggio area
@@ -936,6 +1055,84 @@
   const nearKettle = (G, c) => { const p = posOf(G, c), [kx, ky] = KETTLE[sideIdx(G, c)]; return Math.hypot(p.x - kx - 0.5, p.y - ky - 0.5) < 1.45; };
   function fillDone(G, c) { const b = c.belt, i = b.findIndex(v => !v); if (i < 0) return; b[i] = randPot(); if (c === G.me) { SFX.bottle(); G.sel = b[G.sel] ? G.sel : i; sendBelt(G); cqToast('🫕 Nuova pozione dal calderone: ' + brew(b[i]).ings.map(g => g.e).join('') + ' (chissà cosa fa…)'); } }
 
+  // ======================= I PERICOLI DEI PIANI =======================
+  // PIANTE CARNIVORE (serra): mordono chi passa vicino (carica 0,55 s con la bocca che si apre, poi -1 cuore e incollato). Cosa fanno le pozioni alle piante:
+  // una riga per elemento (un elemento nuovo senza riga non le tocca)
+  const PLANT_FX = { fire: ['burnt', 12], blaze: ['burnt', 16], steam: ['burnt', 8], ice: ['frozen', 6], statue: ['frozen', 10], grow: ['giant', 15], shrink: ['tiny', 12], slow: ['sleepy', 8], glue: ['sleepy', 5], soot: ['sleepy', 6] };
+  const PL_TXT = { burnt: '🔥 Pianta bruciata!', frozen: '🧊 Pianta congelata!', giant: '🍄 Pianta GIGANTE!', tiny: '✨ Pianta piccina', sleepy: '💤 Pianta addormentata' };
+  const plReach = p => p.st === 'giant' && p.te > 0 ? 2.3 : p.st === 'tiny' ? 0.8 : PLANTS[p.i][2] ? 1.6 : 1.3;
+  const plOn = (G, p) => !(p.te > G.time && (p.st === 'burnt' || p.st === 'frozen' || p.st === 'sleepy'));
+  function plantsInit(G) { G.pl = FL && FL.plants ? PLANTS.map((_, i) => ({ i, st: '', te: 0, bt: 0, bid: -1, cd: 0 })) : []; }
+  function plantsTick(G) {
+    for (const p of G.pl || []) {
+      const [px, py] = PLANTS[p.i], cx = px + 0.5, cy = py + 0.5;
+      if (p.te && p.te <= G.time) { p.st = ''; p.te = 0; }
+      if (p.bid >= 0) {   // morso in corso
+        if (G.time - p.bt >= 0.55) { const c = G.chars.find(o => o.id === p.bid); p.bid = -1; p.cd = G.time + 2.6; if (c && !out(G, c) && !(c.remote && cqLagging(c))) { const q = posOf(G, c); if (Math.hypot(q.x - cx, q.y - cy) < plReach(p) + 0.35) { if (p.st !== 'tiny') hurt(G, c, '🌱 morso della pianta carnivora'); setFx(G, c, 'stuck', p.st === 'tiny' ? 0.5 : 1.1); } } }
+        continue;
+      }
+      if (!plOn(G, p) || p.cd > G.time) continue;
+      for (const c of G.chars) { if (out(G, c)) continue; const q = posOf(G, c); if (Math.hypot(q.x - cx, q.y - cy) < plReach(p)) { p.bid = c.id; p.bt = G.time; break; } }
+    }
+  }
+  function plantsHit(G, st, x, y, area) {   // una pozione scoppia vicino a una pianta
+    for (const p of G.pl || []) {
+      const [px, py] = PLANTS[p.i]; if (Math.hypot(px + 0.5 - x, py + 0.5 - y) > area + 0.6) continue;
+      for (const el of Object.keys(st)) { const E = PLANT_FX[el]; if (!E || !(st[el] > 0.2)) continue; p.st = E[0]; p.te = r2(G.time + E[1]); p.bid = -1; G.hxN++; G.hx.push([G.hxN, -1, PL_TXT[E[0]], 'plant']); if (G.hx.length > 8) G.hx.shift(); break; }
+    }
+  }
+  // INGRANAGGI (sala dell'orologio): chi ci sta sopra gira con loro (avanti e indietro, verso diverso per i due)
+  function gearMove(G, P, dt) {
+    if (!FL || !FL.gears) return;
+    for (const [gx, gy, v] of GEARS) {
+      const dx = P.x - gx, dy = P.y - gy, d = Math.hypot(dx, dy); if (d > GR + 0.15) continue;
+      const w = gearW(G.time) * v * dt, nx = gx + dx * Math.cos(w) - dy * Math.sin(w), ny = gy + dx * Math.sin(w) + dy * Math.cos(w);
+      if (cqFree(nx, ny)) { P.x = nx; P.y = ny; }
+    }
+  }
+  // PENDOLO (sala dell'orologio): oscilla sopra il centro da un lato all'altro dello schermo; chi e' sotto mentre passa veloce viene sbalzato (-1 cuore)
+  const PEND_A = 3.4, PEND_T = 3.6, PDX = Math.SQRT1_2, PDY = -Math.SQRT1_2;
+  const pendPos = t => { const s2 = Math.sin(t / PEND_T * 6.2832); return { x: C + PDX * PEND_A * s2, y: C + PDY * PEND_A * s2, v: Math.cos(t / PEND_T * 6.2832) }; };
+  function pendTick2(G) {
+    if (!FL || !FL.pend) return;
+    const B = pendPos(G.time); if (Math.abs(B.v) < 0.35) return;
+    for (const c of G.chars) {
+      if (out(G, c) || (c.remote && cqLagging(c)) || (c.pendT || 0) > G.time) continue;
+      const q = posOf(G, c); if (Math.hypot(q.x - B.x, q.y - B.y) > 0.85) continue;
+      c.pendT = G.time + 1.5; const sg = B.v > 0 ? 1 : -1; knock(G, c, PDX * sg * 3, PDY * sg * 3); hurt(G, c, '🕰️ colpito dal pendolo'); setFx(G, c, 'stuck', 0.3);
+    }
+  }
+  // FIGURE EXTRA (disegnate in profondita' come i personaggi): le teste delle piante carnivore e il pendolo
+  function plantDraw(g, X, Y, TW, p) {
+    const G = cq.g, t = G ? G.time : 0, u = TW / 34, big = PLANTS[p.i][2], st = p.te > t ? p.st : '';
+    const sc = (big ? 1.25 : 1) * (st === 'giant' ? 1.7 : st === 'tiny' ? 0.55 : 1), open = p.bid >= 0 ? Math.min(1, (t - p.bt) / 0.5) : 0.25 + 0.1 * Math.sin(t * 2 + p.i);
+    const green = st === 'burnt' ? '#2a2420' : st === 'frozen' ? '#9ad0e8' : '#3e8a34', dark = st === 'burnt' ? '#1a1410' : st === 'frozen' ? '#6aa8c8' : '#2a6a24', inner = st === 'burnt' ? '#3a2a20' : st === 'frozen' ? '#d8f0ff' : '#c8344a';
+    g.save(); g.translate(X, Y - (big ? 0.6 : 0.45) * TW * 0.575); g.scale(u * sc, u * sc);
+    const sway = Math.sin(t * 1.3 + p.i) * 3 * (st === 'sleepy' ? 0.2 : 1), hx = sway, hy = st === 'sleepy' ? -26 : -40;
+    g.strokeStyle = dark; g.lineWidth = 4; g.lineCap = 'round'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(-6, hy / 2, hx, hy); g.stroke();
+    for (const s2 of [-1, 1]) { g.fillStyle = green; g.beginPath(); g.ellipse(s2 * 8, -6, 9, 4, s2 * 0.5, 0, 7); g.fill(); }
+    // la testa: due mascelle con i denti che si aprono
+    const ang = 0.15 + open * 0.9;
+    for (const s2 of [-1, 1]) {
+      g.save(); g.translate(hx, hy); g.rotate(s2 * ang - (st === 'sleepy' ? 0.6 : 0));
+      g.fillStyle = green; g.beginPath(); g.ellipse(0, s2 * -9, 14, 9, 0, s2 > 0 ? Math.PI : 0, s2 > 0 ? 2 * Math.PI : Math.PI); g.fill();
+      g.fillStyle = inner; g.beginPath(); g.ellipse(0, s2 * -7, 11, 6, 0, s2 > 0 ? Math.PI : 0, s2 > 0 ? 2 * Math.PI : Math.PI); g.fill();
+      g.fillStyle = '#f4f0e0'; for (let i = -3; i <= 3; i++) { g.beginPath(); g.moveTo(i * 3.4 - 1.5, s2 * -1); g.lineTo(i * 3.4, s2 * 4); g.lineTo(i * 3.4 + 1.5, s2 * -1); g.fill(); }
+      g.restore();
+    }
+    if (st === 'burnt') { g.fillStyle = 'rgba(120,110,100,.6)'; for (let i = 0; i < 3; i++) { const ph = (t * 0.8 + i / 3) % 1; g.beginPath(); g.arc(hx + Math.sin(i + t) * 4, hy - 10 - ph * 22, 4 + ph * 5, 0, 7); g.fill(); } }
+    if (st === 'sleepy') { g.fillStyle = '#e8f0ff'; g.font = '700 10px system-ui'; g.fillText('z', hx + 10, hy - 14 - (t * 8 % 8)); g.fillText('Z', hx + 16, hy - 24 - (t * 8 % 8)); }
+    g.restore();
+  }
+  function pendDraw(g, X, Y, TW) {
+    const G = cq.g; if (!G) return; const B = pendPos(G.time), U = TW * 0.575, z = 0.95, by = Y - z * U, sw = B.v;
+    g.strokeStyle = '#8a6a2e'; g.lineWidth = Math.max(3, TW / 12); g.beginPath(); g.moveTo(X, by); g.lineTo(X - sw * TW * 0.6, by - TW * 6); g.stroke();
+    g.fillStyle = '#b8944a'; g.beginPath(); g.ellipse(X, by, TW * 0.55, TW * 0.48, 0, 0, 7); g.fill();
+    g.fillStyle = '#d8b860'; g.beginPath(); g.ellipse(X - TW * 0.12, by - TW * 0.1, TW * 0.32, TW * 0.27, 0, 0, 7); g.fill();
+    g.strokeStyle = '#6a4e22'; g.lineWidth = 2; g.beginPath(); g.ellipse(X, by, TW * 0.55, TW * 0.48, 0, 0, 7); g.stroke();
+  }
+  pendDraw.top = 1.8;
+
   // ---- IL COMPUTER nel duello: sta a distanza, gira intorno, evita le pozze, lancia con un piccolo errore, ricarica quando e' a secco ----
   function botTick(G, c, dt) {
     const P = c;
@@ -966,7 +1163,7 @@
       for (let i = 0; i < 18; i++) {
         const a = Math.random() * 6.283, r = 4.2 + Math.random() * 2.6, x = po.x + Math.cos(a) * r, y = po.y + Math.sin(a) * r;
         if (!inArena(x, y) || Math.hypot(x - C, y - C) < PIT + 1 || !cqCellFree(Math.floor(x), Math.floor(y))) continue;
-        const bad = zonesAt(G, x, y).filter(z => z.o !== c.id && z.k !== 'mirror').length, edge = Math.hypot(x - C, y - C) < PIT + 1.7 ? 1 : 0;
+        const bad = zonesAt(G, x, y).filter(z => z.o !== c.id && z.k !== 'mirror').length + hazardAt(G, x, y), edge = FL.pit && Math.hypot(x - C, y - C) < PIT + 1.7 ? 1 : 0;
         const s = -bad * 5 - edge * 4 - Math.hypot(x - c.x, y - c.y) * 0.3 + Math.random();
         if (s > bs) { bs = s; best = [x, y]; }
       }
@@ -978,13 +1175,17 @@
     if ((c.thT || 0) <= G.time && o && !out(G, o) && d < RMAX + 0.5 && G.time > (c.aimT || 0)) {
       c.aimT = G.time + 1.2 + Math.random() * 1.3;
       const vx = (o.x - (o.px != null ? o.px : o.x)) / Math.max(dt, 0.016), vy = (o.y - (o.py != null ? o.py : o.y)) / Math.max(dt, 0.016);
-      const tg = { x: po.x, y: po.y, pit: Math.hypot(po.x - C, po.y - C) < PIT + 1.9, vol: (o.belt || []).some(k => k && brew(k).inst >= VOLATILE) };
+      const tg = { x: po.x, y: po.y, pit: FL.pit ? Math.hypot(po.x - C, po.y - C) < PIT + 1.9 : hazardAt(G, po.x, po.y) > 0, vol: (o.belt || []).some(k => k && brew(k).inst >= VOLATILE) };
       let best = null;
       c.belt.forEach((k, i) => {
         const P2 = k && brew(k); if (!P2) return;
         if (P2.s.mirror && !P2.s.fire) {   // specchio: davanti a se', verso l'altro, se l'altro ha ancora ampolle
           if ((o.belt || []).some(Boolean) && d > 3) { const sc = 2 + Math.random(); if (!best || sc > best.sc) best = { i, sc, tx: c.x + (po.x - c.x) / d * 1.6, ty: c.y + (po.y - c.y) / d * 1.6 }; }
           return;
+        }
+        if (P2.s.grow && FL.plants) {   // il fungo sulla pianta vicino all'altro: diventa gigante e lo morde
+          const pl = (G.pl || []).find(p => plOn(G, p) && p.st !== 'giant' && Math.hypot(PLANTS[p.i][0] + 0.5 - po.x, PLANTS[p.i][1] + 0.5 - po.y) < 2.3);
+          if (pl) { const px = PLANTS[pl.i][0] + 0.5, py = PLANTS[pl.i][1] + 0.5, dp = Math.hypot(px - c.x, py - c.y); if (dp > P2.area + 1 && P2.spd * Math.min(P2.fuse, 9) >= dp) { const sc = 4 + Math.random(); if (!best || sc > best.sc) best = { i, sc, tx: px, ty: py }; } return; }
         }
         if (P2.spd * Math.min(P2.fuse, 9) < d * 0.9 || d < P2.area + 0.9) return;
         const tf = d / P2.spd; let tx = po.x + (Math.abs(vx) < 8 ? vx : 0) * tf * 0.6, ty = po.y + (Math.abs(vy) < 8 ? vy : 0) * tf * 0.6;
@@ -1005,12 +1206,13 @@
     st.ph = 'mres'; st.t0 = G.time; st.win = win ? win.id : -1;
     const a = G.chars[0], b = G.chars[1], s = c => st.sc[c.id] || 0;
     st.msg = (win ? '🏆 Manche a ' + win.name + '!' : '🤝 Manche pari!') + '\n' + why + '\n' + a.name + ' ' + s(a) + ' – ' + s(b) + ' ' + b.name;
-    st.fin = G.chars.some(c => s(c) >= WINS) || st.n >= 3 ? 1 : 0;
+    st.fin = st.n >= FLOORS.length ? 1 : 0;   // sempre 3 manche, una per piano (vince chi ne prende di piu')
+    if (!st.fin) st.msg += '\n⬆️ Si sale: ' + FLOORS[st.n].e + ' ' + FLOORS[st.n].n;
   }
   function newRound(G) {
     const st = G.st;
     G.st = { n: st.n + 1, ph: 'prep', t0: G.time, rd: {}, sc: st.sc };
-    G.fl = []; G.zn = []; G.pend = [];
+    G.fl = []; G.zn = []; G.pend = []; useFloor(G.st.n - 1); plantsInit(G);
     G.chars.forEach((c, i) => { c.hp = HP; c.fx = {}; c.iv = 0; c.belt = Array(BELT_N).fill(''); c.thT = 0; if (c.bot && !c.remote) { [c.x, c.y] = SPAWN[i % 2]; c.path = []; c.sl = null; c.belt = cpuBelt(G); G.st.rd[c.id] = 1; } });
   }
   function finalEnd(G) {
@@ -1143,12 +1345,14 @@
     const p = G.st ? G.st.ph : '';
     { const h = document.getElementById('alHelp'); if (h) h.remove(); const bk = document.getElementById('alBook'); if (bk) bk.remove(); }
     if (p === 'prep') {
+      useFloor(Math.min(FLOORS.length, G.st.n) - 1); if (!G.guest && !(G.pl && G.pl.length === (FL.plants ? PLANTS.length : 0))) plantsInit(G);
       G.myRdy = false; G.me.belt = G.me.belt && !was ? G.me.belt : Array(BELT_N).fill(''); G.fl = []; G.zn = []; cq.x = SPAWN[sideIdx(G, G.me)][0]; cq.y = SPAWN[sideIdx(G, G.me)][1]; cq.sl = null; G.myFall = null; G.fill = null;
       duelUI(G, false); prepOpen(G);
     } else prepClose();
     if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelUI(G, true); helpOnce('duel'); cqToast('⚔️ <b>Duello!</b> Trascina <b>indietro</b> il pulsante dell\'ampolla e lascia per lanciare. Il colore delle ampolle dell\'altro ti dice cosa ha preparato.'); }
     else duelUI(G, false);
     if (p === 'mres') SFX[G.st.win === G.me.id ? 'bottle' : 'pour']();
+    if (p === 'prep') cqToast(FL.e + ' <b>Piano ' + G.st.n + ' di ' + FLOORS.length + ': ' + FL.n + '</b><br>' + FL.tip);
   }
   const vials = (G, c) => !c.belt || (G.st && G.st.ph === 'prep' && c !== G.me) ? null : c.belt.map(k => { const P = k && brew(k); return P ? P.c : null; });
   const cleanBelt = s => String(s || '').split(',').slice(0, BELT_N).map(k => [...k].filter(id => ING_BY[id]).slice(0, MAXI).sort().join('')).concat(Array(BELT_N).fill('')).slice(0, BELT_N);
@@ -1167,6 +1371,7 @@
     }
     G.lx = cq.x; G.ly = cq.y;
     // ricarica
+    if (G.myFall == null && !out(G, me)) gearMove(G, cq, dt);
     if (G.fill) { if (!nearKettle(G, me) || out(G, me)) G.fill = null; else if (G.time - G.fill > KETTLE_T) { G.fill = null; fillDone(G, me); } }
   }
   // scoppi e colpi arrivati dall'host (o fatti da me): suoni e scritte su ogni telefono
@@ -1233,14 +1438,16 @@
       if (G.guest) G.fl = G.fl.filter(f => !(f.loc && Math.hypot(f.x1 - b[2], f.y1 - b[3]) < 0.1));
     }
     for (const h of G.hx) if (h[0] > (G.hxSeen || 0)) {
-      G.hxSeen = h[0]; const c = G.chars.find(o => o.id === h[1]); if (!c) continue;
+      G.hxSeen = h[0];
+      if (h[3] === 'plant') { cqToast(h[2]); swp(300, 120, 0.3, 0.04); continue; }
+      const c = G.chars.find(o => o.id === h[1]); if (!c) continue;
       if (h[3] === 'boom') { cqToast(c === G.me ? '💥 <b>Le tue ampolle instabili ti scoppiano addosso!</b>' : '💥 <b>A ' + esc(c.name) + ' scoppiano le ampolle alla cintura!</b>'); continue; }
       if (h[2].startsWith('🕳️')) SFX.fall(); else SFX.ouch();
       cqToast((c === G.me ? '💔 <b>-1 cuore</b>: ' : '💥 <b>' + esc(c.name) + '</b> -1 cuore: ') + esc(h[2]));
     }
   }
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b> (60 s, poi 30 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. I 12 ingredienti si combinano in <b>centinaia</b> di pozioni: lo scopri solo lanciando! Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. Finite le ampolle, ricarica al <b>calderone del tuo angolo</b>.</p><p><b>📖 Ricettario</b> (🪙 ' + 60 + ' monete, dal pulsante 📖 al calderone): annota le pozioni che scopri e ti dice cosa stai preparando.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, <b>3 manche, una per piano</b>: si parte dalla serra e si sale fino al laboratorio in cima. Vince chi vince più manche.</p><p>🌿 <b>Serra carnivora</b>: le piante mordono chi passa vicino (fuoco le brucia, ghiaccio le congela, fungo le fa giganti, fata le rimpicciolisce, sabbia e colla le addormentano). 🕰️ <b>Sala dell\'orologio</b>: gli ingranaggi sotto il vetro ti fanno girare, il pendolo sbalza chi è sotto. ⚗️ <b>Laboratorio</b>: la voragine al centro.</p><p><b>1. Preparazione</b> (60 s, poi 30 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. I 12 ingredienti si combinano in <b>centinaia</b> di pozioni: lo scopri solo lanciando! Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. Finite le ampolle, ricarica al <b>calderone del tuo angolo</b>.</p><p><b>📖 Ricettario</b> (🪙 ' + 60 + ' monete, dal pulsante 📖 al calderone): annota le pozioni che scopri e ti dice cosa stai preparando.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
 
   CQ_MODES.alchimisti = {
     n: 'Duello degli alchimisti',
@@ -1255,12 +1462,19 @@
       Object.assign(G, { fl: [], zn: [], bx: [], hx: [], pend: [], flN: 0, znN: 0, bxN: 0, hxN: 0, sel: 0 });
       G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.fx = {}; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
       G.st = { n: 1, ph: 'prep', t0: 0, rd: {}, sc: {} }; U2.ph = '';
+      useFloor(0); plantsInit(G);
       for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(G); G.st.rd[c.id] = 1; }
     },
-    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
+    gstart(G) { syncFloor(); G.pl = []; G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
     intro: () => '⚗️ Benvenuto nella torre dei maghi!',
     voice: () => 1,   // voce sempre aperta tra i due
     speed: c => { const G = cq.g; return G ? speedOf(G, c) : 1; },
+    extras(G) {
+      const out2 = [];
+      if (FL && FL.plants) for (const p of G.pl || []) { const [x, y] = PLANTS[p.i]; if (!p.__dr) { p.__dr = (g, X, Y, TW) => plantDraw(g, X, Y, TW, (cq.g.pl || [])[p.i] || p); p.__dr.top = 2.2; } out2.push({ x: x + 0.5, y: y + 0.52, L: null, w: 0, f: 1, name: null, all: true, dr: p.__dr }); }
+      if (FL && FL.pend) { const B = pendPos(G.time); out2.push({ x: B.x, y: B.y, L: null, w: 0, f: 1, name: null, all: true, dr: pendDraw }); }
+      return out2;
+    },
     hide(c) {   // nel fumo non ti vedono (se non da vicino); caduto nella voragine sparisce
       const G = cq.g; if (!G || !G.st) return false;
       if (c.fx && c.fx.fall && c.fx.out > G.time && G.time - c.fx.fall > 0.6) return true;
@@ -1271,7 +1485,7 @@
       const h = c => c ? '❤️'.repeat(Math.max(0, c.hp)) + '🖤'.repeat(Math.max(0, HP - c.hp)) : '';
       const st = G.st; if (!st) return '⚗️';
       const left = st.ph === 'prep' ? (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0) : st.ph === 'duel' ? DUEL - (G.time - st.t0) : 0, sc = st.sc || {};
-      return `M${st.n} 🏆 ${sc[G.me.id] || 0}-${G.opp ? sc[G.opp.id] || 0 : 0} · ${h(G.me)}${G.opp ? ' · ' + esc(G.opp.name) + ' ' + h(G.opp) : ''} · ${st.ph === 'prep' ? '🧪' : '⚔️'} ${mmss(Math.max(0, left))}`;
+      return `${FL ? FL.e : ''}${st.n} 🏆 ${sc[G.me.id] || 0}-${G.opp ? sc[G.opp.id] || 0 : 0} · ${h(G.me)}${G.opp ? ' · ' + esc(G.opp.name) + ' ' + h(G.opp) : ''} · ${st.ph === 'prep' ? '🧪' : '⚔️'} ${mmss(Math.max(0, left))}`;
     },
     big(G) {
       const st = G.st; if (!st) return '⏳ Un attimo…';
@@ -1310,7 +1524,8 @@
           botTick(G, c, dt);
         }
       }
-      flTick(G); pendTick(G);
+      flTick(G); pendTick(G); plantsTick(G); pendTick2(G);
+      for (const c of G.chars) if (c.bot && !c.remote && !out(G, c)) gearMove(G, c, dt);
       for (const z of G.zn) if (ZONE[z.k].hurt && G.time < z.te) for (const c of G.chars) {   // pozza che brucia: un cuore ogni tanto
         const p = posOf(G, c); if (Math.hypot(p.x - z.x, p.y - z.y) < z.r && (c.burnT || 0) < G.time && !(c.remote && cqLagging(c))) { c.burnT = G.time + ZONE[z.k].hurt; if (G.time - z.t0 > 0.3) hurt(G, c, '🔥 bruciato'); }
       }
@@ -1325,9 +1540,10 @@
       else if (o.k === 'fall') fell(G, c);
       else if (o.k === 'bonk') { hurt(G, c, '💫 contro il muro'); setFx(G, c, 'stuck', 0.7); }
     },
-    snap: G => ({ st: G.st, fl: G.fl.map(f => [f.id, f.o, f.k, f.x0, f.y0, f.x1, f.y1, f.t0, f.d, f.pk, f.fz, f.q || 0]), zn: G.zn.map(z => [z.i, z.k, z.x, z.y, z.r, z.t0, z.te, z.o]), bx: G.bx, hx: G.hx }),
+    snap: G => ({ pl: (G.pl || []).map(p => [p.st, p.te, p.bt, p.bid]), st: G.st, fl: G.fl.map(f => [f.id, f.o, f.k, f.x0, f.y0, f.x1, f.y1, f.t0, f.d, f.pk, f.fz, f.q || 0]), zn: G.zn.map(z => [z.i, z.k, z.x, z.y, z.r, z.t0, z.te, z.o]), bx: G.bx, hx: G.hx }),
     apply(G, x) {
       if (x.st) { G.st = x.st; if (G.st.ph !== 'prep') G.myRdy = false; }
+      if (x.pl) G.pl = x.pl.map((v, i) => ({ i, st: v[0], te: v[1], bt: v[2], bid: v[3] }));
       if (x.fl) { const mine = G.fl.filter(f => f.loc && !x.fl.some(v => v[1] === G.me.id && v[11] === f.q) && G.time - f.t0 < Math.min(f.d, f.fz) + 0.4); G.fl = x.fl.map(v => ({ id: v[0], o: v[1], k: v[2], x0: v[3], y0: v[4], x1: v[5], y1: v[6], t0: v[7], d: v[8], pk: v[9], fz: v[10], q: v[11] })).concat(mine); }
       if (x.zn) G.zn = x.zn.map(v => ({ i: v[0], k: v[1], x: v[2], y: v[3], r: v[4], t0: v[5], te: v[6], o: v[7] }));
       if (x.bx) G.bx = x.bx; if (x.hx) G.hx = x.hx;
@@ -1371,6 +1587,8 @@
     over(g, G, sx, sy, TW) {
       const t = performance.now() / 1000, U = TW * 0.575;
       for (const z of G.zn || []) if (z.k !== 'smoke') zoneDraw(g, G, z, sx, sy, TW, t);
+      if (FL && FL.pend) { const B = pendPos(G.time); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(sx(B.x, B.y), sy(B.x, B.y), TW * 0.55, TW * 0.25, 0, 0, 7); g.fill(); }
+      if (FL && FL.plants) for (const p of G.pl || []) if (p.bid >= 0) { const [x, y] = PLANTS[p.i], r = plReach(p) * TW * 0.7071; g.strokeStyle = 'rgba(255,80,80,.6)'; g.lineWidth = 2; g.beginPath(); g.ellipse(sx(x + 0.5, y + 0.5), sy(x + 0.5, y + 0.5), r, r / 2, 0, 0, 7); g.stroke(); }
       for (let i = 0; i < 22; i++) {
         const ph = (t * 0.22 + i / 22) % 1, a = i * 2.39 + t * 0.15, r = 0.3 + 1.6 * ((i * 0.618) % 1), x = C + Math.cos(a) * r, y = C + Math.sin(a) * r, z = -1.5 + ph * 5;
         g.globalAlpha = Math.sin(ph * Math.PI) * 0.8; g.fillStyle = i % 3 ? '#c8b8ff' : '#9ae8ff';
@@ -1394,5 +1612,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); const th = document.getElementById('alTh'), sl = document.getElementById('alSel'); if (th) th.remove(); if (sl) sl.remove(); U2.ph = ''; } });
-  window.__alc = { book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
 })();

@@ -16,7 +16,7 @@
   out.push('1) cintura normale: ' + nm(A.cpuBelt(G)));
   out.push('   contro chi usa tanto fuoco: ' + nm(A.cpuBelt(Object.assign({}, G, { seen: { fire: 6 } }))) + ' | ' + nm(A.cpuBelt(Object.assign({}, G, { seen: { fire: 6 } }))));
   out.push('   valori: fuoco ' + A.potScore(G, A.brew('f'), { x: 0, y: 0 }).toFixed(1) + ', cristallo ' + A.potScore(G, A.brew('ir'), { x: 0, y: 0 }).toFixed(1) + ', vento ' + A.potScore(G, A.brew('v'), { x: 0, y: 0 }).toFixed(1) + ' / vicino alla voragine ' + A.potScore(G, A.brew('v'), { x: 0, y: 0, pit: true }).toFixed(1) + ', folletto ' + A.potScore(G, A.brew('p'), { x: 0, y: 0 }).toFixed(1));
-  step(3.5); G.me.belt = ['f', 'f', 'f', 'f']; A.setReady(G, true); step(0.2);
+  step(3.5); G.me.belt = ['f', 'f', 'f', 'f']; A.setReady(G, true); step(0.2); A.useFloor(2); G.pl = [];   // le prove dei passi 3-5 si fanno in cima (voragine)
   const reset = () => { for (const c of G.chars) { c.hp = 3; c.iv = 0; c.fx = {}; c.sl = null; c.hold = 0; } cq.sl = null; G.zn = []; G.fl = []; G.pend = []; G.st.t0 = G.time; G.myFall = null; };
   // 2) io fermo vicino al bordo della voragine, il computer ha solo vento: quante volte mi butta giu' in 25 s?
   reset(); bot.belt = ['v', 'v', 'v', 'v']; let falls = 0, thr0 = G.flN;

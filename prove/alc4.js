@@ -13,7 +13,7 @@
   const toasts = []; window.cqToast = t => toasts.push(t.replace(/<[^>]+>/g, ''));
   const step = (s, dt = 0.05) => { for (let i = 0; i < s / dt; i++) { cqModeTick(dt); M.local(G, dt); } };
   const bot = G.chars.find(c => c.bot);
-  step(3.5); G.me.belt = ['f', 'f', 'f', 'f']; A.setReady(G, true); step(0.2);
+  step(3.5); G.me.belt = ['f', 'f', 'f', 'f']; A.setReady(G, true); step(0.2); A.useFloor(2); G.pl = [];   // le prove dei passi 3-5 si fanno in cima (voragine)
   const freeze = () => { bot.hold = 1; bot.think = 1e9; bot.aimT = 1e9; bot.path = []; bot.goal = 'f'; };
   const fresh = () => { for (const c of G.chars) { c.hp = 3; c.iv = 0; c.fx = {}; c.sl = null; } cq.sl = null; G.zn = []; G.fl = []; G.pend = []; freeze(); bot.x = 14.5; bot.y = 9.5; cq.x = 5.5; cq.y = 12.5; };
   const react = () => G.bx.filter(b => b[5] === 'react').map(b => b[1]);

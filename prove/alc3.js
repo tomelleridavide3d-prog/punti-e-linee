@@ -14,7 +14,7 @@
   const step = (s, dt = 0.05) => { for (let i = 0; i < s / dt; i++) { cqModeTick(dt); M.local(G, dt); } };
   const bot = G.chars.find(c => c.bot);
   step(3.5);   // pronti
-  G.me.belt = ['f', 'ir', 'v', 'fs']; A.setReady(G, true); step(0.2);
+  G.me.belt = ['f', 'ir', 'v', 'fs']; A.setReady(G, true); step(0.2); A.useFloor(2); G.pl = [];   // le prove dei passi 3-5 si fanno in cima (voragine)
   out.push('fase ' + G.st.ph + ' | pulsanti: fionda ' + !!document.getElementById('alTh') + ', cintura ' + !!document.getElementById('alSel'));
   const freeze = () => { bot.hold = 1; bot.think = 1e9; bot.aimT = 1e9; bot.path = []; };
   const fresh = () => { for (const c of G.chars) { c.hp = 3; c.iv = 0; c.fx = {}; } G.zn = []; G.me.thT = 0; };

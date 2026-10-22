@@ -18,7 +18,7 @@ export default [
   [1, `(async () => { await new Promise(r => setTimeout(r, 3500)); const J = id => document.querySelector('#alJars [data-i="' + id + '"]').click(); J('i'); J('r'); $('#alBot').click(); J('v'); $('#alBot').click(); $('#alRdy').click(); return 'amico: pannello ' + !!document.getElementById('alPrep') + ', cintura ' + cq.g.me.belt.join(',') + ', pronto'; })()`, 1500],
   [0, `(() => { const G = cq.g, o = G.chars.find(c => c.remote); return 'host: fase ' + G.st.ph + ', pronti ' + JSON.stringify(G.st.rd) + ', cintura amico ' + (o.belt || []).join(','); })()`, 0],
   [0, `(async () => { const J = id => document.querySelector('#alJars [data-i="' + id + '"]').click(); J('f'); J('s'); $('#alBot').click(); $('#alRdy').click(); await new Promise(r => setTimeout(r, 1500)); return 'host: fase ' + cq.g.st.ph + ', pannello ' + !!document.getElementById('alPrep'); })()`, 1000],
-  [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me); return 'amico: fase ' + G.st.ph + ', pannello ' + !!document.getElementById('alPrep') + ', cintura host vista ' + (h.belt || []).join(','); })()`, 0],
+  [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me); return 'amico: fase ' + G.st.ph + ', piano ' + cq.map + ', pannello ' + !!document.getElementById('alPrep') + ', cintura host vista ' + (h.belt || []).join(','); })()`, 0],
   // duello: l'amico lancia fuoco sull'host, l'host lancia vento vicino all'amico (spinta fatta dal telefono dell'amico)
   [0, `(() => { const G = cq.g; cq.x = 9.5; cq.y = 13.5; G.me.belt = ['f', 'v', 'ir', '']; return 'host: in posizione 9.5,13.5'; })()`, 800],
   [1, `(async () => { const G = cq.g; cq.x = 12.5; cq.y = 13.5; G.me.belt = ['f', '', '', '']; G.sel = 0; await new Promise(r => setTimeout(r, 600)); window.__alc.myThrow(G, 9.5, 13.5); return 'amico: lancio 🔥 sull\\'host, in volo ' + G.fl.length; })()`, 2200],
@@ -33,6 +33,10 @@ export default [
   [1, `(async () => { for (let i = 0; i < 20; i++) { cq.x -= 0.1; cq.walk += 0.5; await new Promise(r => setTimeout(r, 60)); } return 'amico: cammino fino a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1); })()`, 1500],
   [0, pos('host'), 0],
   [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me), d = G.M.draw(h), dm = G.M.draw(G.me); return 'amico: cappello host lato ' + G.chars.indexOf(h) + ', mio lato ' + G.chars.indexOf(G.me) + ', disegni ' + (typeof d) + '/' + (typeof dm); })()`, 0],
+  // si sale: l'amico perde la manche, dopo il risultato tutti e due nella sala dell'orologio
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); a.iv = 0; a.hp = 1; a.fx = {}; window.__alc.burst(G, 'f', a.x, a.y, G.me.id); return 'host: fuoco finale, fase ' + G.st.ph; })()`, 7000],
+  [0, `(() => 'host: manche ' + cq.g.st.n + ' ' + cq.g.st.ph + ', piano ' + cq.map + ', piante ' + (cq.g.pl || []).length)()`, 0],
+  [1, `(() => 'amico: manche ' + cq.g.st.n + ' ' + cq.g.st.ph + ', piano ' + cq.map + ', pannello ' + (document.getElementById('alFl') ? document.getElementById('alFl').textContent.slice(0, 40) : 'NO'))()`, 0],
   [1, `(() => { cqNetLeave(); return 'amico uscito; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 300],
   [0, `(() => { cqNetLeave(); return 'party chiuso; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 500],
 ];
