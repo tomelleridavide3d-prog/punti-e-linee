@@ -2,6 +2,7 @@
 // Il postino (postino/worker.js) manda una "spinta" vuota; qui si chiede al postino cosa mostrare:
 // - sets: set aperti dagli amici -> campanella silenziosa (tag 'set'), che sparisce quando non ce ne sono piu'
 // - msg: avviso dello sviluppatore (con o senza suono)
+// - rep: lo sviluppatore ha risposto a una richiesta di questa persona (il testo si legge nel gioco)
 const W = 'https://hotel-postino.tomelleri-giochi.workers.dev', HOME = self.registration.scope;
 self.addEventListener('install', () => self.skipWaiting());
 self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
@@ -13,6 +14,7 @@ async function onPush() {
   if (!d) { await self.registration.showNotification('🔔 Hotel dei Giochi', opt({ body: 'Novità: apri il gioco per vedere.', tag: 'set', silent: true })); return; }
   let shown = false;
   if (d.inv) { await self.registration.showNotification('🎉 ' + d.inv.from + ' ti invita al suo party!', opt({ body: "Tocca per entrare nell'Hotel dei Giochi.", tag: 'inv', renotify: true })); shown = true; }
+  if (d.rep) { await self.registration.showNotification('💬 Lo sviluppatore ti ha risposto!', opt({ body: 'Tocca per leggere la risposta nel gioco.', tag: 'rep', renotify: true })); shown = true; }
   if (d.msg) { await self.registration.showNotification(d.msg.title, opt({ body: d.msg.body, tag: 'msg' + d.msg.id, silent: !d.msg.loud })); shown = true; }
   const sets = d.sets || [];
   if (sets.length) {

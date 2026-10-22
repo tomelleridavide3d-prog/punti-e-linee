@@ -68,7 +68,9 @@ export default {
         }
         // invito a un party (mandato con /inv a questo nome): una volta sola
         let inv = null; if (sub && sub.inv && Date.now() - sub.inv.t < 15 * 60000) { inv = sub.inv; delete sub.inv; await env.KV.put('sub:' + id, JSON.stringify(sub)); }
-        return J({ sets, msg, inv });
+        // risposta dello sviluppatore a una richiesta (mandata con /rep a questo nome): una volta sola
+        let rep = 0; if (sub && sub.rep && Date.now() - sub.rep.t < 3 * 86400000) { rep = 1; delete sub.rep; await env.KV.put('sub:' + id, JSON.stringify(sub)); }
+        return J({ sets, msg, inv, rep });
       }
       if (p === '/count') return J({ iscritti: (await getIds(env)).length });
       if (req.method !== 'POST') return J({ ok: true, chi: 'postino dell\'Hotel dei Giochi' });
@@ -87,6 +89,13 @@ export default {
         const rk = 'invt:' + lc(to); if (await env.KV.get(rk)) return J({ ok: false, presto: 1 }, 429); await env.KV.put(rk, '1', { expirationTtl: 60 });
         const ids = await getIds(env); let n = 0;
         await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (!sub || lc(sub.n) !== lc(to)) return; sub.inv = { from, code, t: Date.now() }; await env.KV.put('sub:' + id, JSON.stringify(sub)); if ((await push(env, id, sub, 900, true)) < 300) n++; }));
+        return J({ ok: true, mandati: n });
+      }
+      if (p === '/rep') {   // lo sviluppatore ha risposto a una richiesta: avviso a chi ha quel nome (solo col codice sviluppatore)
+        if ((await sha(clean(b.pass, 100))) !== env.DEV_H) return J({ ok: false, codice: 'sbagliato' }, 403);
+        const to = clean(b.to, 14); if (!to) return J({ ok: false }, 400);
+        const ids = await getIds(env); let n = 0;
+        await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (!sub || lc(sub.n) !== lc(to)) return; sub.rep = { t: Date.now() }; await env.KV.put('sub:' + id, JSON.stringify(sub)); if ((await push(env, id, sub, 86400, true)) < 300) n++; }));
         return J({ ok: true, mandati: n });
       }
       if (p === '/unsub') { const id = clean(b.id, 40); if (id) await drop(env, id); return J({ ok: true }); }

@@ -270,9 +270,11 @@ details.gList[open] summary::after{content:' ▴'}
 details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight:700;padding:6px 0}
 .frAdd{display:flex;gap:6px;margin-top:8px}.frAdd input{flex:1;min-width:0}
 .rqCats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.rqCats button{padding:12px 8px;justify-content:center;font-weight:700}.rqCats button.on{border-color:#f2c230;box-shadow:0 0 0 1px #f2c230;background:rgba(242,194,48,.12)}
-#rqWin{position:fixed;inset:0;z-index:99990;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}#rqWin .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;box-shadow:var(--shadow);width:100%;max-width:440px;max-height:calc(100% - 20px);overflow:auto}
+#rqWin,#rrWin{position:fixed;inset:0;z-index:99990;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}#rqWin .pk,#rrWin .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;box-shadow:var(--shadow);width:100%;max-width:440px;max-height:calc(100% - 20px);overflow:auto}
 #rqWin textarea{width:100%;box-sizing:border-box;min-height:120px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
 .rqItem{padding:10px 0;border-bottom:1px solid var(--line)}.rqItem .tx{white-space:pre-wrap;margin:4px 0;font-size:15px}
+.rqRep{margin:8px 0;padding:8px 10px;border-radius:10px;background:rgba(242,194,48,.1);border-left:3px solid #f2c230;font-size:13px}.rqForm textarea{width:100%;box-sizing:border-box;min-height:80px;font:inherit;font-size:16px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin-top:6px}.rqForm input{width:100%;box-sizing:border-box;font-size:16px;padding:8px;border-radius:10px;border:1px solid var(--line);background:var(--bg);color:var(--ink);margin-top:6px}
+#wbBox{position:fixed;left:50%;top:14px;transform:translate(-50%,-150%);opacity:0;z-index:99995;width:max-content;max-width:min(420px,calc(100% - 32px));box-sizing:border-box;background:linear-gradient(135deg,#3b2f6e,#7a3d6e);color:#fff;padding:14px 18px;border-radius:16px;font-size:15px;line-height:1.45;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.35);transition:transform .5s cubic-bezier(.2,.9,.3,1.15),opacity .4s;cursor:pointer}#wbBox.on{transform:translate(-50%,0);opacity:1}
 #cqSit,#cqDrink{position:absolute;right:18px;bottom:244px;font-size:16px;font-weight:700;padding:11px 15px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqDrink{bottom:300px}
 #cqSabBtn{position:absolute;left:18px;bottom:96px}
@@ -1658,7 +1660,7 @@ async function startHub() {
   let F; try { F = await hubLoad(); } catch { hub.ok = false; hub.failed = true; hubRender(); return; }
   if (hub.key !== key) return;
   const { db, ref, onValue, onDisconnect, runTransaction, onChildAdded } = F;
-  hub.ok = true; devLog('sito'); invWatch();
+  hub.ok = true; devLog('sito'); invWatch(); rrWatch();
   runTransaction(ref(db, 'players/' + key), cur => cur || { name: nm, rating: 1000, w: 0, l: 0, d: 0, pf: 0, pa: 0, hist: [1000] }).catch(() => {});
   hub.unsubs.push(onValue(ref(db, '.info/connected'), s => { if (s.val() !== true || hub.key !== key) return; onDisconnect(ref(db, 'presence/' + hub.sid)).remove(); hubPresence(); }));
   const fail = e => { hub.ok = false; hub.failed = true; hub.err = (e && e.code) || 'errore'; hubRender(); };
@@ -1816,9 +1818,10 @@ function rqOpen() {
     $('#rqGo').disabled = true; res.textContent = 'Mando…';
     try {
       const F = await hubLoad();
-      await F.push(F.ref(F.db, 'rq/' + RQ_K), { n: (store.settings.myName || 'Anonimo').trim().slice(0, 14) || 'Anonimo', t: Date.now(), c: cat, m, d: dlDevice() });
+      const nm = (store.settings.myName || 'Anonimo').trim().slice(0, 14) || 'Anonimo';
+      await F.push(F.ref(F.db, 'rq/' + RQ_K), { n: nm, k: nameKey(nm), t: Date.now(), c: cat, m, d: dlDevice() });
       rqOpen.last = Date.now();
-      w.querySelector('.pk').innerHTML = '<div class="tk-h"><b>💛 Grazie!</b></div><p class="lead" style="margin:12px 0">Messaggio arrivato. Lo sviluppatore lo leggerà presto.</p><button class="btn primary" type="button" id="rqX2" style="width:100%;justify-content:center">Chiudi</button>';
+      w.querySelector('.pk').innerHTML = '<div class="tk-h"><b>💛 Grazie!</b></div><p class="lead" style="margin:12px 0">Messaggio arrivato. Lo sviluppatore lo leggerà presto e, se ti risponde, la risposta ti arriva qui nel gioco.</p><button class="btn primary" type="button" id="rqX2" style="width:100%;justify-content:center">Chiudi</button>';
       $('#rqX2').onclick = () => w.remove();
     } catch { $('#rqGo').disabled = false; res.textContent = '📡 Non riesco a mandarlo: controlla la connessione e riprova.'; }
   };
@@ -1827,15 +1830,58 @@ async function rqShow() {
   const w = $('#dlWin'); if (!w) return;
   w.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><b style="flex:1;font-size:17px">📬 Richieste</b><button class="btn" type="button" id="rqBack">🛠️ Accessi</button><button class="btn" type="button" id="rqRe">↻</button><button class="btn" type="button" id="rqCl">Chiudi</button></div><div id="rqBody">Carico…</div>';
   $('#rqBack').onclick = dlShow; $('#rqRe').onclick = rqShow; $('#rqCl').onclick = () => { w.hidden = true; };
-  let rows = [];
-  try { const F = await hubLoad(); const sn = await F.get(F.query(F.ref(F.db, 'rq/' + RQ_K), F.orderByChild('t'), F.limitToLast(300))); rows = Object.entries(sn.val() || {}).filter(([, r]) => r && r.t).sort((a, b) => b[1].t - a[1].t); }
-  catch (e) { $('#rqBody').textContent = 'Non riesco a leggere le richieste (' + ((e && e.code) || 'errore') + ').'; return; }
+  let rows = [], reps = {};
+  try {
+    const F = await hubLoad();
+    const [sn, rs] = await Promise.all([F.get(F.query(F.ref(F.db, 'rq/' + RQ_K), F.orderByChild('t'), F.limitToLast(300))), F.get(F.ref(F.db, 'rr/' + RQ_K))]);
+    rows = Object.entries(sn.val() || {}).filter(([, r]) => r && r.t).sort((a, b) => b[1].t - a[1].t); reps = rs.val() || {};
+  } catch (e) { $('#rqBody').textContent = 'Non riesco a leggere le richieste (' + ((e && e.code) || 'errore') + ').'; return; }
   if (!rows.length) { $('#rqBody').textContent = 'Ancora nessuna richiesta.'; return; }
-  const cats = Object.fromEntries(RQ_CAT);
-  $('#rqBody').innerHTML = '<div class="hint" style="margin-bottom:6px">' + rows.length + ' richieste</div>' + rows.map(([id, r]) => { const d = new Date(r.t); return '<div class="rqItem"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1">' + esc(r.n) + ' · ' + esc(cats[r.c] || r.c || '') + '</b><button class="btn" type="button" data-rqdel="' + esc(id) + '" title="Cancella">✕</button></div><div class="tx">' + esc(r.m || '') + '</div><div class="hint" style="font-size:12px">' + esc(d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) + ' · ' + esc(r.d || '') + '</div></div>'; }).join('')
+  const cats = Object.fromEntries(RQ_CAT), when = t => { const d = new Date(t); return d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }); };
+  const keyOf = r => r.k || nameKey(r.n), repOf = (id, r) => (reps[keyOf(r)] || {})[id];
+  $('#rqBody').innerHTML = '<div class="hint" style="margin-bottom:6px">' + rows.length + ' richieste</div>' + rows.map(([id, r]) => { const a = repOf(id, r);
+    return '<div class="rqItem"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1">' + esc(r.n) + ' · ' + esc(cats[r.c] || r.c || '') + '</b><button class="btn" type="button" data-rqdel="' + esc(id) + '" title="Cancella">✕</button></div><div class="tx">' + esc(r.m || '') + '</div><div class="hint" style="font-size:12px">' + esc(when(r.t)) + ' · ' + esc(r.d || '') + '</div>'
+      + (a ? '<div class="rqRep">↩️ <b>La tua risposta</b> · ' + (a.l ? '✅ letta il ' + esc(when(a.l)) : '📨 non ancora letta') + '<div class="tx">' + esc(a.a) + '</div></div>' : '')
+      + '<button class="btn" type="button" data-rqrep="' + esc(id) + '" style="margin-top:6px">' + (a ? '✏️ Cambia la risposta' : '↩️ Rispondi') + '</button><div class="rqForm" data-f="' + esc(id) + '"></div></div>'; }).join('')
     + '<button class="btn" type="button" id="rqDelAll" style="color:#ff8a7a;margin-top:14px">🗑️ Cancella tutte le richieste</button>';
   $('#rqBody').querySelectorAll('[data-rqdel]').forEach(b => { b.onclick = async () => { try { const F = await hubLoad(); await F.remove(F.ref(F.db, 'rq/' + RQ_K + '/' + b.dataset.rqdel)); } catch {} rqShow(); }; });
   $('#rqDelAll').onclick = async () => { if (!confirm('Cancellare tutte le richieste?')) return; try { const F = await hubLoad(); await F.remove(F.ref(F.db, 'rq/' + RQ_K)); } catch {} rqShow(); };
+  // RISPONDI: la risposta va in rr/<RQ_K>/<chiave del nome>/<id> (la vede appena apre il gioco) + avviso sul telefono dal postino (serve il codice sviluppatore)
+  $('#rqBody').querySelectorAll('[data-rqrep]').forEach(b => { b.onclick = () => {
+    const id = b.dataset.rqrep, r = rows.find(x => x[0] === id)[1], a = repOf(id, r), box = $('#rqBody').querySelector('[data-f="' + id + '"]');
+    box.innerHTML = '<textarea maxlength="1000" placeholder="Scrivi la risposta per ' + esc(r.n) + '…"></textarea><input type="password" placeholder="Codice sviluppatore (per l\'avviso sul telefono)"><div class="hint rqRes" style="min-height:1.2em;margin-top:6px"></div><div style="display:flex;gap:8px;margin-top:6px"><button class="btn primary" type="button" style="flex:1;justify-content:center">📨 Manda la risposta</button><button class="btn" type="button">Annulla</button></div>';
+    const [ta, pw] = [box.querySelector('textarea'), box.querySelector('input')], [go, no] = box.querySelectorAll('button'), res = box.querySelector('.rqRes');
+    ta.value = a ? a.a : ''; pw.value = pushPass; ta.focus(); no.onclick = () => { box.innerHTML = ''; };
+    go.onclick = async () => {
+      const txt = ta.value.trim().slice(0, 1000), pass = pw.value.trim(); if (txt.length < 2) { res.textContent = '✏️ Scrivi prima la risposta.'; return; }
+      go.disabled = true; res.textContent = 'Mando…';
+      try { const F = await hubLoad(); await F.set(F.ref(F.db, 'rr/' + RQ_K + '/' + keyOf(r) + '/' + id), { n: String(r.n || '').slice(0, 14), q: String(r.m || '').slice(0, 300), c: String(r.c || '').slice(0, 10), a: txt, t: Date.now() }); }
+      catch { go.disabled = false; res.textContent = '📡 Non riesco a salvarla: controlla la connessione.'; return; }
+      const pr = pass ? await pushPost('/rep', { pass, to: r.n }) : null;
+      if (pr && pr.ok) pushPass = pass;
+      res.textContent = '✅ Risposta mandata: ' + r.n + ' la vede appena apre il gioco.' + (!pass ? ' (Senza codice niente avviso sul telefono.)' : pr && pr.ok ? (pr.mandati ? ' 📲 Avviso arrivato al suo telefono.' : ' (Non ha gli avvisi accesi: la vedrà aprendo il gioco.)') : ' ⚠️ Avviso sul telefono non mandato: codice sbagliato?');
+      setTimeout(rqShow, 2500);
+    };
+  }; });
+}
+// ---- RISPOSTE DELLO SVILUPPATORE (23-10-2026, richiesta utente): chi ha scritto una richiesta trova la risposta appena apre il gioco (finestra rrShow;
+// in partita aspetta la fine). rr/<RQ_K>/<chiave del nome>/<id della richiesta> = { n, q: la richiesta, c: tipo, a: risposta, t, l: quando l'ha letta }.
+// Se ha gli avvisi accesi gli arriva anche "💬 Lo sviluppatore ti ha risposto!" sul telefono (postino /rep, solo col codice sviluppatore)
+function rrWatch() {
+  const F = hub.fb, k = hub.key; if (!F || !k || rrWatch.k === k) return;
+  if (rrWatch.u) try { rrWatch.u(); } catch {}
+  rrWatch.k = k;
+  rrWatch.u = F.onValue(F.ref(F.db, 'rr/' + RQ_K + '/' + k), sn => { rrWatch.list = Object.entries(sn.val() || {}).filter(([, r]) => r && r.a && !r.l).sort((a, b) => a[1].t - b[1].t); rrShow(); }, () => {});
+}
+function rrShow() {
+  const L = rrWatch.list || []; if (!L.length || $('#rrWin')) return;
+  const G = cq.g; if (G && !G.hall && G.phase !== 'end') { clearTimeout(rrShow.t); rrShow.t = setTimeout(rrShow, 5000); return; }   // in partita: dopo
+  const cats = Object.fromEntries(RQ_CAT), w = document.createElement('div'); w.id = 'rrWin';
+  w.innerHTML = '<div class="pk"><div class="tk-h"><b>💬 Lo sviluppatore ti ha risposto!</b></div>' + L.map(([, r]) => '<div class="rqItem"><div class="hint" style="font-size:12px">La tua richiesta' + (cats[r.c] ? ' · ' + esc(cats[r.c]) : '') + '</div><div class="tx" style="opacity:.75">«' + esc(r.q || '') + '»</div><div class="rqRep"><b>↩️ Risposta</b><div class="tx">' + esc(r.a) + '</div></div></div>').join('')
+    + '<div style="display:flex;gap:8px;margin-top:12px"><button class="btn primary" type="button" id="rrOk" style="flex:1;justify-content:center">👍 Grazie!</button><button class="btn" type="button" id="rrMore">💡 Scrivi ancora</button></div></div>';
+  document.body.appendChild(w); beep(784, 0.1, 0.04); beep(1047, 0.16, 0.04, 0.1);
+  const done = () => { const F = hub.fb, k = rrWatch.k; if (F) for (const [id] of L) F.update(F.ref(F.db, 'rr/' + RQ_K + '/' + k + '/' + id), { l: Date.now() }).catch(() => {}); rrWatch.list = []; w.remove(); };
+  $('#rrOk').onclick = done; $('#rrMore').onclick = () => { done(); rqOpen(); };
 }
 let dlTaps = 0, dlTapT = 0;
 async function dlUnlock() {
@@ -6480,6 +6526,22 @@ function instShow() {
   $('#instNo').onclick = () => { store.settings.instNo = Date.now() + 3 * 86400000; saveStore(); instShow(); };   // si ripropone tra 3 giorni
 }
 instShow(); pushBoxShow();
+// ---- BENTORNATO (23-10-2026, richiesta utente): chi riapre il gioco dopo almeno 3 ore trova in alto un saluto col suo nome (7 s, tocco = chiude).
+// store.settings.seen = l'ultima volta che c'era (ogni minuto mentre la pagina si vede, e quando va in sottofondo). Frasi senza maschile/femminile
+const WB_GAP = 3 * 3600000, WB_TXT = ['👋 Ciao <b>{n}</b>, che bello rivederti!<br>Siamo felici che tu sia di nuovo qui. Divertiti!', '🏨 L\'Hotel dei Giochi ti aspettava, <b>{n}</b>!<br>Che bello rivederti: buon divertimento!', '🎉 <b>{n}</b>, che piacere ritrovarti!<br>Amici e minigiochi ti aspettano. Divertiti!'];
+const wbSeen = () => { store.settings.seen = Date.now(); saveStore(); };
+function wbCheck() {
+  if (document.hidden) return;
+  const last = store.settings.seen || 0, nm = (store.settings.myName || '').trim(); wbSeen();
+  if (!last || !nm || Date.now() - last < WB_GAP) return;
+  const old = $('#wbBox'); if (old) old.remove();
+  const b = document.createElement('div'); b.id = 'wbBox'; b.innerHTML = WB_TXT[Math.floor(Math.random() * WB_TXT.length)].replace('{n}', esc(nm.slice(0, 14)));
+  document.body.appendChild(b); requestAnimationFrame(() => requestAnimationFrame(() => b.classList.add('on')));
+  const bye = () => { b.classList.remove('on'); setTimeout(() => b.remove(), 500); }; b.onclick = bye; setTimeout(bye, 7000);
+}
+document.addEventListener('visibilitychange', () => { if (document.hidden) wbSeen(); else wbCheck(); });
+setInterval(() => { if (!document.hidden) wbSeen(); }, 60000);
+wbCheck();
 (() => { const d = new Date(document.lastModified); if (!isNaN(d)) $('#appVer').textContent = 'Versione del ' + d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) + ' ore ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) + (CQ_GFX ? ' · grafica ' + CQ_GFX : ''); })();
 
 // ---- avvio ----

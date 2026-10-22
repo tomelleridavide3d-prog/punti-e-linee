@@ -218,6 +218,17 @@
           ".validate": "newData.hasChildren(['n','t','c','m']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('m').isString() && newData.child('m').val().length <= 1000 && newData.child('c').isString() && newData.child('c').val().length <= 10 && newData.child('t').isNumber()"
         }
       }
+    },
+    "rr": {
+      "$k": {
+        ".read": true,
+        "$who": {
+          "$id": {
+            ".write": true,
+            ".validate": "newData.hasChildren(['a','t']) && newData.child('a').isString() && newData.child('a').val().length <= 1000 && newData.child('t').isNumber()"
+          }
+        }
+      }
     }
   }
 }
