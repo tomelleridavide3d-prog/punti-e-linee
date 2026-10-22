@@ -28,7 +28,7 @@
   const GEARS_D = [[10.5, 5.1, 1, 0.9], [10.5, 15.9, -1, 0.9], [5.1, 10.5, -1, 0.9], [15.9, 10.5, 1, 0.9]];   // ingranaggini sotto vetro solo per bellezza (non spostano)   // sala dell'orologio: ingranaggi [x, y, verso] e quadrante al centro
   const PLANTS = [[10, 10, 1], [6, 12, 0], [14, 8, 0], [12, 5, 0], [8, 15, 0]];   // serra: piante carnivore [x, y, grande]
   const FLOORS = [
-    { id: 'serra', map: 'torre1', n: 'La serra carnivora', e: '🌿', plants: 1, ivy: 1, dense: 1, flies: 1,
+    { id: 'serra', map: 'torre1', n: 'La serra carnivora', e: '🌿', plants: 1, ivy: 1, dense: 1, flies: 1, ev: 'spores',
       tip: 'Le <b>piante carnivore</b> mordono chi passa vicino! Il fuoco le brucia, il ghiaccio le congela, il fungo le fa diventare enormi, la polvere di fata le rimpicciolisce, sabbia e colla le addormentano.',
       kind: (x, y) => dC(x, y) <= 2.3 ? 'bed' : dC(x, y) <= 6.2 ? 'stone' : 'lawn',
       cols: { lawn: ['#3e6a2e', '#3b662c'], bed: ['#3a2a1e', '#36271c'], stone: ['#66675a', '#626356'] }, wc: '#5a6652',
@@ -36,14 +36,14 @@
       BSEQ: ['palm', 'terra', 'monst', 'gmush', 'orchid', 'palm', 'lamp2', 'monst', 'terra', 'gmush', 'palm', 'orchid', 'monst', 'lamp2'], FSEQ: ['fernp', 'flowerp', 'fernp', 'gmush', 'flowerp', 'fernp'],
       DECO: [['flw', 3], ['grs', 4], ['fernL', 2], ['mushL', 1]],
       COVER: [['monst', 8, 6], ['monst', 12, 14], ['rock', 5, 14], ['rock', 15, 6], ['gmush', 6, 9], ['gmush', 14, 11]] },
-    { id: 'orologio', map: 'torre2', n: 'La sala dell\'orologio', e: '🕰️', gears: 1, pend: 1, rail: 1, dense: 1, dust: 1,
+    { id: 'orologio', map: 'torre2', n: 'La sala dell\'orologio', e: '🕰️', gears: 1, pend: 1, rail: 1, dense: 1, dust: 1, ev: 'midnight',
       tip: 'Sotto il vetro gli <b>ingranaggi</b> girano e ti portano con loro; il <b>pendolo</b> spazza il centro e butta via chi c\'è sotto. Spingi l\'altro sotto il pendolo!',
       kind: (x, y) => dC(x, y) <= DIAL ? 'clock' : GEARS.concat(GEARS_D).some(([a, b, , r]) => Math.hypot(x + 0.5 - a, y + 0.5 - b) <= (r || GR)) ? 'gear' : 'parq',
       cols: { parq: ['#5a3a26', '#563824'], clock: [GLASS, GLASS], gear: [GLASS, GLASS] }, wc: '#5e5446',
       WSEQ: ['gearw', 'pipesw', 'clockw', 'shelfclk', 'gearw', 'torch', 'clockw', 'pipesw', 'gearw', 'shelfclk', 'clockw', 'pipesw', 'gearw', 'torch'],
       BSEQ: ['clockgf', 'cuckoo', 'pipes', 'wbench', 'glamp', 'clockgf', 'telescope', 'cuckoo', 'pipes', 'wbench', 'clockgf', 'glamp', 'cuckoo'], FSEQ: ['gearbox', 'hglass2', 'books', 'gearbox', 'candles', 'hglass2'],
       COVER: [['clockgf', 4, 11], ['clockgf', 16, 9], ['hglass', 8, 6], ['hglass', 12, 14], ['orrery', 6, 9], ['orrery', 14, 11]] },
-    { id: 'lab', map: 'torre', n: 'Il laboratorio in cima', e: '⚗️', pit: 1,
+    { id: 'lab', map: 'torre', n: 'Il laboratorio in cima', e: '⚗️', pit: 1, ev: 'surge',
       tip: 'In cima alla torre: al centro la <b>voragine</b>. Chi ci cade perde un cuore. Spingi, tira… e non avvicinarti troppo al bordo!',
       kind: (x, y) => dC(x, y) <= RIM && !isPit(x, y) ? 'rim' : 'lab', cols: { lab: ['#4a4555', '#46414f'], rim: ['#6b6377', '#665e71'] }, wc: '#575064',
       WSEQ: ['shelf', 'torch', 'win', 'shelf', 'banner', 'potions', 'torch', 'chart', 'win', 'shelf', 'banner', 'torch', 'potions', 'shelf', 'win', 'chart'],
@@ -1053,7 +1053,7 @@
   // pericoli dei piani per il computer: vicino a una pianta sveglia, sulla strada del pendolo
   function hazardAt(G, x, y) {
     let h = 0;
-    if (FL && FL.plants) for (const p of G.pl || []) { const [px, py] = PLANTS[p.i]; if (plOn(G, p) && Math.hypot(px + 0.5 - x, py + 0.5 - y) < plReach(p) + 0.9) h++; }
+    if (FL && FL.plants) for (const p of G.pl || []) { const [px, py] = PLANTS[p.i], fl = evPh(G) === 'warn' && G.st.ev.k === 'spores'; if ((plOn(G, p) || fl) && Math.hypot(px + 0.5 - x, py + 0.5 - y) < (fl ? EVENTS.spores.r + 0.6 : plReach(p) + 0.9)) h++; }
     if (FL && FL.pend) { const dx = x - C, dy = y - C, along = dx * PDX + dy * PDY, across = Math.abs(dx * PDY - dy * PDX); if (Math.abs(along) < PEND_A + 0.6 && across < 1.1) h++; }
     return h;
   }
@@ -1117,13 +1117,30 @@
     if (!G.st || G.st.ph !== 'duel' || out(G, c) || (c === G.me && G.fill)) return 0;
     let k = 1; for (const [s, S] of Object.entries(STATE)) if (S.sp != null && fxOn(G, c, s)) k *= S.sp;
     const p = posOf(G, c); for (const z of zonesAt(G, p.x, p.y)) if (ZONE[z.k].sp) k *= ZONE[z.k].sp;
+    if (evOn(G, 'midnight')) k *= EVENTS.midnight.sp;
     return k;
+  }
+  // ======================= EVENTO A META' DUELLO (uno per piano: FLOORS[].ev) =======================
+  // Annunciato EV_WARN secondi prima (rintocco, tremore), poi dura d secondi. L'host lo scrive in G.st.ev = { k, t } (arriva a tutti con lo stato)
+  //   spores (serra): le piante fioriscono e sparano nuvole di polline con un effetto a caso (pol) tutto intorno
+  //   midnight (orologio): mezzanotte, il tempo rallenta per tutti: si cammina a sp, le ampolle lanciate volano a fl, gli ingranaggi si fermano
+  //   surge (laboratorio): la voragine erutta magia: ogni pozione che scoppia e' piu' forte (amp) e piu' larga (ar)
+  const EV_AT = 45, EV_WARN = 5;
+  const EVENTS = {
+    spores: { e: '🌸', d: 1.5, warn: '🌸 <b>Le piante stanno per fiorire!</b> Allontanati da loro…', go: '🌸 <b>FIORITURA!</b> Nuvole di polline magico', pol: ['slow', 'shrink', 'grow', 'smoke', 'glue'], r: 2.1 },
+    midnight: { e: '🕛', d: 6, warn: '🔔 <b>Sta per suonare la mezzanotte…</b>', go: '🕛 <b>MEZZANOTTE!</b> Il tempo rallenta per tutti', sp: 0.55, fl: 0.5 },
+    surge: { e: '🌋', d: 10, warn: '🌋 <b>La voragine trema…</b>', go: '🌋 <b>ERUZIONE MAGICA!</b> Tutte le pozioni sono più forti', amp: 1.5, ar: 1.25 } };
+  const evPh = G => { const E = G.st && G.st.ph === 'duel' && G.st.ev && EVENTS[G.st.ev.k]; if (!E) return ''; const t = G.time - G.st.ev.t; return t < -EV_WARN ? '' : t < 0 ? 'warn' : t < E.d ? 'on' : 'done'; };
+  const evOn = (G, k) => !!(G.st && G.st.ev && G.st.ev.k === k && evPh(G) === 'on');
+  function evTick(G) {   // host: le fioriture (una volta, quando comincia)
+    const ev = G.st.ev; if (!ev || ev.done || evPh(G) !== 'on') return; ev.done = 1;
+    if (ev.k === 'spores') for (const p of G.pl || []) { const [px, py] = PLANTS[p.i], E = EVENTS.spores, el = cqPickOne(E.pol); applyEl(G, el, 1, px + 0.5, py + 0.5, E.r, 1, -1); note(G, '', px + 0.5, py + 0.5, 'spore'); }
   }
 
   // ---- le ampolle in volo: partenza, arrivo, tempo (ogni telefono le fa volare da se'); MICCIA: se finisce prima dell'arrivo scoppia in aria ----
   function mkFlask(G, o, k, x0, y0, x1, y1, fz, bn, q) {
-    const P = brew(k);[x1, y1] = clampIn(x1, y1);
-    const dist = Math.hypot(x1 - x0, y1 - y0), f = { id: ++G.flN, o, k, q, x0: r2(x0), y0: r2(y0), x1: r2(x1), y1: r2(y1), t0: r2(G.time), d: r2(Math.max(0.25, dist / P.spd)), pk: r2(0.6 + dist * 0.22), fz: r2(fz), bn: bn || 0 };
+    const P = brew(k), sl = evOn(G, 'midnight') ? EVENTS.midnight.fl : 1;[x1, y1] = clampIn(x1, y1);   // mezzanotte: volano piano (e la miccia dura di piu')
+    const dist = Math.hypot(x1 - x0, y1 - y0), f = { id: ++G.flN, o, k, q, x0: r2(x0), y0: r2(y0), x1: r2(x1), y1: r2(y1), t0: r2(G.time), d: r2(Math.max(0.25, dist / P.spd / sl)), pk: r2(0.6 + dist * 0.22), fz: r2(fz / sl), bn: bn || 0 };
     G.fl.push(f); return f;
   }
   const flPos = (f, t) => { const u = Math.max(0, Math.min(1, (t - f.t0) / f.d)); return { x: f.x0 + (f.x1 - f.x0) * u, y: f.y0 + (f.y1 - f.y0) * u, z: 1.1 * (1 - u) + f.pk * 4 * u * (1 - u), u }; };
@@ -1176,23 +1193,24 @@
   function burst(G, key, x, y, o, early, how) {
     const P = brew(key); if (!P) return;
     note(G, key, x, y, how || (early ? 'early' : ''));
-    const st = Object.assign({}, P.s);
+    const st = Object.assign({}, P.s), SU = evOn(G, 'surge') ? EVENTS.surge : null, area = P.area * (SU ? SU.ar : 1);
+    if (SU) for (const k of Object.keys(st)) st[k] *= SU.amp;   // eruzione magica
     for (const k of Object.keys(st)) if (FX[k] && FX[k].chaos) { const e = cqPickOne(CHAOS); st[e] = (st[e] || 0) + st[k]; delete st[k]; }   // occhio di rospo: un elemento a caso
     // REAZIONI SUL CAMPO: la pozione cade su una pozza (anche dell'altro) e i due elementi reagiscono come nel calderone (stessa tabella REACT).
     // L'elemento della pozione si consuma, la pozza sparisce, nasce il prodotto (piu' forte) nel mezzo
     for (const z of G.zn.slice()) {
-      const ze = ZONE[z.k].el; if (!ze || G.time >= z.te || Math.hypot(z.x - x, z.y - y) > z.r + P.area * 0.8) continue;
+      const ze = ZONE[z.k].el; if (!ze || G.time >= z.te || Math.hypot(z.x - x, z.y - y) > z.r + area * 0.8) continue;
       for (const [a, b, to] of REACT) {
         const pe = ze === a ? b : ze === b ? a : null; if (!pe || !(st[pe] > 0.01)) continue;
         const v = Math.max(1, st[pe] * 1.5), mx = (x + z.x) / 2, my = (y + z.y) / 2;
         st[pe] = 0; G.zn = G.zn.filter(q => q !== z);
         note(G, to, mx, my, 'react');
-        applyEl(G, to, v, mx, my, Math.max(z.r, P.area) * 1.1, P.dur, o);
+        applyEl(G, to, v, mx, my, Math.max(z.r, area) * 1.1, P.dur, o);
         break;
       }
     }
-    for (const [el, v] of Object.entries(st)) if (v > 0.01) applyEl(G, el, v, x, y, P.area, P.dur, o);
-    plantsHit(G, st, x, y, P.area);
+    for (const [el, v] of Object.entries(st)) if (v > 0.01) applyEl(G, el, v, x, y, area, P.dur, o);
+    plantsHit(G, st, x, y, area);
   }
   function note(G, k, x, y, how) { G.bxN++; G.bx.push([G.bxN, k, r2(x), r2(y), r2(G.time), how]); if (G.bx.length > 10) G.bx.shift(); }
   // l'effetto di UN elemento (tabella FX) con la sua forza v, nella zona di raggio area
@@ -1306,7 +1324,7 @@
     const i = G.sel, k = G.me.belt[i]; if (!k || (G.me.thT || 0) > G.time || out(G, G.me) || fxOn(G, G.me, 'frz')) return;
     SFX.whoosh();
     if (G.guest) { const q = (G.q = (G.q || 0) + 1); cqNetSend({ k: 'th', i, p: k, x: r2(tx), y: r2(ty), q }); const P = brew(k); G.me.belt[i] = ''; G.me.thT = G.time + cdOf(G, G.me); const d = Math.hypot(tx - cq.x, ty - cq.y);
-      G.fl.push({ id: -q, o: G.me.id, k, q, x0: cq.x, y0: cq.y, x1: clampIn(tx, ty)[0], y1: clampIn(tx, ty)[1], t0: G.time, d: Math.max(0.25, d / P.spd), pk: 0.6 + d * 0.22, fz: P.fuse, bn: 0, loc: 1 }); }
+      G.fl.push({ id: -q, o: G.me.id, k, q, x0: cq.x, y0: cq.y, x1: clampIn(tx, ty)[0], y1: clampIn(tx, ty)[1], t0: G.time, d: Math.max(0.25, d / P.spd / (evOn(G, 'midnight') ? EVENTS.midnight.fl : 1)), pk: 0.6 + d * 0.22, fz: P.fuse / (evOn(G, 'midnight') ? EVENTS.midnight.fl : 1), bn: 0, loc: 1 }); }
     else throwFrom(G, G.me, i, tx, ty);
     nextSel(G);
   }
@@ -1347,7 +1365,7 @@
   }
   // INGRANAGGI (sala dell'orologio): chi ci sta sopra gira con loro (avanti e indietro, verso diverso per i due)
   function gearMove(G, P, dt) {
-    if (!FL || !FL.gears) return;
+    if (!FL || !FL.gears || evOn(G, 'midnight')) return;   // a mezzanotte gli ingranaggi si fermano
     for (const [gx, gy, v] of GEARS) {
       const dx = P.x - gx, dy = P.y - gy, d = Math.hypot(dx, dy); if (d > GR + 0.15) continue;
       const w = gearW(G.time) * v * dt, nx = gx + dx * Math.cos(w) - dy * Math.sin(w), ny = gy + dx * Math.sin(w) + dy * Math.cos(w);
@@ -1585,6 +1603,34 @@
     }
     g.restore();
   }
+  // l'evento del piano disegnato: piante che pulsano e poi sparano il polline, notte blu di mezzanotte, colonna magica dalla voragine
+  function evDraw(g, G, sx, sy, TW, t) {
+    const ph = evPh(G); if (!ph || ph === 'done') return; const k = G.st.ev.k, U = TW * 0.575, a = G.time - G.st.ev.t;
+    if (k === 'spores') for (const p of G.pl || []) {
+      const [px, py] = PLANTS[p.i], x = px + 0.5, y = py + 0.5, X = sx(x, y), Y = sy(x, y), E = EVENTS.spores;
+      if (ph === 'warn') {
+        const pu = 0.5 + 0.5 * Math.sin(t * 8), r = E.r * TW * 0.7071 * (0.6 + 0.4 * pu); g.globalAlpha = 0.35 + 0.3 * pu; g.strokeStyle = '#ff9ad8'; g.lineWidth = 2.5; g.beginPath(); g.ellipse(X, Y, r, r / 2, 0, 0, 7); g.stroke();
+        for (let i = 0; i < 5; i++) { const q = (t * 0.8 + i / 5 + p.i * 0.3) % 1; g.globalAlpha = 1 - q; g.fillStyle = i % 2 ? '#ffb8e8' : '#fff0a0'; g.beginPath(); g.arc(X + Math.sin(i * 2 + t) * TW * 0.4, Y - (1.4 + q * 1.5) * U, Math.max(1.5, TW / 26), 0, 7); g.fill(); }
+      } else {
+        const q = Math.min(1, a / E.d); for (let i = 0; i < 16; i++) { const an = i * 0.3927 + p.i, r = E.r * q, x2 = x + Math.cos(an) * r, y2 = y + Math.sin(an) * r; g.globalAlpha = (1 - q) * 0.9; g.fillStyle = i % 3 ? '#ffb8e8' : '#fff0a0'; g.beginPath(); g.arc(sx(x2, y2), sy(x2, y2) - (1.5 - q) * U, Math.max(2, TW / 16) * (1 - q * 0.5), 0, 7); g.fill(); }
+      }
+    }
+    else if (k === 'midnight' && ph === 'on') {
+      const f = Math.max(0, Math.min(1, a / 0.6, (EVENTS.midnight.d - a) / 0.6));
+      g.save(); g.setTransform(1, 0, 0, 1, 0, 0); g.globalAlpha = 0.24 * f; g.fillStyle = '#1e2a78'; g.fillRect(0, 0, g.canvas.width, g.canvas.height); g.restore();
+      for (let i = 0; i < 14; i++) { const q = (t * 0.12 + i / 14) % 1, x = C + Math.cos(i * 2.4) * (1.5 + (i * 0.41 % 1) * 6), y = C + Math.sin(i * 2.4) * (1.5 + (i * 0.41 % 1) * 6); g.globalAlpha = f * Math.sin(q * Math.PI) * 0.8; g.fillStyle = '#c8d4ff'; g.beginPath(); g.arc(sx(x, y), sy(x, y) - (0.5 + q * 2.5) * U, Math.max(1.2, TW / 34), 0, 7); g.fill(); }   // pulviscolo fermo nel tempo
+    }
+    else if (k === 'surge') {
+      const X = sx(C, C), Y = sy(C, C), R0 = PIT * TW * 0.7071;
+      if (ph === 'warn') { const pu = 0.5 + 0.5 * Math.sin(t * 10); g.globalAlpha = 0.25 + 0.25 * pu; g.fillStyle = '#b88aff'; g.beginPath(); g.ellipse(X + Math.sin(t * 40) * 2, Y, R0 * (0.8 + 0.2 * pu), R0 * (0.4 + 0.1 * pu), 0, 0, 7); g.fill(); }
+      else {
+        const f = Math.max(0, Math.min(1, a / 0.4, (EVENTS.surge.d - a) / 0.8));
+        for (let i = 0; i < 6; i++) { const q = (t * 0.6 + i / 6) % 1; g.globalAlpha = f * (1 - q) * 0.32; g.fillStyle = i % 2 ? '#c8a8ff' : '#8ae8ff'; g.beginPath(); g.ellipse(X, Y - q * 7 * U, R0 * (0.9 - q * 0.45), R0 * (0.45 - q * 0.22), 0, 0, 7); g.fill(); }
+        for (let i = 0; i < 18; i++) { const q = (t * 0.9 + i / 18) % 1, an = i * 2.4 + t; g.globalAlpha = f * (1 - q); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(X + Math.cos(an) * R0 * 0.6 * (1 + q), Y - q * 8 * U, Math.max(1.5, TW / 26), 0, 7); g.fill(); }
+      }
+    }
+    g.globalAlpha = 1;
+  }
   function flaskDraw(g, f, sx, sy, TW, t) {
     const p = flPos(f, Math.min(t, f.t0 + Math.min(f.d, f.fz))), P = brew(f.k); if (!P) return;
     const X = sx(p.x, p.y), Y = sy(p.x, p.y), U = TW * 0.575, Z = Y - p.z * U, s = TW * 0.13, sp = (t - f.t0) * 12;
@@ -1633,6 +1679,11 @@
     if (el === 'fire' || el === 'blaze') swp(200, 60, 0.4, 0.06, 0.03, 'sawtooth'); else if (el === 'ice' || el === 'statue') swp(2400, 3200, 0.3, 0.03, 0.04, 'sine'); else if (el === 'wind' || el === 'steam' || el === 'whirl') swp(800, 200, 0.4, 0.04, 0.02, 'sawtooth'); else if (el === 'pop') swp(300, 1200, 0.1, 0.06, 0.02, 'square'); else swp(500, 150, 0.25, 0.04, 0.03); };
   SFX.boom = () => { swp(120, 40, 0.5, 0.09, 0, 'sawtooth'); swp(300, 80, 0.3, 0.05, 0.02, 'square'); };
   SFX.drink = () => { for (let i = 0; i < 3; i++) swp(260 + i * 60, 140, 0.11, 0.035, i * 0.11, 'sine'); swp(700, 1500, 0.25, 0.025, 0.36, 'triangle'); };   // glu glu glu… ah!
+  SFX.ev = (k, on) => {
+    if (k === 'midnight') { const n = on ? 3 : 1; for (let i = 0; i < n; i++) { swp(392, 388, 1.4, 0.05, i * 0.9, 'sine'); swp(784, 780, 0.9, 0.025, i * 0.9, 'sine'); swp(1180, 1170, 0.5, 0.012, i * 0.9, 'triangle'); } }   // rintocchi
+    else if (k === 'surge') { if (on) { swp(80, 900, 0.9, 0.06, 0, 'sawtooth'); swp(120, 40, 0.8, 0.08, 0.5, 'sawtooth'); } else swp(70, 40, 1.6, 0.06, 0, 'sawtooth'); }   // brontolio, poi l'eruzione
+    else if (k === 'spores') { for (let i = 0; i < (on ? 6 : 3); i++) swp(900 + i * 180, 1400 + i * 180, 0.18, 0.02, i * 0.09, 'sine'); }   // campanellini
+  };
   SFX.ouch = () => { swp(500, 220, 0.2, 0.05, 0, 'square'); };
   SFX.fall = () => { swp(900, 80, 1.1, 0.05, 0, 'triangle'); };
 
@@ -1731,6 +1782,12 @@
     const el = document.createElement('div'); el.id = 'alHelp'; el.className = k; el.innerHTML = HELP[k] + '<button type="button">Ho capito</button>';
     $('#ciack').appendChild(el); el.querySelector('button').onclick = () => el.remove();
   }
+  // evento del piano: avviso e inizio (ogni telefono, con il suo suono)
+  function evLocal(G) {
+    const ev = G.st && G.st.ev, ph = evPh(G), key = ev ? ev.k + G.st.n + ph : ''; if (key === G.evSeen) return; G.evSeen = key;
+    const E = ev && EVENTS[ev.k]; if (!E) return;
+    if (ph === 'warn') { cqToast(E.warn); SFX.ev(ev.k, 0); } else if (ph === 'on') { cqToast(E.go); SFX.ev(ev.k, 1); }
+  }
   function fxEvents(G) {
     for (const b of G.bx) if (b[0] > (G.bxSeen || 0)) {
       G.bxSeen = b[0]; if (G.time - b[4] > 1.5) continue;
@@ -1753,7 +1810,7 @@
     }
   }
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, <b>3 manche, una per piano</b>: si parte dalla serra e si sale fino al laboratorio in cima. Vince chi vince più manche.</p><p>🌿 <b>Serra carnivora</b>: le piante mordono chi passa vicino (fuoco le brucia, ghiaccio le congela, fungo le fa giganti, fata le rimpicciolisce, sabbia e colla le addormentano). 🕰️ <b>Sala dell\'orologio</b>: gli ingranaggi sotto il vetro ti fanno girare, il pendolo sbalza chi è sotto. ⚗️ <b>Laboratorio</b>: la voragine al centro.</p><p><b>1. Preparazione</b> (90 s, poi 60 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Ogni barattolo dice cosa fa e sotto il calderone leggi <b>cosa uscirà</b>; quando gli ingredienti <b>reagiscono tra loro</b> (fuoco + ghiaccio = vapore…) è un <b>segreto</b>: lo scopri lanciando, o col ricettario. Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. <b>💥 COMBO</b>: se l\'altro è incollato 🍯, congelato 🧊 o rallentato ⏳, il fuoco gli toglie <b>' + COMBO + ' cuori</b>: prima lo blocchi, poi lo colpisci. <b>🍷 Bere o lanciare</b>: col pulsante 🍷 bevi l\'ampolla scelta e ti dà un potere (🔥 fuoco = mantello di fiamme, ❄️ brina = pattini, 🦅 vento = scatto, 🍯 colla = piedi piantati, 🪞 specchio = scudo che rimanda un\'ampolla, 🌫️ cenere = sparisci nel fumo, ⏳ sabbia = tutto più veloce…; quelle instabili possono farti male). Le ampolle sono <b>poche</b>: il <b>calderone del tuo angolo</b> ti ridà le <b>tue</b> pozioni, una alla volta, ma ha solo ' + RESERVE + ' ricariche (+1 ogni ' + RES_T + ' s).</p><p><b>📖 Ricettario</b> (🪙 ' + BOOK_COST + ' monete, dal pulsante 📖 al calderone): svela le reazioni segrete e annota le pozioni che vedi.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, <b>3 manche, una per piano</b>: si parte dalla serra e si sale fino al laboratorio in cima. Vince chi vince più manche.</p><p>🌿 <b>Serra carnivora</b>: le piante mordono chi passa vicino (fuoco le brucia, ghiaccio le congela, fungo le fa giganti, fata le rimpicciolisce, sabbia e colla le addormentano). 🕰️ <b>Sala dell\'orologio</b>: gli ingranaggi sotto il vetro ti fanno girare, il pendolo sbalza chi è sotto. ⚗️ <b>Laboratorio</b>: la voragine al centro.</p><p>⏰ <b>A metà duello</b> ogni piano ha il suo <b>evento</b>, annunciato 5 secondi prima: 🌸 nella serra le piante fioriscono e sparano polline magico, 🕛 nell\'orologio suona la mezzanotte e il tempo rallenta per tutti (anche le ampolle), 🌋 in cima la voragine erutta e tutte le pozioni diventano più forti.</p><p><b>1. Preparazione</b> (90 s, poi 60 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Ogni barattolo dice cosa fa e sotto il calderone leggi <b>cosa uscirà</b>; quando gli ingredienti <b>reagiscono tra loro</b> (fuoco + ghiaccio = vapore…) è un <b>segreto</b>: lo scopri lanciando, o col ricettario. Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). Due ampolle che si <b>scontrano in volo</b> scoppiano in aria e mescolano i loro ingredienti: rispondere a un lancio con un contro-lancio dritto può fermarlo! <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. <b>💥 COMBO</b>: se l\'altro è incollato 🍯, congelato 🧊 o rallentato ⏳, il fuoco gli toglie <b>' + COMBO + ' cuori</b>: prima lo blocchi, poi lo colpisci. <b>🍷 Bere o lanciare</b>: col pulsante 🍷 bevi l\'ampolla scelta e ti dà un potere (🔥 fuoco = mantello di fiamme, ❄️ brina = pattini, 🦅 vento = scatto, 🍯 colla = piedi piantati, 🪞 specchio = scudo che rimanda un\'ampolla, 🌫️ cenere = sparisci nel fumo, ⏳ sabbia = tutto più veloce…; quelle instabili possono farti male). Le ampolle sono <b>poche</b>: il <b>calderone del tuo angolo</b> ti ridà le <b>tue</b> pozioni, una alla volta, ma ha solo ' + RESERVE + ' ricariche (+1 ogni ' + RES_T + ' s).</p><p><b>📖 Ricettario</b> (🪙 ' + BOOK_COST + ' monete, dal pulsante 📖 al calderone): svela le reazioni segrete e annota le pozioni che vedi.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
 
   CQ_MODES.alchimisti = {
     n: 'Duello degli alchimisti',
@@ -1819,7 +1876,7 @@
       const st = G.st;
       if (st.ph === 'prep') {
         const left = (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0);
-        if (G.chars.every(c => st.rd[c.id]) || left < -1.5) { st.ph = 'duel'; st.t0 = G.time; st.rd = {}; for (const c of G.chars) if (c.bot && !c.remote) duelArm(G, c); }
+        if (G.chars.every(c => st.rd[c.id]) || left < -1.5) { st.ph = 'duel'; st.t0 = G.time; st.rd = {}; st.ev = FL && FL.ev ? { k: FL.ev, t: r2(G.time + EV_AT) } : null; for (const c of G.chars) if (c.bot && !c.remote) duelArm(G, c); }
         return;
       }
       if (st.ph === 'mres') { if (G.time - st.t0 > MRES) { if (st.fin) finalEnd(G); else newRound(G); } return; }
@@ -1831,7 +1888,7 @@
           regen(G, c); botTick(G, c, dt);
         }
       }
-      flTick(G); pendTick(G); plantsTick(G); pendTick2(G);
+      flTick(G); pendTick(G); plantsTick(G); pendTick2(G); evTick(G);
       for (const c of G.chars) if (c.bot && !c.remote && !out(G, c)) gearMove(G, c, dt);
       for (const z of G.zn) if (ZONE[z.k].hurt && G.time < z.te) for (const c of G.chars) {   // pozza che brucia: un cuore ogni tanto
         const p = posOf(G, c); if (Math.hypot(p.x - z.x, p.y - z.y) < z.r && (c.burnT || 0) < G.time && !(c.remote && cqLagging(c)) && !fxOn(G, c, 'fireS')) { c.burnT = G.time + ZONE[z.k].hurt; if (G.time - z.t0 > 0.3) hurt(G, c, '🔥 bruciato'); }
@@ -1840,7 +1897,7 @@
       if (st.ph === 'duel' && G.time - st.t0 > DUEL) { const a = G.chars[0], b = G.chars[1]; roundEnd(G, a.hp > b.hp ? a : b.hp > a.hp ? b : null, '⏱ Tempo scaduto'); }
     },
     local(G, dt) {
-      stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G);
+      stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); evLocal(G);
       if (FL && FL.gears && G.st && G.st.ph !== 'prep') { const k = Math.floor(G.time); if (k !== G.tick) { G.tick = k; swp(k % 2 ? 2100 : 1700, k % 2 ? 1900 : 1500, 0.025, 0.012, 0, 'triangle'); } }   // tic-tac della sala dell'orologio
     },
     ev(G, c, o) {
@@ -1923,7 +1980,7 @@
         const ph = (t * 0.7 + i / 3) % 1, bx2 = x + 0.5 + Math.sin(i * 2.1 + t) * 0.12, by2 = y + 0.5 + Math.cos(i * 1.7) * 0.1;
         g.globalAlpha = (1 - ph) * 0.9; g.fillStyle = SIDE[k].liq; g.beginPath(); g.arc(sx(bx2, by2), sy(bx2, by2) - (0.75 + ph * 0.5) * U, Math.max(1.5, TW / 30) * (0.6 + ph), 0, 7); g.fill();
       }
-      g.globalAlpha = 1;
+      g.globalAlpha = 1; evDraw(g, G, sx, sy, TW, t);
       for (const z of G.zn || []) if (z.k === 'smoke') zoneDraw(g, G, z, sx, sy, TW, t);
       for (const f of G.fl || []) flaskDraw(g, f, sx, sy, TW, G.time);
       { const L = G.spl || [], nm = L.filter(s => s.k && s.how !== 'bounce' && s.how !== 'mirror'); for (const s of L) splashDraw(g, G, s, sx, sy, TW, t, nm.indexOf(s) >= nm.length - 3); }   // al massimo 3 nomi alla volta
@@ -1937,5 +1994,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr']) { const e = document.getElementById(id); if (e) e.remove(); } U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT };   // per le prove (prove/alc*.js)
 })();
