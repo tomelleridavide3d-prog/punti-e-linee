@@ -1,6 +1,6 @@
 // Duello degli alchimisti (gioco 1 contro 1, vedi CLAUDE.md "MINIGIOCO Duello degli alchimisti").
-// Passo 1: la TORRE DEI MAGHI (laboratorio tondo in cima alla torre, voragine luminosa al centro, ripari, calderoni di ricarica),
-// i due alchimisti col cappello a punta e la cintura delle ampolle, movimento, online in 2. Pozioni e duello nei passi dopo.
+// Passo 1: la TORRE DEI MAGHI (laboratorio tondo, voragine luminosa, ripari, calderoni di ricarica), alchimisti col cappello a punta, online in 2.
+// Passo 2: le POZIONI calcolate dalle proprieta' degli ingredienti (ING, EL, REACT, brew) e la PREPARAZIONE al calderone. Duello nei passi dopo.
 (() => {
   const mmss = t => Math.floor(t / 60) + ':' + String(Math.floor(t % 60)).padStart(2, '0');
   const HP = 3, TIME = 120;
@@ -345,6 +345,211 @@
     }
   }
 
+  // ======================= LE POZIONI: tutto CALCOLATO dalle proprieta' degli ingredienti (nessuna ricetta scritta a mano) =======================
+  // REGOLA D'ORO (richiesta dell'utente): per aggiungere o cambiare un ingrediente basta UNA RIGA qui sotto; nome, colore, forza, miccia,
+  // effetto, ricettario e scelte del computer si ricavano da soli. Campi:
+  //   id: UNA lettera, unica e per sempre (le pozioni si salvano come lettere in ordine alfabetico, es. "fs" = peperoncino + sabbia)
+  //   el: elemento che porta (vedi EL) e pw: quanto; spd: velocita' di volo (x); area: larghezza della zona (x); dur: durata (x);
+  //   bnc: rimbalzi (+); inst: instabilita' (+: accorcia la miccia); amp: forza di tutto (x); d: cosa fa da solo (scritto sul barattolo)
+  const ING = [
+    { id: 'f', n: 'Peperoncino di drago', e: '🌶️', c: '#e2462a', el: 'fire', pw: 1, inst: 0.25, d: 'brucia' },
+    { id: 'i', n: 'Brina', e: '❄️', c: '#9adcff', el: 'ice', pw: 1, d: 'gela e fa scivolare' },
+    { id: 'c', n: 'Cenere', e: '🌫️', c: '#7a7684', el: 'smoke', pw: 1, area: 1.3, d: 'nuvola che nasconde' },
+    { id: 'r', n: 'Resina', e: '🍯', c: '#d89a2a', el: 'glue', pw: 1, spd: 0.85, d: 'incolla a terra' },
+    { id: 'g', n: 'Fungo gigante', e: '🍄', c: '#c83a3a', el: 'grow', pw: 1, area: 1.1, d: 'fa diventare enormi' },
+    { id: 'p', n: 'Polvere di fata', e: '✨', c: '#f0a8e8', el: 'shrink', pw: 1, spd: 1.2, d: 'rimpicciolisce' },
+    { id: 's', n: 'Sabbia del tempo', e: '⏳', c: '#e0c068', el: 'slow', pw: 1, spd: 0.3, dur: 1.3, d: 'rallenta tutto, anche il volo' },
+    { id: 'w', n: 'Ragnatela', e: '🕸️', c: '#c8c8d4', el: 'pull', pw: 1, d: 'tira verso il punto' },
+    { id: 'v', n: 'Piuma di grifone', e: '🦅', c: '#8ae0c8', el: 'wind', pw: 1, spd: 1.3, d: 'raffica che spinge via' },
+    { id: 'x', n: 'Piuma di fenice', e: '🪶', c: '#ff8a3a', el: 'fire', pw: 0.4, bnc: 1, inst: 0.05, d: 'la pozione rimbalza' },
+    { id: 'm', n: 'Specchio liquido', e: '🪞', c: '#d8e4f0', el: 'mirror', pw: 1, dur: 1.2, d: 'muro che rimanda le pozioni' },
+    { id: 'o', n: 'Occhio di rospo', e: '👁️', c: '#7ac04a', el: 'chaos', pw: 0.6, amp: 1.5, inst: 0.35, area: 1.15, d: 'più forte, ma instabile' }];
+  const ING_BY = Object.fromEntries(ING.map(g => [g.id, g]));
+  // ELEMENTI: n = nome (maschile: "Fuoco lento"), a = aggettivo quando e' secondario, e = icona. I prodotti delle reazioni sono elementi anche loro
+  const EL = {
+    fire: { n: 'Fuoco', a: 'ardente', e: '🔥' }, ice: { n: 'Gelo', a: 'gelido', e: '❄️' }, smoke: { n: 'Fumo', a: 'fumoso', e: '💨' },
+    glue: { n: 'Vischio', a: 'appiccicoso', e: '🍯' }, grow: { n: 'Gigante', a: 'gigante', e: '🍄' }, shrink: { n: 'Folletto', a: 'piccino', e: '✨' },
+    slow: { n: 'Torpore', a: 'lento', e: '⏳' }, pull: { n: 'Vortice', a: 'risucchiante', e: '🕸️' }, wind: { n: 'Vento', a: 'ventoso', e: '🌬️' },
+    mirror: { n: 'Specchio', a: 'specchiato', e: '🪞' }, chaos: { n: 'Caos', a: 'imprevedibile', e: '🎲' },
+    steam: { n: 'Vapore', a: 'bollente', e: '♨️' }, soot: { n: 'Nerofumo', a: 'accecante', e: '🌑' }, statue: { n: 'Cristallo', a: 'pietrificante', e: '🧊' },
+    pop: { n: 'Botto', a: 'scoppiettante', e: '🎈' }, blaze: { n: 'Incendio', a: 'divampante', e: '☄️' }, whirl: { n: 'Mulinello', a: 'turbinante', e: '🌪️' } };
+  // REAZIONI tra COPPIE DI ELEMENTI (valgono nel calderone e, dal passo 4, anche sul pavimento): [a, b, prodotto, instabilita' in piu']
+  const REACT = [['fire', 'ice', 'steam', 0.2], ['fire', 'smoke', 'soot', 0.1], ['glue', 'ice', 'statue', 0.05], ['grow', 'shrink', 'pop', 0.25], ['fire', 'wind', 'blaze', 0.15], ['pull', 'wind', 'whirl', 0.2]];
+  const FUSE = 2.6, AREA = 1.3, SPEED = 7;   // miccia di una pozione stabile (s), raggio della zona (caselle), velocita' di volo (caselle/s)
+  const hexRgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const mix = cols => { const v = [0, 0, 0]; for (const c of cols) hexRgb(c).forEach((k, i) => { v[i] += k / cols.length; }); return '#' + v.map(k => Math.round(k).toString(16).padStart(2, '0')).join(''); };
+  const potKey = ids => ids.slice().sort().join('');
+  const BREW = new Map();
+  // brew("fs") -> la pozione: { k, ings, s: forza per elemento, main, n: nome, e, c: colore, spd, area, dur, bnc, inst, fuse, rx: reazioni avvenute }
+  function brew(key) {
+    if (BREW.has(key)) return BREW.get(key);
+    const ings = [...(key || '')].map(id => ING_BY[id]).filter(Boolean);
+    if (!ings.length) return null;
+    const s = {}; let spd = 1, area = 1, dur = 1, bnc = 0, inst = 0.08 * (ings.length - 1), amp = 1;   // piu' ingredienti = un po' piu' instabile
+    for (const g of ings) { if (g.el) s[g.el] = (s[g.el] || 0) + (g.pw || 1); spd *= g.spd || 1; area *= g.area || 1; dur *= g.dur || 1; bnc += g.bnc || 0; inst += g.inst || 0; amp *= g.amp || 1; }
+    const rx = [];
+    for (let again = true; again;) { again = false; for (const [a, b, to, di] of REACT) if (s[a] > 0.01 && s[b] > 0.01) { const m = Math.min(s[a], s[b]); s[a] -= m; s[b] -= m; s[to] = (s[to] || 0) + m * 1.5; inst += di; rx.push(to); again = true; } }
+    for (const k of Object.keys(s)) { s[k] = Math.round(s[k] * amp * 100) / 100; if (s[k] < 0.05) delete s[k]; }
+    const ord = Object.keys(s).sort((a, b) => s[b] - s[a]), main = ord[0] || null, top = main ? s[main] : 0;
+    // nome: elemento principale + aggettivi (elementi secondari, rimbalzi, forza, instabilita')
+    let n = main ? EL[main].n : 'Acqua sporca';
+    if (top >= 2.5) n = 'Triplo ' + n.toLowerCase(); else if (top >= 1.8) n = 'Doppio ' + n.toLowerCase();
+    const adj = ord.slice(1).filter(k => s[k] >= 0.3).map(k => EL[k].a);
+    if (bnc) adj.push('rimbalzante'); if (amp > 1.01) adj.push('potente');
+    const words = adj.slice(0, 2); if (inst >= 0.45) words.push('instabile');
+    if (words.length) n += ' ' + words.join(' ');
+    const P = { k: key, ings, s, main, n, e: main ? EL[main].e : '💧', c: mix(ings.map(g => g.c)), spd: SPEED * spd, area: AREA * area * (1 + 0.12 * (ings.length - 1)), dur, bnc, inst: Math.round(inst * 100) / 100, fuse: FUSE * Math.exp(-2.2 * inst), rx };
+    BREW.set(key, P); return P;
+  }
+
+  // ======================= PREPARAZIONE: il CALDERONE a tutto schermo (ognuno dietro il suo paravento) =======================
+  const BELT_N = 4, MAXI = 3, PREP = 60, PREP2 = 30, DUEL = 90;
+  const U2 = { pot: [], ph: '', fx: [], shake: 0, drain: 0, msg: '', msgT: 0 };
+  const now = () => performance.now() / 1000;
+  const sfxOk = () => { if (!store.settings.sound) return null; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; } catch { return null; } };
+  function swp(f0, f1, d, v, delay = 0, type = 'sine') {
+    const A = sfxOk(); if (!A) return; const t = A.currentTime + delay, o = A.createOscillator(), g = A.createGain();
+    o.type = type; o.frequency.setValueAtTime(f0, t); o.frequency.exponentialRampToValueAtTime(Math.max(20, f1), t + d);
+    g.gain.setValueAtTime(Math.min(0.5, v * 3), t); g.gain.exponentialRampToValueAtTime(0.0008, t + d); o.connect(g); g.connect(A.destination); o.start(t); o.stop(t + d + 0.02);
+  }
+  const SFX = {
+    plop: () => { swp(520, 140, 0.16, 0.06); swp(900, 1400, 0.08, 0.03, 0.1); },
+    bubble: () => { swp(300 + Math.random() * 300, 700 + Math.random() * 500, 0.07, 0.02); },
+    bottle: () => { swp(1800, 2400, 0.08, 0.035, 0, 'triangle'); swp(2600, 3000, 0.12, 0.03, 0.07, 'triangle'); swp(400, 180, 0.25, 0.03, 0.02); },
+    pour: () => { swp(600, 200, 0.35, 0.04); },
+    full: () => { swp(220, 160, 0.18, 0.05, 0, 'square'); }
+  };
+  function prepCss() {
+    if (document.getElementById('alCss')) return;
+    const st = document.createElement('style'); st.id = 'alCss';
+    st.textContent = `#alPrep{position:absolute;inset:0;z-index:7;background:radial-gradient(ellipse at 50% 30%,#3c285a,#0e0a18 70%);color:#f2ead8;font:14px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px);box-sizing:border-box;overflow-y:auto;touch-action:pan-y;gap:8px}
+#alPrep .top{width:100%;max-width:480px;display:flex;align-items:center;gap:8px}#alPrep .top b{flex:1;font-size:16px}#alPrep .tm{font:800 20px system-ui;min-width:56px;text-align:center;padding:4px 8px;border-radius:10px;background:rgba(0,0,0,.35)}#alPrep .tm.low{color:#ff8a7a}
+#alPrep button{font:700 14px system-ui,sans-serif;border:0;border-radius:12px;color:#fff;cursor:pointer}
+#alRdy{background:#2f8a4a;padding:9px 12px}#alRdy.on{background:#5a5a62}
+#alCv{width:100%;max-width:480px;height:190px;display:block}
+#alPot{display:flex;gap:6px;min-height:34px;align-items:center;justify-content:center;flex-wrap:wrap}#alPot .ch{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:5px 9px;font-weight:600}#alPot .ch i{font-style:normal;opacity:.6;margin-left:4px}#alPot .h{opacity:.7;font-size:13px}
+#alAct{display:flex;gap:8px;width:100%;max-width:480px}#alAct button{flex:1;padding:12px 6px}#alBot{background:#8a4ad0;font-size:16px!important}#alBot:disabled,#alEmp:disabled{opacity:.35}#alEmp{background:rgba(255,255,255,.14)}
+#alJars{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:480px}
+#alJars button{position:relative;min-height:80px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.22);border-radius:14px 14px 10px 10px;overflow:hidden;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:600;font-size:11px;line-height:1.1}
+#alJars button .lq{position:absolute;left:0;right:0;bottom:0;height:38%;opacity:.55}#alJars button .e{font-size:26px;position:relative;margin-top:2px}#alJars button .n{position:relative;margin-top:2px}#alJars button .d{position:relative;font-weight:400;font-size:9.5px;opacity:.8;margin-top:1px}#alJars button:active{transform:scale(.94)}#alJars button.off{opacity:.4}
+#alBelt{display:flex;gap:10px;align-items:flex-end;justify-content:center;width:100%;max-width:480px;padding:6px 0 2px;border-top:2px solid #6a4a2e}#alBelt .lb{font-weight:700;margin-right:2px;align-self:center}
+#alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:30px;height:40px;border-radius:7px 7px 15px 15px;border:2px solid rgba(220,230,240,.8);position:relative;overflow:hidden;background:rgba(255,255,255,.06)}#alBelt .vi::before{content:'';position:absolute;top:-2px;left:8px;width:10px;height:7px;background:#8a6a42;border-radius:2px}#alBelt .vi .lq{position:absolute;left:0;right:0;bottom:0;height:72%}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
+#alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}`;
+    document.head.appendChild(st);
+  }
+  function prepOpen(G) {
+    prepCss(); prepClose();
+    const el = document.createElement('div'); el.id = 'alPrep';
+    el.innerHTML = `<div class="top"><span class="tm" id="alTm">1:00</span><b>⚗️ Prepara le pozioni</b><button id="alRdy" type="button">✔ Pronto</button></div>
+      <canvas id="alCv"></canvas><div id="alPot"></div><div id="alMsg"></div>
+      <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
+      <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${g.e}</span><span class="n">${esc(g.n)}</span><span class="d">${esc(g.d)}</span></button>`).join('')}</div>
+      <div id="alBelt"><span class="lb">Cintura</span>${Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-b="${i}"><span class="vi"><span class="lq"></span></span><span class="ig"></span></button>`).join('')}</div>`;
+    $('#ciack').appendChild(el);
+    el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
+    el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
+    $('#alBot').onclick = () => bottle(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); prepRender(G); };
+    $('#alRdy').onclick = () => setReady(G, !ready(G));
+    U2.pot = []; U2.fx = []; U2.msg = '';
+    prepRender(G);
+  }
+  function prepClose() { const el = document.getElementById('alPrep'); if (el) el.remove(); }
+  const ready = G => !!(G.st && G.st.rd && G.st.rd[G.me.id]) || !!G.myRdy;
+  function say(t) { U2.msg = t; U2.msgT = now(); const m = document.getElementById('alMsg'); if (m) m.textContent = t; }
+  function addIng(G, id) {
+    if (U2.pot.length >= MAXI) { say('Al massimo ' + MAXI + ' ingredienti: imbottiglia o svuota.'); SFX.full(); U2.shake = now(); return; }
+    U2.pot.push(id); U2.fx.push({ id, t: now() }); SFX.plop(); say('');
+    prepRender(G);
+  }
+  function bottle(G) {
+    if (!U2.pot.length) return;
+    const b = G.me.belt, i = b.findIndex(v => !v);
+    if (i < 0) { say('La cintura è piena: tocca un\'ampolla per svuotarla.'); SFX.full(); return; }
+    b[i] = potKey(U2.pot); U2.pot = []; U2.drain = now(); SFX.bottle(); sendBelt(G);
+    say(b.every(Boolean) ? 'Cintura piena! Premi ✔ Pronto (o cambia qualcosa).' : ''); prepRender(G);
+  }
+  function unbottle(G, i) { if (!G.me.belt[i]) return; G.me.belt[i] = ''; SFX.pour(); sendBelt(G); if (ready(G)) setReady(G, false); prepRender(G); }
+  function sendBelt(G) { if (G.guest) cqNetSend({ k: 'belt', b: G.me.belt.join(',') }); }
+  function setReady(G, on) {
+    if (on && U2.pot.length && G.me.belt.some(v => !v)) bottle(G);   // quello che bolle nel calderone non si butta
+    G.myRdy = on;
+    if (G.guest) cqNetSend({ k: 'rdy', on: on ? 1 : 0 }); else if (G.st) { if (on) G.st.rd[G.me.id] = 1; else delete G.st.rd[G.me.id]; }
+    if (on) beep(784, 0.08, 0.04); prepRender(G);
+  }
+  function prepRender(G) {
+    const el = document.getElementById('alPrep'); if (!el) return;
+    const p = document.getElementById('alPot');
+    p.innerHTML = U2.pot.length ? U2.pot.map((id, i) => `<button type="button" class="ch" data-p="${i}">${ING_BY[id].e} ${esc(ING_BY[id].n)}<i>✕</i></button>`).join('') + `<span class="h">${U2.pot.length}/${MAXI}</span>`
+      : '<span class="h">Tocca un barattolo: l\'ingrediente cade nel calderone (fino a ' + MAXI + ').</span>';
+    p.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { U2.pot.splice(+b.dataset.p, 1); SFX.pour(); prepRender(G); }; });
+    const full = G.me.belt.every(Boolean);
+    $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length;
+    el.querySelectorAll('[data-i]').forEach(b => b.classList.toggle('off', U2.pot.length >= MAXI));
+    el.querySelectorAll('[data-b]').forEach(b => { const k = G.me.belt[+b.dataset.b], P = k && brew(k); b.querySelector('.lq').style.background = P ? P.c : 'transparent'; b.querySelector('.ig').textContent = P ? P.ings.map(g => g.e).join('') : '—'; });
+    const r = $('#alRdy'), on = ready(G); r.classList.toggle('on', on); r.textContent = on ? '⏳ Aspetto…' : '✔ Pronto';
+  }
+  // il calderone disegnato (bolle, fuoco, l'ingrediente che cade, schizzi). Trema e ribolle forte quando la miscela e' instabile: un indizio, non la ricetta
+  function potDraw() {
+    const cv = document.getElementById('alCv'); if (!cv) return;
+    const W = cv.clientWidth, H = cv.clientHeight, dpr = Math.min(2, window.devicePixelRatio || 1);
+    if (cv.width !== Math.round(W * dpr)) { cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr); }
+    const g = cv.getContext('2d'); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.clearRect(0, 0, W, H);
+    const t = now(), P = U2.pot.length ? brew(potKey(U2.pot)) : null, inst = P ? P.inst : 0;
+    const sh = (P ? Math.max(0, inst - 0.2) * 5 : 0) + (t - U2.shake < 0.3 ? 4 : 0), cx = W / 2 + Math.sin(t * 40) * sh, cy = H * 0.5, R = Math.min(W * 0.3, H * 0.42);
+    // fuoco sotto
+    for (let i = 0; i < 7; i++) { const x = cx + (i - 3) * R * 0.18, h = R * (0.32 + 0.12 * Math.sin(t * 9 + i * 1.7)); g.fillStyle = i % 2 ? '#ff8a2a' : '#ffb84a'; g.beginPath(); g.moveTo(x - R * 0.09, cy + R * 0.78); g.quadraticCurveTo(x, cy + R * 0.78 - h * 2, x + R * 0.09, cy + R * 0.78); g.fill(); }
+    // pentolone
+    g.fillStyle = '#1e1e26'; g.beginPath(); g.ellipse(cx, cy + R * 0.1, R, R * 0.72, 0, 0, Math.PI); g.lineTo(cx - R, cy - R * 0.18); g.ellipse(cx, cy - R * 0.18, R, R * 0.3, 0, Math.PI, 0); g.closePath(); g.fill();
+    g.fillStyle = '#34343e'; g.beginPath(); g.ellipse(cx - R * 0.45, cy + R * 0.12, R * 0.12, R * 0.4, 0.3, 0, 7); g.fill();
+    g.strokeStyle = '#4a4a56'; g.lineWidth = R * 0.11; g.beginPath(); g.ellipse(cx, cy - R * 0.2, R * 1.02, R * 0.3, 0, 0, 7); g.stroke();
+    // liquido (scende quando imbottigli o svuoti)
+    const dk = Math.max(0, 1 - (t - U2.drain) / 0.5), liq = P ? P.c : '#2e3e52', lv = 1 - dk * 0.6;
+    g.save(); g.beginPath(); g.ellipse(cx, cy - R * 0.2, R * 0.95, R * 0.26, 0, 0, 7); g.clip();
+    g.fillStyle = cqShade(liq, 0.7); g.fillRect(cx - R, cy - R * 0.5, R * 2, R);
+    g.fillStyle = liq; g.beginPath(); g.ellipse(cx, cy - R * 0.2 + (1 - lv) * R * 0.3, R * 0.95 * lv, R * 0.24 * lv, 0, 0, 7); g.fill();
+    // bolle (di piu' e piu' grosse se instabile)
+    const nb = P ? 6 + Math.round(inst * 14) : 3;
+    for (let i = 0; i < nb; i++) { const ph = (t * (0.8 + inst * 2) + i * 0.37) % 1, bx = cx + Math.sin(i * 2.3) * R * 0.7, by = cy - R * 0.2 + Math.cos(i * 1.7) * R * 0.15, r = R * (0.03 + 0.05 * ph) * (1 + inst); g.globalAlpha = 1 - ph; g.fillStyle = cqShade(liq, 1.5); g.beginPath(); g.arc(bx, by - ph * R * 0.08, r, 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+    // gli ingredienti che galleggiano
+    g.font = Math.round(R * 0.22) + 'px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle';
+    U2.pot.forEach((id, i) => { const a = t * 0.8 + i * 2.1; g.fillText(ING_BY[id].e, cx + Math.cos(a) * R * 0.45, cy - R * 0.22 + Math.sin(a) * R * 0.1); });
+    g.restore();
+    // vapore
+    for (let i = 0; i < 5; i++) { const ph = (t * 0.35 + i / 5) % 1; g.globalAlpha = (1 - ph) * 0.25; g.fillStyle = P ? cqShade(liq, 1.6) : '#c8d0dc'; g.beginPath(); g.arc(cx + Math.sin(i * 3 + t) * R * 0.4, cy - R * 0.4 - ph * R * 1.1, R * (0.12 + ph * 0.2), 0, 7); g.fill(); }
+    g.globalAlpha = 1;
+    // l'ingrediente appena toccato cade dentro, poi lo schizzo
+    U2.fx = U2.fx.filter(f => t - f.t < 0.9);
+    for (const f of U2.fx) {
+      const a = (t - f.t) / 0.4;
+      if (a < 1) { g.font = Math.round(R * 0.4) + 'px system-ui'; g.fillText(ING_BY[f.id].e, cx, 10 + (cy - R * 0.25 - 10) * a * a); }
+      else { const k = (t - f.t - 0.4) / 0.5; g.globalAlpha = 1 - k; g.fillStyle = ING_BY[f.id].c; for (let i = 0; i < 8; i++) { const an = Math.PI + i / 7 * Math.PI; g.beginPath(); g.arc(cx + Math.cos(an) * R * 0.5 * k, cy - R * 0.25 + Math.sin(an) * R * 0.5 * k - k * (1 - k) * R * 0.6, R * 0.05, 0, 7); g.fill(); } g.globalAlpha = 1; }
+    }
+    if (P && Math.random() < 0.02 + inst * 0.05) SFX.bubble();
+  }
+  cqEachFrame(() => {
+    const G = cq.g; if (!G || G.mode !== 'alchimisti' || !document.getElementById('alPrep')) return;
+    potDraw();
+    const st = G.st; if (!st) return;
+    const left = Math.max(0, (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0)), tm = document.getElementById('alTm');
+    const txt = mmss(left); if (tm.textContent !== txt) { tm.textContent = txt; tm.classList.toggle('low', left < 10); }
+    if (U2.msg && now() - U2.msgT > 4) say('');
+  });
+
+  // ---- il computer prepara la sua cintura: pozioni sensate (la miccia non troppo corta), una volta su quattro con tre ingredienti ----
+  const CPU_ING = ['f', 'i', 'r', 'v', 'w', 'g', 'c', 's', 'x', 'p', 'm', 'o'];
+  function cpuBelt() {
+    const out = [];
+    for (let k = 0; k < 60 && out.length < BELT_N; k++) {
+      const n = Math.random() < 0.45 ? 1 : Math.random() < 0.7 ? 2 : 3, ids = [];
+      for (let i = 0; i < n; i++) ids.push(cqPickOne(CPU_ING));
+      const P = brew(potKey(ids)); if (P.spd * P.fuse < 6 || P.main === 'pop') continue;
+      out.push(P.k);
+    }
+    while (out.length < BELT_N) out.push('f');
+    return out;
+  }
+
   // ---- computer: per ora gira per il laboratorio ----
   function botTick(G, c, dt) {
     c.think -= dt;
@@ -355,7 +560,19 @@
     cqModeStep(c, dt, 0.9);
   }
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b>: al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Gli ingredienti si combinano in centinaia di modi… e qualche pozione ti scoppia in mano.</p><p><b>2. Duello</b>: lanci le pozioni ad arco. 3 cuori a testa; le esplosioni ti sbalzano contro i muri o giù nella <b>voragine</b>.</p><p><i>In costruzione: per ora si gira nella torre.</i></p></details>';
+  // ---- FASI decise dall'host in G.st = { n: manche, ph: 'prep' | 'duel', t0, rd: { id: 1 } (pronti) }; ogni telefono apre e chiude il suo pannello ----
+  function stage(G) {
+    const ph = G.st ? G.st.ph : ''; if (ph === U2.ph) return;
+    if (U2.ph === 'prep' && U2.pot.length && G.me.belt.some(v => !v)) bottle(G);   // tempo scaduto: quello che bolle si imbottiglia da solo
+    U2.ph = ph;
+    if (ph === 'prep') { G.myRdy = false; prepOpen(G); }
+    else prepClose();
+    if (ph === 'duel') cqToast('⚔️ <b>Duello!</b> Guarda la cintura dell\'altro: i colori delle sue ampolle sono le sue pozioni. (Il lancio arriva nel prossimo passo.)');
+  }
+  const vials = (G, c) => !c.belt || (G.st && G.st.ph === 'prep' && c !== G.me) ? null : c.belt.map(k => { const P = k && brew(k); return P ? P.c : null; });
+  const cleanBelt = s => String(s || '').split(',').slice(0, BELT_N).map(k => [...k].filter(id => ING_BY[id]).slice(0, MAXI).sort().join('')).concat(Array(BELT_N).fill('')).slice(0, BELT_N);
+
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b>: al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Gli ingredienti si combinano in centinaia di modi… e qualche pozione ti scoppia in mano. Se il calderone trema e ribolle forte, la miscela è instabile!</p><p><b>2. Duello</b>: lanci le pozioni ad arco. 3 cuori a testa; le esplosioni ti sbalzano contro i muri o giù nella <b>voragine</b>.</p><p><i>In costruzione: per ora preparazione e giro nella torre.</i></p></details>';
 
   CQ_MODES.alchimisti = {
     n: 'Duello degli alchimisti',
@@ -366,30 +583,46 @@
     opts: () => RULES,
     read: () => ({}),
     start(G) {
-      G.opp = G.chars.find(c => c !== G.me) || null; G.left = TIME;
-      G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.path = []; c.think = 1 + i; });
+      G.opp = G.chars.find(c => c !== G.me) || null;
+      G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
+      G.st = { n: 1, ph: 'prep', t0: 0, rd: {} }; U2.ph = '';
+      for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(); G.st.rd[c.id] = 1; }
     },
-    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.left = TIME; G.chars.forEach(c => { c.hp = HP; }); },
+    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; G.chars.forEach(c => { c.hp = HP; c.belt = Array(BELT_N).fill(''); }); },
     intro: () => '⚗️ Benvenuto nella torre dei maghi!',
     voice: () => 1,   // voce sempre aperta tra i due
+    speed: () => { const G = cq.g; return G && G.st && G.st.ph === 'prep' ? 0 : 1; },
     hud(G) {
       const h = c => c ? '❤️'.repeat(Math.max(0, c.hp)) + '🖤'.repeat(Math.max(0, HP - c.hp)) : '';
-      return `⚗️ ${h(G.me)}${G.opp ? ' · ' + esc(G.opp.name) + ' ' + h(G.opp) : ''} · ⏱ ${mmss(Math.max(0, G.left))}`;
+      const st = G.st, left = !st ? 0 : st.ph === 'prep' ? (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0) : DUEL - (G.time - st.t0);
+      return `⚗️ ${h(G.me)}${G.opp ? ' · ' + esc(G.opp.name) + ' ' + h(G.opp) : ''} · ${st && st.ph === 'prep' ? '🧪' : '⚔️'} ${mmss(Math.max(0, left))}`;
     },
-    big: G => G.left < 10 && G.left > 0 ? '⏱ ' + Math.ceil(G.left) + '…' : '',
+    big(G) {
+      const st = G.st; if (!st) return '⏳ Un attimo…';
+      if (st.ph === 'duel') { const l = DUEL - (G.time - st.t0); return l < 10 && l > 0 ? '⏱ ' + Math.ceil(l) + '…' : ''; }
+      return '';
+    },
     view: () => ({ z: 0.84, x: 0, y: 0 }),
     tick(G, dt) {
-      G.left -= dt;
-      for (const c of G.chars) if (c.bot && !c.remote) botTick(G, c, dt);
-      if (G.left <= 0) cqModeEnd({ t: '⚗️ Fine della prova', why: 'Per ora si gira nella torre: pozioni e duello arrivano nei prossimi passi!', rank: G.chars.map(c => [c.name, '']), win: [] });
+      const st = G.st;
+      for (const c of G.chars) if (c.bot && !c.remote && st.ph === 'duel') botTick(G, c, dt);
+      if (st.ph === 'prep') {
+        const left = (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0);
+        if (G.chars.every(c => st.rd[c.id]) || left < -1.5) { st.ph = 'duel'; st.t0 = G.time; st.rd = {}; }
+      } else if (st.ph === 'duel' && G.time - st.t0 > DUEL) cqModeEnd({ t: '⚗️ Fine della prova', why: 'Per ora si preparano le pozioni e si gira nella torre: il lancio arriva nel prossimo passo!', rank: G.chars.map(c => [c.name, '']), win: [] });
     },
-    snap: G => ({ l: Math.round(G.left * 10) / 10 }),
-    apply(G, x) { G.left = x.l; },
-    csnap: c => [c.hp],
-    capply(G, c, a) { if (a[0] != null) c.hp = a[0]; },
+    local(G) { stage(G); },
+    ev(G, c, o) {
+      if (o.k === 'belt' && G.st && (G.st.ph === 'prep' || G.time - G.st.t0 < 3)) c.belt = cleanBelt(o.b);
+      else if (o.k === 'rdy' && G.st && G.st.ph === 'prep') { if (o.on) G.st.rd[c.id] = 1; else delete G.st.rd[c.id]; }
+    },
+    snap: G => ({ st: G.st }),
+    apply(G, x) { if (x.st) { G.st = x.st; if (G.st.ph !== 'prep') G.myRdy = false; } },
+    csnap: c => [c.hp, (c.belt || []).join(',')],
+    capply(G, c, a) { if (a[0] != null) c.hp = a[0]; if (c !== G.me && a[1] != null) c.belt = cleanBelt(a[1]); },
     draw(c) {
       const G = cq.g, s = sideOf(G, c), L = cqLookOf(c), key = s + (L.skin || '');
-      if (c.__dk !== key) { c.__dk = key; c.__dr = (g, X, Y, TW, L2, w, f) => wizard(g, X, Y, TW, L2, w, f, s, null); c.__dr.top = cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75); }
+      if (c.__dk !== key) { c.__dk = key; c.__dr = (g, X, Y, TW, L2, w, f) => wizard(g, X, Y, TW, L2, w, f, s, vials(cq.g, c)); c.__dr.top = cqTop(L) + (L.skin === 'omino' ? 0.85 : 0.75); }
       return c.__dr;
     },
     deco(g, c, X, Y, TW) {
@@ -412,5 +645,7 @@
     },
     night: () => ({ a: 0.42, r: 5, lights: LIGHTS, see: () => true })
   };
-  window.__alc = { mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard };   // per le prove (prove/alc*.js)
+  // esce dalla partita (fine, abbandono): via il pannello
+  cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && document.getElementById('alPrep')) { prepClose(); U2.ph = ''; } });
+  window.__alc = { mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen };   // per le prove (prove/alc*.js)
 })();

@@ -29,12 +29,13 @@
   // ---- il computer gira; la prova finisce allo scadere ----
   const bot = G.chars.find(c => c.bot), b0 = [bot.x, bot.y];
   cq.on = false; cancelAnimationFrame(cq.raf);
-  for (let i = 0; i < 200; i++) cqModeTick(0.05);
+  for (let i = 0; i < 70; i++) cqModeTick(0.05); G.st.ph = 'duel'; G.st.t0 = G.time;
+  for (let i = 0; i < 140; i++) cqModeTick(0.05);
   out.push('computer: si e\' mosso di ' + Math.hypot(bot.x - b0[0], bot.y - b0[1]).toFixed(1) + ' caselle, dentro la torre: ' + (Math.hypot(bot.x - A.C, bot.y - A.C) < A.RAD ? 'si' : 'NO'));
   out.push('barra: ' + $('#cqModeBar').textContent);
-  G.left = 0.01; cqModeTick(0.05);
+  G.st.t0 = G.time - 200; cqModeTick(0.05);
   out.push('fine: ' + G.phase + ' | ' + $('#tkTitle').textContent);
-  cqCloseTask(); G.phase = 'play'; G.left = 99;
+  cqCloseTask(); G.phase = 'play'; G.st.t0 = G.time;
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   // ---- foto: io vicino alla voragine, l'altro poco lontano; sotto, tutti i personaggi col cappello ----
   cq.x = 7.6; cq.y = 8.4; bot.x = bot.tx = 12.5; bot.y = bot.ty = 7.6; bot.path = [];
