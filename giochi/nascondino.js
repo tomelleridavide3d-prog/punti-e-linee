@@ -101,7 +101,7 @@
   // colpo del cercatore s (host): tg = { id } nascosto oppure { cx, cy } oggetto vero
   function hit(G, s, tg) {
     if (!tg || s.r !== 1 || !s.alive || stunned(G, s) || hiding(G)) return;
-    if (tg.id != null) { const v = byId(G, tg.id); if (v && v.r === 0 && v.alive && dist(s, v) < REACH + 0.7) return kill(G, v, s); }
+    if (tg.id != null) { const v = byId(G, tg.id); if (v && v.r === 0 && v.alive && dist(s, v) < REACH + 0.7 && !cqLagging(v)) return kill(G, v, s); }   // cqLagging: rete inceppata, qui sembra fermo
     const p = tg.cx != null ? { x: tg.cx + 0.5, y: tg.cy + 0.5 } : P(s);
     s.err = (s.err || 0) + 1; s.stun = G.time + STUN; s.path = []; s.tg = null;
     say(G, 'miss', s.id, -1, p.x, p.y);

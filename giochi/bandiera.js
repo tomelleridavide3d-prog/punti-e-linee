@@ -191,7 +191,7 @@ CQ_WAIT.bandiera = cqLib('squadre').then(L => {
         const p = P(v); if (side(G, p.x, p.y) === v.t || (v.safe || 0) > G.time) continue;
         if (!holding(G, v) && Math.hypot(p.x - G.B[1 - v.t].x, p.y - G.B[1 - v.t].y) < ZONE) continue;
         const by = active(G).find(e => e.t !== v.t && dist(e, v) < TOUCH);
-        if (by) catchIt(G, v, by);
+        if (by && !cqLagging(v)) catchIt(G, v, by);   // cqLagging: rete inceppata, qui sembra fermo
       }
       // computer
       for (const c of G.chars) {

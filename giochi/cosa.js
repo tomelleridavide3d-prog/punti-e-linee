@@ -646,7 +646,7 @@
     if ((c.kcd || 0) <= 3) {
       const v = c.prey != null && byId(G, c.prey);
       if (v && v.alive && !v.th && !v.on) {
-        if (dist(v, c) < REACH && canAtk(G, c)) { const ok = (canInf(G, c) && Math.random() < 0.5) ? infect(G, c, v) : attack(G, c, v); if (ok) { c.prey = null; c.path = []; } else if (Math.random() < 0.12) c.prey = null; return; }
+        if (dist(v, c) < REACH && canAtk(G, c) && !cqLagging(v)) { const ok = (canInf(G, c) && Math.random() < 0.5) ? infect(G, c, v) : attack(G, c, v); if (ok) { c.prey = null; c.path = []; } else if (Math.random() < 0.12) c.prey = null; return; }
         if (!c.path.length || Math.random() < 0.35) go(c, v.x, v.y);
         if (Math.random() < 0.015) c.prey = null;
         return;

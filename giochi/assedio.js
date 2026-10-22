@@ -39,6 +39,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) / 1.5;
   const dead = (G, c) => (c.dn || 0) > G.time;
   const safe = (G, c) => (c.sf || 0) > G.time;
+  const hitOk = (G, c) => !safe(G, c) && !cqLagging(c);   // si puo' colpire: non protetto e senza la rete inceppata (cqLagging: qui sembrerebbe fermo)
   const atkT = G => G.half === 1 ? G.a0 : 1 - G.a0;
   const isAtk = (G, c) => c.t === atkT(G);
   const hT = G => G.time - G.hs;
@@ -577,7 +578,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
         if (hit) {
           a.te = tt; a.hx = x; a.hy = y; a.hz = z;
           if (!bolt && shieldBlocks(hit, a)) { a.hit = -2; hit.blk = (hit.blk || 0) + 1; }   // lo scudo del guerriero (davanti) la ferma; il dardo della balestra no
-          else { a.hit = hit.id; if (!safe(G, hit)) hurt(G, hit, bolt ? 2 : 1, byId(G, a.o), bolt ? 'bal' : 'ar'); }
+          else { a.hit = hit.id; if (hitOk(G, hit)) hurt(G, hit, bolt ? 2 : 1, byId(G, a.o), bolt ? 'bal' : 'ar'); }
           break;
         }
         if (u > 0.06 && z < topAt(Math.floor(x), Math.floor(y))) { a.te = tt; a.hx = x; a.hy = y; a.hz = z; break; }
@@ -631,7 +632,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
       if (e.sd && clsOf(e) === 'g' && !e.cl && !e.pu && e.sdA != null && (e.pmT || 0) <= G.time && -(Math.cos(e.sdA) * ax + Math.sin(e.sdA) * ay) / m > 0.2) {
         e.pmT = G.time + PARRY_CD; e.pmN = (e.pmN || 0) + 1; say(G, 'parry', { a: e.id, b: c.id, x: r1(q.x), y: r1(q.y) }); return;
       }
-      if (!safe(G, e)) {
+      if (hitOk(G, e)) {
         if (e.cl) { const S = MP().spots[e.cl.s]; e.cl = null; tp(G, e, S.ax, S.ay); e.fallN = (e.fallN || 0) + 1; hurt(G, e, 1, c, 'fall'); }   // chi sale la scala cade giu'
         else { hurt(G, e, 1, c, k === 'g' ? 'sw' : 'hm'); if (!dead(G, e)) { const nx = q.x + ax / m * KNOCK, ny = q.y + ay / m * KNOCK; if (cqFree(nx, ny) && hzAt(nx, ny) === hzAt(q.x, q.y)) tp(G, e, nx, ny); } }
         c.mh = (c.mh || 0) + 1;
@@ -1082,7 +1083,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     for (const r of G.rk) {
       if (r.te || G.time < r.t0 + r.d) continue; r.te = G.time;
       const by = byId(G, r.o), x = r.x1, y = r.y1;
-      for (const c of G.chars) { if (!c.alive || dead(G, c) || c.t === r.t || safe(G, c)) continue; const q = xyOf(G, c), dd = Math.hypot(q.x - x, q.y - y); if (dd < ROCK_R && Math.abs(bodyZ(G, c) - (r.z1 - 0.2)) < 1.6) hurt(G, c, dd < 0.9 ? 2 : 1, by, 'rock'); }
+      for (const c of G.chars) { if (!c.alive || dead(G, c) || c.t === r.t || !hitOk(G, c)) continue; const q = xyOf(G, c), dd = Math.hypot(q.x - x, q.y - y); if (dd < ROCK_R && Math.abs(bodyZ(G, c) - (r.z1 - 0.2)) < 1.6) hurt(G, c, dd < 0.9 ? 2 : 1, by, 'rock'); }
       G.bw = G.bw.filter(b => b.t === r.t || Math.hypot(b.x + 0.5 - x, b.y + 0.5 - y) > 1.4);
       let mb = 0; for (let yy = Math.floor(y) - 1; yy <= Math.floor(y) + 1; yy++) for (let xx = Math.floor(x) - 1; xx <= Math.floor(x) + 1; xx++) { const s = cqSolid[yy] && cqSolid[yy][xx]; if (s && s.prop === 'aMerl' && mb < 2 && Math.hypot(xx + 0.5 - x, yy + 0.5 - y) < 1.25 && !G.mb.includes(xx + ',' + yy)) { G.mb.push(xx + ',' + yy); mb++; } }
       const si = secAt(x, y); let wall = 0;
@@ -1422,6 +1423,7 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
     },
     local(G, dt) {
       const me = G.me; if (G.guest && !G.ready) return;
+      if (G.guest) for (const o of [G.rm, G.ct, G.tw]) if (o && o.tx != null) cqNetGlide(o, dt);   // macchine fluide (vedi keep in apply)
       syncMap(G);
       for (const c of G.chars) { if (!c.lxT || G.time - c.lxT > 0.4) { const p = P(c); c.lx = c.cx0 == null ? p.x : c.cx0; c.ly = c.cy0 == null ? p.y : c.cy0; c.cx0 = p.x; c.cy0 = p.y; c.lxT = G.time; } }
       // nome del posto quando ci entro (zone e case)
@@ -1500,15 +1502,17 @@ CQ_WAIT.assedio = cqLib('squadre').then(L => {
         bd: G.bodies.map(b => [b.id, r2(b.x), r2(b.y), b.face, r1(b.t - G.time)]) };
     },
     apply(G, x) {
+      // ariete, catapulta e torre (spinti a passo d'uomo): si tiene lo stesso oggetto e la posizione arriva con cqNetGot; cqNetGlide in local li muove fluidi
+      const keep = (old, nu) => { if (!nu) return null; const o = old || { x: nu.x, y: nu.y }, X = nu.x, Y = nu.y; delete nu.x; delete nu.y; Object.assign(o, nu); cqNetGot(o, X, Y, G.time); return o; };
       G.half = x.h; G.hs = G.time - x.hs; G.iv = x.iv > 0 ? G.time + x.iv : 0; G.res = x.res; G.a0 = x.a0; G.lit = x.li; G.best = x.bs;
-      G.ph = x.ph; G.lim = x.lim; G.gh = x.gh; G.gopen = !!x.go; G.zp = x.zp; G.za = x.za; G.zd = x.zd; G.rm = { y: x.rm[0], n: x.rm[1], hit: G.time + x.rm[2], pl: x.rm[3] || 0, fire: x.rm[4] ? G.time + x.rm[4] : 0 }; G.oil = x.oil.map(v => G.time + v); G.burn = x.bu ? { t0: G.time + x.bu[0], e: G.time + x.bu[1], hit: [] } : null;
+      G.ph = x.ph; G.lim = x.lim; G.gh = x.gh; G.gopen = !!x.go; G.zp = x.zp; G.za = x.za; G.zd = x.zd; G.rm = keep(G.rm, { x: RAM_X, y: x.rm[0], n: x.rm[1], hit: G.time + x.rm[2], pl: x.rm[3] || 0, fire: x.rm[4] ? G.time + x.rm[4] : 0 }); G.oil = x.oil.map(v => G.time + v); G.burn = x.bu ? { t0: G.time + x.bu[0], e: G.time + x.bu[1], hit: [] } : null;
       G.ld = x.ld.map(a => ({ st: a[0], c: a[1], s: a[2], x: a[3], y: a[4] }));
       G.bw = (x.bw || []).map(a => ({ x: a[0], y: a[1], t: a[2], hp: a[3], o: a[4] }));
-      G.ct = x.ct ? { x: x.ct[0], y: x.ct[1], hp: x.ct[2], n: x.ct[3], rl: G.time + x.ct[4], dn: x.ct[5] > 0 ? G.time + x.ct[5] : 0, drv: x.ct[6], arm: G.time + x.ct[7] } : null;
+      G.ct = keep(G.ct, x.ct ? { x: x.ct[0], y: x.ct[1], hp: x.ct[2], n: x.ct[3], rl: G.time + x.ct[4], dn: x.ct[5] > 0 ? G.time + x.ct[5] : 0, drv: x.ct[6], arm: G.time + x.ct[7] } : null);
       G.bl = (x.bl || []).map(v => ({ hp: v[0], dn: v[1] > 0 ? G.time + v[1] : 0, rl: G.time + v[2], a: v[3] }));
       { const old = G.rk || []; G.rk = (x.rk || []).map(v => { const o = old.find(r => r.id === v[0]); return Object.assign(o || {}, { id: v[0], o: v[1], t: v[2], x0: v[3], y0: v[4], z0: v[5], x1: v[6], y1: v[7], z1: v[8], t0: G.time + v[9], d: v[10], pk: v[11], te: v[12] ? G.time + v[12] : 0 }); }); }
       G.wl = x.wl || []; G.mb = x.mb || [];
-      G.tw = x.tw ? { x: x.tw[0], y: x.tw[1], hp: x.tw[2], drv: x.tw[3], dk: x.tw[4], dn: x.tw[5] > 0 ? G.time + x.tw[5] : 0 } : null;
+      G.tw = keep(G.tw, x.tw ? { x: x.tw[0], y: x.tw[1], hp: x.tw[2], drv: x.tw[3], dk: x.tw[4], dn: x.tw[5] > 0 ? G.time + x.tw[5] : 0 } : null);
       for (const v of x.ar) { const o = { id: v[0], o: v[1], q: v[2], x0: v[3], y0: v[4], z0: v[5], x1: v[6], y1: v[7], z1: v[8], t0: G.time + v[9], d: v[10], pk: v[11], te: v[12] ? G.time + v[12] : 0, hit: v[13], t: v[15], k: v[16] || undefined }; if (v[14]) [o.hx, o.hy, o.hz] = v[14]; const old = G.ar.find(a => a.id === o.id); if (old) Object.assign(old, { te: o.te, hit: o.hit, hx: o.hx, hy: o.hy, hz: o.hz }); else G.ar.push(o); }
       G.ar = G.ar.filter(a => a.id < 0 ? G.time - a.t0 < a.d + 0.2 && !G.ar.some(b => b.o === G.me.id && b.q === a.q && b.id > 0) : G.time - a.t0 < 4 + a.d);
       if (x.bd) G.bodies = x.bd.map(a => { const c = byId(G, a[0]); return c ? { id: a[0], x: a[1], y: a[2], face: a[3], t: G.time + a[4], look: cqLookOf(c), name: c.name, nk: 1 } : null; }).filter(Boolean);

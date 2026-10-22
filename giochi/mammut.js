@@ -640,7 +640,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       const sp = CQ_SPEED * 1.75 * dt, nx = m.x + m.cd[0] * sp, ny = m.y + m.cd[1] * sp;
       if (cqCellFree(Math.floor(nx), Math.floor(ny))) { m.x = nx; m.y = ny; } else m.cT = -99;
       m.walk += dt * 14; m.face = m.cd[0] - m.cd[1] > 0 ? 1 : -1;
-      for (const c of active(G)) if (!m.hit.includes(c.id) && dxy(c, m.x, m.y) < 1.1) { m.hit.push(c.id); knock(G, c, 'm'); }
+      for (const c of active(G)) if (!m.hit.includes(c.id) && dxy(c, m.x, m.y) < 1.1 && !cqLagging(c)) { m.hit.push(c.id); knock(G, c, 'm'); }   // cqLagging: rete inceppata, qui sembra fermo
       if (G.time - m.cT > 1.3) { mmFleeFrom(G, m.x - m.cd[0], m.y - m.cd[1], 9); }
     }
     else if (m.st === 'flee') {
@@ -839,7 +839,7 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
       if (j.cd > G.time || j.fear > G.time) continue;
       const pack = G.jk.filter(o => Math.hypot(o.x - j.x, o.y - j.y) < 2.5).length;
       for (const c of active(G)) {
-        const q = P(c), d = Math.hypot(q.x - j.x, q.y - j.y); if (d > 0.75 || safe(G, q.x, q.y)) continue;
+        const q = P(c), d = Math.hypot(q.x - j.x, q.y - j.y); if (d > 0.75 || safe(G, q.x, q.y) || cqLagging(c)) continue;   // cqLagging: rete inceppata, qui sembra fermo
         if (torchOn(G, c) && pack < 2) { j.fear = G.time + 3; j.fx = q.x; j.fy = q.y; break; }
         knock(G, c, 'j'); j.cd = G.time + 9; break;
       }
@@ -1167,14 +1167,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
     apply(G, x) {
       if (!G.tr) return;
       const m = G.mm, a = x.m;
-      m.tx = a[0]; m.ty = a[1]; if (Math.hypot(m.x - a[0], m.y - a[1]) > 3 || !m.seen) { m.x = a[0]; m.y = a[1]; m.seen = 1; } m.face = a[2]; m.mv = a[3]; m.st = a[4]; m.hp = a[5]; m.max = a[6]; m.aw = a[7]; m.sn = a[8] ? { id: a[8][0], t: a[8][1] } : null; m.meat = a[9];
+      if (!m.seen) { m.x = a[0]; m.y = a[1]; m.seen = 1; } cqNetGot(m, a[0], a[1], G.time, a[3]); m.face = a[2];   // G.time = ora dell'host appena arrivata m.mv = a[3]; m.st = a[4]; m.hp = a[5]; m.max = a[6]; m.aw = a[7]; m.sn = a[8] ? { id: a[8][0], t: a[8][1] } : null; m.meat = a[9];
       const have = new Set(G.tr.map(t => t.id)); for (const t of x.tr) if (!have.has(t[0])) G.tr.push({ id: t[0], k: t[1], x: t[2], y: t[3], t: t[4], dx: t[5], dy: t[6] });
       if (G.tr.length > 420) G.tr.splice(0, G.tr.length - 420);
       G.sp = x.sp.map(s => ({ id: s[0], x: s[1], y: s[2] }));
       for (const f of x.fl) if (!G.fly.some(o => o[4] === f[4] && o[0] === f[0])) G.fly.push(f);
       for (const s of x.sh) if (!G.shouts.some(o => o[2] === s[2] && o[3] === s[3])) G.shouts.push(s);
       G.digs = x.dg.map(d => ({ id: d[0], x: d[1], y: d[2], p: d[3] / 100 })); G.traps = x.tp.map(p => ({ id: p[0], x: p[1], y: p[2], used: p[3] }));
-      const mv = (L2, arr) => arr.map(v => { const o = L2.find(q => q.id === v[0]) || { id: v[0], x: v[1], y: v[2], walk: 0 }; o.tx = v[1]; o.ty = v[2]; if (Math.hypot(o.x - v[1], o.y - v[2]) > 3) { o.x = v[1]; o.y = v[2]; } o.face = v[3]; return o; });
+      const mv = (L2, arr) => arr.map(v => { const o = L2.find(q => q.id === v[0]) || { id: v[0], x: v[1], y: v[2], walk: 0 }; cqNetGot(o, v[1], v[2], G.time); o.face = v[3]; return o; });
       G.rab = mv(G.rab, x.rb); G.jk = mv(G.jk, x.jk);
       G.meat = x.me.map((v, i) => ({ id: i, st: v[0], c: v[1], x: v[2], y: v[3] }));
       G.cut = {}; for (const [i, s] of x.cut || []) G.cut[i] = G.time + s;
@@ -1521,13 +1521,14 @@ CQ_WAIT.mammut = cqLib('mappe', 'indizi').then(L => {
   // il mammut, i conigli e gli sciacalli si disegnano come persone in piu' (senza nome); il mammut ha il riquadro grande
   function extras(G) {
     const out = [], m = G.mm; if (!G.tr || !m) return out;
-    const lerp = o => { if (o.tx == null || !G.guest) return; o.x += (o.tx - o.x) * 0.2; o.y += (o.ty - o.y) * 0.2; };
-    if (G.guest) { lerp(m); if (m.mv) m.walk = (m.walk || 0) + 0.25; }
+    // amici: movimento fluido (cqNetGlide, col tempo vero tra un disegno e l'altro: prima era un passo fisso a ogni disegno, piu' lento col 🔋)
+    const lerp = o => { if (o.tx == null || !G.guest) return; const now = performance.now(), dt = Math.min(0.05, (now - (o.gT || now)) / 1000); o.gT = now; o.gdt = dt; cqNetGlide(o, dt); };   // gdt: per le zampe (al passo col tempo vero)
+    if (G.guest) { lerp(m); if (m.mv) m.walk = (m.walk || 0) + (m.gdt || 0) * 15; }
     m.walkA = m.walk || 0;
     const md = (g, X, Y, TW) => drawMammoth(g, X, Y, TW, m); md.big = 1;
     if (!G.me.alive || mmShown(G, cq.x, cq.y)) out.push({ x: m.x, y: m.y, dr: md, name: null, mam: 1 });   // di giorno nella foschia si vede solo da vicino
-    for (const r of G.rab) { lerp(r); if (G.guest) r.walk = (r.walk || 0) + 0.3; out.push({ x: r.x, y: r.y, dr: (g, X, Y, TW) => drawRabbit(g, X, Y, TW, r), name: null }); }
-    for (const j of G.jk) { lerp(j); if (G.guest) j.walk = (j.walk || 0) + 0.3; out.push({ x: j.x, y: j.y, dr: (g, X, Y, TW) => drawJackal(g, X, Y, TW, j), name: null, all: 1 }); }   // all: sempre disegnati, li copre il buio (niente comparse a scatti al bordo della luce)
+    for (const r of G.rab) { lerp(r); if (G.guest) r.walk = (r.walk || 0) + (r.gdt || 0) * 18; out.push({ x: r.x, y: r.y, dr: (g, X, Y, TW) => drawRabbit(g, X, Y, TW, r), name: null }); }
+    for (const j of G.jk) { lerp(j); if (G.guest) j.walk = (j.walk || 0) + (j.gdt || 0) * 18; out.push({ x: j.x, y: j.y, dr: (g, X, Y, TW) => drawJackal(g, X, Y, TW, j), name: null, all: 1 }); }   // all: sempre disegnati, li copre il buio (niente comparse a scatti al bordo della luce)
     return out;
   }
   // le pitture rupestri: cosa raccontano di QUESTO mammut (direzioni viste da qui, come sullo schermo); sulla mappa grande compaiono le ⭐

@@ -64,7 +64,7 @@
         if (!h || !h.alive) { const ok = live; if (ok.length) { h = cqPickOne(ok); b.id = h.id; } }
         b.t -= dt; b.cd -= dt;
         // passaggio: la tocchi e passa (dopo un attimo si puo' ripassare)
-        if (h && b.cd <= 0) { const v = live.find(c => c !== h && near(c, h) < TOUCH); if (v) { b.id = v.id; b.cd = 0.9; h = v; beep(900, 0.06, 0.04); if (v === G.me) cqToast('💣 Hai la bomba! Passala a qualcuno, presto!'); } }
+        if (h && b.cd <= 0) { const v = live.find(c => c !== h && near(c, h) < TOUCH && !cqLagging(c)); if (v) { b.id = v.id; b.cd = 0.9; h = v; beep(900, 0.06, 0.04); if (v === G.me) cqToast('💣 Hai la bomba! Passala a qualcuno, presto!'); } }
         if (b.t <= 0 && h) {   // BUM
           h.alive = false; h.out = G.time; G.boom = { x: cqModePos(h).x, y: cqModePos(h).y, t: G.time };
           beep(90, 0.5, 0.08); beep(60, 0.6, 0.08, 0.05);
@@ -84,7 +84,7 @@
       // zombie
       G.left -= dt;
       const zs = G.time < WAKE ? [] : live.filter(c => c.z), hs = live.filter(c => !c.z);
-      for (const z of zs) for (const h of hs) if (!h.z && near(z, h) < TOUCH) {
+      for (const z of zs) for (const h of hs) if (!h.z && near(z, h) < TOUCH && !cqLagging(h)) {   // cqLagging: rete inceppata, qui sembra fermo
         h.z = true; h.zt = G.time; G.last = h.id; beep(200, 0.15, 0.06); beep(140, 0.25, 0.05, 0.1);
         if (h === G.me) cqToast('🧟 Ti hanno preso! Ora sei uno ZOMBIE: prendi gli altri!'); else if (z === G.me) cqToast('🧟 Hai preso <b>' + esc(h.name) + '</b>!');
       }
