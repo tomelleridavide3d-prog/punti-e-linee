@@ -31,14 +31,14 @@ window.__SHOT = window.__SHOT || 'map';
   // ---- partita finta: il diamante in un posto noto, apro un mobile sbagliato e poi quello giusto, torno al portone ----
   cq.on = false; cancelAnimationFrame(cq.raf); const toasts = []; window.cqToast = t => toasts.push(t);
   const SP = window.__tr.spots(), di = SP.findIndex(p => p.n === 'Armadio'), wr = SP.findIndex(p => p.n === 'Cassapanca');
-  for (let i = 0; i < 70; i++) cqModeTick(0.05);   // i 3 s di "pronti"
-  window.__tr.buildEnd(G); G.vb = { items: [{ k: 'dia', i: di }] }; window.__tr.raidStart(G);
+  for (let i = 0; i < 70; i++) (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05));   // i 3 s di "pronti"
+  window.__tr.myRaidStart(G, { items: [{ k: 'dia', i: di, key: 's' + di, cells: SP[di].cells }] });
   const go = (x, y) => { cq.x = x; cq.y = y; };
-  const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) cqModeTick(0.05); return b ? b.t : 'nessun pulsante'; };
+  const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05)); return b ? b.t : 'nessun pulsante'; };
   out.push('mobile sbagliato: ' + open(wr) + ' -> ' + toasts.slice(-1)[0]);
   out.push('mobile giusto: ' + open(di) + ' -> ' + (G.has ? 'diamante preso' : 'NIENTE'));
-  go(16.8, 28.6); cqModeTick(0.05);
-  out.push('fine: ' + (G.endInfo ? G.endInfo.t + ' — ' + G.endInfo.why.replace(/<[^>]+>/g, '') : 'NON FINITA'));
+  go(16.8, 28.6); (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05));
+  out.push('fine: ' + (G.st && G.st.msg ? G.st.msg.split('\n').join(' / ') : (G.st ? G.st.step : '') + ' ' + G.ph));
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   // ---- foto: tutta la villa (la mappa pronta in un'immagine sola) oppure lo schermo in partita ----
   if (window.__SHOT === 'map') {

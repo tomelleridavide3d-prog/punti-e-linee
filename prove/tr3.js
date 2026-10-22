@@ -11,7 +11,6 @@
   store.settings.cqModeOpt = store.settings.cqModeOpt || {}; store.settings.cqModeOpt.trappole = { map: 'villa', n: 2, fill: true, nt: 0 }; saveStore();
   cqCloseTask(); cqLobby(); await w(300); $('#lbGo').click(); await w(3600);
   const G = cq.g, T = window.__tr, toasts = []; window.cqToast = t => toasts.push(String(t).replace(/<[^>]+>/g, ''));
-  T.buildEnd(G);
   // villa del computer fatta apposta: ogni trappola in un posto noto
   const B = { items: [] }, P = (k, x, y) => { const e = T.place(B, k, x, y); if (e) out.push('NON MESSA ' + k + ': ' + e); };
   P('dia', 21, 1);          // in cassaforte (studio)
@@ -20,9 +19,9 @@
   P('finta', 10, 25);       // porta ingresso-corridoio
   P('armatura', 13, 10);    // armatura del salone
   { const t = T.target('cane', 26, 26); B.items.push({ k: 'cane', key: t.key, x: t.x, y: t.y, cells: t.cells }); }   // cane in cucina (fuori dalle monete: la villa di prova costa piu' di 100)
-  G.vb = B; T.raidStart(G);
+  T.myRaidStart(G, B);
   cq.on = false; cancelAnimationFrame(cq.raf);
-  const tk = (s, f) => { for (let i = 0; i < s * 20; i++) { if (f) f(i); cqModeTick(0.05); } };
+  const tk = (s, f) => { for (let i = 0; i < s * 20; i++) { if (f) f(i); (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05)); } };
   const st = () => 'cuori ' + G.hp + ' fermo ' + (G.stun > G.time ? 'si' : 'no') + ' pos ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1);
   out.push('furto: ' + G.ph + ' | cani: ' + G.dogs.map(d => (d.armed ? 'vero' : 'finto') + '@' + d.x + ',' + d.y).join(' ') + ' | barra: ' + (G.M.hud(G).replace(/<[^>]+>/g, '')));
   // rastrello
@@ -55,7 +54,7 @@
   for (let n = 0; n < 3; n++) { G.safe.val = G.safe.nums[n]; G.safe.fv = G.safe.nums[n]; tk(0.7); }
   out.push('dopo i 3 numeri: ' + (G.has ? 'diamante preso' : 'NIENTE') + ' | sconto ' + G.bonus + ' s | ' + toasts.slice(-1)[0]);
   cq.x = 16.8; cq.y = 28.6; tk(0.05);
-  out.push('fine: ' + (G.endInfo ? G.endInfo.t + ' — ' + G.endInfo.why.replace(/<[^>]+>/g, '') : 'NON FINITA'));
+  out.push('fine: ' + (G.st && G.st.msg ? G.st.msg.split('\n').join(' / ') : (G.st ? G.st.step : '') + ' ' + G.ph));
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   return out.join('\n');
 })()

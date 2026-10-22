@@ -35,14 +35,14 @@
   $('#trDone').click(); await w(300);
   out.push('dopo Fatto: fase ' + G.ph + ' | catalogo tolto: ' + !document.getElementById('trBar') + ' | telecamere: ' + document.querySelectorAll('#trCams button').length);
   cq.on = false; cancelAnimationFrame(cq.raf);
-  T.guardEnd(G, false); for (let i = 0; i < 80 && G.ph === 'inter'; i++) cqModeTick(0.05); out.push('furto: fase ' + G.ph + ' | ' + toasts.slice(-1)[0]);
-  const SP = T.spots(), fk = G.vb.items.find(o => o.k === 'fake'), di = G.vb.items.find(o => o.k === 'dia');
-  const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) cqModeTick(0.05); return b ? b.t : 'nessun pulsante'; };
+  for (let i = 0; i < 20 && G.ph !== 'guard'; i++) (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05)); T.cpuRunEnd(G, false); for (let i = 0; i < 80 && G.ph === 'inter'; i++) (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05)); out.push('furto: fase ' + G.ph + ' | ' + toasts.slice(-1)[0]);
+  const SP = T.spots(), fk = G.rv.items.find(o => o.k === 'fake'), di = G.rv.items.find(o => o.k === 'dia');
+  const open = i => { const s = SP[i]; for (const [a, b] of [[0.5, 1.32], [1.32, 0.5], [-0.32, 0.5], [0.5, -0.32], [0.5, 1.6], [1.6, 0.5], [-0.6, 0.5], [0.5, -0.6], [0.5, 2.6], [2.6, 0.5]]) { cq.x = s.x + a; cq.y = s.y + b; const n = cqFree(cq.x, cq.y) && G.M.spotNear(G); if (n && n.i === i) break; } const b = G.M.btn(G); G.M.act(G); for (let k = 0; k < 50; k++) (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05)); return b ? b.t : 'nessun pulsante'; };
   out.push('diamante finto: ' + open(fk.i) + ' -> ' + toasts.slice(-1)[0] + ' | fermo: ' + (G.stun > G.time) + ' | pulsante mentre e\' fermo: ' + (G.M.btn(G) ? G.M.btn(G).t : 'nessuno'));
-  for (let k = 0; k < 80 && G.stun > G.time; k++) cqModeTick(0.05);
+  for (let k = 0; k < 80 && G.stun > G.time; k++) (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05));
   out.push('diamante vero: ' + open(di.i) + ' -> ' + (G.has ? 'preso' : 'NO'));
-  cq.x = 16.8; cq.y = 28.6; cqModeTick(0.05);
-  out.push('fine: ' + (G.endInfo ? G.endInfo.t + ' — ' + G.endInfo.why.replace(/<[^>]+>/g, '') : 'NON FINITA'));
+  cq.x = 16.8; cq.y = 28.6; (cqModeTick(0.05), cq.g.M.local(cq.g, 0.05));
+  out.push('fine: ' + (G.st && G.st.msg ? G.st.msg.split('\n').join(' / ') : (G.st ? G.st.step : '') + ' ' + G.ph));
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   return out.join('\n');
 })()

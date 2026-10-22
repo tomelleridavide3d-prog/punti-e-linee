@@ -433,7 +433,7 @@
     const tip = document.createElement('div'); tip.id = 'trTip';
     box.appendChild(bar); box.appendChild(tip);
     for (const ev of ['pointerdown', 'touchstart', 'mousedown']) bar.addEventListener(ev, e => e.stopPropagation(), { passive: true });   // toccare il catalogo non muove la telecamera
-    $('#trDone').onclick = () => { const G2 = cq.g; if (G2 && G2.ph === 'build') buildEnd(G2); };
+    $('#trDone').onclick = () => { const G2 = cq.g; if (G2 && G2.ph === 'build') buildDone(G2); };
     $('#trMap').onclick = () => planOpen();
     $('#trCat').innerHTML = Object.entries(CAT).map(([k, c]) => `<button type="button" data-k="${k}" class="${c.jolly ? 'jo' : ''}"><span class="e">${c.e}</span>${c.jolly ? '★' : c.p ? '🪙' + c.p : 'gratis'}</button>`).join('');
     $('#trCat').querySelectorAll('button').forEach(b => { b.onclick = () => { U.tool = b.dataset.k; beep(700, 0.03, 0.02); buildBar(G); }; });
@@ -504,37 +504,168 @@
       if (!R2 || !cq.cam) return; cq.cam.x = R2.x + R2.w / 2; cq.cam.y = R2.y + R2.h / 2; beep(660, 0.03, 0.02); el.remove();
     });
   }
-  function buildEnd(G) {
-    buildClose(); cq.cam = null;
+  // fine della mia preparazione: la villa resta mia (G.mine) e va all'host; aspetto l'altro
+  function buildDone(G) {
+    buildClose();
     if (!G.mine.items.some(it => it.k === 'dia')) { const s = spots()[Math.floor(Math.random() * spots().length)]; place(G.mine, 'dia', s.x, s.y); cqToast('💎 Non avevi nascosto il diamante: l\'ho messo io in <b>' + esc(s.n) + '</b>.'); }
-    G.vb = cpuBuild();
+    G.ph = 'wait'; G.villa[G.me.id] = G.mine;
     beep(523, 0.08, 0.04); beep(784, 0.12, 0.04, 0.09);
-    if (G.bot) guardStart(G); else raidStart(G);
+    if (G.guest) cqNetSend({ k: 'vb', v: vPack(G.mine) }); else if (G.st) G.st.done[G.me.id] = 1;
+  }
+
+  // ---- PARTITA: al meglio di 3 manche. Ogni manche: preparazione (ognuno la sua villa), due furti (chi ruba per primo si alterna), risultato.
+  // Le fasi le decide l'host (G.st, nello stato per gli amici). Il furto lo simula il telefono di CHI RUBA (movimento immediato) e lo manda
+  // a chi guarda (rsPack/rsApply); i jolly del padrone fanno la strada opposta. Contro il computer: e' lui l'altro (ruba, guarda, sposta le cose).
+  const charById = (G, id) => G.chars.find(c => c.id === id);
+  const isCpu = c => !!(c && c.bot && !c.sid);
+  const vPack = B => B.items.map(it => it.k + ',' + it.x + ',' + it.y).join(';');
+  function vUnpack(s) {
+    const B = { items: [] }; for (const p of String(s || '').split(';')) { if (!p) continue; const [k, x, y] = p.split(','); if (CAT[k]) place(B, k, +x, +y); }
+    if (!B.items.some(it => it.k === 'dia')) { const sp = spots()[0]; place(B, 'dia', sp.x, sp.y); }
+    return B;
+  }
+  // il computer tra una manche e l'altra: meta' delle volte sposta il diamante (l'altro ha visto dov'era: lo sposta o no?), a volte un finto e due trappole
+  function cpuMove(B) {
+    const S = spots(), N = { items: B.items.map(it => Object.assign({}, it)) }, pick = a => a[Math.floor(Math.random() * a.length)];
+    const freeSpots = () => S.filter(s => !N.items.some(it => CAT[it.k].on === 'spot' && it.x === s.x && it.y === s.y));
+    if (Math.random() < 0.5) { const s = pick(freeSpots()); if (s) place(N, 'dia', s.x, s.y); }
+    if (Math.random() < 0.5) { const f = N.items.find(it => it.k === 'fake'); if (f) { N.items = N.items.filter(it => it !== f); const s = pick(freeSpots()); if (s) place(N, 'fake', s.x, s.y); } }
+    const fl = N.items.filter(it => CAT[it.k].on === 'floor' && !CAT[it.k].jolly);
+    for (let i = 0; i < 2 && fl.length; i++) { const it = fl.splice(Math.floor(Math.random() * fl.length), 1)[0]; N.items = N.items.filter(o => o !== it); for (let t = 0; t < 40; t++) if (!place(N, it.k, 1 + Math.floor(Math.random() * (W - 2)), 1 + Math.floor(Math.random() * (H - 2)))) break; }
+    return N;
+  }
+  const stKey = st => st ? st.n + ':' + st.step + ':' + (st.thief != null ? st.thief : '') : '';
+  // ogni telefono, quando cambia la fase: prepara la sua parte
+  function enterStage(G) {
+    const st = G.st; G.stKey = stKey(st);
+    closeSafe(G); camClose(); cloakClose(); if (st.step !== 'build') buildClose();
+    if (st.step === 'build') {
+      G.ph = 'build'; G.bt = st.n === 1 ? BUILD : BUILD2; TRCAM = true; cq.cam = { x: 16.5, y: 24.5 };
+      if (st.n > 1) cqToast('🔁 <b>Manche ' + st.n + '</b>: hai ' + BUILD2 + ' secondi per spostare le cose. L\'altro ha visto dov\'era il tuo diamante… lo sposti o lo lasci lì?');
+      return;
+    }
+    if (st.step === 'run0' || st.step === 'run1') {
+      const th = charById(G, st.thief);
+      if (th === G.me) { const v = G.opp && G.villa[G.opp.id]; if (!v) { G.stKey = ''; G.ph = 'wait'; return; } myRaidStart(G, v); }
+      else watchStart(G, th, G.mine);
+      return;
+    }
+    G.ph = st.step; TRCAM = true; cq.cam = { x: 16.5, y: 16 };   // cambio e risultato: la villa dall'alto
+  }
+  // host: chi ruba per primo si alterna (manche dispari: l'altro, pari: io)
+  function runStart(G, k) {
+    const first = G.st.n % 2 ? G.opp : G.me, th = k === 0 ? first : (first === G.me ? G.opp : G.me);
+    G.st = { n: G.st.n, step: 'run' + k, t0: G.time, thief: th.id }; enterStage(G);
+  }
+  const cmpRun = (a, b) => { a = a || { ok: false, lost: 9 }; b = b || { ok: false, lost: 9 }; if (a.ok && b.ok) return a.t < b.t ? 1 : a.t > b.t ? -1 : 0; if (a.ok !== b.ok) return a.ok ? 1 : -1; return a.lost < b.lost ? 1 : a.lost > b.lost ? -1 : 0; };
+  const runTxt = r => r && r.ok ? '💎 ' + mmss(r.t) : '✗';
+  // host: un furto e' finito
+  function recordRun(G, id, r) {
+    const st = G.st; if (!st || !/^run/.test(st.step) || st.thief !== id || st.rec) return; st.rec = 1;
+    G.rr[id] = r; const th = charById(G, id), nx = th === G.me ? G.opp : G.me;
+    if (st.step === 'run0') { G.st = { n: st.n, step: 'inter', t0: G.time, msg: (r.ok ? '💎 ' + th.name + ' ha rubato il diamante in ' + mmss(r.t) + '!' : '🛡️ ' + th.name + ' non ce l\'ha fatta!') + '\nOra ruba ' + nx.name + '…' }; enterStage(G); return; }
+    const a = G.rr[G.me.id], b = G.rr[G.opp.id], w = cmpRun(a, b);
+    if (w > 0) G.sc[G.me.id] = (G.sc[G.me.id] || 0) + 1; if (w < 0) G.sc[G.opp.id] = (G.sc[G.opp.id] || 0) + 1;
+    G.hist.push({ n: st.n, a, b, w }); G.rr = {};
+    const s1 = G.sc[G.me.id] || 0, s2 = G.sc[G.opp.id] || 0, fin = s1 >= 2 || s2 >= 2 || st.n >= 3;
+    G.st = { n: st.n, step: 'mres', t0: G.time, fin, msg: '🏁 Manche ' + st.n + ': ' + (w > 0 ? 'vince ' + G.me.name : w < 0 ? 'vince ' + G.opp.name : 'pari') + '!\n' + G.me.name + ' ' + runTxt(a) + ' · ' + G.opp.name + ' ' + runTxt(b) + '\n🏆 ' + s1 + ' – ' + s2 };
+    enterStage(G);
+  }
+  function finalEnd(G) {
+    softClear(G); const s1 = G.sc[G.me.id] || 0, s2 = G.sc[G.opp.id] || 0;
+    const line = (c, s) => [c.name, '— ' + s + (s === 1 ? ' manche vinta' : ' manche vinte')];
+    const rows = G.hist.map(h => 'Manche ' + h.n + ': ' + esc(G.me.name) + ' ' + runTxt(h.a) + ' · ' + esc(G.opp.name) + ' ' + runTxt(h.b)).join('<br>');
+    cqModeEnd({ t: s1 > s2 ? '🏆 Vince ' + esc(G.me.name) + '!' : s2 > s1 ? '🏆 Vince ' + esc(G.opp.name) + '!' : '🤝 Pari!', why: rows || '', win: s1 > s2 ? [G.me.id] : s2 > s1 ? [G.opp.id] : [G.me.id, G.opp.id], rank: s1 >= s2 ? [line(G.me, s1), line(G.opp, s2)] : [line(G.opp, s2), line(G.me, s1)] });
+  }
+  // il mio furto (nella villa dell'altro)
+  function myRaidStart(G, villa) {
+    raidReset(G, 'me', villa, G.me); G.ph = 'raid'; cq.cam = null; TRCAM = false; cloakBtn(G, true);
+    cqToast('🏚️ <b>Tocca a te</b>: ruba nella villa di ' + esc(G.opp.name) + '! Ti guarda dalle telecamere e ha i suoi jolly. Trascina poco il dito per camminare <b>piano</b>; 🧥 il mantello ti rende invisibile per 5 s.');
+  }
+  function myRaidEnd(G, ok) {
+    const r = { ok, t: Math.round(Math.max(0, G.time - G.t0 - (G.bonus || 0)) * 10) / 10, lost: G.lost };
+    closeSafe(G); cloakClose(); G.ph = 'wait'; G.has = false;
+    if (ok) { beep(660, 0.12, 0.05); beep(880, 0.12, 0.05, 0.13); beep(1100, 0.25, 0.05, 0.26); cqToast('💎 <b>Colpo riuscito</b> in ' + mmss(r.t) + '!'); } else { beep(330, 0.2, 0.05); cqToast('⏱ <b>Tempo scaduto!</b>'); }
+    if (G.guest) cqNetSend({ k: 'rd', ok: ok ? 1 : 0, t: r.t, lost: r.lost }); else recordRun(G, G.me.id, r);
+  }
+  // guardo l'altro (o il computer) che ruba nella mia villa
+  function watchStart(G, th, villa) {
+    const cpu = isCpu(th);
+    raidReset(G, cpu ? 'cpu' : 'remote', villa, th); G.ph = 'guard';
+    if (cpu) { G.bot = th; G.ai = { goal: null, think: 0, avoid: new Set(), cloakUsed: false, plan: null, vis: {}, dogs: new Set() }; th.path = []; th.walk = 0; }
+    G.camList = G.mine.items.filter(it => it.k === 'cam').map(it => it.room); if (cpu) G.ai.plan = botPlan(G); G.camI = 0; G.camSw = G.time; G.camC = null; camSet(G, 0);
+    camBar(G, true);
+    cqToast(G.camList.length ? '🛡️ <b>' + esc(th.name) + ' entra a rubare nella tua villa!</b> Guardalo dalle telecamere e fai scattare i jolly al momento giusto.' : '🛡️ <b>' + esc(th.name) + ' entra a rubare!</b> Non hai messo telecamere: senti solo i rumori…');
+  }
+  function cpuRunEnd(G, ok) {
+    const r = { ok, t: Math.round(Math.max(0, G.time - G.t0 - (G.bonus || 0)) * 10) / 10, lost: G.lost }; G.thiefC.walk = 0;
+    beep(ok ? 330 : 660, 0.2, 0.05); beep(ok ? 260 : 880, 0.3, 0.05, 0.2);
+    recordRun(G, G.thiefC.id, r);
+  }
+  // un passo del furto (sul telefono di chi ruba; per il computer sull'host): 'ok' = diamante fuori, 'fail' = tempo finito
+  function simRun(G, dt) {
+    const P = TP(G), me = isMe(G);
+    G.left -= dt;
+    if (G.fall && G.time - G.fall.t > 1.0) { G.fall = null; if (!G.resp) { PORCH_IN(G); say(G, '🕳️ Sei finito in cantina… e di nuovo all\'ingresso!', '🕳️ Il ladro è caduto nella botola: riparte dall\'ingresso!'); } }
+    if (G.resp && G.time >= G.resp) respawn(G);
+    if (G.slide) { const st = 7 * dt, nx = P.x + G.slide.dx * st, ny = P.y + G.slide.dy * st; if (G.slide.d < 3 && cqFree(nx, ny) && !(me && CQ_MODES.trappole.blk(G, nx, ny))) { P.x = nx; P.y = ny; G.slide.d += st; } else { G.slide = null; if (!me) P.path = []; } }
+    const sp2 = Math.hypot(P.x - G.px, P.y - G.py) / Math.max(dt, 0.001); G.px = P.x; G.py = P.y;
+    if (G.paint && !(G.cloak > G.time) && (!G.steps.length || Math.hypot(P.x - G.steps[G.steps.length - 1][0], P.y - G.steps[G.steps.length - 1][1]) > 0.55)) { G.steps.push([P.x, P.y, G.stepN = (G.stepN || 0) + 1]); if (G.steps.length > 400) G.steps.shift(); }
+    trapTick(G); dogTick(G, dt, sp2 > 2.4 && sp2 < 20 && !G.slide); jollyTick(G);
+    if (me) { safeTick(G, dt); if (isCpu(G.opp)) cpuOwnerTick(G); cloakBtn(G); } else botTick(G, dt);
+    const S = G.srch;
+    if (S) {
+      if (me && Math.floor((G.time - S.t0) * 6) !== Math.floor((G.time - S.t0 - dt) * 6)) beep(180 + Math.random() * 160, 0.03, 0.015);   // fruscio mentre si fruga
+      if (G.time - S.t0 >= S.d) { G.srch = null; openSpot(G, S.i); }
+    }
+    if (G.has && !G.resp && atPorch(P.x, P.y)) return 'ok';
+    return G.left <= 0 ? 'fail' : null;
+  }
+  // stato del furto per chi guarda (dal telefono di chi ruba)
+  const r2 = v => Math.round(v * 100) / 100;
+  function rsPack(G) {
+    return { hp: G.hp, lo: G.lost, h: G.has ? 1 : 0, o: G.open, fx: G.fx.map(f => [f.it.key, r2(f.t)]), pi: G.pianos.map(p => [p.x, p.y, r2(p.t)]),
+      dg: G.dogs.map(d => [r2(d.x), r2(d.y), d.st[0], d.face || 1, d.armed ? 1 : 0, d.barkP && performance.now() - d.barkP < 400 ? 1 : 0]),
+      pt: G.paint ? 1 : 0, sp: G.steps.slice(-30).map(s => [r2(s[0]), r2(s[1]), s[2]]), jf: G.jfx.map(f => [f.it.key, r2(f.t)]), sh: Object.entries(G.shut).map(([k, v]) => [k, r2(v)]), rv: [...G.rev],
+      su: r2(G.stun || 0), stT: G.stunT || '', ck: r2(G.cake || 0), cl: r2(G.cloak || 0), co: r2(G.camOff || 0), lf: r2(G.left), sr: G.srch ? [G.srch.i, r2(G.srch.t0), G.srch.d] : G.safe ? [G.safe.i, r2(G.time), 0] : 0,
+      fa: G.fall ? r2(G.fall.t) : 0, re: G.resp ? 1 : 0, bo: G.bonus || 0 };
+  }
+  function rsApply(G, r) {
+    if (!r || !G.rv) return;
+    const find = k => G.rv.items.find(it => it.key === k), old = new Map(G.fx.map(f => [f.it.key, f])), has0 = G.has, off0 = G.camOff > G.time;
+    Object.assign(G, { hp: r.hp, lost: r.lo, has: !!r.h, open: r.o || [], left: r.lf, stun: r.su, stunT: r.stT, cake: r.ck, cloak: r.cl, camOff: r.co, bonus: r.bo || 0, resp: r.re ? 1 : 0, fall: r.fa ? { t: r.fa } : null, paint: r.pt ? 1 : 0 });
+    G.fx = (r.fx || []).map(([k, t]) => { const it = find(k); return it && { k: it.k, x: it.x + 0.5, y: it.y + 0.5, t, it, rt: old.has(k) ? old.get(k).rt : undefined }; }).filter(Boolean);
+    for (const f of G.fx) { G.used.add(f.it.key); if (!old.has(f.it.key)) { evAt(G, f.x, f.y); cqToast('🎯 ' + esc(G.thiefC.name) + ': ' + CAT[f.k].e + ' ' + CAT[f.k].n + '!'); } }
+    G.pianos = (r.pi || []).map(([x, y, t]) => ({ x, y, t, done: 1 }));
+    G.dogs = (r.dg || []).map(([x, y, s, f, a, b]) => ({ x, y, st: s === 's' ? 'sleep' : s === 'c' ? 'chase' : 'home', face: f, armed: !!a, barkP: b ? performance.now() : 0 }));
+    for (const s of r.sp || []) if (!G.steps.some(q => q[2] === s[2])) G.steps.push(s);
+    const mine = G.jfx.filter(f => f.local && !(r.jf || []).some(([k]) => k === f.it.key) && G.time - f.t < 2);   // i miei jolly appena fatti scattare (non ancora arrivati)
+    G.jfx = (r.jf || []).map(([k, t]) => { const it = find(k); return it && { k: it.k, it, t, done: 1 }; }).filter(Boolean).concat(mine); for (const f of G.jfx) G.jused.add(f.it.key);
+    G.shut = Object.fromEntries(r.sh || []); G.rev = new Set(r.rv || []);
+    G.srch = r.sr ? { i: r.sr[0], t0: r.sr[1], d: r.sr[2] || 11 } : null; G.safeT = r.sr && !r.sr[2] ? G.time + 5 : 0;
+    if (G.has && !has0) cqToast('😱 <b>' + esc(G.thiefC.name) + ' ha trovato il tuo diamante!</b> Fermalo prima del portone!');
+    if (G.camOff > G.time && !off0) cqToast('📺 ' + esc(G.thiefC.name) + ' ha preso il telecomando: <b>telecamere spente</b> per 10 secondi!');
   }
 
   // ---- FURTO (di chiunque: io nella villa del computer, o il computer nella mia mentre io guardo dalle telecamere) ----
-  // G.thief = 'me' | 'bot'; TP(G) = chi ruba (cq per me, il personaggio del computer per lui); G.rv = la villa in cui si ruba
+  // G.thief = 'me' | 'cpu' | 'remote'; G.thiefC = il personaggio di chi ruba; TP(G) = la sua posizione (cq per me); G.rv = la villa in cui si ruba
   const HP = 3, DOG0 = [[28.5, 27.5]];   // il cane della cucina: c'e' sempre, uguale a quelli piazzati (non si sveglia mai)
   const DOOR_IN = (it, x, y) => it.cells.some(([a, b]) => a === x && b === y);
-  const TP = G => G.thief === 'bot' ? G.bot : cq;
-  const isMe = G => G.thief !== 'bot';
+  const TP = G => G.thief === 'me' ? cq : G.thiefC;
+  const isMe = G => G.thief === 'me';
   const say = (G, mine, other) => { const t = isMe(G) ? mine : other; if (t) cqToast(t); };
-  const PORCH_IN = (G) => { const P = TP(G); P.x = 17; P.y = 28.3; if (!isMe(G)) { P.path = []; G.ai.goal = null; } };
+  const PORCH_IN = (G) => { const P = TP(G); P.x = 17; P.y = 28.3; if (G.thief === 'cpu') { P.path = []; G.ai.goal = null; } };
   // caselle "morbide": muri per i percorsi del computer (porte finte scoperte, porte sbattute), si rimettono a posto a ogni furto
   function softSet(G, cells, on) { for (const [x, y] of cells) { if (on) { if (!cqSolid[y][x]) { cqSolid[y][x] = { prop: 'tsoft', soft: true }; G.soft.push([x, y]); } } else if (cqSolid[y][x] && cqSolid[y][x].prop === 'tsoft') cqSolid[y][x] = null; } }
   function softClear(G) { if (G.soft) for (const [x, y] of G.soft) if (cqSolid[y][x] && cqSolid[y][x].prop === 'tsoft') cqSolid[y][x] = null; G.soft = []; }
-  function raidReset(G, thief, items) {
+  function raidReset(G, thief, items, ch) {
     softClear(G); closeSafe(G);
-    Object.assign(G, { thief, rv: items, left: TIME, open: [], has: false, srch: null, stun: 0, t0: G.time, hp: HP, used: new Set(), rev: new Set(), fx: [], pianos: [], paint: 0, steps: [],
+    Object.assign(G, { thief, thiefC: ch, rv: items, left: TIME, open: [], has: false, srch: null, stun: 0, t0: G.time, hp: HP, used: new Set(), rev: new Set(), fx: [], pianos: [], paint: 0, steps: [],
       slide: null, fall: null, resp: 0, camOff: 0, bonus: 0, safe: null, lost: 0, cloak: 0, cloakUsed: false, jfx: [], jused: new Set(), shut: {}, cpuJ: null, ev: {}, slow: false, cake: 0 });
     G.dia = items.items.find(it => it.k === 'dia').i;
     G.dogs = DOG0.map(([x, y]) => ({ x, y, hx: x, hy: y, armed: false, st: 'sleep', path: [], face: 1, walk: 0 }))
       .concat(items.items.filter(it => it.k === 'cane').map(it => ({ x: it.x + 0.5, y: it.y + 0.5, hx: it.x + 0.5, hy: it.y + 0.5, armed: true, st: 'sleep', path: [], face: 1, walk: 0 })));
-    const P = TP(G); P.x = 17; P.y = 28.3; G.px = P.x; G.py = P.y; G.room = 'Ingresso';
-  }
-  function raidStart(G) {
-    raidReset(G, 'me', G.vb); G.ph = 'raid'; cq.cam = null; cloakBtn(G, true);
-    cqToast('🏚️ Tocca a te: ruba nella villa del computer! Lui ti guarda dalle telecamere e ha i suoi jolly. Trascina poco il dito per camminare <b>piano</b>; 🧥 il mantello ti rende invisibile per 5 s.');
+    const P = TP(G); if (thief !== 'remote') { P.x = 17; P.y = 28.3; } G.px = P.x; G.py = P.y; G.room = 'Ingresso';
   }
   // colpo preso: un cuore in meno, fermo per un po'; a zero cuori si torna al portone (con 3 cuori nuovi)
   function hit(G, txt, stun) {
@@ -637,14 +768,6 @@
   }
 
   // ---- GUARDIA: il computer ruba nella mia villa, io guardo dalle telecamere e uso i jolly ----
-  function guardStart(G) {
-    raidReset(G, 'bot', G.mine); G.ph = 'guard';
-    G.ai = { goal: null, think: 0, avoid: new Set(), cloakUsed: false, plan: null, vis: {}, dogs: new Set() };
-    G.bot.path = []; G.bot.walk = 0;
-    G.camList = G.mine.items.filter(it => it.k === 'cam').map(it => it.room); G.ai.plan = botPlan(G); G.camI = 0; G.camSw = G.time; G.camC = null; camSet(G, 0);
-    camBar(G, true);
-    cqToast(G.camList.length ? '🛡️ <b>Il computer entra a rubare nella tua villa!</b> Guardalo dalle telecamere e fai scattare i jolly al momento giusto.' : '🛡️ <b>Il computer entra a rubare!</b> Non hai messo telecamere: senti solo i rumori…');
-  }
   function camSet(G, i) {
     if (!G.camList.length) { G.camC = { x: 16.5, y: 24.5 }; TRCAM = true; cq.cam = { x: 16.5, y: 24.5 }; return; }
     G.camI = (i + G.camList.length) % G.camList.length; G.camSw = G.time; const R2 = ROOMS.find(r => r.n === G.camList[G.camI]);
@@ -660,7 +783,7 @@
   }
   function camTick(G, dt) {
     const R2 = camRoom(G); if (!R2) return;
-    const b = G.bot, inRoom = b.x >= R2.x && b.y >= R2.y && b.x <= R2.x + R2.w && b.y <= R2.y + R2.h && !(G.cloak > G.time);
+    const b = G.thiefC, inRoom = b.x >= R2.x && b.y >= R2.y && b.x <= R2.x + R2.w && b.y <= R2.y + R2.h && !(G.cloak > G.time);
     const tx = inRoom ? Math.max(R2.x + 2.5, Math.min(R2.x + R2.w - 2.5, b.x)) : R2.x + R2.w / 2, ty = inRoom ? Math.max(R2.y + 2.5, Math.min(R2.y + R2.h - 2.5, b.y)) : R2.y + R2.h / 2;
     const dx = tx - G.camC.x, dy = ty - G.camC.y, d = Math.hypot(dx, dy), st = 1.5 * dt;   // la telecamera gira lenta: chi corre esce dall'inquadratura
     if (d > st) { G.camC.x += dx / d * st; G.camC.y += dy / d * st; } else { G.camC.x = tx; G.camC.y = ty; }
@@ -680,7 +803,7 @@
   function camClose() { const el = document.getElementById('trCams'); if (el) el.remove(); }
   // il jolly che si puo' far scattare adesso: uno dei miei, non usato, dentro l'inquadratura (il piu' vicino al ladro)
   function jollyHere(G) {
-    if (G.ph !== 'guard') return null; let best = null, bd = 1e9; const b = G.bot;
+    if (G.ph !== 'guard' || !G.thiefC) return null; let best = null, bd = 1e9; const b = G.thiefC;
     for (const it of G.mine.items) { if (!CAT[it.k].jolly || G.jused.has(it.key)) continue; const [cx, cy] = jCenter(it); if (!camSees(G, cx, cy)) continue; const d = Math.hypot(b.x - cx, b.y - cy); if (d < bd) { bd = d; best = it; } }
     return best;
   }
@@ -883,19 +1006,11 @@
       g.font = Math.round(TW * 0.3) + 'px system-ui,sans-serif'; g.fillText(CAT[it.k].e, X, Y + 1); g.globalAlpha = 1;
     }
   }
-  // fine della guardia: si passa al mio furto
-  function guardEnd(G, ok) {
-    const t = Math.max(0, G.time - G.t0 - (G.bonus || 0));
-    G.gres = { ok, t, lost: G.lost }; camClose(); G.ph = 'inter'; G.it0 = G.time; G.bot.walk = 0;
-    G.interT = ok ? '😱 Il computer ha rubato il tuo diamante in ' + mmss(t) + '!' : '🛡️ Il computer non ce l\'ha fatta!';
-    beep(ok ? 330 : 660, 0.2, 0.05); beep(ok ? 260 : 880, 0.3, 0.05, 0.2);
-  }
-
   let TRCAM = false;   // la telecamera libera (cq.cam) l'ho messa io: uscendo dal gioco la tolgo
-  const thiefChar = G => G.thief === 'bot' ? G.bot : G.me;
+  const thiefChar = G => G.thief === 'me' ? G.me : G.thiefC;
   CQ_MODES.trappole = {
     n: 'La casa delle trappole',
-    desc: '🪤 Due ladri, due ville identiche. Riempi la tua di trappole e nascondi il diamante; poi l\'altro prova a rubarlo mentre tu lo guardi dalle <b>telecamere</b> e fai scattare i <b>jolly</b>; poi tocca a te rubare il suo. Vince chi ruba più in fretta. <b>In costruzione</b>: per ora una manche contro il computer.',
+    desc: '🪤 Uno contro uno, al meglio di 3 manche. Arreda la tua villa di <b>trappole</b> e nascondi il <b>diamante</b>; poi l\'altro prova a rubarlo mentre tu lo guardi dalle <b>telecamere</b> e fai scattare i <b>jolly</b>; poi tocca a te rubare il suo. Vince la manche chi ruba più in fretta. Nelle manche dopo hai 40 secondi per spostare le cose: lui sa dov\'era… lo sposti o no? Da solo giochi contro il computer.',
     maps: [['villa', 'Villa']],
     ns: [[2, '2']],
     def: { map: 'villa', n: 2, fill: true, nt: 0 },
@@ -903,19 +1018,23 @@
     read: d => ({ nt: +d.get('nt') ? 1 : 0 }),
     start(G) {
       setNight(G.opt.nt);
-      G.bot = G.chars.find(c => c.bot && !c.sid) || null;
-      G.ph = 'build'; G.bt = BUILD; G.mine = { items: [] }; G.open = []; G.has = false; G.srch = null; G.left = TIME; G.room = 'Ingresso'; G.stun = 0; G.soft = [];
+      G.opp = G.chars.find(c => c !== G.me) || null; G.bot = isCpu(G.opp) ? G.opp : null;
+      Object.assign(G, { villa: {}, sc: {}, rr: {}, hist: [], mine: { items: [] }, soft: [], jr: [], jrSeq: 0, open: [], left: TIME, room: 'Ingresso' });
       for (const c of G.chars) { c.x = 16.5 + (c === G.me ? 0.5 : -0.5); c.y = 28.3; }
-      TRCAM = true; cq.cam = { x: 16.5, y: 24.5 };
+      G.st = { n: 1, step: 'build', t0: 0, done: {} }; enterStage(G);
     },
-    gstart(G) { setNight(G.opt.nt); G.bot = null; G.ph = 'build'; G.bt = BUILD; G.mine = { items: [] }; G.open = []; G.room = 'Ingresso'; G.left = TIME; G.stun = 0; G.soft = []; TRCAM = true; cq.cam = { x: 16.5, y: 24.5 }; },
+    gstart(G) {
+      setNight(G.opt.nt); G.opp = G.chars.find(c => c !== G.me) || null; G.bot = null;
+      Object.assign(G, { villa: {}, sc: {}, rr: {}, hist: [], vstr: {}, mine: { items: [] }, soft: [], open: [], left: TIME, room: 'Ingresso', st: null, stKey: '', ph: 'wait' });
+    },
     intro: () => '🔨 Gira per la tua villa e arredala: trappole e diamante!',
-    // chi si vede: il computer ladro solo dentro l'inquadratura della telecamera (e non col mantello); io non ci sono mentre guardo, ne' dentro la botola
+    voice: () => 1,   // voce sempre aperta tra i due: depistare e prendersi in giro fa parte del gioco
+    // chi si vede: io solo mentre rubo (non dentro la botola); il ladro che guardo solo dentro l'inquadratura e senza mantello; gli altri mai
     hide(c) {
       const G = cq.g; if (!G) return false;
-      if (c === G.bot) return !(G.ph === 'guard' && !(G.cloak > G.time) && !(G.fall && G.time - G.fall.t > 0.25) && camSees(G, c.x, c.y));
-      if (c === G.me) return G.ph === 'guard' || G.ph === 'inter' || !!(G.ph === 'raid' && G.fall && G.time - G.fall.t > 0.25);
-      return false;
+      const fell = G.fall && G.time - G.fall.t > 0.25;
+      if (c === G.me) return !(G.ph === 'raid' && !fell);
+      return !(G.ph === 'guard' && c === G.thiefC && !(G.cloak > G.time) && !fell && camSees(G, c.x, c.y));
     },
     // muri nuovi quando rubo io: porte finte scoperte e porte sbattute dal padrone
     blk(G, x, y) {
@@ -928,15 +1047,19 @@
     tint: c => { const G = cq.g; return G && c === G.me && G.ph === 'raid' && G.cloak > G.time ? { c: '#a8dcff', a: 0.6, s: c.id } : null; },
     hud(G) {
       const P = G.ph === 'build' && cq.cam ? cq.cam : G.ph === 'raid' ? cq : G.ph === 'guard' && G.camC ? G.camC : cq, r = roomName(P.x, P.y), rr = roomAt(Math.floor(P.x), Math.floor(P.y)); if (r && rr && !rr.door) G.room = r;
+      const n = G.st ? G.st.n : 1, sc = G.opp ? ` · 🏆 ${G.sc[G.me.id] || 0}-${G.sc[G.opp.id] || 0}` : '', head = `M${n}${sc}`;
       const hearts = `${'❤️'.repeat(Math.max(0, G.hp || 0))}${'🖤'.repeat(Math.max(0, HP - (G.hp || 0)))}`;
-      if (G.ph === 'build') { const B = G.mine; return `🔨 📍 <b>${esc(G.room || '')}</b> · 🪙 ${BUDGET - spent(B)} · ★ ${JOLLY - count(B, it => CAT[it.k].jolly)} · ⏱ <b${G.bt < 10 ? ' style="color:#ff8a7a"' : ''}>${mmss(Math.max(0, G.bt))}</b>`; }
-      if (G.ph === 'guard') { const jl = G.mine.items.filter(it => CAT[it.k].jolly && !G.jused.has(it.key)).length; return `🛡️ Ladro: ${hearts} · 🔍 ${G.open.length}${G.has ? ' · 💎 <b style="color:#ff8a7a">ha il diamante!</b>' : ''} · ★ ${jl} · ⏱ ${mmss(Math.max(0, G.left))}`; }
-      if (G.ph === 'inter') return '🏁 Cambio: ora rubi tu!';
-      return `${hearts} ${G.slow ? '🐢' : '🏃'}${G.cloak > G.time ? ' 🧥' : ''} · 📍 <b>${esc(G.room || '')}</b> · 🔍 ${G.open.length} · ${G.has ? '💎 <b>Al portone!</b> · ' : ''}⏱ ${mmss(Math.max(0, G.left))}`;
+      if (G.ph === 'build') { const B = G.mine; return `${head} · 🔨 📍 <b>${esc(G.room || '')}</b> · 🪙 ${BUDGET - spent(B)} · ★ ${JOLLY - count(B, it => CAT[it.k].jolly)} · ⏱ <b${G.bt < 10 ? ' style="color:#ff8a7a"' : ''}>${mmss(Math.max(0, G.bt))}</b>`; }
+      if (G.ph === 'guard') { const jl = G.mine.items.filter(it => CAT[it.k].jolly && !G.jused.has(it.key)).length; return `${head} · 🛡️ ${esc(G.thiefC ? G.thiefC.name : '')}: ${hearts} · 🔍 ${G.open.length}${G.has ? ' · 💎 <b style="color:#ff8a7a">ha il diamante!</b>' : ''} · ★ ${jl} · ⏱ ${mmss(Math.max(0, G.left))}`; }
+      if (G.ph === 'raid') return `${head} · ${hearts} ${G.slow ? '🐢' : '🏃'}${G.cloak > G.time ? ' 🧥' : ''} · 📍 <b>${esc(G.room || '')}</b> · 🔍 ${G.open.length} · ${G.has ? '💎 <b>Al portone!</b> · ' : ''}⏱ ${mmss(Math.max(0, G.left))}`;
+      return `${head} · 🪤 La casa delle trappole`;
     },
     big(G) {
-      if (G.phase !== 'play') return '';
-      if (G.ph === 'inter') return G.interT + '\nOra tocca a te: ruba il suo diamante! ' + Math.max(1, Math.ceil(3.5 - (G.time - G.it0))) + '…';
+      if (G.phase !== 'play' || !G.st) return G.ph === 'wait' && !G.st ? '⏳ Un attimo…' : '';
+      const st = G.st;
+      if (G.ph === 'inter') return st.msg + ' ' + Math.max(1, Math.ceil(3.5 - (G.time - st.t0))) + '…';
+      if (G.ph === 'mres') return st.msg + (st.fin ? '' : '\nProssima manche tra ' + Math.max(1, Math.ceil(5.5 - (G.time - st.t0))) + '…');
+      if (G.ph === 'wait') return st.step === 'build' ? '⏳ Aspetto che ' + (G.opp ? G.opp.name : 'l\'altro') + ' finisca di preparare…' : '⏳ …';
       if (G.ph !== 'raid' && G.ph !== 'guard') return '';
       if (G.left < 10 && G.left > 0) return '⏱ ' + Math.ceil(G.left) + '…';
       return G.ph === 'raid' && G.stun > G.time ? (G.stunT || '') : '';
@@ -947,7 +1070,7 @@
       return best;
     },
     btn(G) {
-      if (G.ph === 'build') { const A = aim(G); if (A.item) return { t: '🗑️ Togli', on: true }; return { t: '📌 Metti', on: !!(A.t && !A.t.err) && !(CAT[U.tool].p > BUDGET - spent(G.mine)) }; }
+      if (G.ph === 'build') { const A = aim(G); if (A.item) return { t: '🗑️ Togli', on: true }; return { t: '📌 Metti', on: !!(A.t && !A.t.err) && !(U.tool && CAT[U.tool].p > BUDGET - spent(G.mine)) }; }
       if (G.ph === 'guard') { const j = jollyHere(G); return j ? { t: JNAME[j.k], on: true } : null; }
       if (G.ph !== 'raid') return null;
       if (G.srch) return { t: '🔍 Cerco…', on: false };
@@ -957,14 +1080,42 @@
     },
     act(G) {
       if (G.ph === 'build') { buildAct(G); return; }
-      if (G.ph === 'guard') { const j = jollyHere(G); if (j) jollyFire(G, j); return; }
+      if (G.ph === 'guard') {
+        const j = jollyHere(G); if (!j) return;
+        if (G.thief === 'cpu') { jollyFire(G, j); return; }
+        G.jused.add(j.key); G.jfx.push({ k: j.k, it: j, t: G.time, local: 1 }); beep(700, 0.06, 0.04);   // lo vedo subito; lo fa scattare davvero il telefono di chi ruba
+        if (G.guest) cqNetSend({ k: 'jf', key: j.key }); else G.jr.push([j.key, ++G.jrSeq]);
+        return;
+      }
       if (G.ph !== 'raid' || G.stun > G.time || G.safe) return;
       const s = this.spotNear(G); if (!s) return;
       if (s.n === 'Cassaforte') { safeOpen(G, s.i); beep(320, 0.05, 0.03); return; }
       G.srch = { i: s.i, t0: G.time, d: s.h >= 2 ? 2 : 1, x: s.x + 0.5, y: s.y + 0.5 };
       beep(320, 0.05, 0.03);
     },
+    // host: le fasi della partita (e il computer quando ruba)
     tick(G, dt) {
+      const st = G.st; if (!st || !G.opp) return;
+      if (st.step === 'build') {
+        if (isCpu(G.opp) && !st.done[G.opp.id]) { G.villa[G.opp.id] = st.n === 1 ? cpuBuild() : cpuMove(G.villa[G.opp.id]); st.done[G.opp.id] = 1; }
+        const lim = (st.n === 1 ? BUILD : BUILD2) + 6;
+        if ((st.done[G.me.id] && st.done[G.opp.id]) || G.time - st.t0 > lim) {
+          if (G.ph === 'build') buildDone(G);
+          for (const c of [G.me, G.opp]) if (!G.villa[c.id]) G.villa[c.id] = cpuBuild();   // chi non ha finito in tempo (o si e' scollegato)
+          runStart(G, 0);
+        }
+        return;
+      }
+      if (/^run/.test(st.step)) {
+        if (G.ph === 'guard' && G.thief === 'cpu') { const e = simRun(G, dt); if (e) cpuRunEnd(G, e === 'ok'); }
+        else if (st.thief !== G.me.id && G.time - st.t0 > TIME + 8) recordRun(G, st.thief, { ok: false, t: TIME, lost: G.lost || 0 });   // l'amico non risponde piu'
+        return;
+      }
+      if (st.step === 'inter' && G.time - st.t0 > 3.5) runStart(G, 1);
+      else if (st.step === 'mres' && G.time - st.t0 > 5.5) { if (st.fin) finalEnd(G); else { G.st = { n: st.n + 1, step: 'build', t0: G.time, done: {} }; enterStage(G); } }
+    },
+    // ogni telefono: la mia preparazione, il mio furto, le mie telecamere
+    local(G, dt) {
       if (G.ph === 'build') {
         if (!document.getElementById('trBar')) buildOpen(G);
         if (!cq.cam) { TRCAM = true; cq.cam = { x: 16.5, y: 24.5 }; }
@@ -972,41 +1123,39 @@
         const A = aim(G), tip = document.getElementById('trTip'), C2 = CAT[U.tool];
         const txt = A.item ? '🗑️ ' + CAT[A.item.k].e + ' ' + CAT[A.item.k].n + ' — tocca Togli per toglierla' : !C2 ? '' : (A.t && !A.t.err ? C2.e + ' ' + C2.n + (aimName(A.t) ? ' → ' + aimName(A.t) : '') : C2.e + ' ' + C2.n + ': ' + (A.t ? A.t.err : ''));
         if (tip && tip.textContent !== txt) tip.textContent = txt;
-        if (G.bt <= 0) buildEnd(G);
+        if (G.bt <= 0) buildDone(G);
         return;
       }
-      if (G.ph === 'inter') { if (G.time - G.it0 > 3.5) raidStart(G); return; }
-      if (G.ph !== 'raid' && G.ph !== 'guard') return;
-      const P = TP(G), guard = G.ph === 'guard';
-      G.left -= dt;
-      if (G.fall && G.time - G.fall.t > 1.0) { G.fall = null; if (!G.resp) { PORCH_IN(G); say(G, '🕳️ Sei finito in cantina… e di nuovo all\'ingresso!', '🕳️ Il ladro è caduto nella botola: riparte dall\'ingresso!'); } }
-      if (G.resp && G.time >= G.resp) respawn(G);
-      if (G.slide) { const st = 7 * dt, nx = P.x + G.slide.dx * st, ny = P.y + G.slide.dy * st; if (G.slide.d < 3 && cqFree(nx, ny) && !this.blk(G, nx, ny)) { P.x = nx; P.y = ny; G.slide.d += st; } else { G.slide = null; if (!isMe(G)) P.path = []; } }
-      const sp2 = Math.hypot(P.x - G.px, P.y - G.py) / Math.max(dt, 0.001); G.px = P.x; G.py = P.y;
-      if (G.paint && !(G.cloak > G.time) && (!G.steps.length || Math.hypot(P.x - G.steps[G.steps.length - 1][0], P.y - G.steps[G.steps.length - 1][1]) > 0.55)) { G.steps.push([P.x, P.y, G.steps.length]); if (G.steps.length > 400) G.steps.shift(); }
-      trapTick(G); dogTick(G, dt, sp2 > 2.4 && sp2 < 20 && !G.slide); jollyTick(G);
-      if (guard) { botTick(G, dt); camTick(G, dt); camBarBlink(G); }
-      else { safeTick(G, dt); cpuOwnerTick(G); cloakBtn(G); }
-      const S = G.srch;
-      if (S) {
-        if (isMe(G) && Math.floor((G.time - S.t0) * 6) !== Math.floor((G.time - S.t0 - dt) * 6)) beep(180 + Math.random() * 160, 0.03, 0.015);   // fruscio mentre si fruga
-        if (G.time - S.t0 >= S.d) { G.srch = null; openSpot(G, S.i); }
+      if (G.ph === 'raid') {
+        const e = simRun(G, dt);
+        if (G.guest && (G.rsT = (G.rsT || 0) - dt) <= 0) { G.rsT = 0.25; cqNetSend({ k: 'rs', r: rsPack(G) }); }
+        if (e) myRaidEnd(G, e === 'ok');
+        return;
       }
-      if (G.has && !G.resp && atPorch(P.x, P.y)) { if (guard) guardEnd(G, true); else this.finish(G, true); return; }
-      if (G.left <= 0) { if (guard) guardEnd(G, false); else this.finish(G, false); }
+      if (G.ph === 'guard') { camTick(G, dt); camBarBlink(G); }
     },
-    // fine della manche: vince chi ha rubato piu' in fretta; se nessuno ce la fa, chi ha perso meno cuori
-    finish(G, ok) {
-      buildClose(); closeSafe(G); cloakClose(); camClose(); softClear(G);
-      const me = { ok, t: Math.max(0, G.time - (G.t0 || 0) - (G.bonus || 0)), lost: G.lost }, bo = G.gres, nameMe = G.me.name + ' (tu)';
-      const sp = spots()[G.dia], where = esc(sp.n) + ' (' + esc(roomName(sp.x, sp.y)) + ')';
-      const line = r => r.ok ? '— diamante rubato in ' + mmss(r.t) + (r.lost ? ', ' + r.lost + ' cuori persi' : ', nessun cuore perso') : '— niente diamante' + (r.lost ? ', ' + r.lost + ' cuori persi' : '');
-      if (!bo) { cqModeEnd({ t: ok ? '💎 Diamante rubato!' : '⏱ Tempo scaduto!', why: ok ? 'In <b>' + mmss(me.t) + '</b>. Era: ' + where + '.' : 'Il diamante era: <b>' + where + '</b>.', win: ok ? [G.me.id] : [], rank: [[nameMe, line(me)]] }); return; }
-      let win = 0;   // 1 = io, -1 = computer, 0 = pari
-      if (me.ok && bo.ok) win = me.t < bo.t ? 1 : me.t > bo.t ? -1 : 0; else if (me.ok !== bo.ok) win = me.ok ? 1 : -1; else win = me.lost < bo.lost ? 1 : me.lost > bo.lost ? -1 : 0;
-      const why = (me.ok ? 'Hai rubato il diamante in <b>' + mmss(me.t) + '</b>' : 'Non sei riuscito a rubare il diamante') + ' (era: ' + where + '). ' + (bo.ok ? 'Il computer ha rubato il tuo in <b>' + mmss(bo.t) + '</b>.' : 'Il computer non ha trovato il tuo.');
-      const rank = [[nameMe, line(me)], [G.bot.name, line(bo)]]; if (win < 0) rank.reverse();
-      cqModeEnd({ t: win > 0 ? '🏆 Hai vinto la manche!' : win < 0 ? '😈 Ha vinto il computer!' : '🤝 Pari!', why, win: win > 0 ? [G.me.id] : win < 0 ? [G.bot.id] : [G.me.id, G.bot.id], rank });
+    // online: stato dall'host (fasi, punteggio, la sua villa, il suo furto, i suoi jolly)
+    snap(G) {
+      const x = { st: G.st, sc: G.sc, V: {} }; if (G.villa[G.me.id]) x.V[G.me.id] = vPack(G.villa[G.me.id]);
+      if (G.ph === 'raid' && G.thief === 'me') x.rs = rsPack(G);
+      if (G.jr && G.jr.length) x.jr = G.jr.slice(-6);
+      return x;
+    },
+    apply(G, x) {
+      if (!x) return;
+      G.sc = x.sc || {}; G.vstr = G.vstr || {};
+      for (const [id, s] of Object.entries(x.V || {})) if (G.vstr[id] !== s) { G.vstr[id] = s; G.villa[+id] = vUnpack(s); }
+      if (x.st) { G.st = x.st; if (stKey(x.st) !== G.stKey) enterStage(G); }
+      if (x.rs && G.ph === 'guard' && G.thief === 'remote') rsApply(G, x.rs);
+      if (x.jr && G.ph === 'raid') for (const [k, s] of x.jr) if (s > (G.jrSeen || 0)) { G.jrSeen = s; const it = G.rv.items.find(o => o.key === k); if (it) jollyFire(G, it); }
+    },
+    // host: azioni dell'amico (la sua villa, il suo furto, la fine del suo furto, i suoi jolly)
+    ev(G, c, o) {
+      if (!o || c !== G.opp || !G.st) return;
+      if (o.k === 'vb' && G.st.step === 'build') { G.villa[c.id] = vUnpack(o.v); G.st.done[c.id] = 1; }
+      else if (o.k === 'rs' && G.ph === 'guard' && G.thiefC === c) rsApply(G, o.r);
+      else if (o.k === 'rd') recordRun(G, c.id, { ok: !!o.ok, t: +o.t || 0, lost: +o.lost || 0 });
+      else if (o.k === 'jf' && G.ph === 'raid') { const it = G.rv.items.find(q => q.key === o.key); if (it) jollyFire(G, it); }
     },
     // sopra al ladro: diamante, stelline, vernice, torta
     deco(g, c, X, Y, TW, G, L) {
@@ -1022,11 +1171,11 @@
       dogsDraw(g, G, sx, sy, TW);
       if (G.ph === 'raid' || G.ph === 'guard') raidDraw(g, G, sx, sy, TW);
       g.textAlign = 'center'; g.textBaseline = 'middle';
-      if (G.ph === 'build') { aimDraw(g, G, sx, sy, TW); itemsDraw(g, G, sx, sy, TW); return; }
+      if (G.ph === 'build' || G.ph === 'wait' && G.st && G.st.step === 'build') { if (G.ph === 'build') aimDraw(g, G, sx, sy, TW); itemsDraw(g, G, sx, sy, TW); return; }
       if (G.ph === 'guard') {
         itemsDraw(g, G, sx, sy, TW, (x, y) => camSees(G, x, y));
-        const b = G.bot, S = G.srch || (G.safeT ? { t0: G.safeT - 11, d: 11 } : null);
-        if (S && camSees(G, b.x, b.y) && !(G.cloak > G.time)) { const k = Math.min(1, (G.time - S.t0) / S.d), X = sx(b.x, b.y), Y = sy(b.x, b.y) - TW * 2.2; g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.arc(X, Y, TW * 0.32, 0, 7); g.fill(); g.strokeStyle = '#ff6a5a'; g.lineWidth = TW * 0.08; g.beginPath(); g.arc(X, Y, TW * 0.24, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); g.font = Math.round(TW * 0.28) + 'px system-ui'; g.fillText(G.safeT ? '🔒' : '🔍', X, Y + 1); }
+        const b = G.thiefC, S = G.srch || (G.safeT ? { t0: G.time - 1, d: 11 } : null);
+        if (b && S && camSees(G, b.x, b.y) && !(G.cloak > G.time)) { const k = Math.min(1, (G.time - S.t0) / S.d), X = sx(b.x, b.y), Y = sy(b.x, b.y) - TW * 2.2; g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.arc(X, Y, TW * 0.32, 0, 7); g.fill(); g.strokeStyle = '#ff6a5a'; g.lineWidth = TW * 0.08; g.beginPath(); g.arc(X, Y, TW * 0.24, -Math.PI / 2, -Math.PI / 2 + k * Math.PI * 2); g.stroke(); g.font = Math.round(TW * 0.28) + 'px system-ui'; g.fillText(G.safeT ? '🔒' : '🔍', X, Y + 1); }
         const R2 = camRoom(G); if (R2) {   // fuori dalla stanza inquadrata: buio (la telecamera vede solo la sua stanza)
           const x0 = R2.x - 0.7, y0 = R2.y - 0.7, x1 = R2.x + R2.w + 0.7, y1 = R2.y + R2.h + 0.7;
           g.beginPath(); g.rect(-1e5, -1e5, 2e5, 2e5); g.moveTo(sx(x0, y0), sy(x0, y0)); g.lineTo(sx(x0, y1), sy(x0, y1)); g.lineTo(sx(x1, y1), sy(x1, y1)); g.lineTo(sx(x1, y0), sy(x1, y0)); g.closePath();
@@ -1081,7 +1230,7 @@
     if (!mine && TRCAM) { TRCAM = false; if (!G || G.mode !== 'trappole') cq.cam = null; }
     if (G && G.mode === 'trappole' && G.phase !== 'play' && G.soft && G.soft.length) softClear(G);
   }, 400);
-  window.__tr = { CAT, place, target, cpuBuild, spent, spots, buildEnd, raidStart, guardStart, guardEnd, jollyFire, jollyHere, camSees, camSet, U, aim, buildAct, planOpen, BUDGET, safeOpen, closeSafe };   // per le prove
+  window.__tr = { CAT, place, target, cpuBuild, cpuMove, spent, spots, buildDone, runStart, recordRun, enterStage, myRaidStart, myRaidEnd, watchStart, cpuRunEnd, finalEnd, vPack, vUnpack, rsPack, rsApply, jollyFire, jollyHere, camSees, camSet, U, aim, buildAct, planOpen, BUDGET, safeOpen, closeSafe };   // per le prove
   // diamante disegnato a faccette, con lo scintillio
   function diamond(g, X, Y, r) {
     const P = [[0, -0.55], [0.6, -0.55], [1, -0.1], [0, 1], [-1, -0.1], [-0.6, -0.55]].map(([a, b]) => [X + a * r, Y + b * r]);
