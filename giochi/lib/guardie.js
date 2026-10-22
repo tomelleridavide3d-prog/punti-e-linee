@@ -179,7 +179,7 @@
           if (!c) { GD.say(G, gd, 'lost'); GD.search(G, gd, gd.lx, gd.ly, gd.lvx, gd.lvy, env, al ? 7 : 6); continue; }
           const p = env.pos(c), d = Math.hypot(p.x - gd.x, p.y - gd.y);
           if (best !== c) { gd.lose += dt; if (gd.lose > LOOSE) { gd.sus = 0.5; GD.say(G, gd, 'lost'); GD.search(G, gd, gd.lx, gd.ly, gd.lvx, gd.lvy, env, al ? 7 : 6); continue; } }
-          if (d < CATCH) { gd.st = 'ret'; gd.sus = 0; gd.tgt = -1; gd.path = []; env.onCatch(gd, c); continue; }
+          if (d < CATCH && !cqLagging(c)) { gd.st = 'ret'; gd.sus = 0; gd.tgt = -1; gd.path = []; env.onCatch(gd, c); continue; }   // cqLagging: amico con la rete inceppata, qui sembra fermo (la guardia continua a inseguirlo)
           if ((gd.rp = (gd.rp || 0) - dt) <= 0 || !gd.path.length) { gd.rp = 0.25; const tx = best === c ? p.x : gd.lx, ty = best === c ? p.y : gd.ly; if (!GD.go(gd, tx, ty) || d < 1.3) gd.path = [[tx, ty]]; }
           GD.step(gd, dt, (al ? 0.95 : 0.86) * (0.92 + 0.08 * k) * (env.speed || 1));
         } else if (gd.st === 'inv') {
@@ -251,16 +251,16 @@
     apply(G, a) {
       a.forEach((v, i) => {
         const g = G.gd[i]; if (!g) return;
-        g.tx = v[0]; g.ty = v[1]; if (Math.hypot(g.tx - g.x, g.ty - g.y) > 3) { g.x = g.tx; g.y = g.ty; }
+        cqNetGot(g, v[0], v[1], G.time);   // G.time = ora della partita sull'host, appena arrivata
         g.ta = v[2]; g.st = GD.ST[v[3]] || 'pat'; g.sus = v[4]; g.ko = G.time + v[5]; g.tgt = v[6]; g.w = v[7];
         g.bub = v[8] ? { t: v[8], e: G.time + v[9] } : null;
       });
     },
-    // amici: le guardie scivolano verso l'ultima posizione ricevuta
+    // amici: le guardie si muovono fluide (cqNetGlide: dove sono adesso, non dove erano all'ultimo pacchetto)
     smooth(G, dt) {
       for (const g of G.gd) {
-        if (g.tx == null) continue; const dx = g.tx - g.x, dy = g.ty - g.y, d = Math.hypot(dx, dy), k = Math.min(1, dt * 10);
-        g.x += dx * k; g.y += dy * k; if (d > 0.02) g.walk += dt * 10; else g.walk = 0;
+        if (g.tx == null) continue; const x0 = g.x, y0 = g.y, k = Math.min(1, dt * 10);
+        cqNetGlide(g, dt); if (Math.hypot(g.x - x0, g.y - y0) > 0.2 * dt) g.walk += dt * 10; else g.walk = 0;
         let da = g.ta - g.a; da = Math.atan2(Math.sin(da), Math.cos(da)); g.a += da * k;
       }
     },

@@ -748,6 +748,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   function catchT(G, gd, c) {
     if (c.jail || c.esc) return;
     const M = MP(), n = G.chars.filter(o => o.jail).length, s = M.jail[n % M.jail.length];
+    if (c.remote) cqNetNow();   // l'amico deve vedersi in cella subito
     c.hd = null; c.jail = 1; c.jt = G.time; c.jn = (c.jn || 0) + 1; c.op = null; c.path = []; c.ca = (c.ca || 0) + 1; c.evUsed = 0;
     let lost = 0; for (const i of G.it) if (i.st === 1 && i.c === c.id) { i.st = 2; i.c = -1; lost++; } if (c.dm) c.dm = 0;
     if (c.bot || c === G.me) { c.x = s[0]; c.y = s[1]; if (c === G.me) { cq.x = s[0]; cq.y = s[1]; G.myJn = c.jn; } }
@@ -1483,8 +1484,7 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
   document.getElementById('hcChatX').onclick = chatClose;
   for (const ev of ['keydown', 'keyup']) chatI.addEventListener(ev, e => { e.stopPropagation(); if (ev === 'keydown' && e.key === 'Escape') chatClose(); });   // i tasti scritti non muovono il personaggio
   if (!window.hcKeys) { window.hcKeys = 1; document.addEventListener('keydown', e => { if (e.repeat) return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = (e.key || '').toLowerCase(); if (k === 'q') coinPress(); else if (k === 'r') runSet(!cq.hcRun); else if (k === 'm') G.big = !G.big; else if (k === 'l') planUI(G); else if ((k === 'enter' || k === 't') && cq.net && chatP.hidden) { e.preventDefault(); chatOpen(); } }); }
-  (function loop() {
-    requestAnimationFrame(loop);
+  cqEachFrame(function loop() {   // a ogni fotogramma dell'Hotel (prima: un ciclo suo sempre acceso, anche fuori dal gioco)
     const G = live(), panel = !$('#cqTask').hidden, me = G && G.me;
     const cOn = !!(G && !me.jail && !panel && !G.big);
     if (coinB.hidden === cOn) coinB.hidden = !cOn; if (runB.hidden === cOn) runB.hidden = !cOn;
@@ -1500,5 +1500,5 @@ CQ_WAIT.colpo = cqLib('squadre', 'guardie').then(L => {
       if (mapB.dataset.k !== css) { mapB.dataset.k = css; mapB.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; }
       const bc = 'position:absolute;left:10px;top:122px;width:168px;height:' + (22 + 4 * 21) + 'px;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent';
       if (boardB.dataset.k !== bc) { boardB.dataset.k = bc; boardB.style.cssText = bc; } }
-  })();
+  });
 });

@@ -748,6 +748,7 @@ CQ_WAIT.evasione = cqLib('squadre', 'guardie').then(L => {
   function catchT(G, gd, c) {
     if (isoOn(G, c) || !c.alive) return;
     const M = MP(), n = G.chars.filter(o => isoOn(G, o)).length, s = M.iso[n % M.iso.length], lost = pk(c).splice(0);
+    if (c.remote) cqNetNow();   // l'amico deve vedersi in isolamento subito
     c.dv = 0; c.dg = 0; c.inT = 0; c.cl = 0;
     c.iso = G.time + ISO_T; c.ric = 0; c.isoN = (c.isoN || 0) + 1; c.path = []; c.isoC = n % M.iso.length;
     if (c.bot || c === G.me) { c.x = s.x; c.y = s.y; if (c === G.me) { cq.x = s.x; cq.y = s.y; G.myIso = c.isoN; } }

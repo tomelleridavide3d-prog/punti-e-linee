@@ -169,6 +169,10 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #ciack .cqVoice .btn.live{box-shadow:0 0 0 3px #3ac26a}
 #ciack .cqVoice #cqRadio.live{box-shadow:0 0 0 3px #e2553a}
 #ciack .ctop b{font-size:17px}
+/* barra in alto: i pulsanti 🎵 e 🔋 stretti; il titolo si accorcia (…) invece di spingere fuori dallo schermo gli altri pulsanti */
+#ciack .ctop #cqMusic,#ciack .ctop #cqEco{padding-left:8px;padding-right:8px}
+#ciack .ctop b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:380px){#ciack .ctop{gap:6px}}
 #cqPick{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
 #cqPick .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:380px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
 #cqPick h2{margin:0 0 6px;font-size:19px;text-align:center}
@@ -383,7 +387,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
 </div></div>
 <div id="ciack" hidden>
   <canvas id="cqCanvas"></canvas>
-  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b id="cqTitle">🏨 Hotel</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
+  <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b id="cqTitle">🏨 Hotel</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqEco" type="button" title="Risparmio batteria">🔋</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
   <div class="cqVoice" id="cqVoice" hidden><button class="btn" id="cqMic" type="button" title="Il tuo microfono">🎤</button><button class="btn" id="cqHear" type="button" title="Senti gli amici">🗣️</button><button class="btn" id="cqRadio" type="button" title="Radio dei sabotatori: parla solo con i complici" hidden>📻</button></div>
   <div id="cqPick" hidden><div class="pk">
     <h2>Scegli il personaggio</h2>
@@ -1690,7 +1694,7 @@ function devLog(e, g, s) {
   const k = e + '|' + (g || '') + '|' + (s || ''), now = Date.now();
   if (dlLast[k] && now - dlLast[k] < 90000) return; dlLast[k] = now;
   const o = { n: nm, t: now, e, d: dlDevice() };
-  if (g) o.g = String(g).slice(0, 16); if (s) o.s = String(s).slice(0, 10);
+  if (g) o.g = String(g).slice(0, 16); if (s) o.s = String(s).slice(0, e === 'rete' ? 80 : 10);
   hubLoad().then(F => { const r = F.push(F.ref(F.db, 'dl/' + DL_K), o); if (e === 'sito') dlStay(F, r); }).catch(() => {});
 }
 // ---- avvisi sul telefono (postino su Cloudflare: postino/worker.js; aiutante: sw.js) ----
@@ -1849,7 +1853,7 @@ function dlBtn() {
   if (!on) { if (b) b.remove(); return; }
   if (!b) { b = document.createElement('button'); b.id = 'dlOpen'; b.className = 'btn'; b.type = 'button'; b.textContent = '🛠️ Accessi'; b.style.cssText = 'display:block;margin:6px auto 0'; b.onclick = dlShow; $('#appVer').after(b); }
 }
-const DL_EV = { sito: '🌐 apre il sito', set: '🎉 crea un party', entra: '🚪 entra in un party', gioco: '🎮 gioca' };
+const DL_EV = { sito: '🌐 apre il sito', set: '🎉 crea un party', entra: '🚪 entra in un party', gioco: '🎮 gioca', rete: '📶 connessione a fine partita' };
 async function dlShow() {
   let w = $('#dlWin');
   if (!w) {
@@ -1873,7 +1877,7 @@ async function dlShow() {
   for (const r of rows) {
     const d = new Date(r.t), dd = d.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
     if (dd !== day) { day = dd; h += `<div style="margin:12px 0 4px;font-weight:700;color:var(--muted)">${esc(dd)}</div>`; }
-    const gm = r.g ? ' · ' + esc((CQ_GAMES.find(x => x[0] === r.g) || [])[1] || r.g) : '', st = r.s ? ' · set ' + esc(r.s) : '';
+    const gm = r.g ? ' · ' + esc((CQ_GAMES.find(x => x[0] === r.g) || [])[1] || r.g) : '', st = r.s ? (r.e === 'rete' ? ' · <b>' + esc(r.s) + '</b>' : ' · set ' + esc(r.s)) : '';
     const hm = t => new Date(t).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }), live = r.u && !r.x && Date.now() - r.u < 150000, out = r.x || r.u;
     const stay = r.e !== 'sito' ? '' : !r.u ? '<div class="hint" style="font-size:12px">uscita non registrata</div>' : `<div style="font-size:13px;margin-top:2px">🕐 entrata ${hm(r.t)} · ${live ? '<b style="color:#3fb96b">ancora dentro</b>' : 'uscita ' + hm(out)} · <b>${dlDur((live ? Date.now() : out) - r.t)}</b></div>`;
     h += `<div style="padding:6px 0;border-bottom:1px solid var(--line)"><b>${hm(r.t)}</b> &nbsp;<b>${esc(r.n)}</b> — ${DL_EV[r.e] || esc(r.e)}${gm}${st}${stay}<div class="hint" style="font-size:12px">${esc(r.d || '')}</div></div>`;
@@ -2329,6 +2333,9 @@ const CQ_GFX = (() => { const q = new URLSearchParams(location.search).get('graf
 // disegno fatto dal processore (willReadFrequently): su alcuni telefoni Android il chip grafico disegna a schegge
 // le forme complicate (visto sul Redmi Note 13 Pro). Al chip grafico arrivano solo immagini gia' pronte da incollare.
 const CQ_CPU = { willReadFrequently: true };
+// cqEachFrame(f): un gioco chiede di fare f a ogni fotogramma dell'Hotel (es. mostrare o nascondere i suoi pulsanti). Prima alcuni giochi avevano un
+// loro ciclo requestAnimationFrame che, una volta caricati, restava acceso per sempre (anche nel menu): lavoro continuo che consumava batteria
+const CQ_EACH = [], cqEachFrame = f => { if (!CQ_EACH.includes(f)) CQ_EACH.push(f); };
 const cq = { on: false, x: 14.5, y: 17.5, face: 1, walk: 0, joy: null, keys: {}, raf: 0, last: 0, w: 0, h: 0, dpr: 1 };
 cqUseMap('studio');
 function cqBlocked(x, y) {
@@ -2722,10 +2729,17 @@ async function cqNetOpen(code, role) {
   if (cq.g && cq.g.hall) cqHallReset();
   if (role === 'host') {
     cqNetList();
-    N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/pos`), s => { N.pos = s.val() || {}; }));
+    // posizioni degli amici una per una (prima arrivavano tutte a ogni passo di ognuno), con l'ora d'arrivo: serve alla protezione anti-lag
+    N.pos = {}; N.posAt = {};
+    const pp = s => { const now = performance.now(), G = cq.g; if (N.posAt[s.key] && G && G.phase === 'play' && !G.hall && !document.hidden) cqQGap(now - N.posAt[s.key]); N.pos[s.key] = s.val(); N.posAt[s.key] = now; };
+    N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/pos`), pp), F.onChildChanged(cqNetRef(`cq/${code}/pos`), pp), F.onChildRemoved(cqNetRef(`cq/${code}/pos`), s => { delete N.pos[s.key]; delete N.posAt[s.key]; }));
     N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/ev`), s => { const v = s.val(); F.remove(s.ref).catch(() => {}); try { cqNetEvent(v.s, JSON.parse(v.m)); } catch (e) { console.warn(e); } }));
   } else {
-    N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/st`), s => { const v = s.val(); if (v && cq.net === N) try { cqNetApply(JSON.parse(v.m)); } catch (e) { console.warn(e); } }));
+    N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/st`), s => {
+      const v = s.val(), G = cq.g, now = performance.now();
+      if (G && G.phase === 'play' && !G.hall && !document.hidden) { if (N.stT) cqQGap(now - N.stT); N.stT = now; } else N.stT = 0;   // misura degli intoppi
+      if (v && cq.net === N) try { cqNetApply(JSON.parse(v.m)); } catch (e) { console.warn(e); }
+    }));
     let seen = false;
     N.unsubs.push(F.onValue(cqNetRef('cqlist/' + code), s => {
       const bye = () => { if (cq.net !== N) return; clearTimeout(N.goneT); N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il party è stato chiuso', '<p class="lead">Chi aveva creato il party lo ha chiuso.</p>', 'Ok', cqReception); };
@@ -2825,6 +2839,9 @@ function cqVoicePeer(sid, offer) {
 function cqVoiceTr(P) {
   P.tr = P.tr || P.pc.getTransceivers().find(t => t.receiver.track && t.receiver.track.kind === 'audio'); if (!P.tr) return;
   P.tr.direction = 'sendrecv'; cqVoiceSend(P);
+  // riserva minima di 80 ms nella voce che arriva (dove il browser lo permette): un pacchetto un po' in ritardo non spezza piu' la parola.
+  // Il browser la allunga da solo se la rete e' peggiore; 80 ms di ritardo in piu' non si notano parlando
+  try { if ('jitterBufferTarget' in P.tr.receiver) P.tr.receiver.jitterBufferTarget = 80; } catch {}
 }
 // la voce con un amico non riesce a collegarsi: dopo 2 tentativi andati male lo si dice (una volta)
 function cqVoiceBad(sid) {
@@ -3014,6 +3031,7 @@ function cqVoiceStop(keepCode) {
 }
 function cqNetLeave() {
   const N = cq.net; if (!N) return;
+  cqQLog();
   cqVoiceStop();
   cq.net = null; cq.gm = null; cqVoiceUI(); clearInterval(N.hbI); clearTimeout(N.goneT);
   if (N.role !== 'host') { N.F.remove(cqNetRef(`cq/${N.code}/hl/${N.sid}`)).catch(() => {}); }
@@ -3040,6 +3058,64 @@ function cqNetList(o) {
   N.F.set(cqNetRef('cqlist/' + N.code), { h: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', ts: Date.now(), o: N.open, n: Object.keys(N.pl).length || 1, g: cqOpt().game || 'ciack', p: N.priv ? 1 : 0 }).catch(() => {});
 }
 function cqNetSend(o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/ev`), { s: N.sid, m: JSON.stringify(o) }).catch(() => {}); }
+// ---- RETE PIU' STABILE (23-10-2026) ----
+// cqNetPut: scrittura in cui vale solo l'ultimo valore (stato della partita, posizioni, hall). Se la precedente non e' ancora arrivata al server
+// (rete lenta o inceppata) la nuova non si mette in coda: si tiene da parte solo l'ultima e parte appena il server risponde. Cosi' dopo un
+// intoppo arriva subito lo stato giusto, non una fila di stati vecchi (era il blocco di 2-3 s prima di vedersi in cella).
+// Le azioni (cqNetSend) invece restano tutte, in ordine.
+function cqNetPut(path, v) {
+  const N = cq.net; if (!N) return;
+  const q = N.q || (N.q = {}), e = q[path], now = performance.now();
+  if (e && now - e.t < 4000) { e.v = v; e.w = 1; return; }   // dopo 4 s senza risposta si manda lo stesso
+  const E = q[path] = { t: now, w: 0, v: null };
+  N.F.set(cqNetRef(path), v).catch(() => {}).finally(() => {
+    if (q[path] !== E) return;
+    delete q[path];
+    if (E.w && cq.net === N) cqNetPut(path, E.v);
+  });
+}
+// stato della partita agli amici subito (non al prossimo giro di 120 ms): per i momenti importanti, es. un arresto
+const cqNetNow = () => { const N = cq.net; if (N) N.sent = 0; };
+// MOVIMENTO FLUIDO di chi arriva dalla rete (amici, guardie). cqNetGot registra la posizione arrivata (o.tx, o.ty) con la sua ora ts in secondi:
+// quella di chi l'ha mandata (host o amico), cosi' i pacchetti arrivati a gruppi non falsano la velocita'. cqNetGlide porta o.x, o.y verso
+// dove si trova adesso: l'ultima posizione + la velocita' per il tempo passato (al massimo CQ_LEAD s, poi si ferma ad aspettare).
+// Prima si inseguiva l'ultima posizione: gli altri restavano sempre un po' indietro e a ogni pacchetto in ritardo si fermavano e scattavano
+const CQ_LEAD = 0.15;
+function cqNetGot(o, x, y, ts, mv) {
+  if (ts === o.tts) return;   // lo stesso pacchetto di prima
+  if (o.tx != null && x === o.tx && y === o.ty) { o.vx = o.vy = 0; o.tts = ts; return; }   // fermo
+  const d = ts - (o.tts != null ? o.tts : ts), j = o.tx == null || Math.hypot(x - o.tx, y - o.ty) > 2;
+  if (!mv && mv !== undefined || j || d > 0.6) o.vx = o.vy = 0;   // si e' fermato, salto (scale, cella), o niente notizie da tanto
+  else if (d > 0.02) {
+    let vx = (x - o.tx) / d, vy = (y - o.ty) / d; const s = Math.hypot(vx, vy), mx = CQ_SPEED * 2.5; if (s > mx) { vx *= mx / s; vy *= mx / s; }
+    o.vx = ((o.vx || 0) + vx) / 2; o.vy = ((o.vy || 0) + vy) / 2;
+  }
+  o.tx = x; o.ty = y; o.tts = ts; o.tAt = performance.now();
+}
+function cqNetGlide(o, dt) {
+  if (o.tx == null) return;
+  let px = o.tx, py = o.ty;
+  if (o.vx || o.vy) { const a = Math.min(CQ_LEAD, (performance.now() - (o.tAt || 0)) / 1000), qx = px + o.vx * a, qy = py + o.vy * a; if (cqFree(qx, qy)) { px = qx; py = qy; } }
+  if (Math.hypot(px - o.x, py - o.y) > 3) { o.x = px; o.y = py; return; }
+  const k = Math.min(1, dt * 14); o.x += (px - o.x) * k; o.y += (py - o.y) * k;
+}
+// PROTEZIONE ANTI-LAG (per chi ha creato il party, che decide le prese): un amico il cui telefono non manda la posizione da piu' di 0,9 s
+// ha la rete inceppata. Sul suo schermo stava scappando, qui sembrerebbe fermo: per al massimo 5 s guardie e mostri non lo possono prendere
+function cqLagging(c) {
+  const N = cq.net; if (!N || N.role !== 'host' || !c || !c.remote || !N.posAt || !N.posAt[c.sid]) return false;
+  const a = performance.now() - N.posAt[c.sid]; return a > 900 && a < 5000;
+}
+// MISURE della connessione in partita (vanno nel registro 🛠️ Accessi, una riga a fine partita): intoppi = buchi di oltre 0,7 s tra un pacchetto
+// e l'altro, il piu' lungo, fotogrammi al secondo veri, voce diretta o dal ponte
+const cqQ = { n: 0, m: 0, fr: 0, ft: 0, g: '' };
+function cqQGap(ms) { if (ms > 700) { cqQ.n++; cqQ.m = Math.max(cqQ.m, ms); } }
+function cqQLog() {
+  if (cqQ.ft >= 20 && cq.net) {
+    const via = cqV.diag && cqV.diag.peers.some(p => p.via === 'ponte') ? ' · voce dal ponte' : '';
+    devLog('rete', cqQ.g, (cqQ.n ? cqQ.n + ' intoppi, il più lungo ' + (cqQ.m / 1000).toFixed(1).replace('.', ',') + ' s' : 'nessun intoppo') + ' · ' + Math.round(cqQ.fr / cqQ.ft) + ' fps' + via + (store.settings.eco ? ' · 🔋' : ''));
+  }
+  Object.assign(cqQ, { n: 0, m: 0, fr: 0, ft: 0 });
+}
 async function cqNetJoin(code) {
   if ((cq.kicked || {})[code]) { cqToast('🚪 Sei stato tolto da questo party.'); return; }
   try {   // tolto da chi l'ha creato (anche da un altro telefono con lo stesso nome): non si rientra
@@ -3176,21 +3252,28 @@ function cqNetTick(dt) {
     if (G.phase === 'play') for (const c of G.chars) {
       if (!c.remote) continue;
       const p = N.pos[c.sid];
-      if (p && p.e === G.ep) { c.x = p.x; c.y = p.y; c.face = p.f === -1 ? -1 : 1; }
+      if (p && p.e === G.ep) {   // p.t = orologio del telefono dell'amico (le versioni vecchie non lo mandano: ora d'arrivo)
+        if (p !== c.lp) { c.lp = p; cqNetGot(c, p.x, p.y, (p.t != null ? p.t : N.posAt[c.sid] || 0) / 1000, p.w ? 1 : 0); }
+        cqNetGlide(c, dt); c.face = p.f === -1 ? -1 : 1;
+      }
       c.walk = p && p.w ? c.walk + dt * 11 : 0;
       if (c.imp && c.alive) c.kcd -= dt;
     }
     if (now - N.sent > 120) {   // completo ogni 2 s (e a inizio partita), in mezzo leggero (senza le cose che non cambiano)
       const full = now - (N.fullT || 0) > 2000 || N.fullMid !== G.mid; if (full) { N.fullT = now; N.fullMid = G.mid; }
-      N.sent = now; N.F.set(cqNetRef(`cq/${N.code}/st`), { m: JSON.stringify(G.mode ? cqModeSnap(full) : cqNetLight(cqNetSnap(), !full)) }).catch(() => {});
+      N.sent = now; cqNetPut(`cq/${N.code}/st`, { m: JSON.stringify(G.mode ? cqModeSnap(full) : cqNetLight(cqNetSnap(), !full)) });
     }
   } else if (G.guest) {
     G.time += dt;
-    const k = Math.min(1, dt * 12);   // gli altri scivolano verso l'ultima posizione ricevuta
-    for (const c of G.chars) if (c !== G.me && c.tx != null) { c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.walk = c.mv ? c.walk + dt * 10 : 0; }
+    const k = Math.min(1, dt * 12);
+    for (const c of G.chars) if (c !== G.me && c.tx != null) { cqNetGlide(c, dt); c.walk = c.mv ? c.walk + dt * 10 : 0; }
     if (G.sv) for (const m of G.sv.mobs) if (m.tx != null) { const d = Math.hypot(m.tx - m.x, m.ty - m.y); m.x += (m.tx - m.x) * k; m.y += (m.ty - m.y) * k; m.walk = d > 0.02 ? m.walk + dt * 12 : 0; }
     G.me.x = cq.x; G.me.y = cq.y;
-    if (now - N.posT > 120) { N.posT = now; N.F.set(cqNetRef(`cq/${N.code}/pos/${N.sid}`), { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, e: G.ep }).catch(() => {}); }
+    // la mia posizione: ogni 120 ms mentre mi muovo, ogni 400 ms da fermo (basta per dire "ci sono": sotto gli 0,9 s dell'anti-lag)
+    if (now - N.posT > 120) {
+      const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, e: G.ep }, k2 = o.x + ',' + o.y + ',' + o.f + ',' + o.w + ',' + o.e;
+      if (k2 !== N.posK || now - N.posT > 400) { N.posT = now; N.posK = k2; o.t = Math.round(now); cqNetPut(`cq/${N.code}/pos/${N.sid}`, o); }
+    }
   }
 }
 // ---- host: azioni degli amici (controllate qui: distanze, attese, fase) ----
@@ -3248,8 +3331,7 @@ function cqNetApply(s) {
     // monete per le mie eliminazioni (le decide l'host)
     if (c !== me && !c.alive && me.imp && c.killer === me.name && !(G.paid || (G.paid = new Set())).has(c.id)) { G.paid.add(c.id); cqCoins(2); }
     if (c === me) continue;
-    c.tx = a[3]; c.ty = a[4]; c.face = a[5]; c.mv = a[6]; c.done = { size: a[9] }; if (a[2]) c.look = cqNetLook(a[2]);
-    if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
+    cqNetGot(c, a[3], a[4], s.t, a[6]); c.face = a[5]; c.mv = a[6]; c.done = { size: a[9] }; if (a[2]) c.look = cqNetLook(a[2]);
   }
   G.time = s.t; G.button = s.bt; G.sabCd = s.sc; G.sab = s.sab;
   if (s.sv && CQ_MAP.surv) cqNetSvApply(G, s.sv);
@@ -3557,8 +3639,7 @@ function cqModeApply(s) {
     const c = G.chars.find(o => o.id === a[0]); if (!c) continue;
     c.alive = !!a[5]; if (G.M.capply) G.M.capply(G, c, a.slice(6));
     if (c === G.me) continue;
-    c.tx = a[1]; c.ty = a[2]; c.face = a[3]; c.mv = a[4];
-    if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
+    cqNetGot(c, a[1], a[2], s.t, a[4]); c.face = a[3]; c.mv = a[4];   // s.t: l'ora della partita sul telefono dell'host
   }
   G.time = s.t; G.pre = s.pre;
   if (s.x && G.M.apply) G.M.apply(G, s.x);
@@ -3618,6 +3699,7 @@ function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if 
 document.addEventListener('visibilitychange', () => { if (cq.net && cq.g && cq.g.hall) cqHallPub(true); });
 window.addEventListener('pagehide', () => { if (cq.net) cqNetLeave(); });
 function cqHallEnter() {
+  cqQLog();   // la partita appena finita: com'e' andata la connessione (registro 🛠️)
   const old = cq.g;
   if (old && old.hall) { cqHallUI(true); cqHallPub(true); return; }
   cqUseMap('hotel');
@@ -3890,7 +3972,7 @@ function cqHallPub(now) {
   const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
   const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, k: G.me.alive || !G.me.slap ? 0 : 1, s: cq.sit != null ? cq.sit + 1 : 0, dk: cq.dk || 0, sw: cq.sw || 0, i: 1 }, k = JSON.stringify(o), t = performance.now();
   if (!now && (t - (N.hlT || 0) < 150 || (k === N.hlK && t - N.hlT < 2000))) return;
-  N.hlT = t; N.hlK = k; N.F.set(cqNetRef(`cq/${N.code}/hl/${N.sid}`), o).catch(() => {});
+  N.hlT = t; N.hlK = k; o.t = Math.round(t); cqNetPut(`cq/${N.code}/hl/${N.sid}`, o);
 }
 // porte della hall (in fondo, una per gioco): chi ha creato il party entra in una porta e sceglie il gioco
 const cqHallLifts = () => CQ_PROPS.filter(p => p[0] === 'gdoor').map(p => ({ x: p[1], y: p[2], g: p[3].k ? cqGame(p[3].k) : null }));
@@ -3925,7 +4007,7 @@ function cqHallSigns(g, sx, sy, TW) {
   }
 }
 // fuori dalla hall (partita cominciata): non sono pronto
-function cqHallOff() { const N = cq.net; if (N) { N.hlK = ''; N.F.set(cqNetRef(`cq/${N.code}/hl/${N.sid}`), { x: 0, y: 0, r: 0, d: 0 }).catch(() => {}); } cqHallUI(false); cqTitle(cqGame((cq.g && cq.g.mode) || 'ciack')[1]); }
+function cqHallOff() { const N = cq.net; if (N) { N.hlK = ''; cqNetPut(`cq/${N.code}/hl/${N.sid}`, { x: 0, y: 0, r: 0, d: 0 }); } cqHallUI(false); cqTitle(cqGame((cq.g && cq.g.mode) || 'ciack')[1]); }
 // gli altri del set: chi e' pronto compare nella hall, chi si sta preparando aspetta fuori
 function cqHallNet() {
   const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
@@ -3937,7 +4019,8 @@ function cqHallNet() {
     if (!here) { if (c) { G.chars.splice(G.chars.indexOf(c), 1); G.bodies = G.bodies.filter(b => b.id !== c.id); } continue; }
     if (!c) { c = { id: G.nid++, sid, remote: true, alive: true, imp: false, x: h.x, y: h.y, tx: h.x, ty: h.y, face: 1, walk: 0 }; G.chars.push(c); }
     c.name = String(p.name || 'Amico').slice(0, 14); c.look = cqNetLook(p.look); c.dname = c.name + (h.r ? ' ✅' : '');
-    c.tx = h.x; c.ty = h.y; c.face = h.f === -1 ? -1 : 1; c.mv = h.w;
+    if (h !== c.lh) { c.lh = h; cqNetGot(c, h.x, h.y, (h.t != null ? h.t : performance.now()) / 1000, h.w); }
+    c.face = h.f === -1 ? -1 : 1; c.mv = h.w;
     c.sit = h.s ? h.s - 1 : null;
     if (h.dk !== c.dkN) { if (c.dkN != null) c.dkT = G.time; c.dkN = h.dk; }   // ha cominciato a bere
     if (h.sw !== c.swN) { if (c.swN != null) c.swT = G.time; c.swN = h.sw; }   // ha dato uno schiaffo
@@ -3959,10 +4042,9 @@ function cqHallTick(dt) {
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
-    if (c.remote) {   // persone del set: scivolano verso l'ultima posizione ricevuta
-      const k = Math.min(1, dt * 12); c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.walk = c.mv ? c.walk + dt * 10 : 0;
+    if (c.remote) {   // persone del set: movimento fluido (cqNetGlide)
+      cqNetGlide(c, dt); c.walk = c.mv ? c.walk + dt * 10 : 0;
       if (c.mv && c.alive && (c.stT = (c.stT || 0) - dt) <= 0) { c.stT = 0.32; const d = Math.hypot(c.x - cq.x, c.y - cq.y); if (d < 8) thud(0.26 * (1 - d / 8), 560 + Math.random() * 300); }   // passi degli amici vicini, piu' piano
-      if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
       if (!c.alive && c.pred && c.pred <= G.time && c.dead <= G.time) { c.pred = 0; cqHallLive(c); }   // lo scherzo non e' arrivato: torna in piedi
     }
   }
@@ -4942,8 +5024,9 @@ function cqResize() {
   // la tela deve avere esattamente i pixel veri dello schermo: se il telefono la ingrandisce anche di poco
   // (es. Redmi con 2,75 pixel per punto) i bordi scuri tremano mentre ci si muove
   const c = $('#cqCanvas'), w = c.clientWidth, h = c.clientHeight;
-  const dr = Math.min(window.devicePixelRatio || 1, 3), ok = cq.devW && w && Math.abs(cq.devW - w * dr) < 3;   // la misura vera vale solo se e' coerente
-  cq.dpr = ok ? cq.devW / w : dr;
+  // 🔋 risparmio batteria: al massimo 1,5 pixel veri per punto (sugli schermi fini sono meno della meta' dei pixel da disegnare; si vede un po' meno nitido)
+  const dr = Math.min(window.devicePixelRatio || 1, 3), eco = !!store.settings.eco && dr > 1.5, ok = !eco && cq.devW && w && Math.abs(cq.devW - w * dr) < 3;   // la misura vera vale solo se e' coerente
+  cq.dpr = eco ? 1.5 : ok ? cq.devW / w : dr;
   // la mappa pronta si rifa' solo se cambia davvero lo zoom: sul telefono la barra dell'indirizzo che compare e sparisce
   // cambia di poco l'altezza a ogni trascinamento, e rifarla ogni volta dava scatti e schermo nero
   if (cq.bg && (cq.bg.TW !== Math.max(48, Math.min(w, h) / 8) || cq.bg.dpr !== cqBgSc())) cq.bg = null;
@@ -4977,6 +5060,12 @@ function cqInit() {
   };
   $('#cqHear').onclick = () => { cqV.hear = !cqV.hear; cqVoiceVol(); cqVoiceUI(); cqToast(cqV.hear ? '🗣️ Senti di nuovo gli amici.' : '🗣️ Voci degli amici spente.'); };
   $('#cqMusic').onclick = () => { store.settings.music = store.settings.music === false; saveStore(); mus(); };
+  const eco = () => { $('#cqEco').style.opacity = store.settings.eco ? 1 : 0.4; };
+  $('#cqEco').onclick = () => {
+    store.settings.eco = !store.settings.eco; saveStore(); eco(); cqResize();
+    cqToast(store.settings.eco ? '🔋 <b>Risparmio batteria acceso</b>: il gioco si aggiorna 30 volte al secondo e disegna un po\' meno fine. Consuma molto meno.' : '🔋 <b>Risparmio batteria spento</b>: massima fluidità e nitidezza.');
+  };
+  eco();
   mus();
   $('#cqUse').onclick = cqUse;
   $('#cqMapBtn').onclick = cqOpenMap;
@@ -5085,10 +5174,25 @@ document.addEventListener('visibilitychange', () => { if (document.visibilitySta
 // telecamera libera dei giochi del motore (es. il fantasmino di Nascondino): cq.cam = { x, y } la stacca dal mio personaggio, che resta fermo.
 // Vale solo in partita: fuori dal gioco (o a partita finita) si torna da soli a me
 const cqCam = () => cq.cam && cq.g && cq.g.mode && cq.g.phase === 'play' ? cq.cam : null;
+// FOTOGRAMMI (batteria, 23-10-2026): lo schermo chiama cqFrame a ogni suo aggiornamento, che sui telefoni a 120 Hz vuol dire 120 volte
+// al secondo: il doppio del lavoro per un'immagine che a occhio e' uguale. Si lavora al massimo 60 volte al secondo in partita e 30 nella hall
+// quando sto fermo (e sempre 30 col 🔋 risparmio batteria). Si salta sempre lo stesso numero di aggiornamenti (passo regolare, niente scatti):
+// cq.hz = frequenza dello schermo misurata, cq.fN = contatore. Il tempo (dt) si misura dall'ultimo fotogramma fatto, quindi niente rallenta
+function cqFpsMax() {
+  if (store.settings.eco) return 30;
+  const G = cq.g;
+  if (G && G.hall && !cq.joy && !Object.keys(cq.keys).length) return 30;
+  return 60;
+}
 function cqFrame(t) {
   if (!cq.on) return;
   cq.raf = requestAnimationFrame(cqFrame);   // subito: se qualcosa va storto in questo fotogramma, il gioco non si blocca
-  const dt = Math.min(0.05, (t - cq.last) / 1000); cq.last = t;
+  const raw = t - (cq.rawT || t); cq.rawT = t;
+  if (raw > 4 && raw < 50) cq.hz = (cq.hz || 60) * 0.95 + (1000 / raw) * 0.05;
+  if ((cq.fN = (cq.fN || 0) + 1) % Math.max(1, Math.floor((cq.hz || 60) / cqFpsMax() + 0.15))) return;
+  const real = (t - cq.last) / 1000, dt = Math.min(0.05, real); cq.last = t;
+  if (cq.net && cq.g && cq.g.phase === 'play' && !cq.g.hall && real < 1) { cqQ.fr++; cqQ.ft += real; cqQ.g = cq.g.mode || 'ciack'; }   // misura per il registro
+  for (const f of CQ_EACH) try { f(); } catch (e) { console.warn(e); }   // pulsanti dei giochi (cqEachFrame)
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
   let d = (!G || playing || (G.hall && G.me.alive && $('#cqPick').hidden)) && !(G && G.mode && G.pre > 0) ? cqDir() : null;
   if (d && G && G.hall && cq.sit != null) { cqSitToggle(); d = null; }   // seduto in poltrona: muovere il dito fa alzare

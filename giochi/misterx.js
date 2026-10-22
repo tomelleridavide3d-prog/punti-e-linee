@@ -1140,8 +1140,7 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
   tapB.addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); tapPress(); });
   mapB.onclick = e => { e.stopPropagation(); const G = live(); if (G) { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } };
   if (!window.mxKeys) { window.mxKeys = 1; document.addEventListener('keydown', e => { if (e.repeat && e.key !== ' ') return; const G = live(); if (!G || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; const k = (e.key || '').toLowerCase(); if (k === 'q') catchPress(); else if (k === ' ' && G.du) { e.preventDefault(); if (!e.repeat) tapPress(); } else if (k === 'm') G.big = !G.big; }); }
-  (function loop() {
-    requestAnimationFrame(loop);
+  cqEachFrame(function loop() {   // a ogni fotogramma dell'Hotel (prima: un ciclo suo sempre acceso, anche fuori dal gioco)
     const G = live(), panel = !$('#cqTask').hidden, me = G && G.me, duelMe = !!(G && G.du && (G.du.x === me.id || G.du.ds.includes(me.id)));
     const cOn = !!(G && !me.mx && me.alive && !me.out && !panel && !duelMe), sOn = false, tOn = !!(G && duelMe);
     if (catB.hidden === cOn) catB.hidden = !cOn; if (sprB.hidden === sOn) sprB.hidden = !sOn; if (tapB.hidden === tOn) tapB.hidden = !tOn;
@@ -1156,5 +1155,5 @@ CQ_WAIT.misterx = cqLib('squadre', 'mappe').then(L => {
       if (G.big) { const R = Math.min(W2 - 24, H2 - 300, 440) / 2, cy = Math.max(130 + R, H2 / 2 - 40); css = 'left:' + (W2 / 2 - R) + 'px;top:' + (cy - R) + 'px;width:' + 2 * R + 'px;height:' + 2 * R + 'px;border-radius:16px'; }
       else css = 'left:' + (W2 - 2 * RADAR - 8) + 'px;top:122px;width:' + 2 * RADAR + 'px;height:' + 2 * RADAR + 'px;border-radius:50%';
       if (mapB.dataset.k !== css) { mapB.dataset.k = css; mapB.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; } }
-  })();
+  });
 });

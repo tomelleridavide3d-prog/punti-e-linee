@@ -843,7 +843,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
         }
         if (!G.esc && full(G, c.t) && G.open[c.t] && dxy(c, MP().exit.x, MP().exit.y) < EXIT_R) { G.esc = { id: c.id, t: c.t, at: G.time + ESC_T, md: M && M.alive ? Math.round(dist(M, c) * 10) / 10 : 99 }; c.out = 1; c.path = []; say(G, 'esc', { a: c.id, b: c.t }); }
       }
-      if (M && M.alive && !G.esc && !((M.eat || 0) > G.time)) for (const e of expl(G)) if (dist(M, e) < CATCH && !((e.safe || 0) > G.time)) caught(G, e, M);
+      if (M && M.alive && !G.esc && !((M.eat || 0) > G.time)) for (const e of expl(G)) if (dist(M, e) < CATCH && !((e.safe || 0) > G.time) && !cqLagging(e)) caught(G, e, M);   // cqLagging: rete inceppata, qui sembra fermo
       if (G.esc && G.time >= G.esc.at) { this.finish(G); return; }
       // computer
       for (const c of G.chars) {
@@ -1198,8 +1198,7 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
   })();
   mb.onclick = e => { e.stopPropagation(); const G = cq.g; if (G && G.mode === 'minotauro') { G.big = !G.big; beep(G.big ? 700 : 500, 0.05, 0.02); } };
   if (!window.mnKeys) { window.mnKeys = 1; document.addEventListener('keydown', e => { if (e.repeat || !cq.g || cq.g.mode !== 'minotauro' || (e.target && /INPUT|TEXTAREA/.test(e.target.tagName))) return; if (e.key === 'g' || e.key === 'G') { if (cq.g.me.mino) power('sn'); else chalk(); } if (e.key === 'm' || e.key === 'M') cq.g.big = !cq.g.big; if (e.key === 't' || e.key === 'T') { if (cq.g.me.mino) power('mt'); else torch(); } }); }
-  (function loop() {
-    requestAnimationFrame(loop);
+  cqEachFrame(function loop() {   // a ogni fotogramma dell'Hotel (prima: un ciclo suo sempre acceso, anche fuori dal gioco)
     const G = cq.g, on = !!(cq.on && G && G.mode === 'minotauro' && G.fc && G.phase === 'play' && G.pre <= 0 && G.me.alive && !G.me.out && !G.me.jail && $('#cqTask').hidden);
     if (cb.hidden === on) cb.hidden = !on;
     if (tb.hidden === on) tb.hidden = !on;
@@ -1212,5 +1211,5 @@ CQ_WAIT.minotauro = cqLib('squadre', 'mappe').then(L => {
       else css = 'left:' + (W2 - 2 * RADAR - 8) + 'px;top:122px;width:' + 2 * RADAR + 'px;height:' + 2 * RADAR + 'px;border-radius:50%';
       if (mb.dataset.k !== css) { mb.dataset.k = css; mb.style.cssText = 'position:absolute;border:0;background:transparent;padding:0;cursor:pointer;-webkit-tap-highlight-color:transparent;' + css; } }
     if (!(G && G.mode === 'minotauro' && G.phase === 'play')) { const cv = document.getElementById('cqCanvas'); if (cv && cv.style.transform) cv.style.transform = ''; }
-  })();
+  });
 });
