@@ -252,6 +252,23 @@ details.gList[open] summary::after{content:' ▴'}
 #cqSlap{touch-action:none;user-select:none;-webkit-user-select:none;position:absolute;right:114px;bottom:148px;width:74px;height:74px;border-radius:50%;border:0;font:inherit;font-weight:700;font-size:13px;line-height:1.15;background:#5d6578;color:#c9ccd4;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqSlap.on{background:#e8a23a;color:#2a1a08;cursor:pointer}
 #cqKill.hk{font-size:13px;line-height:1.15}
+#cqChatB{position:absolute;left:18px;bottom:196px;width:52px;height:52px;border-radius:50%;border:0;font-size:24px;background:#3a5a8a;color:#fff;box-shadow:0 4px 14px rgba(0,0,0,.35);touch-action:none;user-select:none;-webkit-user-select:none;z-index:4}
+#cqChatP{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;width:min(520px,calc(100% - 20px));box-sizing:border-box;padding:10px;border-radius:16px;background:rgba(18,22,34,.95);box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:20;color:#fff}
+#cqChatLog{font-size:13px;line-height:1.4;margin:0 4px 8px;max-height:132px;overflow:auto}#cqChatLog:empty{display:none}#cqChatLog b{color:#9cc8ff}#cqChatLog .me b{color:#f2c230}
+#cqChatQ{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}#cqChatQ button{border:0;border-radius:18px;padding:8px 12px;font:inherit;font-size:15px;font-weight:700;background:#2e3a52;color:#fff;cursor:pointer}#cqChatQ button:active{background:#4a6aa0}
+#cqChatF{display:flex;gap:6px;margin:0}#cqChatI{flex:1;min-width:0;border:0;border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;background:#fff;color:#222}#cqChatF button{border:0;border-radius:12px;width:46px;font-size:20px;background:#3a8a5a;color:#fff;cursor:pointer}#cqChatF #cqChatX{background:#4a4f5c}
+#cqPartyB{background:rgba(20,22,28,.85);color:#fff;font-weight:700;padding:7px 12px;margin-left:6px}
+.pmRow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}.pmRow:last-child{border-bottom:0}.pmRow .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pmRow .nm small{font-weight:400;color:var(--muted);margin-left:4px}.pmRow .btn{padding:7px 10px;font-size:13px;flex:none}
+.dot3{display:inline-block;width:9px;height:9px;border-radius:50%;background:#7a7f8a;margin-right:6px;vertical-align:middle}.dot3.on{background:#3fb96b;box-shadow:0 0 0 2px rgba(63,185,107,.25)}
+.pSec{margin:14px 0 6px;font-weight:800;font-size:15px}
+.invBox{border:2px solid #f2c230;border-radius:12px;padding:8px 10px;margin:0 0 10px;background:rgba(242,194,48,.1)}
+.pvt{display:flex;align-items:center;gap:8px;margin:6px 0 2px;font-size:14px;cursor:pointer}.pvt input{width:20px;height:20px}
+details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight:700;padding:6px 0}
+.frAdd{display:flex;gap:6px;margin-top:8px}.frAdd input{flex:1;min-width:0}
+.rqCats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.rqCats button{padding:12px 8px;justify-content:center;font-weight:700}.rqCats button.on{border-color:#f2c230;box-shadow:0 0 0 1px #f2c230;background:rgba(242,194,48,.12)}
+#rqWin{position:fixed;inset:0;z-index:99990;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px}#rqWin .pk{width:100%;max-width:440px;max-height:calc(100% - 20px);overflow:auto}
+#rqWin textarea{width:100%;box-sizing:border-box;min-height:120px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
+.rqItem{padding:10px 0;border-bottom:1px solid var(--line)}.rqItem .tx{white-space:pre-wrap;margin:4px 0;font-size:15px}
 #cqSit,#cqDrink{position:absolute;right:18px;bottom:244px;font-size:16px;font-weight:700;padding:11px 15px;border-radius:14px;box-shadow:0 4px 14px rgba(0,0,0,.35)}
 #cqDrink{bottom:300px}
 #cqSabBtn{position:absolute;left:18px;bottom:96px}
@@ -361,6 +378,7 @@ details.gList[open] summary::after{content:' ▴'}
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><rect x="4" y="7" width="18" height="17" rx="1.2" fill="#8a3a32"/><rect x="2.8" y="5.2" width="20.4" height="2.8" rx="1" fill="#e0b84a"/><g fill="#f2d98a"><rect x="6.5" y="10" width="3" height="3" rx=".5"/><rect x="11.5" y="10" width="3" height="3" rx=".5"/><rect x="16.5" y="10" width="3" height="3" rx=".5"/><rect x="6.5" y="15" width="3" height="3" rx=".5"/><rect x="16.5" y="15" width="3" height="3" rx=".5"/></g><path d="M10.6 24v-4.6q2.4-2.6 4.8 0V24z" fill="#2a1e14"/><path d="M13 5.2V1.2" stroke="#2a2e35" stroke-width="1"/><path d="M13 1.2h4.6l-1.3 1.3 1.3 1.3H13z" fill="#e2553a"/></svg></span>
     <span><div class="gt">Hotel dei Giochi</div><div class="gs">Un hotel pieno di giochi: Ciack US, Infezione e altri in arrivo. Da solo o con gli amici: ogni porta della hall è un gioco.</div><div class="gn" id="nAmong"></div></span></button>
+  <button class="gcard" id="gReq" type="button"><span class="gi" style="background:#f2c230;font-size:22px">💡</span><span><div class="gt">Scrivi allo sviluppatore</div><div class="gs">Hai trovato un bug? Vuoi un personaggio nuovo o hai un'idea per un minigioco? Scrivimi qui.</div></span></button>
   <p class="you" id="appVer" style="text-align:center;margin-top:8px;font-size:12px"></p>
 </div></div>
 <div id="ciack" hidden>
@@ -378,7 +396,7 @@ details.gList[open] summary::after{content:' ▴'}
   <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqSurv" id="cqSurv" hidden></div><div class="cqList" id="cqList"></div></div>
   <button class="btn" id="cqMapBtn" type="button">Mappa</button>
   <div id="cqModeBar" hidden></div>
-  <div id="cqHallBar" hidden><b>🏨 Hall dell'hotel</b><span id="hlInfo"></span><button class="btn" id="cqPickGame" type="button" hidden>🎮 Seleziona minigioco</button></div><div id="cqCount" hidden></div>
+  <div id="cqHallBar" hidden><b>🏨 Hall dell'hotel</b><span id="hlInfo"></span><button class="btn" id="cqPickGame" type="button" hidden>🎮 Seleziona minigioco</button><button class="btn" id="cqPartyB" type="button" hidden>👥 Party</button></div><div id="cqCount" hidden></div>
   <button class="btn primary" id="cqStart" type="button" hidden>▶ Inizia</button><button class="btn" id="cqReady" type="button" hidden>✋ Sono pronto</button>
   <button class="btn" id="cqHallSet" type="button" hidden>⚙️ Partita</button>
   <button id="cqUse" type="button">Usa</button>
@@ -388,6 +406,7 @@ details.gList[open] summary::after{content:' ▴'}
   <div id="cqToast" hidden></div>
   <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button><button id="cqSlap" type="button" hidden>👋<br>Schiaffo</button>
+  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
   <button class="btn" id="cqSit" type="button" hidden>🪑 Siediti</button><button class="btn" id="cqDrink" type="button" hidden>☕ Bevi</button>
   <button id="cqShoot" type="button" hidden>Spara</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
@@ -1635,7 +1654,7 @@ async function startHub() {
   let F; try { F = await hubLoad(); } catch { hub.ok = false; hub.failed = true; hubRender(); return; }
   if (hub.key !== key) return;
   const { db, ref, onValue, onDisconnect, runTransaction, onChildAdded } = F;
-  hub.ok = true; devLog('sito');
+  hub.ok = true; devLog('sito'); invWatch();
   runTransaction(ref(db, 'players/' + key), cur => cur || { name: nm, rating: 1000, w: 0, l: 0, d: 0, pf: 0, pa: 0, hist: [1000] }).catch(() => {});
   hub.unsubs.push(onValue(ref(db, '.info/connected'), s => { if (s.val() !== true || hub.key !== key) return; onDisconnect(ref(db, 'presence/' + hub.sid)).remove(); hubPresence(); }));
   const fail = e => { hub.ok = false; hub.failed = true; hub.err = (e && e.code) || 'errore'; hubRender(); };
@@ -1675,7 +1694,7 @@ function devLog(e, g, s) {
   hubLoad().then(F => { const r = F.push(F.ref(F.db, 'dl/' + DL_K), o); if (e === 'sito') dlStay(F, r); }).catch(() => {});
 }
 // ---- avvisi sul telefono (postino su Cloudflare: postino/worker.js; aiutante: sw.js) ----
-// 🔔 campanella silenziosa quando un amico apre un set (sparisce quando si chiude) + avvisi dello sviluppatore dal pannello 🛠️ Accessi
+// 🔔 campanella silenziosa quando un amico apre un party (sparisce quando si chiude) + avvisi dello sviluppatore dal pannello 🛠️ Accessi
 const PUSH_W = 'https://hotel-postino.tomelleri-giochi.workers.dev', PUSH_K = 'BE6wUmeLgbXUiBTKfacmmP9Im9bjfXdrfSgCPvOBAc9xjeR3PJfh9IkuiZmqm-niMpJtgswxMuMYUbHwATP7MYY';
 const pushOk = () => WEB && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
 const pushIOS = () => /iPhone|iPad/.test(navigator.userAgent) && !(navigator.standalone === true || (() => { try { return matchMedia('(display-mode: standalone)').matches; } catch { return false; } })());
@@ -1707,7 +1726,7 @@ async function pushToggle() {
   if (p !== 'granted') { cqToast('🔕 Permesso negato. Si può dare dalle impostazioni del browser: Notifiche → Consenti.'); return; }
   store.settings.pushOff = 0; store.settings.pushAsked = 1; saveStore(); pushBoxShow();
   let ok = false; try { ok = await pushSub(true); } catch (e) { console.warn('avvisi:', e); }
-  cqToast(ok ? '🔔 Fatto! Quando un amico apre un set compare la campanella.' : '🔕 Non riesco ad attivare gli avvisi: riprova tra poco.');
+  cqToast(ok ? '🔔 Fatto! Quando un amico apre un party compare la campanella.' : '🔕 Non riesco ad attivare gli avvisi: riprova tra poco.');
   cqNetBox();
 }
 // avviso dello sviluppatore a tutti gli iscritti: un riquadro solo (testo + codice), arriva SILENZIOSO come "🎮 Hey <nome>!" con sotto il testo
@@ -1740,14 +1759,14 @@ if (pushOn()) setTimeout(() => pushSub(false).catch(() => {}), 4000);
 // permesso gia' dato ma non iscritto (e mai spento a mano): lo iscrivo senza chiedere
 else if (pushOk() && Notification.permission === 'granted' && !store.settings.pushOff && !/^zz/i.test(store.settings.myName || '')) setTimeout(() => pushSub(true).catch(() => {}), 4000);
 // appena si apre il sito: riquadro con la domanda (il permesso del telefono si puo' chiedere solo dopo un tocco); risposto una volta, non torna
-// (si puo' sempre accendere/spegnere dal pulsante sotto "Crea un set")
+// (si puo' sempre accendere/spegnere dal pulsante sotto "Crea un party")
 function pushBoxShow() {
   const b = $('#pushBox'); if (!b) return;
   if (!pushOk() || pushIOS() || Notification.permission !== 'default' || store.settings.pushAsked || store.settings.pushId) { b.hidden = true; return; }
-  b.innerHTML = '🔔 <b>Vuoi sapere quando un amico apre un set?</b> Ti arriva un avviso senza suono e puoi entrare subito a giocare.<div class="ib"><button class="btn primary" type="button" id="pushYes">🔔 Sì, avvisami</button><button class="btn" type="button" id="pushNo">No grazie</button></div>';
+  b.innerHTML = '🔔 <b>Vuoi sapere quando un amico apre un party?</b> Ti arriva un avviso senza suono e puoi entrare subito a giocare.<div class="ib"><button class="btn primary" type="button" id="pushYes">🔔 Sì, avvisami</button><button class="btn" type="button" id="pushNo">No grazie</button></div>';
   b.hidden = false;
   $('#pushYes').onclick = () => { store.settings.pushAsked = 1; saveStore(); b.hidden = true; pushToggle(); };
-  $('#pushNo').onclick = () => { store.settings.pushAsked = 1; saveStore(); pushBoxShow(); cqToast('Va bene! Puoi accendere gli avvisi quando vuoi dal pulsante 🔕 sotto "Crea un set".'); };
+  $('#pushNo').onclick = () => { store.settings.pushAsked = 1; saveStore(); pushBoxShow(); cqToast('Va bene! Puoi accendere gli avvisi quando vuoi dal pulsante 🔕 sotto "Crea un party".'); };
 }
 
 // quanto resta sul sito: la visita (voce 'sito') ha u = ultima volta che c'era (ogni minuto mentre la pagina si vede) e x = ora di USCITA
@@ -1772,6 +1791,48 @@ function dlStay(F, r) {
   window.addEventListener('pagehide', bye);
 }
 const dlDur = ms => { const m = Math.round(ms / 60000); return m < 1 ? 'meno di un minuto' : m < 60 ? m + ' min' : Math.floor(m / 60) + ' h ' + String(m % 60).padStart(2, '0') + ' min'; };
+// ---- RICHIESTE ALLO SVILUPPATORE (22-10-2026): chiunque scrive (bug, personaggi, idee, altro) in rq/<RQ_K>; le legge solo lo sviluppatore
+// nel pannello 🛠️ Accessi -> 📬 Richieste (stessa sicurezza "semplice" del registro) ----
+const RQ_K = 'r7kq2mzx9d4p', RQ_CAT = [['bug', '🐞 Un bug'], ['pers', '🧸 Un personaggio'], ['gioco', '🎮 Idea per un minigioco'], ['altro', '💬 Altro']];
+function rqOpen() {
+  let w = $('#rqWin'); if (w) w.remove();
+  w = document.createElement('div'); w.id = 'rqWin';
+  w.innerHTML = '<div class="pk"><div class="tk-h"><b>💡 Scrivi allo sviluppatore</b></div><p class="hint" style="margin:6px 0 0">Di cosa si tratta?</p><div class="rqCats">' + RQ_CAT.map(([k, l], i) => '<button class="btn' + (i ? '' : ' on') + '" type="button" data-c="' + k + '">' + l + '</button>').join('') + '</div>'
+    + '<textarea id="rqTxt" maxlength="1000" placeholder="Scrivi qui… (es. che bug hai trovato e in che gioco, che personaggio vorresti, la tua idea)"></textarea>'
+    + '<div id="rqRes" class="hint" style="min-height:1.3em;margin-top:6px"></div><div style="display:flex;gap:8px;margin-top:6px"><button class="btn primary" type="button" id="rqGo" style="flex:1;justify-content:center">📨 Manda</button><button class="btn" type="button" id="rqX">Chiudi</button></div></div>';
+  document.body.appendChild(w);
+  let cat = RQ_CAT[0][0];
+  w.querySelectorAll('[data-c]').forEach(b => { b.onclick = () => { cat = b.dataset.c; w.querySelectorAll('[data-c]').forEach(x => x.classList.toggle('on', x === b)); }; });
+  w.onclick = e => { if (e.target === w) w.remove(); };
+  $('#rqX').onclick = () => w.remove();
+  $('#rqGo').onclick = async () => {
+    const m = $('#rqTxt').value.trim().slice(0, 1000), res = $('#rqRes');
+    if (m.length < 3) { res.textContent = '✏️ Scrivi qualcosa prima di mandare.'; return; }
+    if (Date.now() - (rqOpen.last || 0) < 15000) { res.textContent = '⏳ Aspetta qualche secondo prima di mandarne un\'altra.'; return; }
+    $('#rqGo').disabled = true; res.textContent = 'Mando…';
+    try {
+      const F = await hubLoad();
+      await F.push(F.ref(F.db, 'rq/' + RQ_K), { n: (store.settings.myName || 'Anonimo').trim().slice(0, 14) || 'Anonimo', t: Date.now(), c: cat, m, d: dlDevice() });
+      rqOpen.last = Date.now();
+      w.querySelector('.pk').innerHTML = '<div class="tk-h"><b>💛 Grazie!</b></div><p class="lead" style="margin:12px 0">Messaggio arrivato. Lo sviluppatore lo leggerà presto.</p><button class="btn primary" type="button" id="rqX2" style="width:100%;justify-content:center">Chiudi</button>';
+      $('#rqX2').onclick = () => w.remove();
+    } catch { $('#rqGo').disabled = false; res.textContent = '📡 Non riesco a mandarlo: controlla la connessione e riprova.'; }
+  };
+}
+async function rqShow() {
+  const w = $('#dlWin'); if (!w) return;
+  w.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><b style="flex:1;font-size:17px">📬 Richieste</b><button class="btn" type="button" id="rqBack">🛠️ Accessi</button><button class="btn" type="button" id="rqRe">↻</button><button class="btn" type="button" id="rqCl">Chiudi</button></div><div id="rqBody">Carico…</div>';
+  $('#rqBack').onclick = dlShow; $('#rqRe').onclick = rqShow; $('#rqCl').onclick = () => { w.hidden = true; };
+  let rows = [];
+  try { const F = await hubLoad(); const sn = await F.get(F.query(F.ref(F.db, 'rq/' + RQ_K), F.orderByChild('t'), F.limitToLast(300))); rows = Object.entries(sn.val() || {}).filter(([, r]) => r && r.t).sort((a, b) => b[1].t - a[1].t); }
+  catch (e) { $('#rqBody').textContent = 'Non riesco a leggere le richieste (' + ((e && e.code) || 'errore') + ').'; return; }
+  if (!rows.length) { $('#rqBody').textContent = 'Ancora nessuna richiesta.'; return; }
+  const cats = Object.fromEntries(RQ_CAT);
+  $('#rqBody').innerHTML = '<div class="hint" style="margin-bottom:6px">' + rows.length + ' richieste</div>' + rows.map(([id, r]) => { const d = new Date(r.t); return '<div class="rqItem"><div style="display:flex;gap:8px;align-items:center"><b style="flex:1">' + esc(r.n) + ' · ' + esc(cats[r.c] || r.c || '') + '</b><button class="btn" type="button" data-rqdel="' + esc(id) + '" title="Cancella">✕</button></div><div class="tx">' + esc(r.m || '') + '</div><div class="hint" style="font-size:12px">' + esc(d.toLocaleDateString('it-IT', { day: 'numeric', month: 'long' }) + ' ' + d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })) + ' · ' + esc(r.d || '') + '</div></div>'; }).join('')
+    + '<button class="btn" type="button" id="rqDelAll" style="color:#ff8a7a;margin-top:14px">🗑️ Cancella tutte le richieste</button>';
+  $('#rqBody').querySelectorAll('[data-rqdel]').forEach(b => { b.onclick = async () => { try { const F = await hubLoad(); await F.remove(F.ref(F.db, 'rq/' + RQ_K + '/' + b.dataset.rqdel)); } catch {} rqShow(); }; });
+  $('#rqDelAll').onclick = async () => { if (!confirm('Cancellare tutte le richieste?')) return; try { const F = await hubLoad(); await F.remove(F.ref(F.db, 'rq/' + RQ_K)); } catch {} rqShow(); };
+}
 let dlTaps = 0, dlTapT = 0;
 async function dlUnlock() {
   const now = Date.now(); if (now - dlTapT > 1500) dlTaps = 0; dlTapT = now;
@@ -1788,7 +1849,7 @@ function dlBtn() {
   if (!on) { if (b) b.remove(); return; }
   if (!b) { b = document.createElement('button'); b.id = 'dlOpen'; b.className = 'btn'; b.type = 'button'; b.textContent = '🛠️ Accessi'; b.style.cssText = 'display:block;margin:6px auto 0'; b.onclick = dlShow; $('#appVer').after(b); }
 }
-const DL_EV = { sito: '🌐 apre il sito', set: '🎬 crea un set', entra: '🚪 entra in un set', gioco: '🎮 gioca' };
+const DL_EV = { sito: '🌐 apre il sito', set: '🎉 crea un party', entra: '🚪 entra in un party', gioco: '🎮 gioca' };
 async function dlShow() {
   let w = $('#dlWin');
   if (!w) {
@@ -1797,9 +1858,9 @@ async function dlShow() {
     document.body.appendChild(w);
   }
   w.hidden = false;
-  w.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><b style="flex:1;font-size:17px">🛠️ Accessi</b><button class="btn" type="button" id="dlRe">↻</button><button class="btn" type="button" id="dlX">Chiudi</button></div><div id="dlBody">Carico…</div>';
+  w.innerHTML = '<div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><b style="flex:1;font-size:17px">🛠️ Accessi</b><button class="btn" type="button" id="dlRq">📬 Richieste</button><button class="btn" type="button" id="dlRe">↻</button><button class="btn" type="button" id="dlX">Chiudi</button></div><div id="dlBody">Carico…</div>';
   $('#dlX').onclick = () => { w.hidden = true; };
-  $('#dlRe').onclick = dlShow;
+  $('#dlRe').onclick = dlShow; $('#dlRq').onclick = rqShow;
   let rows = [];
   try {
     const F = await hubLoad();
@@ -2636,7 +2697,7 @@ async function cqNetOpen(code, role) {
   }));
   // connessione tornata: pulizie e nome di nuovo
   N.unsubs.push(F.onValue(F.ref(F.db, '.info/connected'), sn => { if (sn.val() === true && cq.net === N && N.live) { N.arm().then(() => { if (N.role === 'host') cqNetList(); }).catch(() => {}); } }));
-  // "sono qui" ogni 10 s; chi ha creato il set toglie chi non si fa sentire da 40 s (app chiusa o telefono spento senza uscire)
+  // "sono qui" ogni 10 s; chi ha creato il party toglie chi non si fa sentire da 40 s (app chiusa o telefono spento senza uscire)
   N.hbI = setInterval(() => {
     if (cq.net !== N) { clearInterval(N.hbI); return; }
     if (!N.pl[N.sid]) N.arm().catch(() => {});   // tolto mentre il telefono dormiva: rientro
@@ -2650,6 +2711,14 @@ async function cqNetOpen(code, role) {
   N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hl`), s => { N.hl = s.val() || {}; }));
   N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) { let sl = null; if (v.s) { if (cq.sit != null) { const p = cq.sitFrom; cq.sit = null; if (p) { cq.x = p.x; cq.y = p.y; } } sl = cqSlapTo(cq.x, cq.y, +v.dx || 0, +v.dy || 0); cq.x = sl.x1; cq.y = sl.y1; thud(0.9, 1700); } cqHallDie(G.me, String(v.n || '').slice(0, 14), sl); } }));
   if (role !== 'host') N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hc`), s => { const v = s.val(); N.hc = v ? v.n : null; }));
+  N.t0 = Date.now(); cq.hlog = [];
+  N.unsubs.push(F.onChildAdded(F.query(cqNetRef(`cq/${code}/hm`), F.limitToLast(20)), sn => { if (cq.net === N) cqChatGot(sn.val()); }));   // chat della hall
+  if (role !== 'host') N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/kk/${nameKey(store.settings.myName)}`), s => {   // tolto dal party
+    if (!s.exists() || cq.net !== N) return;
+    (cq.kicked || (cq.kicked = {}))[code] = 1; const host = (cq.sets && cq.sets[code] && cq.sets[code].h) || '';
+    cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit();
+    cqPanel('Sei fuori dal party', '<p class="lead">' + (host ? '<b>' + esc(host) + '</b> ti ha tolto' : 'Sei stato tolto') + ' dal party.</p>', 'Ok', cqReception);
+  }));
   if (cq.g && cq.g.hall) cqHallReset();
   if (role === 'host') {
     cqNetList();
@@ -2659,11 +2728,11 @@ async function cqNetOpen(code, role) {
     N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/st`), s => { const v = s.val(); if (v && cq.net === N) try { cqNetApply(JSON.parse(v.m)); } catch (e) { console.warn(e); } }));
     let seen = false;
     N.unsubs.push(F.onValue(cqNetRef('cqlist/' + code), s => {
-      const bye = () => { if (cq.net !== N) return; clearTimeout(N.goneT); N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set lo ha chiuso.</p>', 'Ok', cqReception); };
+      const bye = () => { if (cq.net !== N) return; clearTimeout(N.goneT); N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il party è stato chiuso', '<p class="lead">Chi aveva creato il party lo ha chiuso.</p>', 'Ok', cqReception); };
       if (s.val() && s.val().o === -1) { bye(); return; }
       if (s.val()) { seen = true; clearTimeout(N.goneT); N.goneT = 0; return; }
       if (!seen || cq.net !== N || N.goneT) return;
-      N.goneT = setTimeout(() => { if (cq.net !== N) return; N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il set è stato chiuso', '<p class="lead">Chi aveva creato il set è uscito.</p>', 'Ok', cqReception); }, 20000);
+      N.goneT = setTimeout(() => { if (cq.net !== N) return; N.goneT = 0; cqNetLeave(); cqMeetStop(); $('#cqMeet').hidden = true; cq.g = null; cqHallExit(); cqPanel('Il party è stato chiuso', '<p class="lead">Chi aveva creato il party è uscito.</p>', 'Ok', cqReception); }, 20000);
     }));
   }
   return N;
@@ -2881,7 +2950,7 @@ async function cqVoiceMic() {
     for (const P of Object.values(cqV.peers)) cqVoiceSend(P);
     // su alcuni Android il microfono aggiunto a un collegamento gia' fatto non parte: si rifanno quelli non perfetti
     setTimeout(() => { for (const P of Object.values(cqV.peers)) if (P.pc.connectionState !== 'connected') cqVoiceRedo(P.sid); }, 3000);
-    cqToast('🎤 Microfono acceso: gli amici del set ti sentono.');
+    cqToast('🎤 Microfono acceso: gli amici del party ti sentono.');
   } catch { cqToast('🎤 Il microfono non è disponibile: controlla il permesso nelle impostazioni del browser.'); }
   cqVoiceUI();
 }
@@ -2934,7 +3003,7 @@ function cqVoiceDiagTxt(d) {
   const st = { connected: '✅ collegata', connecting: '⏳ si sta collegando', new: '⏳ in partenza', disconnected: '⚠️ interrotta', failed: '❌ non riesce', closed: '❌ chiusa' };
   const rows = d.peers.map(p => '<b>' + esc(String(p.to)) + '</b>: ' + (st[p.c] || p.c) + (p.via ? ' (' + p.via + ')' : '') + (p.c === 'connected' ? (p.rx > 0 ? ', la sua voce arriva' : ', la sua voce non arriva (microfono spento?)') + (d.mic ? (p.tx > 0 ? ', la tua parte' : ', la tua non parte') : '') : ''));
   if (d.others > d.peers.length) rows.push('⏳ con ' + (d.others - d.peers.length) + ' persona/e non è ancora partito il collegamento');
-  return '🔧 <b>Stato della voce</b> · microfono ' + (d.mic ? 'acceso' : 'spento') + '<br>' + (rows.join('<br>') || 'nessun amico nel set') + '<br><span style="opacity:.6">messaggi: mandati ' + JSON.stringify(d.sent) + ' · arrivati ' + JSON.stringify(d.got) + '</span>';
+  return '🔧 <b>Stato della voce</b> · microfono ' + (d.mic ? 'acceso' : 'spento') + '<br>' + (rows.join('<br>') || 'nessun amico nel party') + '<br><span style="opacity:.6">messaggi: mandati ' + JSON.stringify(d.sent) + ' · arrivati ' + JSON.stringify(d.got) + '</span>';
 }
 function cqVoiceStop(keepCode) {
   for (const sid of Object.keys(cqV.peers)) cqVoiceDrop(sid);
@@ -2968,10 +3037,15 @@ function cqNetKill(code) {
 function cqNetList(o) {
   const N = cq.net; if (!N || N.role !== 'host') return;
   if (o !== undefined) N.open = o;
-  N.F.set(cqNetRef('cqlist/' + N.code), { h: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', ts: Date.now(), o: N.open, n: Object.keys(N.pl).length || 1, g: cqOpt().game || 'ciack' }).catch(() => {});
+  N.F.set(cqNetRef('cqlist/' + N.code), { h: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', ts: Date.now(), o: N.open, n: Object.keys(N.pl).length || 1, g: cqOpt().game || 'ciack', p: N.priv ? 1 : 0 }).catch(() => {});
 }
 function cqNetSend(o) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/ev`), { s: N.sid, m: JSON.stringify(o) }).catch(() => {}); }
 async function cqNetJoin(code) {
+  if ((cq.kicked || {})[code]) { cqToast('🚪 Sei stato tolto da questo party.'); return; }
+  try {   // tolto da chi l'ha creato (anche da un altro telefono con lo stesso nome): non si rientra
+    const F = await hubLoad(); const k = await F.get(cqNetRef(`cq/${code}/kk/${nameKey(store.settings.myName)}`));
+    if (k.exists()) { (cq.kicked || (cq.kicked = {}))[code] = 1; cqToast('🚪 Sei stato tolto da questo party.'); cqNetBox(); return; }
+  } catch {}
   try { await cqNetOpen(code, 'guest'); } catch { cqToast('Collegamento non riuscito: riprova.'); return; }
   cqCloseTask(); cqHallEnter(); devLog('entra', cq.sets && cq.sets[code] && cq.sets[code].g, code);
 }
@@ -2981,22 +3055,36 @@ function cqNetBox() {
   const N = cq.net;
   if (!WEB || !hub.fb) { box.innerHTML = WEB ? '<p class="hint">Collegamento in corso…</p>' : ''; return; }
   if (N && N.role === 'host') {
-    box.innerHTML = `<div class="netBox"><b>🎬 Il tuo set è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><div class="hint">Gli amici lo trovano nell'Hotel dei Giochi, in "Set aperti". Il gioco lo scegli entrando in una porta della hall. Quando ci siete tutti premi <b>Si gira!</b> I posti liberi li riempie il computer.</div><div class="hint" id="vDiag">${cqVoiceDiagTxt(cqV.diag)}</div><button class="btn" id="netClose" type="button" style="color:#ff8a7a">🗑️ Elimina il set (escono tutti)</button></div>`;
+    box.innerHTML = `<div class="netBox"><b>🎉 Il tuo party è aperto</b><div>Dentro: ${Object.values(N.pl).map(p => '<b>' + esc(p.name) + '</b>').join(', ')}</div><button class="btn" id="netClose" type="button" style="color:#ff8a7a">🗑️ Elimina il party (escono tutti)</button></div>`;
     $('#netClose').onclick = () => { cqNetLeave(); cqHallExit(); cqReception(); };
     return;
   }
-  const S = cq.setsSeen || {}, mine = store.settings.mySets || [];
-  const sets = Object.entries(cq.sets || {}).filter(([k, v]) => v && v.o > 0 && S[k] && Date.now() - S[k].at < 70000);
-  const old = Object.keys(cq.sets || {}).filter(k => mine.includes(k) && !sets.some(([x]) => x === k));   // set miei rimasti aperti
+  const S = cq.setsSeen || {}, mine = store.settings.mySets || [], inv = cq.invites || {}, kicked = cq.kicked || {};
+  // party che posso vedere: aperti a tutti, oppure "solo su invito" se mi hanno invitato; mai quelli da cui mi hanno tolto
+  const sets = Object.entries(cq.sets || {}).filter(([k, v]) => v && v.o > 0 && S[k] && Date.now() - S[k].at < 70000 && !kicked[k] && (!v.p || inv[k] || mine.includes(k)));
+  const old = Object.keys(cq.sets || {}).filter(k => mine.includes(k) && !sets.some(([x]) => x === k));   // party miei rimasti aperti
   for (const [k] of sets) if (mine.includes(k)) old.push(k);
-  box.innerHTML = `<div class="netBox"><b>🎬 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">Crea un set</button>`
-    + (pushOk() || pushIOS() ? `<button class="btn" id="netBell" type="button" style="font-size:13px">${pushOn() ? '🔔 Avvisi accesi (tocca per spegnere)' : '🔕 Avvisami quando un amico apre un set'}</button>` : '')
-    + (sets.length ? '<div class="hint">Set aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>Set di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun set aperto dagli amici in questo momento.</div>')
-    + (old.length ? `<div class="hint">Set creati da te e rimasti aperti:</div>` + [...new Set(old)].map(k => `<div class="netRow"><span>Il tuo set (${esc(k)})</span><button class="btn" type="button" data-kill="${esc(k)}">🗑️ Elimina</button></div>`).join('') : '') + '</div>';
-  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cqCloseTask(); cqHallEnter(); devLog('set', '', code); setTimeout(pushKick, 1500); cqToast('🏨 Set aperto! Scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
+  const invs = Object.entries(inv).filter(([k, v]) => cq.sets && cq.sets[k] && !kicked[k] && Date.now() - v.t < 30 * 60000);
+  const fr = frList(), on = k => frOnline(k);
+  box.innerHTML = `<div class="netBox">`
+    + (invs.length ? invs.map(([k, v]) => `<div class="invBox netRow"><span>✉️ <b>${esc(v.n)}</b> ti invita al suo party</span><button class="btn primary" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '')
+    + `<b>🎉 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">🎉 Crea un party</button>`
+    + `<label class="pvt"><input type="checkbox" id="netPriv"${store.settings.partyPriv ? ' checked' : ''}> 🔒 Solo su invito <span class="hint" style="margin:0">(lo vede solo chi inviti)</span></label>`
+    + (sets.length ? '<div class="hint">Party aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>${v.p ? '🔒 ' : ''}Party di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun party aperto dagli amici in questo momento.</div>')
+    + (old.length ? `<div class="hint">Party creati da te e rimasti aperti:</div>` + [...new Set(old)].map(k => `<div class="netRow"><span>Il tuo party (${esc(k)})</span><button class="btn" type="button" data-kill="${esc(k)}">🗑️ Elimina</button></div>`).join('') : '')
+    + `<details class="frList"${cq.frOpen ? ' open' : ''}><summary>👥 I tuoi amici (${fr.length})</summary>`
+    + (fr.length ? fr.map(x => { const o = on(x.k); return `<div class="pmRow"><span class="nm"><span class="dot3${o ? ' on' : ''}"></span>${esc(x.n)}<small>${o ? (o.g === 'among' ? 'nell\'hotel' : 'online') : 'non collegato'}</small></span><button class="btn" type="button" data-unfr="${esc(x.k)}" title="Togli dagli amici">✕</button></div>`; }).join('') : '<div class="hint">Ancora nessun amico. Aggiungili qui sotto per nome, oppure nella hall con ➕ Amico.</div>')
+    + `<form class="frAdd" id="frAddF"><input class="field" id="frAddI" maxlength="14" placeholder="Nome dell'amico" autocomplete="off"><button class="btn" type="submit">➕ Aggiungi</button></form></details>`
+    + (pushOk() || pushIOS() ? `<button class="btn" id="netBell" type="button" style="font-size:13px;margin-top:10px">${pushOn() ? '🔔 Avvisi accesi (tocca per spegnere)' : '🔕 Avvisami quando un amico apre un party'}</button>` : '')
+    + '</div>';
+  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cq.net.priv = !!store.settings.partyPriv; cqNetList(); cqCloseTask(); cqHallEnter(); devLog('set', '', code); setTimeout(pushKick, 1500); cqToast('🎉 Party aperto' + (cq.net && cq.net.priv ? ' (🔒 solo su invito)' : '') + '! Invita gli amici con <b>👥 Party</b>, scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
+  $('#netPriv').onchange = e => { store.settings.partyPriv = !!e.target.checked; saveStore(); };
   if ($('#netBell')) $('#netBell').onclick = pushToggle;
+  box.querySelector('details.frList').ontoggle = e => { cq.frOpen = e.target.open; };
+  $('#frAddF').onsubmit = e => { e.preventDefault(); const n = $('#frAddI').value.trim(); if (frAdd(n)) cqNetBox(); };
+  box.querySelectorAll('[data-unfr]').forEach(b => { b.onclick = () => { frDel(b.dataset.unfr); cqNetBox(); }; });
   box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => cqNetJoin(b.dataset.join); });
-  box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Set eliminato.'); }; });
+  box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Party eliminato.'); }; });
 }
 // chi e' entrato in un set aspetta qui che l'host faccia partire la partita
 function cqNetWait() {
@@ -3007,7 +3095,7 @@ function cqNetWait() {
   const g = cqGame(cqHallGame());
   $('#tkBody').innerHTML = `<div class="gname">${g[2]} ${esc(g[1])}</div><p class="gdesc">${esc(g[4])}</p><p id="nwList" class="hint"></p>
     <div class="row"><div class="lbl">Oggetti da portare (al massimo 2)</div><div class="bagPick" id="lbBag"></div></div>
-    <button class="btn" id="nwShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn go" id="nwOut" type="button">Esci dal set</button>${cqVoiceBox()}`;
+    <button class="btn" id="nwShop" type="button" style="width:100%;margin-top:4px">🪙 Negozio e baratto (${cqBank().coins} monete)</button><button class="btn go" id="nwOut" type="button">Esci dal party</button>${cqVoiceBox()}`;
   cqNetPlayers(); cqBagPick();
   $('#nwShop').onclick = () => cqShop(cqNetWait);
   $('#nwOut').onclick = () => { cqNetLeave(); cqHallExit(); cqReception(); };
@@ -3055,7 +3143,7 @@ function cqNetSvSnap() {
     tr: S.traps.map(p => [f2(p.x), f2(p.y)]), cut: CQ_MAP.trees.reduce((a, t, i) => (t.cut && a.push(i), a), []),
     c: G.chars.map(c => [Math.round(c.hun), Math.round(c.cold), c.hp, c.gun, c.carry === 'wood' ? 1 : c.carry === 'fish' ? 2 : 0, c.carry === 'wood' ? c.wood || 1 : 0]) };
 }
-// amici: rimettono il bosco come quello di chi ha creato il set
+// amici: rimettono il bosco come quello di chi ha creato il party
 function cqNetSvApply(G, v) {
   let S = G.sv;
   if (!S) { S = G.sv = { mobs: [], traps: [], drop: null, adv: null, fw: -1, tw: -1, n: 0, dark: 0 }; G.chars.forEach(c => { c.hp = 3; c.gun = -1; c.carry = null; c.hun = 80; c.cold = 100; }); }
@@ -3071,7 +3159,7 @@ function cqNetSvApply(G, v) {
   S.traps = v.tr.map(([x, y]) => ({ x, y }));
   const cut = new Set(v.cut);
   CQ_MAP.trees.forEach((t, i) => { const c = cut.has(i); if (c !== !!t.cut) { t.cut = c ? 1 : 0; t.a = 1; cqSolid[t.y][t.x] = { prop: c ? 'stump' : 'tree', o: t }; cqBgCell(t.x, t.y); } });
-  const hold = performance.now() < (cq.svHold || 0);   // appena fatta un'azione: tengo la mia versione finche' chi ha creato il set non l'ha ricevuta
+  const hold = performance.now() < (cq.svHold || 0);   // appena fatta un'azione: tengo la mia versione finche' chi ha creato il party non l'ha ricevuta
   v.c.forEach((a, i) => {
     const c = G.chars[i]; if (!c) return;
     if (c === G.me) { if (a[2] < c.hp) { cq.hurt = performance.now(); beep(150, 0.15, 0.06); } if (hold) { c.hp = a[2]; return; } }
@@ -3331,7 +3419,7 @@ const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.
 function cqReception() {
   cqCloseTask(); cqTitle('🏨 Hotel'); $('#cqLookBtn').hidden = false;
   $('#tkTitle').textContent = '🏨 Hotel dei Giochi';
-  $('#tkBody').innerHTML = `<div id="lbNet"></div><details class="gList"><summary>🎮 Minigiochi (da solo, con il computer)</summary>${cqGameCards()}</details>`;
+  $('#tkBody').innerHTML = `<div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`;
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   cqNetBox(); cqNetWatch();
@@ -3345,7 +3433,7 @@ function cqGameCardsOn() {
     cqLobby();
   }; });
 }
-// "Seleziona minigioco" (chi ha creato il set, nella hall)
+// "Seleziona minigioco" (chi ha creato il party, nella hall)
 function cqGamePick() {
   cqCloseTask();
   $('#tkTitle').textContent = '🎮 Seleziona minigioco';
@@ -3353,10 +3441,10 @@ function cqGamePick() {
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#tkClose').onclick = cqCloseTask; $('#cqTask').hidden = false;
 }
-// testa delle impostazioni: (nel set) Elimina il set, poi nome e descrizione breve del gioco; da solo "Altri giochi", nel set "Cambia"
+// testa delle impostazioni: (nel set) Elimina il party, poi nome e descrizione breve del gioco; da solo "Altri giochi", nel set "Cambia"
 function cqGameRow(id) {
   const g = cqGame(id), N = cq.net, host = N && N.role === 'host';
-  return (host ? '<button class="btn" id="netClose" type="button" style="width:100%;color:#ff8a7a">🗑️ Elimina il set</button>' : '')
+  return (host ? '<button class="btn" id="netClose" type="button" style="width:100%;color:#ff8a7a">🗑️ Elimina il party</button>' : '')
     + `<div style="display:flex;align-items:center;gap:10px;justify-content:space-between"><div class="gname">${g[2]} ${esc(g[1])}</div><button class="btn" id="lbGames" type="button">${N ? '🎮 Cambia' : '← Altri giochi'}</button></div><p class="gdesc">${esc(g[4])}</p>`;
 }
 function cqGameRowOn(save) {
@@ -3386,7 +3474,7 @@ function cqLib(...names) {
   })))).then(() => CQ_LIB);
 }
 const cqModeOpt = id => Object.assign({}, CQ_MODES[id].def, ((store.settings.cqModeOpt || {})[id]) || {});
-function cqModeUI(on) { $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = !on; $('#cqHallBar').hidden = true; $('#cqHallSet').hidden = true; $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; $('#cqKill').classList.remove('hk'); }
+function cqModeUI(on) { $('#cqChatB').hidden = true; $('#cqChatP').hidden = true; $('#cqPartyB').hidden = true; $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = !on; $('#cqHallBar').hidden = true; $('#cqHallSet').hidden = true; $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; $('#cqKill').classList.remove('hk'); }
 // passo di un personaggio del computer lungo il suo percorso (sp = velocita' rispetto alla mia)
 function cqModeStep(c, dt, sp) {
   const p = c.path && c.path[0]; if (!p) { c.walk = 0; return; }
@@ -3522,7 +3610,7 @@ function cqModeLobby(id) {
 // Online ognuno scrive il suo stato in cq/<set>/hl/<sid> {x, y, f, w, r: pronto, d: a terra}; gli scherzi a cq/<set>/hk/<vittima>;
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
-// pronto = ho premuto "Sono pronto" (chi ha creato il set conta sempre come pronto: decide lui quando iniziare)
+// pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
 const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible');
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
@@ -3553,6 +3641,7 @@ function cqHallUI(on) {
   if (!on) { $('#cqStart').hidden = true; $('#cqReady').hidden = true; $('#cqPickGame').hidden = true; }
   $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = true;
   $('#cqHallBar').hidden = !on; $('#cqHallSet').hidden = !on; if (!on) $('#cqCount').hidden = true;
+  if (!on) { $('#cqChatB').hidden = true; $('#cqChatP').hidden = true; $('#cqPartyB').hidden = true; }
   if (!on) { $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; cq.sit = null; $('#cqKill').classList.remove('hk'); }
 }
 function cqHallDie(c, by, sl) {   // sl = schiaffo {x0, y0 da dove vola, x1, y1 dove cade, f verso}
@@ -3681,6 +3770,121 @@ function cqKnock(g, X, Y, TW, L, f, a) {
     g.restore();
   }
 }
+// ---- AMICI (22-10-2026): lista per telefono in store.settings.friends [{k: chiave del nome, n: nome}]; online = nella presenza del sito ----
+const frList = () => (store.settings.friends || []).filter(x => x && x.k);
+const frHas = k => frList().some(x => x.k === k);
+function frAdd(n) {
+  n = String(n || '').trim().slice(0, 14); const k = nameKey(n);
+  if (!n || k === 'x') { cqToast('Scrivi il nome dell\'amico.'); return false; }
+  if (k === nameKey(store.settings.myName)) { cqToast('Quello sei tu 😄'); return false; }
+  if (frHas(k)) { cqToast('⭐ <b>' + esc(n) + '</b> è già tra i tuoi amici.'); return false; }
+  store.settings.friends = frList().concat({ k, n }).slice(-60); saveStore(); cqToast('⭐ <b>' + esc(n) + '</b> aggiunto ai tuoi amici!'); return true;
+}
+function frDel(k) { store.settings.friends = frList().filter(x => x.k !== k); saveStore(); }
+const frOnline = k => Object.values(hub.online || {}).find(p => p && p.key === k && Date.now() - (p.ts || 0) < 120000) || null;
+// ---- INVITI: pinv/<chiave dell'invitato> = {n, k, c codice del party, t}; li leggo e li tengo in cq.invites (si vedono in reception) ----
+function invWatch() {
+  const F = hub.fb, k = hub.key; if (!F || !k || cq.invK === k) return;
+  if (cq.invU) try { cq.invU(); } catch {}
+  cq.invK = k; cq.invites = cq.invites || {};
+  cq.invU = F.onChildAdded(F.ref(F.db, 'pinv/' + k), sn => {
+    const v = sn.val(); F.remove(sn.ref).catch(() => {});
+    if (!v || !v.c || Date.now() - (v.t || 0) > 30 * 60000) return;
+    cq.invites[v.c] = { n: String(v.n || '?').slice(0, 14), t: v.t };
+    beep(988, 0.1, 0.04); beep(1319, 0.16, 0.04, 0.1);
+    cqToast('✉️ <b>' + esc(v.n) + '</b> ti invita al suo party! ' + (cq.net ? '' : 'Lo trovi in alto nella reception: <b>Entra</b>.'));
+    if ($('#lbNet')) cqNetBox();
+  });
+}
+function invSend(fr) {
+  const N = cq.net; if (!N) return;
+  const me = (store.settings.myName || '').trim().slice(0, 14);
+  N.F.push(N.F.ref(N.F.db, 'pinv/' + fr.k), { n: me, k: hub.key || nameKey(me), c: N.code, t: Date.now() }).catch(() => {});
+  N.F.set(cqNetRef(`cq/${N.code}/inv/${fr.k}`), Date.now()).catch(() => {});
+  pushPost('/inv', { from: me, to: fr.n, code: N.code });   // avviso sul telefono, se l'amico ha gli avvisi accesi
+  (cq.invSent || (cq.invSent = {}))[fr.k] = Date.now();
+  cqToast('✉️ Invito mandato a <b>' + esc(fr.n) + '</b>!');
+}
+// ---- PARTY nella hall: chi c'e' (pronto o no), ➕ Amico, 🚪 Butta fuori (chi l'ha creato), 🔒 solo su invito, ✉️ invita gli amici ----
+function cqPartyOpen() {
+  if (!cq.net) return;
+  cqCloseTask(); cq.partyOpen = true; cq.partyH = '';
+  $('#tkTitle').textContent = '👥 Il party'; $('#tkHint').textContent = ''; $('#tkClose').hidden = false; $('#cqTask').hidden = false;
+  $('#tkBody').innerHTML = '<div id="ptBody"></div><form class="frAdd" id="ptAddF"><input class="field" id="ptAddI" maxlength="14" placeholder="Aggiungi un amico per nome" autocomplete="off"><button class="btn" type="submit">➕</button></form>';
+  $('#ptAddF').onsubmit = e => { e.preventDefault(); if (frAdd($('#ptAddI').value)) { $('#ptAddI').value = ''; cq.partyH = ''; cqPartyRender(); } };
+  cqPartyRender();
+}
+function cqPartyRender() {
+  const N = cq.net, el = $('#ptBody');
+  if (!N || !el || $('#cqTask').hidden) { cq.partyOpen = false; return; }
+  const boss = N.role === 'host', hl = N.hl || {}, host = boss ? null : (cq.sets && cq.sets[N.code] && cq.sets[N.code].h) || '';
+  const mem = Object.entries(N.pl).map(([sid, p]) => ({ sid, n: String(p.name || '?').slice(0, 14), me: sid === N.sid, r: sid === N.sid ? cqHallReady() : !!(hl[sid] && hl[sid].r) }));
+  const keys = new Set(mem.map(m => nameKey(m.n))), sent = cq.invSent || {};
+  let h = '<div class="pSec">Nel party (' + mem.length + ')</div>';
+  h += mem.map(m => {
+    const k = nameKey(m.n), crown = (m.me && boss) || (!boss && m.n === host) ? ' 👑' : '';
+    const bt = m.me ? '' : (frHas(k) ? '<button class="btn" type="button" disabled>⭐ Amico</button>' : `<button class="btn" type="button" data-fr="${esc(m.n)}">➕ Amico</button>`) + (boss ? `<button class="btn" type="button" data-kick="${esc(m.sid)}" style="color:#ff8a7a">🚪 Butta fuori</button>` : '');
+    return `<div class="pmRow"><span class="nm">${esc(m.n)}${crown}<small>${m.me ? '(tu) ' : ''}${m.r ? '✅ pronto' : '⏳ si prepara'}</small></span>${bt}</div>`;
+  }).join('');
+  if (boss) h += `<button class="btn" type="button" id="ptPriv" style="width:100%;justify-content:center;margin-top:10px">${N.priv ? '🔒 Solo su invito: SÌ (tocca per aprirlo a tutti)' : '🔓 Aperto a tutti (tocca per renderlo solo su invito)'}</button>`;
+  const fr = frList().filter(x => !keys.has(x.k));
+  h += '<div class="pSec">✉️ Invita i tuoi amici</div>';
+  h += fr.length ? fr.map(x => { const o = frOnline(x.k), done = sent[x.k] && Date.now() - sent[x.k] < 60000; return `<div class="pmRow"><span class="nm"><span class="dot3${o ? ' on' : ''}"></span>${esc(x.n)}<small>${o ? 'online' : 'non collegato'}</small></span><button class="btn${done ? '' : ' primary'}" type="button" data-inv="${esc(x.k)}"${done ? ' disabled' : ''}>${done ? 'Invitato ✓' : '✉️ Invita'}</button></div>`; }).join('')
+    : '<div class="hint">Nessun amico da invitare: aggiungine con ➕ Amico qui sopra o per nome qui sotto. Arrivano anche se non sono ancora entrati: l\'invito li aspetta nella reception.</div>';
+  if (h === cq.partyH) return; cq.partyH = h; el.innerHTML = h;
+  el.querySelectorAll('[data-fr]').forEach(b => { b.onclick = () => { frAdd(b.dataset.fr); cq.partyH = ''; cqPartyRender(); }; });
+  el.querySelectorAll('[data-inv]').forEach(b => { b.onclick = () => { const x = frList().find(y => y.k === b.dataset.inv); if (x) invSend(x); cq.partyH = ''; cqPartyRender(); }; });
+  el.querySelectorAll('[data-kick]').forEach(b => { b.onclick = () => cqKick(b.dataset.kick); });
+  if ($('#ptPriv')) $('#ptPriv').onclick = () => { N.priv = !N.priv; store.settings.partyPriv = N.priv; saveStore(); cqNetList(); cq.partyH = ''; cqPartyRender(); cqToast(N.priv ? '🔒 Ora il party lo vede solo chi inviti.' : '🔓 Ora il party lo vedono tutti.'); };
+}
+// butta fuori dal party: kk/<chiave del nome> (chi e' tolto esce e non puo' rientrare in questo party), via anche dalla lista
+function cqKick(sid) {
+  const N = cq.net; if (!N || N.role !== 'host' || sid === N.sid) return;
+  const p = N.pl[sid]; if (!p) return; const n = String(p.name || '?').slice(0, 14);
+  N.F.set(cqNetRef(`cq/${N.code}/kk/${nameKey(n)}`), Date.now()).catch(() => {});
+  setTimeout(() => { for (const k of ['pl', 'pos', 'hl']) N.F.remove(cqNetRef(`cq/${N.code}/${k}/${sid}`)).catch(() => {}); }, 800);
+  cqToast('🚪 <b>' + esc(n) + '</b> è fuori dal party.'); cq.partyH = '';
+}
+// ---- CHAT DELLA HALL (come quella del Colpo all'hotel): 💬, frasi rapide, tastiera; fumetto sopra la testa per 6 s; cq/<party>/hm ----
+const CQ_CHAT_Q = ['👋 Ciao!', '😂', '⏳ Arrivo!', '✅ Pronto!', '🎮 Che giochiamo?', '☕ Un tè?', '😈 Vendetta!', '👍 Ok'];
+function cqChatInit() {
+  const P = $('#cqChatP'), I = $('#cqChatI');
+  $('#cqChatQ').innerHTML = CQ_CHAT_Q.map(q => '<button type="button">' + q + '</button>').join('');
+  const close = () => { P.hidden = true; I.blur(); cq.keys = {}; if (cq.g && cq.g.hall && cq.net) $('#cqChatB').hidden = false; };
+  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
+  cq.chatClose = close;
+  $('#cqChatB').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (P.hidden) open(); else close(); });
+  P.addEventListener('pointerdown', e => e.stopPropagation());
+  $('#cqChatQ').onclick = e => { const b = e.target.closest('button'); if (b) cqChatSend(b.textContent); };
+  $('#cqChatF').onsubmit = e => { e.preventDefault(); cqChatSend(I.value); };
+  $('#cqChatX').onclick = close;
+  I.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+}
+function cqChatSend(t) {
+  const N = cq.net; t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80); if (cq.chatClose) cq.chatClose();
+  if (!N || !t) return;
+  N.F.push(cqNetRef(`cq/${N.code}/hm`), { s: N.sid, n: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', t, ts: Date.now() }).catch(() => {});
+}
+function cqChatGot(v) {
+  const N = cq.net, G = cq.g; if (!v || !v.t || !N) return;
+  const t = String(v.t).slice(0, 80), n = String(v.n || '?').slice(0, 14), mine = v.s === N.sid, fresh = (v.ts || 0) > N.t0 - 1500;
+  cq.hlog.push({ n, t, me: mine }); if (cq.hlog.length > 30) cq.hlog.shift();
+  if ($('#cqChatP') && !$('#cqChatP').hidden) cqChatLog();
+  if (!fresh) return;
+  const bub = { t, u: Date.now() + 6000 };
+  if (mine) cq.myBub = bub; else if (G && G.hall) { const c = G.chars.find(o => o.sid === v.s); if (c) c.bub = bub; }
+  if (!mine) { beep(1046, 0.05, 0.03); beep(1318, 0.07, 0.03, 0.06); if (!(G && G.hall)) cqToast('💬 <b>' + esc(n) + '</b>: ' + esc(t)); }
+}
+function cqChatLog() { const el = $('#cqChatLog'); if (el) { el.innerHTML = (cq.hlog || []).slice(-8).map(e => '<div' + (e.me ? ' class="me"' : '') + '><b>' + esc(e.n) + '</b> ' + esc(e.t) + '</div>').join(''); el.scrollTop = el.scrollHeight; } }
+function cqBubble(g, X, Y, t) {
+  g.save(); g.font = '600 13px system-ui,sans-serif';
+  const words = t.split(' '), lines = []; let cur = '';
+  for (const w of words) { const s2 = cur ? cur + ' ' + w : w; if (g.measureText(s2).width > 160 && cur) { lines.push(cur); cur = w; } else cur = s2; } if (cur) lines.push(cur);
+  const wd = Math.max(...lines.map(l => g.measureText(l).width)) + 18, ht = lines.length * 16 + 10, bx = X - wd / 2, by = Y - ht;
+  g.fillStyle = 'rgba(250,248,240,.96)'; cqRR(g, bx, by, wd, ht, 10); g.fill(); g.strokeStyle = 'rgba(40,40,50,.5)'; g.lineWidth = 1; g.stroke();
+  g.beginPath(); g.moveTo(X - 6, by + ht - 0.5); g.lineTo(X + 6, by + ht - 0.5); g.lineTo(X, by + ht + 7); g.closePath(); g.fill();
+  g.fillStyle = '#22242a'; g.textAlign = 'center'; g.textBaseline = 'middle'; lines.forEach((l, i) => g.fillText(l, X, by + 13 + i * 16)); g.restore();
+}
 // il mio stato per gli altri del set (ogni 0,15 s se cambia, altrimenti ogni 2 s)
 function cqHallPub(now) {
   const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
@@ -3688,7 +3892,7 @@ function cqHallPub(now) {
   if (!now && (t - (N.hlT || 0) < 150 || (k === N.hlK && t - N.hlT < 2000))) return;
   N.hlT = t; N.hlK = k; N.F.set(cqNetRef(`cq/${N.code}/hl/${N.sid}`), o).catch(() => {});
 }
-// porte della hall (in fondo, una per gioco): chi ha creato il set entra in una porta e sceglie il gioco
+// porte della hall (in fondo, una per gioco): chi ha creato il party entra in una porta e sceglie il gioco
 const cqHallLifts = () => CQ_PROPS.filter(p => p[0] === 'gdoor').map(p => ({ x: p[1], y: p[2], g: p[3].k ? cqGame(p[3].k) : null }));
 const cqHallGame = () => { const N = cq.net; return N && N.role !== 'host' ? ((cq.sets && cq.sets[N.code] && cq.sets[N.code].g) || 'ciack') : cqOpt().game || 'ciack'; };
 function cqHallLift(G) {
@@ -3697,7 +3901,7 @@ function cqHallLift(G) {
   if (!L) { G.lift = null; return; }
   if (G.lift === L.x) return; G.lift = L.x;
   if (!L.g) { cqToast('🔒 Questa porta è ancora chiusa: qui arriverà un gioco nuovo!'); return; }
-  if (!boss) { cqToast(L.g[2] + ' ' + esc(L.g[1]) + ': il gioco lo sceglie chi ha creato il set.'); return; }
+  if (!boss) { cqToast(L.g[2] + ' ' + esc(L.g[1]) + ': il gioco lo sceglie chi ha creato il party.'); return; }
   if (cqHallGame() === L.g[0]) { cqToast(L.g[2] + ' Si gioca già a <b>' + esc(L.g[1]) + '</b>.'); return; }
   store.settings.cqOpt = Object.assign(cqOpt(), { game: L.g[0] }); saveStore(); if (N) cqNetList();
   beep(784, 0.1, 0.04); beep(1047, 0.18, 0.04, 0.1); cqToast(L.g[2] + ' Gioco scelto: <b>' + esc(L.g[1]) + '</b>. Si gioca qui!');
@@ -3757,13 +3961,14 @@ function cqHallTick(dt) {
     if (c === G.me) continue;
     if (c.remote) {   // persone del set: scivolano verso l'ultima posizione ricevuta
       const k = Math.min(1, dt * 12); c.x += (c.tx - c.x) * k; c.y += (c.ty - c.y) * k; c.walk = c.mv ? c.walk + dt * 10 : 0;
+      if (c.mv && c.alive && (c.stT = (c.stT || 0) - dt) <= 0) { c.stT = 0.32; const d = Math.hypot(c.x - cq.x, c.y - cq.y); if (d < 8) thud(0.26 * (1 - d / 8), 560 + Math.random() * 300); }   // passi degli amici vicini, piu' piano
       if (Math.hypot(c.tx - c.x, c.ty - c.y) > 3) { c.x = c.tx; c.y = c.ty; }
       if (!c.alive && c.pred && c.pred <= G.time && c.dead <= G.time) { c.pred = 0; cqHallLive(c); }   // lo scherzo non e' arrivato: torna in piedi
     }
   }
   if (N) { cqHallNet(); cqHallPub(false); }
   cqHallLift(G);
-  // conto alla rovescia (3 2 1): parte solo quando chi ha creato il set preme "Inizia" (G.force)
+  // conto alla rovescia (3 2 1): parte solo quando chi ha creato il party preme "Inizia" (G.force)
   const [rd, tot, wait] = cqHallCount(), boss = !N || N.role === 'host';
   if (boss) {
     if (G.force && G.cd == null) { G.cd = CQ_HALL_MAN; G.cdS = -1; }
@@ -3781,6 +3986,8 @@ function cqHallTick(dt) {
     const info = boss ? '' : gm[2] + ' Si gioca a <b>' + esc(gm[1]) + '</b>'; if ($('#hlInfo').innerHTML !== info) $('#hlInfo').innerHTML = info;
     $('#hlInfo').hidden = !info;
     cqHallButtons(rd, tot);
+    if (N) { const pb = $('#cqPartyB'), t = '👥 Party (' + tot + ')'; if (pb.hidden) pb.hidden = false; if (pb.textContent !== t) pb.textContent = t; if ($('#cqChatB').hidden && $('#cqChatP').hidden) $('#cqChatB').hidden = false; }
+    if (cq.partyOpen) cqPartyRender();
     const ce = $('#cqCount'), txt = n != null && n > 0 ? '🎬 ' + n + '…' : '';
     if (ce.textContent !== txt) { ce.textContent = txt; ce.hidden = !txt; }
   }
@@ -3797,7 +4004,7 @@ function cqHallHud() {
   const it = $('#cqSit'); if (it.hidden === near) it.hidden = !near; if (it.textContent !== st) it.textContent = st;
   const dk = $('#cqDrink'), drink = salon && cq.sit != null; if (dk.hidden === drink) dk.hidden = !drink;
 }
-// "Inizia" di chi ha creato il set (e "Si gira!" da solo): parte il 3 2 1
+// "Inizia" di chi ha creato il party (e "Si gira!" da solo): parte il 3 2 1
 function cqHallGo() {
   const G = cq.g; if (!G || !G.hall) { cqNewMatch(); return; }
   if (G.force) return;
@@ -3805,7 +4012,7 @@ function cqHallGo() {
   const [rd, tot, wait] = cqHallCount();
   if (cq.net && rd < tot) cqToast('🎬 Si parte! Non erano ancora pronti: <b>' + wait.map(esc).join(', ') + '</b>.');
 }
-// pulsanti della hall: chi ha creato il set "Seleziona minigioco" e "Inizia (pronti)", gli altri "Sono pronto"
+// pulsanti della hall: chi ha creato il party "Seleziona minigioco" e "Inizia (pronti)", gli altri "Sono pronto"
 function cqHallButtons(rd, tot) {
   const G = cq.g, N = cq.net, on = !!(G && G.hall && N), boss = on && N.role === 'host', counting = !!(G && (G.cd != null || G.hc > 0));
   if (rd == null) [rd, tot] = cqHallCount();
@@ -3851,7 +4058,7 @@ function cqNewMatch() {
   if (cqOpt().game && cqOpt().game !== 'ciack') { cqModeStart(cqOpt().game); return; }
   devLog('gioco', 'ciack', cq.net && cq.net.code);
   const O = cqOpt(), myName = (store.settings.myName || '').trim().slice(0, 14) || 'Tu';
-  const mapId = O.map === 'rnd' ? cqPickOne(cqMapIds()) : cqMapOk(O.map) ? O.map : 'studio';   // online la sceglie chi ha creato il set
+  const mapId = O.map === 'rnd' ? cqPickOne(cqMapIds()) : cqMapOk(O.map) ? O.map : 'studio';   // online la sceglie chi ha creato il party
   cqUseMap(mapId, 1 + Math.floor(Math.random() * 1e9));
   const me = { id: 0, name: myName, bot: false };
   // amici del set (solo per chi lo ha creato): prendono i primi posti, il resto lo riempie il computer
@@ -4292,7 +4499,7 @@ function cqSvDo(c, a, o) {
   }
   return null;
 }
-// io faccio un'azione: subito qui (e se sono un amico online la mando anche a chi ha creato il set, che decide per tutti)
+// io faccio un'azione: subito qui (e se sono un amico online la mando anche a chi ha creato il party, che decide per tutti)
 function cqSvAction(a, o) {
   const G = cq.g, m = cqSvDo(G.me, a, o || {});
   if (G.guest) { cqNetSend({ k: 'sv', a, o: o || {} }); cq.svHold = performance.now() + 700; }
@@ -4753,7 +4960,7 @@ function cqInit() {
   root.addEventListener('pointermove', e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy.x = e.clientX; cq.joy.y = e.clientY; } });
   const up = e => { if (cq.joy && cq.joy.id === e.pointerId) { cq.joy = null; cq.dirty = true; } };
   root.addEventListener('pointerup', up); root.addEventListener('pointercancel', up);
-  window.addEventListener('keydown', e => { if (cq.on) { cq.keys[(e.key || '').toLowerCase()] = true; if ((e.key || '').startsWith('Arrow')) e.preventDefault(); } });
+  window.addEventListener('keydown', e => { if (cq.on && !(e.target && /INPUT|TEXTAREA|SELECT/.test(e.target.tagName))) { cq.keys[(e.key || '').toLowerCase()] = true; if ((e.key || '').startsWith('Arrow')) e.preventDefault(); } });
   window.addEventListener('keyup', e => { delete cq.keys[(e.key || '').toLowerCase()]; cq.dirty = true; });
   $('#cqBack').onclick = closeCiack;
   $('#cqLookBtn').onclick = cqOpenPick;
@@ -4779,6 +4986,8 @@ function cqInit() {
   $('#cqKill').addEventListener('pointerdown', e => { e.preventDefault(); cqMyKill(); });
   $('#cqSlap').addEventListener('pointerdown', e => { e.preventDefault(); cqHallPrank('s'); });
   $('#cqSit').onclick = () => cqSitToggle();
+  $('#cqPartyB').onclick = () => cqPartyOpen();
+  cqChatInit();
   $('#cqDrink').onclick = () => cqDrink();
   $('#cqKill').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); cqMyKill(); } });
   $('#cqShoot').onclick = cqShoot;
@@ -4894,7 +5103,7 @@ function cqFrame(t) {
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.lx = d.wx - d.wy; cq.ly = (d.wx + d.wy) / 2;   // dove guardo, sullo schermo
     cq.walk += dt * 11;
-    if (G && playing && (cq.stT = (cq.stT || 0) - dt) <= 0) { cq.stT = 0.3; thud(0.3, 600 + Math.random() * 300); }   // passi
+    if (G && (playing || G.hall) && (cq.stT = (cq.stT || 0) - dt) <= 0) { cq.stT = 0.3; thud(0.3, 600 + Math.random() * 300); }   // passi (anche nella hall)
     const h = document.querySelector('#ciack .chint'); if (h && !h.hidden) h.hidden = true;
   } else cq.walk = 0;
   if (playing) { if (!G.guest) (G.mode ? cqModeTick : cqBots)(dt); cqCloneStep(dt); if (G.mode && G.M.local && G.pre <= 0) G.M.local(G, dt); }   // local: giro del gioco su ogni telefono (anche gli amici), per il mio personaggio
@@ -5469,9 +5678,9 @@ function cqDraw() {
     for (const ch of G.chars) {
       if (ch === G.me && G.hall && !ch.alive) continue;
       if (G.mode && G.M.hide && G.M.hide(ch)) continue;
-      if (ch === G.me && G.hall && cq.net) list.push(cqSitDraw({ ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : ''), sw: cq.swT != null ? G.time - cq.swT : null }, cq.sit));
+      if (ch === G.me && G.hall && cq.net) list.push(cqSitDraw({ bub: cq.myBub, ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : ''), sw: cq.swT != null ? G.time - cq.swT : null }, cq.sit));
       else if (ch === G.me) list.push({ mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push(G.hall ? cqSitDraw({ talk: ch.talk, ang: ch.angel != null ? G.time - ch.angel : null, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || ch.name, sw: ch.swT != null ? G.time - ch.swT : null }, ch.sit) : { mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push(G.hall ? cqSitDraw({ bub: ch.bub, talk: ch.talk, ang: ch.angel != null ? G.time - ch.angel : null, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || ch.name, sw: ch.swT != null ? G.time - ch.swT : null }, ch.sit) : { mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     // M.prop(c) -> [tipo, opzione, nome visibile?, x, y]: il personaggio si disegna come quell'oggetto della mappa, centrato in x, y (es. Nascondino)
     if (G.mode && G.M.prop) for (const o of list) if (o.mo) { const pr = G.M.prop(o.mo); if (pr) { o.pr = pr; if (!pr[2]) o.name = null; if (pr[3] != null) { o.x = pr[3]; o.y = pr[4]; } } }
@@ -5606,6 +5815,7 @@ function cqDraw() {
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
   }
   for (const o of list) if (o.xr) { g.globalAlpha = o.ghost ? 0.25 : 0.5; cqPlayer(g, o.sx, o.sy, TW, o.L, o.w, o.f); g.globalAlpha = 1; }   // dietro a un albero (xray): sagoma in trasparenza
+  for (const o of list) if (o.on && o.bub && o.bub.u > Date.now()) cqBubble(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)) - 14, o.bub.t);   // chat della hall: fumetto sopra il nome
   for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
@@ -6139,6 +6349,7 @@ async function checkUpdate() {
 document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') checkUpdate(); });
 setInterval(() => { if (document.visibilityState === 'visible') checkUpdate(); }, 60000);
 $('#appVer').onclick = dlUnlock; dlBtn();
+$('#gReq').onclick = rqOpen;
 // ---- metti il gioco sulla home come un'app: Chrome/Edge/Samsung chiedono "Installa app?" con un tocco; iPhone e Firefox non lo permettono: spiegazione ----
 let instEv = null;
 const instDone = () => { try { return matchMedia('(display-mode: standalone)').matches || navigator.standalone === true; } catch { return false; } };

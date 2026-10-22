@@ -12,17 +12,18 @@ async function onPush() {
   try { d = await (await fetch(W + '/what?id=' + encodeURIComponent(await myId()), { cache: 'no-store' })).json(); } catch {}
   if (!d) { await self.registration.showNotification('🔔 Hotel dei Giochi', opt({ body: 'Novità: apri il gioco per vedere.', tag: 'set', silent: true })); return; }
   let shown = false;
+  if (d.inv) { await self.registration.showNotification('🎉 ' + d.inv.from + ' ti invita al suo party!', opt({ body: "Tocca per entrare nell'Hotel dei Giochi.", tag: 'inv', renotify: true })); shown = true; }
   if (d.msg) { await self.registration.showNotification(d.msg.title, opt({ body: d.msg.body, tag: 'msg' + d.msg.id, silent: !d.msg.loud })); shown = true; }
   const sets = d.sets || [];
   if (sets.length) {
     const names = [...new Set(sets.map(s => s.h))], who = names.length === 1 ? names[0] + ' ha' : names.slice(0, -1).join(', ') + ' e ' + names[names.length - 1] + ' hanno';
-    await self.registration.showNotification('🔔 Set aperto', opt({ body: who + ' aperto un set: entra a giocare!', tag: 'set', silent: true, renotify: false }));
+    await self.registration.showNotification('🔔 Party aperto', opt({ body: who + ' aperto un party: entra a giocare!', tag: 'set', silent: true, renotify: false }));
     try { if (self.navigator.setAppBadge) await self.navigator.setAppBadge(sets.length); } catch {}
   } else {
     for (const n of await self.registration.getNotifications({ tag: 'set' })) n.close();
     try { if (self.navigator.clearAppBadge) await self.navigator.clearAppBadge(); } catch {}
     // il telefono vuole che ogni spinta mostri qualcosa: se non c'e' altro, un avviso che si chiude subito
-    if (!shown) { await self.registration.showNotification('Set chiuso', opt({ tag: 'set', silent: true })); for (const n of await self.registration.getNotifications({ tag: 'set' })) n.close(); }
+    if (!shown) { await self.registration.showNotification('Party chiuso', opt({ tag: 'set', silent: true })); for (const n of await self.registration.getNotifications({ tag: 'set' })) n.close(); }
   }
 }
 self.addEventListener('push', e => e.waitUntil(onPush()));

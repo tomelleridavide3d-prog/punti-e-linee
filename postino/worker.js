@@ -34,7 +34,7 @@ const lc = s => String(s || '').trim().toLowerCase();
 async function openSets(env) {
   const r = await fetch(env.FB + '/cqlist.json'); if (!r.ok) return null;
   const L = (await r.json()) || {}, now = Date.now(), o = {};
-  for (const [k, v] of Object.entries(L)) if (v && v.o !== -1 && typeof v.ts === 'number' && now - v.ts < 90000) o[k] = clean(v.h, 14) || '?';
+  for (const [k, v] of Object.entries(L)) if (v && v.o !== -1 && !v.p && typeof v.ts === 'number' && now - v.ts < 90000) o[k] = clean(v.h, 14) || '?';
   return o;
 }
 const visible = (state, name) => Object.keys(state).filter(k => lc(state[k]) !== lc(name)).sort().join(',');
@@ -66,7 +66,9 @@ export default {
           msg = { id: m.id, title: m.title.split('{nome}').join(name || 'amico'), body: m.body.split('{nome}').join(name || 'amico'), loud: !!m.loud };
           sub.seen = m.id; await env.KV.put('sub:' + id, JSON.stringify(sub));
         }
-        return J({ sets, msg });
+        // invito a un party (mandato con /inv a questo nome): una volta sola
+        let inv = null; if (sub && sub.inv && Date.now() - sub.inv.t < 15 * 60000) { inv = sub.inv; delete sub.inv; await env.KV.put('sub:' + id, JSON.stringify(sub)); }
+        return J({ sets, msg, inv });
       }
       if (p === '/count') return J({ iscritti: (await getIds(env)).length });
       if (req.method !== 'POST') return J({ ok: true, chi: 'postino dell\'Hotel dei Giochi' });
@@ -79,6 +81,13 @@ export default {
         await env.KV.put('sub:' + id, JSON.stringify({ s: { endpoint: s.endpoint, keys: s.keys }, n: clean(b.name, 14), seen: old ? old.seen || 0 : (m ? m.id : 0), t: Date.now() }));
         const ids = await getIds(env); if (!ids.includes(id)) { if (ids.length >= 300) return J({ ok: false, pieno: 1 }, 429); ids.push(id); await env.KV.put('ids', JSON.stringify(ids)); }
         return J({ ok: true });
+      }
+      if (p === '/inv') {   // invito a un party: avviso a chi ha quel nome (al massimo uno ogni 20 s per persona)
+        const from = clean(b.from, 14), to = clean(b.to, 14), code = clean(b.code, 10); if (!from || !to || !code) return J({ ok: false }, 400);
+        const rk = 'invt:' + lc(to); if (await env.KV.get(rk)) return J({ ok: false, presto: 1 }, 429); await env.KV.put(rk, '1', { expirationTtl: 60 });
+        const ids = await getIds(env); let n = 0;
+        await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (!sub || lc(sub.n) !== lc(to)) return; sub.inv = { from, code, t: Date.now() }; await env.KV.put('sub:' + id, JSON.stringify(sub)); if ((await push(env, id, sub, 900, true)) < 300) n++; }));
+        return J({ ok: true, mandati: n });
       }
       if (p === '/unsub') { const id = clean(b.id, 40); if (id) await drop(env, id); return J({ ok: true }); }
       if (p === '/kick') { ctx.waitUntil(check(env)); return J({ ok: true }); }

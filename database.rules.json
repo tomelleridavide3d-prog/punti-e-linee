@@ -7,18 +7,50 @@
       "$k": {
         ".write": true,
         ".validate": "$k.length <= 14 && newData.hasChildren(['name', 'rating'])",
-        "name": { ".validate": "newData.isString() && newData.val().length <= 14" },
-        "rating": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 10000" },
-        "w": { ".validate": "newData.isNumber()" },
-        "l": { ".validate": "newData.isNumber()" },
-        "d": { ".validate": "newData.isNumber()" },
-        "pf": { ".validate": "newData.isNumber()" },
-        "pa": { ".validate": "newData.isNumber()" },
-        "hist": { "$i": { ".validate": "newData.isNumber()" } },
-        "vs": { "$o": { ".validate": "newData.hasChildren(['name'])" } },
-        "games": { "$g": { ".validate": "newData.hasChildren(['t', 'opp', 'res'])" } },
-        "seen": { "$g": { ".validate": "newData.isNumber()" } },
-        "$other": { ".validate": false }
+        "name": {
+          ".validate": "newData.isString() && newData.val().length <= 14"
+        },
+        "rating": {
+          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() < 10000"
+        },
+        "w": {
+          ".validate": "newData.isNumber()"
+        },
+        "l": {
+          ".validate": "newData.isNumber()"
+        },
+        "d": {
+          ".validate": "newData.isNumber()"
+        },
+        "pf": {
+          ".validate": "newData.isNumber()"
+        },
+        "pa": {
+          ".validate": "newData.isNumber()"
+        },
+        "hist": {
+          "$i": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "vs": {
+          "$o": {
+            ".validate": "newData.hasChildren(['name'])"
+          }
+        },
+        "games": {
+          "$g": {
+            ".validate": "newData.hasChildren(['t', 'opp', 'res'])"
+          }
+        },
+        "seen": {
+          "$g": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "presence": {
@@ -39,10 +71,24 @@
       "$code": {
         ".read": true,
         ".write": true,
-        "host": { ".validate": "newData.isNumber()" },
-        "up": { "$id": { ".validate": "newData.hasChildren(['k', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 20000" } },
-        "down": { "$k": { "$id": { ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 20000" } } },
-        "$other": { ".validate": false }
+        "host": {
+          ".validate": "newData.isNumber()"
+        },
+        "up": {
+          "$id": {
+            ".validate": "newData.hasChildren(['k', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 20000"
+          }
+        },
+        "down": {
+          "$k": {
+            "$id": {
+              ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 20000"
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        }
       }
     },
     "cqlist": {
@@ -56,16 +102,69 @@
       "$code": {
         ".read": true,
         ".write": true,
-        "pl": { "$sid": { ".validate": "newData.hasChildren(['name', 'ts']) && newData.child('name').isString() && newData.child('name').val().length <= 14" } },
-        "pos": { "$sid": { ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()" } },
-        "st": { ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 60000" },
-        "ev": { "$id": { ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 4000" } },
-        "hl": { "$sid": { ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()" } },
-        "hk": { "$to": { "$id": { ".validate": "newData.hasChildren(['f', 'n']) && newData.child('n').isString() && newData.child('n').val().length <= 14" } } },
-        "hc": { ".validate": "newData.hasChildren(['n']) && newData.child('n').isNumber()" },
-        "dg": { "$sid": { ".validate": "newData.isString() && newData.val().length < 4000" } },
-        "rtc": { "$to": { "$id": { ".validate": "newData.hasChildren(['f', 'k', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 20000" } } },
-        "$other": { ".validate": false }
+        "pl": {
+          "$sid": {
+            ".validate": "newData.hasChildren(['name', 'ts']) && newData.child('name').isString() && newData.child('name').val().length <= 14"
+          }
+        },
+        "pos": {
+          "$sid": {
+            ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()"
+          }
+        },
+        "st": {
+          ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 60000"
+        },
+        "ev": {
+          "$id": {
+            ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 4000"
+          }
+        },
+        "hl": {
+          "$sid": {
+            ".validate": "newData.hasChildren(['x', 'y']) && newData.child('x').isNumber() && newData.child('y').isNumber()"
+          }
+        },
+        "hk": {
+          "$to": {
+            "$id": {
+              ".validate": "newData.hasChildren(['f', 'n']) && newData.child('n').isString() && newData.child('n').val().length <= 14"
+            }
+          }
+        },
+        "hc": {
+          ".validate": "newData.hasChildren(['n']) && newData.child('n').isNumber()"
+        },
+        "dg": {
+          "$sid": {
+            ".validate": "newData.isString() && newData.val().length < 4000"
+          }
+        },
+        "rtc": {
+          "$to": {
+            "$id": {
+              ".validate": "newData.hasChildren(['f', 'k', 'd']) && newData.child('d').isString() && newData.child('d').val().length < 20000"
+            }
+          }
+        },
+        "$other": {
+          ".validate": false
+        },
+        "hm": {
+          "$id": {
+            ".validate": "newData.hasChildren(['s','n','t']) && newData.child('t').isString() && newData.child('t').val().length <= 80 && newData.child('n').isString() && newData.child('n').val().length <= 14"
+          }
+        },
+        "kk": {
+          "$k": {
+            ".validate": "newData.isNumber()"
+          }
+        },
+        "inv": {
+          "$k": {
+            ".validate": "newData.isNumber()"
+          }
+        }
       }
     },
     "invites": {
@@ -81,12 +180,42 @@
       "$k": {
         ".read": true,
         ".write": "!newData.exists()",
-        ".indexOn": ["t"],
+        ".indexOn": [
+          "t"
+        ],
         "$id": {
           ".write": "!data.exists() || !newData.exists()",
-          "u": { ".write": "data.parent().exists()", ".validate": "newData.isNumber()" },
-          "x": { ".write": "data.parent().exists()", ".validate": "newData.isNumber()" },
+          "u": {
+            ".write": "data.parent().exists()",
+            ".validate": "newData.isNumber()"
+          },
+          "x": {
+            ".write": "data.parent().exists()",
+            ".validate": "newData.isNumber()"
+          },
           ".validate": "newData.hasChildren(['n', 't', 'e']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('t').isNumber() && newData.child('e').isString() && newData.child('e').val().length <= 16"
+        }
+      }
+    },
+    "pinv": {
+      "$k": {
+        ".read": true,
+        ".write": true,
+        "$id": {
+          ".validate": "newData.hasChildren(['n','c','t']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('c').isString() && newData.child('c').val().length <= 10 && newData.child('t').isNumber()"
+        }
+      }
+    },
+    "rq": {
+      "$k": {
+        ".read": true,
+        ".write": "!newData.exists()",
+        ".indexOn": [
+          "t"
+        ],
+        "$id": {
+          ".write": "!data.exists() || !newData.exists()",
+          ".validate": "newData.hasChildren(['n','t','c','m']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('m').isString() && newData.child('m').val().length <= 1000 && newData.child('c').isString() && newData.child('c').val().length <= 10 && newData.child('t').isNumber()"
         }
       }
     }
