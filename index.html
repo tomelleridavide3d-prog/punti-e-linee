@@ -270,6 +270,7 @@ details.gList[open] summary::after{content:' ▴'}
 .pvt{display:flex;align-items:center;gap:8px;margin:6px 0 2px;font-size:14px;cursor:pointer}.pvt input{width:20px;height:20px}
 details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight:700;padding:6px 0}
 .frAdd{display:flex;gap:6px;margin-top:8px}.frAdd input{flex:1;min-width:0}
+.rcSec{font-weight:800;font-size:16px;margin:16px 2px 6px;display:flex;align-items:center;gap:8px}.rcSec:first-child{margin-top:2px}.rcSec small{font-weight:600;color:var(--muted);font-size:12px}
 .rqCats{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}.rqCats button{padding:12px 8px;justify-content:center;font-weight:700}.rqCats button.on{border-color:#f2c230;box-shadow:0 0 0 1px #f2c230;background:rgba(242,194,48,.12)}
 #rqWin,#rrWin{position:fixed;inset:0;z-index:99990;background:var(--bg);display:flex;align-items:center;justify-content:center;padding:16px}#rqWin .pk,#rrWin .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;box-shadow:var(--shadow);width:100%;max-width:440px;max-height:calc(100% - 20px);overflow:auto}
 #rqWin textarea{width:100%;box-sizing:border-box;min-height:120px;font:inherit;font-size:16px;padding:10px;border-radius:12px;border:1px solid var(--line);background:var(--bg);color:var(--ink);resize:vertical}
@@ -381,7 +382,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <p class="you" id="homeYou"></p>
   <div id="instBox" hidden></div>
   <div id="pushBox" hidden></div>
-  <button class="gcard" id="gDots"><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
+  <button class="gcard" id="gDots" hidden><span class="gi"><svg viewBox="0 0 26 26"><g fill="currentColor"><circle cx="4" cy="4" r="2.2"/><circle cx="13" cy="4" r="2.2"/><circle cx="22" cy="4" r="2.2"/><circle cx="4" cy="13" r="2.2"/><circle cx="13" cy="13" r="2.2"/><circle cx="22" cy="13" r="2.2"/></g><path d="M4 4H13V13H4" stroke="var(--p0)" stroke-width="2.4" fill="none" stroke-linejoin="round"/><path d="M13 13H22" stroke="var(--p1)" stroke-width="2.4"/></svg></span>
     <span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati. Sfida un amico a distanza.</div><div class="gn" id="nDots"></div></span></button>
   <button class="gcard" id="gAmong"><span class="gi"><svg viewBox="0 0 26 26"><rect x="4" y="7" width="18" height="17" rx="1.2" fill="#8a3a32"/><rect x="2.8" y="5.2" width="20.4" height="2.8" rx="1" fill="#e0b84a"/><g fill="#f2d98a"><rect x="6.5" y="10" width="3" height="3" rx=".5"/><rect x="11.5" y="10" width="3" height="3" rx=".5"/><rect x="16.5" y="10" width="3" height="3" rx=".5"/><rect x="6.5" y="15" width="3" height="3" rx=".5"/><rect x="16.5" y="15" width="3" height="3" rx=".5"/></g><path d="M10.6 24v-4.6q2.4-2.6 4.8 0V24z" fill="#2a1e14"/><path d="M13 5.2V1.2" stroke="#2a2e35" stroke-width="1"/><path d="M13 1.2h4.6l-1.3 1.3 1.3 1.3H13z" fill="#e2553a"/></svg></span>
     <span><div class="gt">Hotel dei Giochi</div><div class="gs">Un hotel pieno di giochi: Ciack US, Infezione e altri in arrivo. Da solo o con gli amici: ogni porta della hall è un gioco.</div><div class="gn" id="nAmong"></div></span></button>
@@ -1116,9 +1117,9 @@ function openSetup() {
     <p class="lead">Unisci due punti vicini con una linea. Chi traccia il quarto lato di un quadrato lo conquista.</p>
     ${WEB ? `<p class="you">Giochi come <b>${esc(S.myName || '')}</b> · <span id="myRat"></span> · <button type="button" id="bRename">non sei tu?</button></p>` : ''}
     <div class="row"><div class="lbl">Avversario</div>${seg('mode', WEB ? [['ai', 'Computer'], ['online', 'Amico a distanza']] : [['ai', 'Computer'], ['humans', 'Stesso dispositivo'], ['online', 'Amico a distanza']], S.mode)}</div>
-    ${WEB ? `<div class="row" data-for="online"><div class="lbl">Giocatori online</div><div id="salaList"></div></div>` : ''}
+    ${WEB ? `<div class="row" data-for="online"><div class="lbl">Sfida un amico</div><div id="salaList"></div></div>` : ''}
     <div class="row" data-for="online">${WEB ? '' : `<div class="lbl">Il tuo nome</div><input class="field" name="myname" maxlength="14" placeholder="Come ti vedrà il tuo amico" value="${esc(S.myName || '')}">`}
-      <div class="hint"${WEB ? ' style="margin-top:0"' : ''}>${WEB ? 'Tocca «Sfida» accanto a un giocatore online, oppure premi «Invita con link» per mandare il link a chi vuoi (WhatsApp, SMS…). Chi inizia lo decide la sorte.' : 'Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte. Chi inizia lo decide la sorte.'}</div></div>
+      <div class="hint"${WEB ? ' style="margin-top:0"' : ''}>${WEB ? 'Tocca «✉️ Sfida» accanto a un amico o scrivi il suo nome: riceve la sfida nel gioco (e sul telefono, se ha gli avvisi accesi). Chi inizia lo decide la sorte.' : 'Riceverai un link da mandare al tuo amico (WhatsApp, SMS…). Lui lo apre dal suo telefono e la partita parte. Chi inizia lo decide la sorte.'}</div></div>
     <div class="row" data-for="ai"><div class="lbl">Difficoltà</div>${seg('level', LEVELS.map(l => [l.id, l.name]), S.level)}<div class="hint" id="levelDesc"></div></div>
     <div class="row" data-for="ai"><div class="lbl">Chi inizia</div>${seg('first', [['human', 'Tu'], ['ai', 'Computer'], ['random', 'A caso']], S.first)}</div>
     <div class="row" data-for="humans"><div class="lbl">Giocatori</div>${seg('humans', [[2, '2'], [3, '3'], [4, '4']], S.humans)}
@@ -1133,14 +1134,14 @@ function openSetup() {
         <li><b>Catene</b>: verso la fine i quadrati formano corridoi. Chi è costretto ad aprirne uno li regala tutti.</li>
         <li><b>Doppio incrocio</b>: quando l'avversario ti apre una catena lunga, prendi tutti i quadrati tranne gli ultimi 2 e chiudi il lato in fondo. Lui prende quei 2 ma poi deve aprire la catena successiva.</li>
       </ul></details>
-    <div class="actions">${WEB ? '<button type="button" class="btn" id="bHome">← Giochi</button>' : ''}${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">${WEB ? 'Invita con link' : 'Inizia partita'}</button></div>`;
+    <div class="actions">${WEB ? '<button type="button" class="btn" id="bHome">← Hotel dei Giochi</button>' : ''}${game ? '<button class="btn" value="cancel">Annulla</button>' : ''}<button class="btn primary" value="ok" id="bStart">${WEB ? 'Invita con link' : 'Inizia partita'}</button></div>`;
   const sync = () => {
     const fd = new FormData(f);
     for (const k of ['mode', 'level', 'first', 'humans', 'size', 'rule', 'aiRule']) if (fd.get(k) != null) S[k] = fd.get(k);
     if (fd.get('myname') != null) S.myName = fd.get('myname');
     for (let i = 0; i < 4; i++) S.names[i] = fd.get('nm' + i) ?? S.names[i];
     f.querySelectorAll('[data-for]').forEach(r => r.hidden = !r.dataset.for.split(' ').includes(S.mode));
-    if (WEB) $('#bStart').textContent = S.mode === 'online' ? 'Invita con link' : 'Inizia partita';
+    if (WEB) { $('#bStart').textContent = 'Inizia partita'; $('#bStart').hidden = S.mode === 'online'; }   // a distanza si parte da «✉️ Sfida»
     f.querySelectorAll('.names input').forEach((inp, i) => inp.hidden = i >= +S.humans);
     const lv = levelById(S.level);
     $('#levelDesc').textContent = lv.desc + (lv.id === 'adaptive' ? ` Forza attuale: ${Math.round(store.profile.strength)}/100.` : '');
@@ -1149,13 +1150,9 @@ function openSetup() {
   f.oninput = ev => { if (WEB && ev && ev.target && ev.target.name === 'mode') S.modeChosen = true; sync(); };
   sync();
   if (WEB) {
-    $('#bHome').onclick = showHome;
+    $('#bHome').onclick = dotsToHotel;
     $('#bRename').onclick = () => { $('#dSetup').close('cancel'); stopHub(); store.settings.myName = ''; saveStore(); askName(() => { startHub(); showHome(); }); };
-    $('#salaList').onclick = ev => {
-      const b = ev.target.closest('[data-ch]'); if (!b) return;
-      pendingChallenge = { key: b.dataset.ch, name: b.dataset.nm };
-      saveStore(); $('#dSetup').close('ok');
-    };
+    // ✉️ Sfida (amici, altri collegati o nome scritto): vedi hubRender
     hubRender();
   }
   $('#dSetup').onclose = () => {
@@ -1481,15 +1478,15 @@ function hostRecv(conn, d) {
 function showLobby() {
   const ch = net.challenge;
   $('#lobbyBody').innerHTML = `<h2>${ch ? 'Sfida a ' + esc(ch.name) : 'Invita il tuo amico'}</h2>
-    <p class="lead">${ch ? esc(ch.name) + ' riceve subito la sfida sul suo schermo: appena accetta la partita inizia. Se non la vede, puoi mandargli anche questo link.' : 'Manda questo link al tuo amico. La partita inizia appena lo apre dal suo telefono.'}</p>
-    <div class="linkbox"><input class="field" id="lkInput" readonly value="${esc(inviteLink())}"><button class="btn" id="lkCopy">Copia</button></div>
+    <p class="lead">${ch ? esc(ch.name) + ' riceve la sfida nel gioco (e sul telefono, se ha gli avvisi accesi): appena accetta la partita inizia.' : 'Manda questo link al tuo amico. La partita inizia appena lo apre dal suo telefono.'}</p>
+    <div class="linkbox"${ch ? ' hidden' : ''}><input class="field" id="lkInput" readonly value="${esc(inviteLink())}"><button class="btn" id="lkCopy">Copia</button></div>
     <div class="wait" id="lkWait"></div>
-    <div class="actions"><button class="btn" id="lkCancel">Annulla</button>${navigator.share ? '<button class="btn primary" id="lkShare">Condividi link</button>' : ''}</div>`;
+    <div class="actions"><button class="btn" id="lkCancel">Annulla</button>${navigator.share && !ch ? '<button class="btn primary" id="lkShare">Condividi link</button>' : ''}</div>`;
   $('#lkCopy').onclick = async () => {
     try { await navigator.clipboard.writeText(inviteLink()); } catch { $('#lkInput').select(); document.execCommand('copy'); }
     $('#lkCopy').textContent = 'Copiato!';
   };
-  if (navigator.share) $('#lkShare').onclick = () => navigator.share({ title: 'Linee e quadrettini birichini', text: `${net.name} ti sfida a Linee e quadrettini birichini!`, url: inviteLink() }).catch(() => {});
+  if ($('#lkShare')) $('#lkShare').onclick = () => navigator.share({ title: 'Linee e quadrettini birichini', text: `${net.name} ti sfida a Linee e quadrettini birichini!`, url: inviteLink() }).catch(() => {});
   $('#lkCancel').onclick = () => { leaveOnline(); render(); openSetup(); };
   $('#dLobby').oncancel = ev => ev.preventDefault();
   updateLobby();
@@ -1499,7 +1496,7 @@ function updateLobby() {
   const w = $('#lkWait'); if (!w || !net) return;
   w.className = 'wait';
   const who = net.challenge ? esc(net.challenge.name) : 'il tuo amico';
-  if (net.declined) { w.className = 'wait bad'; w.innerHTML = '<b>' + who + '</b> non ha accettato. Puoi annullare o mandargli il link.'; return; }
+  if (net.declined) { w.className = 'wait bad'; w.innerHTML = '<b>' + who + '</b> non ha accettato. Puoi annullare e riprovare più tardi.'; return; }
   w.textContent = net.ready ? (net.challenge ? 'In attesa che ' + net.challenge.name + ' accetti…' : 'In attesa che il tuo amico apra il link…') : 'Preparazione della partita…';
 }
 
@@ -1951,6 +1948,7 @@ function hubSendInvite() {
   net.invRef = r;
   F.onDisconnect(r).remove();
   F.set(r, { from: net.name, code: net.code, size: +S.size, rule: S.rule, ts: Date.now() }).catch(() => {});
+  pushPost('/inv', { from: net.name, to: c.name, code: net.code, g: 'dots' });   // avviso sul telefono, se ha gli avvisi accesi
   net.invUnsub = F.onValue(r, s => {
     if (s.exists() || !net || net.invRef !== r || net.cfg || net.declT) return;
     const n = net;   // se l'invitato ha accettato, entro pochi secondi arriva il collegamento
@@ -1985,6 +1983,7 @@ function showInvite() {
 }
 function acceptInvite(code) {
   if (!/^[a-z0-9]+$/.test(code)) return;
+  if (cq.on) closeCiack();
   for (const d of ['#dSetup', '#dStats', '#dEnd']) if ($(d).open) $(d).close('cancel');
   if (net) leaveOnline();
   enterDots();
@@ -1998,15 +1997,13 @@ function hubRender() {
   if (!$('#home').hidden) homeRender();
   if (rat) rat.textContent = hub.ok && hub.players[hub.key] ? myRating() + ' punti' : '';
   if (!el) return;
-  if (!hub.ok) { el.innerHTML = '<div class="hint">' + (hub.started && !hub.failed ? 'Sto cercando i giocatori online…' : 'Elenco giocatori non disponibile' + (hub.err ? ' (' + esc(hub.err) + ')' : '') + ': puoi comunque invitare con un link.') + '</div>'; return; }
+  if (!hub.ok) { el.innerHTML = '<div class="hint">' + (hub.started && !hub.failed ? 'Sto cercando i giocatori online…' : 'Elenco giocatori non disponibile' + (hub.err ? ' (' + esc(hub.err) + ')' : '') + ': riprova tra poco.') + '</div>'; return; }
+  if (el.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') return;   // sta scrivendo un nome
   const seen = new Set(), others = [];
-  for (const p of Object.values(hub.online)) if ((p.g || 'dots') === 'dots' && p.key !== hub.key && !seen.has(p.key)) { seen.add(p.key); others.push(p); }
-  others.sort((a, b) => (a.st === 'free' ? 0 : 1) - (b.st === 'free' ? 0 : 1) || a.name.localeCompare(b.name));
-  let h = others.length ? others.map(p => `<div class="pl"><span class="dot2${p.st === 'free' ? '' : ' busy'}"></span><span class="nm2">${esc(p.name)}</span>${p.st === 'free' ? `<button type="button" class="btn" data-ch="${esc(p.key)}" data-nm="${esc(p.name)}">Sfida</button>` : '<span class="st2">in partita</span>'}</div>`).join('')
-    : '<div class="hint">Nessun altro giocatore online in questo momento. Puoi invitare qualcuno con un link.</div>';
+  for (const p of Object.values(hub.online)) if ((p.g || 'dots') === 'dots' && p.key !== hub.key && p.st === 'free' && !seen.has(p.key)) { seen.add(p.key); others.push({ k: p.key, n: p.name, st: p.st }); }
+  frPicker(el, fr => { pendingChallenge = { key: fr.k, name: fr.n }; saveStore(); $('#dSetup').close('ok'); }, others);
   const lv = Object.values(hub.live).filter(g => Date.now() - g.ts < 6 * 3600e3);
-  if (lv.length) h += '<div class="lbl" style="margin-top:14px">Partite in corso</div>' + lv.map(g => `<div class="liveitem"><b>${esc(g.a)}</b> contro <b>${esc(g.b)}</b> · ${g.sa}–${g.sb}</div>`).join('');
-  el.innerHTML = h;
+  if (lv.length) el.insertAdjacentHTML('beforeend', '<div class="lbl" style="margin-top:14px">Partite in corso</div>' + lv.map(g => `<div class="liveitem"><b>${esc(g.a)}</b> contro <b>${esc(g.b)}</b> · ${g.sa}–${g.sb}</div>`).join(''));
 }
 function hubRecord(r) {
   const F = hub.fb; if (!F || !hub.ok || !hub.key) return;
@@ -2394,11 +2391,12 @@ function cqBlocked(x, y) {
   return !!(G && G.mode && G.M.blk && G.phase === 'play' && G.M.blk(G, x, y));   // M.blk(G, x, y): ostacoli del gioco che si muovono senza scatti (es. l'ariete dell'Assedio)
 }
 function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBlocked(x + r, y - r) || cqBlocked(x - r, y + r) || cqBlocked(x + r, y + r)); }
-function openCiack() {
+function openCiack(toRecep) {
   try { if (!(history.state && history.state.hotel)) history.pushState({ hotel: 1 }, ''); } catch {}   // vedi cqStepBack
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
-  cq.g = null; cqHallUI(false); cqOpenPick();
+  cq.g = null; cqHallUI(false);
+  if (toRecep) cqReception(); else cqOpenPick();
 }
 const CQ_COLORS = ['#e2553a', '#3b6fe0', '#2fa35a', '#f2c230', '#f08a24', '#f07ab8', '#8a4fd0', '#3cc8d8', '#e8ecef', '#3a3f49', '#8a5a32', '#a8d838'];
 const CQ_HATS = [['borsalino', 'Borsalino'], ['basco', 'Basco'], ['cilindro', 'Cilindro'], ['cappellino', 'Cappellino'], ['cuffie', 'Cuffie'], ['corona', 'Corona'], ['nessuno', 'Nessuno']];
@@ -3192,7 +3190,7 @@ function cqNetBox() {
   const invs = Object.entries(inv).filter(([k, v]) => cq.sets && cq.sets[k] && !kicked[k] && Date.now() - v.t < 30 * 60000);
   const fr = frList(), on = k => frOnline(k);
   box.innerHTML = `<div class="netBox">`
-    + (invs.length ? invs.map(([k, v]) => `<div class="invBox netRow"><span>✉️ <b>${esc(v.n)}</b> ti invita al suo party</span><button class="btn primary" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '')
+    + (invs.length ? invs.map(([k, v]) => v.g === 'bc' ? `<div class="invBox netRow"><span>🃏 <b>${esc(v.n)}</b> ti sfida a Briscola</span><button class="btn primary" type="button" data-join="${esc(k)}" data-bc="${esc(v.n)}">Gioca</button></div>` : `<div class="invBox netRow"><span>✉️ <b>${esc(v.n)}</b> ti invita al suo party</span><button class="btn primary" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '')
     + `<b>🎉 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">🎉 Crea un party</button>`
     + `<label class="pvt"><input type="checkbox" id="netPriv"${store.settings.partyPriv ? ' checked' : ''}> 🔒 Solo su invito <span class="hint" style="margin:0">(lo vede solo chi inviti)</span></label>`
     + (sets.length ? '<div class="hint">Party aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>${v.p ? '🔒 ' : ''}Party di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun party aperto dagli amici in questo momento.</div>')
@@ -3202,15 +3200,17 @@ function cqNetBox() {
     + `<form class="frAdd" id="frAddF"><input class="field" id="frAddI" maxlength="14" placeholder="Nome dell'amico" autocomplete="off"><button class="btn" type="submit">➕ Aggiungi</button></form></details>`
     + (pushOk() || pushIOS() ? `<button class="btn" id="netBell" type="button" style="font-size:13px;margin-top:10px">${pushOn() ? '🔔 Avvisi accesi (tocca per spegnere)' : '🔕 Avvisami quando un amico apre un party'}</button>` : '')
     + '</div>';
-  $('#netNew').onclick = async () => { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return; } cq.net.priv = !!store.settings.partyPriv; cqNetList(); cqCloseTask(); cqHallEnter(); devLog('set', '', code); setTimeout(pushKick, 1500); cqToast('🎉 Party aperto' + (cq.net && cq.net.priv ? ' (🔒 solo su invito)' : '') + '! Invita gli amici con <b>👥 Party</b>, scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.'); };
+  $('#netNew').onclick = () => cqPartyNew();
   $('#netPriv').onchange = e => { store.settings.partyPriv = !!e.target.checked; saveStore(); };
   if ($('#netBell')) $('#netBell').onclick = pushToggle;
   box.querySelector('details.frList').ontoggle = e => { cq.frOpen = e.target.open; };
   $('#frAddF').onsubmit = e => { e.preventDefault(); const n = $('#frAddI').value.trim(); if (frAdd(n)) cqNetBox(); };
   box.querySelectorAll('[data-unfr]').forEach(b => { b.onclick = () => { frDel(b.dataset.unfr); cqNetBox(); }; });
-  box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => cqNetJoin(b.dataset.join); });
+  box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => { if (b.dataset.bc) cq.bcAuto = { n: b.dataset.bc, t: Date.now() }; cqNetJoin(b.dataset.join); }; });   // data-bc: sfida a Briscola gia' accettata
   box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Party eliminato.'); }; });
 }
+// crea un party (pulsante "🎉 Crea un party" della reception; priv = solo su invito; quiet = senza il messaggio di benvenuto)
+async function cqPartyNew(priv, quiet) { const code = randCode(6); store.settings.mySets = (store.settings.mySets || []).filter(k => cq.sets && cq.sets[k]).concat(code).slice(-5); saveStore(); try { await cqNetOpen(code, 'host'); } catch { cqToast('Collegamento non riuscito: riprova.'); cqNetBox(); return false; } cq.net.priv = priv != null ? !!priv : !!store.settings.partyPriv; cqNetList(); cqCloseTask(); cqHallEnter(); devLog('set', '', code); setTimeout(pushKick, 1500); if (!quiet) cqToast('🎉 Party aperto' + (cq.net && cq.net.priv ? ' (🔒 solo su invito)' : '') + '! Invita gli amici con <b>👥 Party</b>, scegli il minigioco e premi <b>▶ Inizia</b> quando ci siete tutti.');  return true; }
 // chi e' entrato in un set aspetta qui che l'host faccia partire la partita
 function cqNetWait() {
   const N = cq.net; if (!N) { cqReception(); return; }
@@ -3551,8 +3551,11 @@ const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.
 function cqReception() {
   cqCloseTask(); cqTitle('🏨 Hotel'); $('#cqLookBtn').hidden = false;
   $('#tkTitle').textContent = '🏨 Hotel dei Giochi';
-  $('#tkBody').innerHTML = `<div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}<button class="gcard hg" type="button" id="bcSolo"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Carte al tavolino</div><div class="gs">Briscola uno contro uno con il Conte, al tavolino del tè dell'hotel. Nel party: siediti in salotto e sfida un amico.</div></span></button></details>`;
-  $('#bcSolo').onclick = () => bcLoad().then(B => B.solo()).catch(() => cqToast('Non riesco a caricare le carte: controlla la connessione e riprova.'));
+  $('#tkBody').innerHTML = `<div class="rcSec">🎮 Minigiochi</div><div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`
+    + `<div class="rcSec">🎲 Giochi da tavola <small>contro il computer o sfidando un amico</small></div>`
+    + `<button class="gcard hg" type="button" id="tgBc"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Briscola</div><div class="gs">Carte napoletane, 1 contro 1: contro il Conte o sfida un amico.</div></span></button>`
+    + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button>`;
+  $('#tgBc').onclick = tgBriscola; $('#tgDots').onclick = tgDots;
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#tkBack').hidden = false; $('#tkBack').onclick = () => { cqCloseTask(); cqOpenPick(); };   // ← Indietro: di nuovo il personaggio
@@ -3934,21 +3937,74 @@ function invWatch() {
   cq.invU = F.onChildAdded(F.ref(F.db, 'pinv/' + k), sn => {
     const v = sn.val(); F.remove(sn.ref).catch(() => {});
     if (!v || !v.c || Date.now() - (v.t || 0) > 30 * 60000) return;
-    cq.invites[v.c] = { n: String(v.n || '?').slice(0, 14), t: v.t };
+    cq.invites[v.c] = { n: String(v.n || '?').slice(0, 14), t: v.t, g: v.g === 'bc' ? 'bc' : '' };
     beep(988, 0.1, 0.04); beep(1319, 0.16, 0.04, 0.1);
-    cqToast('✉️ <b>' + esc(v.n) + '</b> ti invita al suo party! ' + (cq.net ? '' : 'Lo trovi in alto nella reception: <b>Entra</b>.'));
+    cqToast((v.g === 'bc' ? '🃏 <b>' + esc(v.n) + '</b> ti sfida a Briscola! ' : '✉️ <b>' + esc(v.n) + '</b> ti invita al suo party! ') + (cq.net ? '' : 'Lo trovi in alto nella reception: <b>' + (v.g === 'bc' ? 'Gioca' : 'Entra') + '</b>.'));
     if ($('#lbNet')) cqNetBox();
   });
 }
-function invSend(fr) {
+function invSend(fr, g) {   // g: 'bc' = sfida a Briscola (l'amico entrando nel party trova il tavolo)
   const N = cq.net; if (!N) return;
   const me = (store.settings.myName || '').trim().slice(0, 14);
-  N.F.push(N.F.ref(N.F.db, 'pinv/' + fr.k), { n: me, k: hub.key || nameKey(me), c: N.code, t: Date.now() }).catch(() => {});
+  N.F.push(N.F.ref(N.F.db, 'pinv/' + fr.k), Object.assign({ n: me, k: hub.key || nameKey(me), c: N.code, t: Date.now() }, g ? { g } : {})).catch(() => {});
   N.F.set(cqNetRef(`cq/${N.code}/inv/${fr.k}`), Date.now()).catch(() => {});
-  pushPost('/inv', { from: me, to: fr.n, code: N.code });   // avviso sul telefono, se l'amico ha gli avvisi accesi
+  pushPost('/inv', Object.assign({ from: me, to: fr.n, code: N.code }, g ? { g } : {}));   // avviso sul telefono, se l'amico ha gli avvisi accesi
   (cq.invSent || (cq.invSent = {}))[fr.k] = Date.now();
-  cqToast('✉️ Invito mandato a <b>' + esc(fr.n) + '</b>!');
+  if (!g) cqToast('✉️ Invito mandato a <b>' + esc(fr.n) + '</b>!');
 }
+// ---- GIOCHI DA TAVOLA (23-10-2026, richiesta utente): nella reception dell'Hotel la sezione "🎲 Giochi da tavola" con Briscola e Linee e quadrettini.
+// Si gioca contro il computer o si SFIDA UN AMICO dalla lista degli amici o scrivendo il nome (niente codici o link): l'amico riceve la sfida nel
+// gioco e, se ha gli avvisi accesi, anche sul telefono (postino /inv con g = 'bc' o 'dots').
+// frPicker(el, onPick, extra): i miei amici (pallino verde = collegato) con "✉️ Sfida", piu' il campo per scrivere un nome; extra = altri collegati
+function frPicker(el, onPick, extra) {
+  if (!el) return;
+  const fr = frList(), ex = (extra || []).filter(p => !fr.some(x => x.k === p.k) && p.k !== hub.key);
+  const row = (x, i, o) => '<div class="pmRow"><span class="nm"><span class="dot3' + (o ? ' on' : '') + '"></span>' + esc(x.n) + '<small>' + (o ? (o.st && o.st !== 'free' ? 'sta giocando' : 'collegato') : 'non collegato') + '</small></span><button class="btn primary" type="button" data-pk="' + i + '">✉️ Sfida</button></div>';
+  const all = fr.concat(ex);
+  el.innerHTML = '<div class="frPick">' + (fr.length ? fr.map((x, i) => row(x, i, frOnline(x.k))).join('') : '<div class="hint">Non hai ancora amici in lista: scrivi il nome qui sotto (diventa anche tuo amico).</div>')
+    + (ex.length ? '<div class="hint" style="margin-top:8px">Altri giocatori collegati:</div>' + ex.map((x, i) => row(x, fr.length + i, x)).join('') : '')
+    + '<div class="frAdd"><input class="field" maxlength="14" placeholder="Oppure scrivi il nome" autocomplete="off" enterkeyhint="send"><button class="btn primary" type="button" data-nm="1">✉️ Sfida</button></div></div>';   // niente <form>: qui puo' stare dentro un altro modulo (impostazioni di Linee e quadrettini)
+  el.querySelectorAll('[data-pk]').forEach(b => { b.onclick = () => { const x = all[+b.dataset.pk]; if (x) onPick({ k: x.k, n: x.n }); }; });
+  const byName = () => {
+    const n = el.querySelector('.frAdd input').value.trim().slice(0, 14), k = nameKey(n);
+    if (!n || k === 'x') { cqToast('Scrivi il nome dell\'amico.'); return; }
+    if (k === nameKey(store.settings.myName)) { cqToast('Quello sei tu 😄'); return; }
+    if (!frHas(k)) { store.settings.friends = frList().concat({ k, n }).slice(-60); saveStore(); }
+    onPick({ k, n });
+  };
+  el.querySelector('[data-nm]').onclick = byName;
+  el.querySelector('.frAdd input').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); byName(); } };
+}
+// BRISCOLA dalla reception: contro il Conte, oppure sfida a un amico = un party "solo su invito" con l'invito g: 'bc'; appena l'amico entra
+// nella hall parte la sfida al tavolino (bcWantCheck) e lui la accetta da solo (l'aveva gia' accettata dall'invito: bcAutoOk in briscola.js)
+function tgBriscola() {
+  cqCloseTask(); $('#tkTitle').textContent = '🃏 Briscola';
+  $('#tkBody').innerHTML = '<p class="lead" style="margin-top:0">Carte napoletane, 1 contro 1. Vince chi fa più di 60 punti.</p><button class="btn primary go" type="button" id="tbAI">🎩 Gioca contro il Conte (computer)</button>'
+    + '<div class="rcSec">✉️ Sfida un amico</div><div id="tbFr"></div><p class="hint">L\'amico riceve la sfida nel gioco (e sul telefono, se ha gli avvisi accesi). Quando arriva nella hall si apre il tavolo. Dentro un party puoi anche sederti al tavolino del salotto e premere <b>🃏 Carte</b>.</p>';
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#tkBack').hidden = false; $('#tkBack').onclick = cqReception;
+  $('#tbAI').onclick = () => bcLoad().then(B => B.solo()).catch(() => cqToast('Non riesco a caricare le carte: controlla la connessione e riprova.'));
+  frPicker($('#tbFr'), bcInvite);
+}
+async function bcInvite(fr) {
+  try { await bcLoad(); } catch { cqToast('Non riesco a caricare le carte: controlla la connessione e riprova.'); return; }
+  if (!cq.net && !(await cqPartyNew(true, true))) return;
+  cq.bcWant = { k: fr.k, n: fr.n, t: Date.now() };
+  invSend(fr, 'bc'); cqCloseTask();
+  cqToast('🃏 Sfida a Briscola mandata a <b>' + esc(fr.n) + '</b>! Appena entra nel tuo party si apre il tavolo.');
+}
+function bcWantCheck() {
+  const W = cq.bcWant, N = cq.net, G = cq.g; if (!W || !N || !G || !G.hall || !window.BC) return;
+  if (Date.now() - W.t > 15 * 60000) { cq.bcWant = null; return; }
+  const sid = Object.keys(N.pl).find(x => x !== N.sid && nameKey(N.pl[x].name) === W.k); if (!sid || BC.busy()) return;
+  cq.bcWant = null; BC.challenge({ sid, name: N.pl[sid].name });
+}
+// briscola.js chiede: questa sfida (di name) l'avevo gia' accettata dall'invito? (una volta, entro 15 minuti)
+window.bcAutoOk = name => { const A = cq.bcAuto; if (!A || nameKey(A.n) !== nameKey(name) || Date.now() - A.t > 15 * 60000) return false; cq.bcAuto = null; return true; };
+// LINEE E QUADRETTINI dalla reception: si esce dall'Hotel e si aprono le impostazioni del gioco (computer, amico a distanza, griglia...);
+// "← Hotel dei Giochi" nelle impostazioni riporta alla reception (dotsToHotel)
+function tgDots() { closeCiack(); openSetup(); }
+function dotsToHotel() { for (const d of ['#dSetup', '#dStats', '#dEnd', '#dLobby']) if ($(d).open) $(d).close('cancel'); if (net) leaveOnline(); openCiack(true); }
 // ---- PARTY nella hall: chi c'e' (pronto o no), ➕ Amico, 🚪 Butta fuori (chi l'ha creato), 🔒 solo su invito, ✉️ invita gli amici ----
 function cqPartyOpen() {
   if (!cq.net) return;
@@ -4132,6 +4188,7 @@ function cqHallTick(dt) {
     cqHallButtons(rd, tot);
     if (N) { const pb = $('#cqPartyB'), t = '👥 Party (' + tot + ')'; if (pb.hidden) pb.hidden = false; if (pb.textContent !== t) pb.textContent = t; if ($('#cqChatB').hidden && $('#cqChatP').hidden) $('#cqChatB').hidden = false; }
     if (cq.partyOpen) cqPartyRender();
+    if (cq.bcWant) bcWantCheck();
     const ce = $('#cqCount'), txt = n != null && n > 0 ? '🎬 ' + n + '…' : '';
     if (ce.textContent !== txt) { ce.textContent = txt; ce.hidden = !txt; }
   }

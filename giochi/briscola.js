@@ -610,7 +610,10 @@ function onTabs() {
     const S = parse(key, t); if (!S || !S.p) continue;
     // una sfida per me
     if (S.ph === 'inv' && S.p[1] === N.sid && !L.asked[key + ':' + S.ts0] && Date.now() - (t.s.ts || 0) < 30000) {
-      L.asked[key + ':' + S.ts0] = 1; L.inv = key;
+      L.asked[key + ':' + S.ts0] = 1;
+      // sfida gia' accettata dall'invito dei Giochi da tavola della reception (bcAutoOk in index.html): si accetta da sola
+      if (typeof window.bcAutoOk === 'function' && window.bcAutoOk(S.n[0])) { L.acc[key] = S.ts0; N.F.push(cqNetRef(`cq/${N.code}/bc/${key}/a`), { s: N.sid, m: JSON.stringify({ k: 'ok' }) }).catch(() => {}); continue; }
+      L.inv = key;
       sfx.carico();
       modal(`<h2>🃏 Sfida a Briscola!</h2><p><b>${esc(S.n[0])}</b> ti sfida a Briscola al tavolino.</p><button class="pr" type="button" data-k="ok">✅ Accetta</button><button type="button" data-k="no">❌ No</button>`, k => {
         L.inv = null; L.acc[key] = k === 'ok' ? S.ts0 : 0;
@@ -685,6 +688,7 @@ BC.over = (g, list, TW) => {
 };
 // non sono "pronto" per un minigioco mentre gioco a carte
 BC.busy = () => !!(T && T.hall && (T.root || T.S.ph === 'inv'));
+BC.challenge = c => challenge(c);   // sfida da fuori: "✉️ Sfida un amico" dei Giochi da tavola (bcWantCheck in index.html)
 BC.E = BCE;
 window.BC = BC;   // per ultimo: se qualcosa sopra si rompe, bcLoad se ne accorge
 })();

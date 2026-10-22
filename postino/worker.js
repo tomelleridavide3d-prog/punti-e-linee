@@ -85,10 +85,10 @@ export default {
         return J({ ok: true });
       }
       if (p === '/inv') {   // invito a un party: avviso a chi ha quel nome (al massimo uno ogni 20 s per persona)
-        const from = clean(b.from, 14), to = clean(b.to, 14), code = clean(b.code, 10); if (!from || !to || !code) return J({ ok: false }, 400);
+        const from = clean(b.from, 14), to = clean(b.to, 14), code = clean(b.code, 10), g = ['bc', 'dots'].includes(b.g) ? b.g : ''; if (!from || !to || !code) return J({ ok: false }, 400);   // g: bc = sfida a Briscola, dots = a Linee e quadrettini
         const rk = 'invt:' + lc(to); if (await env.KV.get(rk)) return J({ ok: false, presto: 1 }, 429); await env.KV.put(rk, '1', { expirationTtl: 60 });
         const ids = await getIds(env); let n = 0;
-        await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (!sub || lc(sub.n) !== lc(to)) return; sub.inv = { from, code, t: Date.now() }; await env.KV.put('sub:' + id, JSON.stringify(sub)); if ((await push(env, id, sub, 900, true)) < 300) n++; }));
+        await Promise.all(ids.map(async id => { const sub = await env.KV.get('sub:' + id, 'json'); if (!sub || lc(sub.n) !== lc(to)) return; sub.inv = { from, code, g, t: Date.now() }; await env.KV.put('sub:' + id, JSON.stringify(sub)); if ((await push(env, id, sub, 900, true)) < 300) n++; }));
         return J({ ok: true, mandati: n });
       }
       if (p === '/rep') {   // lo sviluppatore ha risposto a una richiesta: avviso a chi ha quel nome (solo col codice sviluppatore)
