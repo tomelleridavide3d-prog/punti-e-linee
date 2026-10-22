@@ -174,6 +174,7 @@ th{color:var(--muted);font-weight:600;font-size:12px}
 #ciack .ctop b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:380px){#ciack .ctop{gap:6px}}
 #cqPick{position:absolute;inset:0;background:rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center;padding:16px;z-index:2}
+#cqPick .pkTop{display:flex;margin:-4px 0 2px}#tkBack{flex:none}
 #cqPick .pk{background:var(--panel);color:var(--ink);border-radius:18px;padding:16px;width:100%;max-width:380px;max-height:100%;overflow:auto;box-shadow:var(--shadow)}
 #cqPick h2{margin:0 0 6px;font-size:19px;text-align:center}
 #cqPrev{display:block;margin:0 auto;width:150px;height:150px;background:var(--bg);border-radius:14px}
@@ -392,6 +393,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b id="cqTitle">🏨 Hotel</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqEco" type="button" title="Risparmio batteria">🔋</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
   <div class="cqVoice" id="cqVoice" hidden><button class="btn" id="cqMic" type="button" title="Il tuo microfono">🎤</button><button class="btn" id="cqHear" type="button" title="Senti gli amici">🗣️</button><button class="btn" id="cqRadio" type="button" title="Radio dei sabotatori: parla solo con i complici" hidden>📻</button></div>
   <div id="cqPick" hidden><div class="pk">
+    <div class="pkTop"><button class="btn" id="pkBack" type="button">← Indietro</button></div>
     <h2>Scegli il personaggio</h2>
     <canvas id="cqPrev"></canvas>
     <div class="pkSkins" id="pkSkins"></div>
@@ -418,7 +420,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
   <div id="cqMeet" hidden><div class="pk"><div class="tk-h"><b id="mtTitle">Riunione!</b><span id="mtTime"></span></div><div id="mtChat"></div><div class="mtIn" id="mtIn"><input class="field" id="mtTxt" maxlength="120" placeholder="Scrivi quello che vuoi…" autocomplete="off"><button class="btn" id="mtSend" type="button">Invia</button></div><div id="mtGrid"></div>
     <div class="mtAct"><button class="btn" id="mtSkip" type="button">Salta</button><button class="btn primary" id="mtVote" type="button" disabled>Vota</button></div><p class="hint" id="mtRes" style="text-align:center;margin:10px 0 0"></p></div></div>
-  <div id="cqTask" hidden><div class="pk"><div class="tk-h"><b id="tkTitle"></b><button class="btn" id="tkClose" type="button">Chiudi</button></div><div id="tkBody"></div><p class="hint" id="tkHint"></p></div></div>
+  <div id="cqTask" hidden><div class="pk"><div class="tk-h"><button class="btn" id="tkBack" type="button" hidden>← Indietro</button><b id="tkTitle"></b><button class="btn" id="tkClose" type="button">Chiudi</button></div><div id="tkBody"></div><p class="hint" id="tkHint"></p></div></div>
   <div id="cqMap" hidden><div class="pk"><div class="tk-h"><b>Mappa del set</b><button class="btn" id="mapClose" type="button">Chiudi</button></div><canvas id="cqMapC"></canvas><p class="hint" style="text-align:center">Punti gialli: i tuoi compiti. Il pallino col bordo bianco sei tu.</p></div></div>
   <div class="chint">Trascina il dito per muoverti</div>
 </div>
@@ -2393,6 +2395,7 @@ function cqBlocked(x, y) {
 }
 function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBlocked(x + r, y - r) || cqBlocked(x - r, y + r) || cqBlocked(x + r, y + r)); }
 function openCiack() {
+  try { if (!(history.state && history.state.hotel)) history.pushState({ hotel: 1 }, ''); } catch {}   // vedi cqStepBack
   curGame = 'among'; $('#home').hidden = true; $('#ciack').hidden = false; hubPresence();
   cq.on = true; cq.last = performance.now(); cqResize(); cancelAnimationFrame(cq.raf); cq.raf = requestAnimationFrame(cqFrame);
   cq.g = null; cqHallUI(false); cqOpenPick();
@@ -3552,6 +3555,7 @@ function cqReception() {
   $('#bcSolo').onclick = () => bcLoad().then(B => B.solo()).catch(() => cqToast('Non riesco a caricare le carte: controlla la connessione e riprova.'));
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#tkBack').hidden = false; $('#tkBack').onclick = () => { cqCloseTask(); cqOpenPick(); };   // ← Indietro: di nuovo il personaggio
   cqNetBox(); cqNetWatch();
 }
 // elenco dei minigiochi (reception e "Seleziona minigioco" della hall): toccandone uno si aprono subito le sue impostazioni
@@ -4343,7 +4347,7 @@ function cqUse() {
   else if (a.k === 'shop') cqShop(null);
   else cqOpenTask(a.t);
 }
-function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; $('#tkClose').hidden = false; cq.joy = null; cq.keys = {}; }
+function cqCloseTask() { if (cq.tk) cq.tk.stop(); cq.tk = null; $('#cqTask').hidden = true; $('#tkClose').hidden = false; $('#tkBack').hidden = true; cq.joy = null; cq.keys = {}; }
 function cqTaskDone(id) {
   const G = cq.g; if (!G || G.phase !== 'play') return;
   if (cqAdvance(G.me, id)) {   // compito finito: 0, 1 o 2 monete
@@ -5078,7 +5082,26 @@ function cqOpenMap() {
   const L = cqLook(), X = px(cq.x, cq.y), Y = py(cq.x, cq.y);
   g.fillStyle = L.skin === 'procione' ? '#8a8f99' : L.col; g.strokeStyle = '#fff'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, 6, 0, 7); g.fill(); g.stroke();
 }
-function closeCiack() { cqHallUI(false); cqWake(false); if (cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
+// TORNARE INDIETRO (23-10-2026, richiesta utente: dalla scelta del personaggio e dalla reception non si poteva uscire, bisognava chiudere l'app).
+// Personaggio: "← Indietro" = schermata iniziale (o la hall, se l'ho aperto dalla hall). Reception: "← Indietro" = personaggio.
+// Il tasto/gesto indietro del telefono fa lo stesso passo (cqStepBack): entrando nell'hotel c'e' un passo in piu' nella cronologia (openCiack) e a ogni
+// "indietro" se ne rimette uno finche' si resta nell'hotel. Nella hall e in partita prima si chiede (un gesto sbagliato non fa uscire dal party)
+function cqStepBack() {
+  if (!cq.on) return;
+  if (!$('#cqPick').hidden) { $('#pkBack').click(); return; }
+  if (!$('#cqTask').hidden && !$('#tkBack').hidden) { $('#tkBack').click(); return; }
+  if (!$('#cqTask').hidden && !$('#tkClose').hidden) { $('#tkClose').click(); return; }
+  if (!$('#cqMap').hidden) { $('#cqMap').hidden = true; return; }
+  if (!$('#cqCams').hidden) { $('#cqCams').hidden = true; return; }
+  if (confirm(cq.net ? 'Vuoi uscire dal party e tornare alla schermata iniziale?' : 'Vuoi tornare alla schermata iniziale?')) closeCiack();
+}
+window.addEventListener('popstate', () => { if (!cq.on) return; cqStepBack(); if (cq.on) try { history.pushState({ hotel: 1 }, ''); } catch {} });
+// personaggio: dalla reception (all'entrata) si torna alla schermata iniziale; dalla hall o a fine partita si fa come "Entra" (l'aspetto e' gia' salvato)
+$('#pkBack').onclick = () => { if (!cq.net && !cq.g) closeCiack(); else $('#pkGo').click(); };
+// closeCiack: toglie anche il passo messo nella cronologia entrando (se si esce col tasto indietro e' gia' stato tolto)
+function closeCiack() {
+  try { if (history.state && history.state.hotel) history.back(); } catch {}
+  cqHallUI(false); cqWake(false); if (cqAmbN && actx) { cqAmbN.live = false; cqAmbOff(); } cqNetLeave(); if (cq.setsUnsub) { cq.setsUnsub(); cq.setsUnsub = null; } if (cq.g && cq.g.phase !== 'end') cqBagReturn(); $('#cqToast').hidden = true; $('#cqCams').hidden = true; cqMeetStop(); cq.g = null; $('#cqMeet').hidden = true; cqCloseTask(); $('#cqMap').hidden = true; $('#cqPick').hidden = true; cq.picking = false; cq.on = false; cq.joy = null; cq.keys = {}; cancelAnimationFrame(cq.raf); $('#ciack').hidden = true; showHome(); }
 function cqResize() {
   // la tela deve avere esattamente i pixel veri dello schermo: se il telefono la ingrandisce anche di poco
   // (es. Redmi con 2,75 pixel per punto) i bordi scuri tremano mentre ci si muove
