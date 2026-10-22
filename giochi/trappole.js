@@ -923,7 +923,7 @@
       return G.rv.items.some(it => (G.rev.has(it.key) || (G.shut[it.key] || 0) > G.time) && DOOR_IN(it, cx, cy));
     },
     // trascinare poco il dito (o Maiuscolo sulla tastiera) = camminare piano: si vedono i segni delle trappole e i cani non si svegliano
-    speed: c => { const G = cq.g; if (!G || c !== G.me) return 1; if (G.ph !== 'raid' || G.srch || G.safe || G.fall || G.slide || G.stun > G.time) return 0; const j = cq.joy; G.slow = j ? Math.hypot(j.x - j.x0, j.y - j.y0) < 52 : !!cq.keys.shift; return G.slow ? 0.45 : 1; },
+    speed: c => { const G = cq.g; if (!G || c !== G.me) return 1; if (G.ph !== 'raid' || G.srch || G.safe || G.fall || G.slide || G.stun > G.time) return 0; const j = cq.joy; G.slow = j ? Math.hypot(j.x - j.x0, j.y - j.y0) < 36 : !!cq.keys.shift; return G.slow ? 0.45 : 1; },
     // col mantello sono un po' trasparente (azzurro)
     tint: c => { const G = cq.g; return G && c === G.me && G.ph === 'raid' && G.cloak > G.time ? { c: '#a8dcff', a: 0.6, s: c.id } : null; },
     hud(G) {
@@ -967,7 +967,7 @@
     tick(G, dt) {
       if (G.ph === 'build') {
         if (!document.getElementById('trBar')) buildOpen(G);
-        if (!cq.cam) TRCAM = true; cq.cam = { x: 16.5, y: 24.5 };
+        if (!cq.cam) { TRCAM = true; cq.cam = { x: 16.5, y: 24.5 }; }
         G.bt -= dt;
         const A = aim(G), tip = document.getElementById('trTip'), C2 = CAT[U.tool];
         const txt = A.item ? '🗑️ ' + CAT[A.item.k].e + ' ' + CAT[A.item.k].n + ' — tocca Togli per toglierla' : !C2 ? '' : (A.t && !A.t.err ? C2.e + ' ' + C2.n + (aimName(A.t) ? ' → ' + aimName(A.t) : '') : C2.e + ' ' + C2.n + ': ' + (A.t ? A.t.err : ''));
