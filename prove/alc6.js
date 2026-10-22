@@ -23,14 +23,14 @@
   out.push('pozioni possibili (calcolate): ' + A.TOTAL);
   // al calderone: una miscela mai vista, poi una gia' scoperta
   const jar = id => document.querySelector('#alJars [data-i="' + id + '"]').click();
-  jar('f'); jar('s'); out.push('calderone con 🌶️⏳ mai vista: ' + ($('#alPot .bkl') ? $('#alPot .bkl').textContent : 'niente'));
+  jar('f'); jar('s'); out.push('calderone con 🌶️⏳ mai vista: ' + ($('#alPot .pv') ? $('#alPot .pv').textContent : 'niente'));
   $('#alBot').click(); G.me.belt = ['fs', 'ir', 'v', 'f']; A.setReady(G, true); step(0.3);
   out.push('scheda del duello: ' + (document.getElementById('alHelp') ? 'si' : 'NO'));
   const bot = G.chars.find(c => c.bot); bot.hold = 1; bot.belt = ['c', '', '', '']; cq.x = 6.5; cq.y = 12.5; bot.x = 13.5; bot.y = 12.5;
   for (const i of [1, 2, 3]) { G.me.thT = 0; G.sel = i; A.myThrow(G, bot.x, bot.y); step(1.6); }
   out.push('dopo 3 lanci: ricettario ' + Object.keys(A.book().f).length + ' pozioni (' + Object.keys(A.book().f).map(k => A.brew(k).n).join(', ') + ') | avviso: ' + toasts.filter(t => t.includes('ricettario')).slice(-1)[0]);
   // manche dopo: calderone con una miscela gia' scoperta
-  A.prepOpen(G); jar('i'); jar('r'); out.push('calderone con ❄️🍯 scoperta: ' + ($('#alPot .bkl') ? $('#alPot .bkl').textContent : 'niente'));
+  A.prepOpen(G); jar('i'); jar('r'); out.push('calderone con ❄️🍯 scoperta: ' + ($('#alPot .pv') ? $('#alPot .pv').textContent : 'niente'));
   // seconda volta: le schede non tornano
   const n0 = document.querySelectorAll('#alHelp').length; A.helpOnce('prep'); out.push('scheda la seconda volta: ' + (document.querySelectorAll('#alHelp').length > n0 ? 'TORNA (sbagliato)' : 'non torna'));
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));

@@ -913,7 +913,10 @@
 #alBelt{display:flex;gap:10px;align-items:flex-end;justify-content:center;width:100%;max-width:480px;padding:6px 0 2px;border-top:2px solid #6a4a2e}#alBelt .lb{font-weight:700;margin-right:2px;align-self:center}
 #alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:36px;height:50px;display:block}#alBelt .vi svg,#alSel .vi svg,#alTh .vi svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
 #alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}
-#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alFl{width:100%;max-width:480px;text-align:center;font-size:14px;line-height:1.3;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 10px;box-sizing:border-box}#alFl small{font-size:12px;opacity:.9}#alPot .bkl{flex-basis:100%;text-align:center;font-size:12.5px;line-height:1.3;color:#f2ead8;max-width:480px}
+#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alFl{width:100%;max-width:480px;text-align:center;font-size:14px;line-height:1.3;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 10px;box-sizing:border-box}#alFl small{font-size:12px;opacity:.9}#alPot .pv{flex-basis:100%;max-width:480px;display:flex;flex-direction:column;gap:6px;margin-top:2px}#alPot .pv>b{text-align:center;font-size:15px}
+#alPot .pvc{display:grid;grid-template-columns:1fr 1fr;gap:8px}#alPot .cd{background:rgba(10,6,18,.55);border:1.5px solid;border-radius:12px;padding:7px 9px 8px;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+#alPot .cd.th{border-color:rgba(255,140,90,.6)}#alPot .cd.dr{border-color:rgba(200,130,255,.6)}#alPot .cd>i{display:block;font-style:normal;font-weight:800;font-size:12.5px;letter-spacing:.02em;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.12)}#alPot .cd.th>i{color:#ffb48a}#alPot .cd.dr>i{color:#dcb0ff}
+#alPot .cd ul{margin:0;padding:0;list-style:none}#alPot .cd li{font-size:12.5px;line-height:1.3;padding:2px 0}#alPot .cd li.w{color:#ffcf7a}#alPot .cd li.q{opacity:.8;font-style:italic}
 #alBook{position:absolute;inset:0;z-index:9;background:rgba(10,6,18,.86);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 60px) 12px 20px;box-sizing:border-box;overflow-y:auto}
 #alBook .bk{width:100%;max-width:460px;background:#2a1e36;border:2px solid #c8a050;border-radius:16px;padding:14px;color:#f2ead8;font:14px/1.4 system-ui,sans-serif}#alBook .bk>b{font-size:17px;display:block;margin-bottom:6px}
 #alBook button{display:block;width:100%;margin-top:10px;padding:11px;border:0;border-radius:12px;font:700 15px system-ui;color:#fff;background:#8a4ad0}#alBook button:disabled{opacity:.4}#alBook .cl{background:rgba(255,255,255,.14)}
@@ -972,8 +975,9 @@
     const p = document.getElementById('alPot');
     p.innerHTML = U2.pot.length ? U2.pot.map((id, i) => `<button type="button" class="ch" data-p="${i}">${ING_BY[id].e} ${esc(ING_BY[id].n)}<i>✕</i></button>`).join('') + `<span class="h">${U2.pot.length}/${MAXI}</span>`
       : '<span class="h">Tocca un barattolo: l\'ingrediente cade nel calderone (fino a ' + MAXI + ').</span>';
-    // ANTEPRIMA: cosa esce dal calderone. Se gli ingredienti REAGISCONO tra loro e' un segreto (lo svela il ricettario): si vede solo la gittata
-    if (U2.pot.length) { const P = brew(potKey(U2.pot)); p.insertAdjacentHTML('beforeend', '<div class="bkl">' + (secret(P) ? '✨ <b>Questi ingredienti reagiscono tra loro!</b> Cosa nasce è un segreto (📖 il ricettario lo svela)<br>' + esc(flight(P).join(' · ')) : (P.rx.length ? '📖 ' : '') + '<b style="color:' + cqShade(P.c, 1.4) + '">' + P.e + ' ' + esc(P.n) + '</b><br>' + esc(describe(P))) + '</div>'); }
+    // ANTEPRIMA: cosa esce dal calderone, in DUE RIQUADRI (se la lanci / se la bevi) che cambiano a ogni ingrediente.
+    // Se gli ingredienti REAGISCONO tra loro e' un segreto (lo svela il ricettario): si vede solo quanto lontano arriva
+    if (U2.pot.length) p.insertAdjacentHTML('beforeend', pvHtml(brew(potKey(U2.pot))));
     p.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { U2.pot.splice(+b.dataset.p, 1); SFX.pour(); prepRender(G); }; });
     const full = G.me.belt.every(Boolean);
     $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length;
@@ -1869,6 +1873,36 @@
     if (P.inst >= VOLATILE) out.push('💥 instabile alla cintura');
     return out;
   }
+  // ---- I DUE RIQUADRI DELL'ANTEPRIMA: frasi BREVI ricavate dalle tabelle (FX, STATE, ZONE, DRINK). Un elemento o stato nuovo senza frase breve usa la sua .d ----
+  const ST_S = { slow: '⏳ lo rallenta', stuck: '🍯 lo incolla a terra', frz: '🧊 lo congela', big: '🍄 lo fa gigante', small: '✨ lo rimpicciolisce', blind: '🌑 lo acceca' };
+  const ZN_S = { burn: '🔥 lascia fuoco a terra', ice: '🧊 lascia ghiaccio scivoloso', glue: '🍯 lascia colla a terra', slowz: '⏳ lascia sabbia lenta', smoke: '🌫️ fa una nuvola che nasconde', mirror: '🪞 alza un muro-specchio' };
+  const DR_S = { fireS: '🛡️ il fuoco non ti brucia', skate: '⛸️ corri veloce', haste: '⚡ corri e lanci più veloce', anchor: '⚓ nessuno ti spinge', shield: '🪞 rimandi la prossima ampolla', hidden: '👻 sparisci nel fumo', stone: '🗿 statua: invincibile ma fermo', big: '🍄 diventi gigante', small: '✨ diventi piccolo', dash: '💨 scatto in avanti', chaos: '🎲 un potere a sorpresa' };
+  function throwLines(P) {
+    const L = []; let dmg = false;
+    for (const [el, v] of Object.entries(P.s).sort((a, b) => b[1] - a[1])) {
+      const F = FX[el]; if (!F) continue;
+      if (F.dmg && v >= 0.6) dmg = true;
+      if (F.st) L.push(ST_S[F.st[0]] || STATE[F.st[0]].e + ' ' + STATE[F.st[0]].d);
+      if (F.push > 0) L.push('💨 lo spinge via'); else if (F.push < 0) L.push('🌀 lo tira verso il punto');
+      if (F.whirl) L.push('🌪️ lo scaraventa a caso'); if (F.chaos) L.push('🎲 effetto a sorpresa');
+      if (F.zone) L.push(ZN_S[F.zone[0]] || ZONE[F.zone[0]].d);
+    }
+    if (dmg) L.unshift('💔 toglie 1 cuore');
+    if (P.bnc) L.push('🪶 rimbalza una volta');
+    return [...new Set(L)];
+  }
+  function drinkLines(P) {
+    const L = [...new Set(drinkOf(P).map(([k, v]) => (DR_S[k] || (STATE[k] ? STATE[k].e + ' ' + STATE[k].d : k)) + (k === 'dash' || k === 'chaos' ? '' : ' · ' + Math.round(v) + ' s')))];
+    return L.length ? L : ['— non fa niente'];
+  }
+  function pvHtml(P) {
+    const li = (t, c) => '<li' + (c ? ' class="' + c + '"' : '') + '>' + esc(t) + '</li>', reach = P.spd * P.fuse, sec = secret(P);
+    const warn = [reach < 4 ? '⚠️ ti scoppia vicino (' + reach.toFixed(1).replace('.', ',') + ' caselle)' : '🎯 arriva a ' + Math.min(RMAX, reach).toFixed(0) + ' caselle'].concat(P.inst >= VOLATILE ? ['💥 instabile: attento al fuoco'] : []);
+    const th = (sec ? [li('❓ reagiscono tra loro: effetto segreto', 'q')] : throwLines(P).map(t => li(t))).concat(warn.map(t => li(t, 'w')));
+    const dr = (sec ? [li('❓ segreto', 'q')] : drinkLines(P).map(t => li(t))).concat(P.inst >= VOLATILE ? [li('🤢 può farti male', 'w')] : []);
+    const title = sec ? '✨ Reazione misteriosa' : (P.rx.length && !P.leg ? '📖 ' : '') + P.e + ' ' + esc(P.n);
+    return '<div class="pv"><b style="color:' + (sec ? '#e8d8ff' : cqShade(P.c, 1.4)) + '">' + title + '</b><div class="pvc"><div class="cd th"><i>🎯 Se la lanci</i><ul>' + th.join('') + '</ul></div><div class="cd dr"><i>🍷 Se la bevi</i><ul>' + dr.join('') + '</ul></div></div>' + (sec ? '<small style="text-align:center;opacity:.75">📖 il ricettario svela le reazioni</small>' : '') + '</div>';
+  }
   // COLLEZIONE: ogni pozione vista scoppiare (tua o dell'altro) e' una SCOPERTA, anche senza ricettario. Ai traguardi di PRIZES si sblocca un premio
   // per il proprio mago (lo vede anche l'altro). Le leggendarie (LEGEND) danno il loro ornamento a chi le PREPARA (B.leg)
   const PRIZES = [{ n: 5, id: 'stars', e: '✨', t: 'Stelle d\'oro sul cappello' }, { n: 15, id: 'trail', e: '🌈', t: 'Scia arcobaleno per le ampolle' }, { n: 30, id: 'owl', e: '🦉', t: 'Gufetto sulla spalla' },
@@ -2163,5 +2197,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } $('#ciack').classList.remove('alDuel'); U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck };   // per le prove (prove/alc*.js)
 })();
