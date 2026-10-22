@@ -34,7 +34,7 @@ export default [
   [0, pos('host'), 0],
   [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me), d = G.M.draw(h), dm = G.M.draw(G.me); return 'amico: cappello host lato ' + G.chars.indexOf(h) + ', mio lato ' + G.chars.indexOf(G.me) + ', disegni ' + (typeof d) + '/' + (typeof dm); })()`, 0],
   // si sale: l'amico perde la manche, dopo il risultato tutti e due nella sala dell'orologio
-  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); a.iv = 0; a.hp = 1; a.fx = {}; window.__alc.burst(G, 'f', a.x, a.y, G.me.id); return 'host: fuoco finale, fase ' + G.st.ph; })()`, 7000],
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); a.iv = 0; a.hp = 1; a.fx = {}; const lag = cqLagging(a); window.__alc.burst(G, 'f', a.x, a.y, G.me.id); return 'host: fuoco finale (amico in ritardo: ' + lag + '), fase ' + G.st.ph + ', cuori amico ' + a.hp; })()`, 7000],
   [0, `(() => 'host: manche ' + cq.g.st.n + ' ' + cq.g.st.ph + ', piano ' + cq.map + ', piante ' + (cq.g.pl || []).length)()`, 0],
   [1, `(() => 'amico: manche ' + cq.g.st.n + ' ' + cq.g.st.ph + ', piano ' + cq.map + ', pannello ' + (document.getElementById('alFl') ? document.getElementById('alFl').textContent.slice(0, 40) : 'NO'))()`, 0],
   [1, `(() => { cqNetLeave(); return 'amico uscito; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 300],

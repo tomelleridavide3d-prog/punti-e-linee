@@ -60,8 +60,8 @@
     for (const [fi, mx, my] of [[0, 9.2, 12.8], [1, 9.0, 12.6]]) {
       G.st = { n: fi + 1, ph: 'duel', t0: G.time, rd: {}, sc: {} }; A.useFloor(fi); A.plantsInit(G); cq.bg = null; U2ph = 0;
       fresh(); bot.hold = 1; cq.x = mx; cq.y = my; bot.x = 12.5; bot.y = 8.5; G.me.belt = ['f', 'i', 'v', 'g']; bot.belt = ['f', 'c', 'r', ''];
-      if (fi === 0) { G.pl[0].bid = bot.id; G.pl[0].bt = G.time - 0.35; G.pl[1].st = 'giant'; G.pl[1].te = G.time + 9; G.pl[2].st = 'burnt'; G.pl[2].te = G.time + 9; }
-      G.time += 0.9; cqDraw(); shots.push($('#cqCanvas').toDataURL('image/png'));
+      if (fi === 0) { G.pl[0].bid = bot.id; G.pl[0].bt = G.time - 0.35; G.pl[1].st = 'giant'; G.pl[1].te = G.time + 9; }
+      G.spl = []; G.time += 0.9; cqDraw(); shots.push($('#cqCanvas').toDataURL('image/png'));
     }
     document.body.innerHTML = '<div style="background:#000">' + shots.map(s => '<img src="' + s + '" style="display:block;width:100%;height:50vh;object-fit:cover">').join('') + '</div>';
     document.body.style.margin = 0;

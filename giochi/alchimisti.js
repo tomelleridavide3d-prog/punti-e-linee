@@ -24,28 +24,31 @@
   // I PIANI DELLA TORRE (idea dell'utente): una manche per piano, si sale. Ogni piano = una riga: mappa, nome, consiglio, pavimenti (kind(x, y) -> tipo),
   // colori, muro, decorazioni (WSEQ in fondo, BSEQ lungo il bordo dietro, FSEQ davanti), ripari COVER (simmetrici rispetto al centro), cosa c'e' di speciale
   const GLASS = 'rgba(0,0,0,0)';   // caselle "di vetro": il pavimento pronto e' trasparente e sotto si disegnano ingranaggi e quadrante che girano (under)
-  const GEARS = [[7, 14, 1], [14, 7, -1]], GR = 1.9, DIAL = 3.0;   // sala dell'orologio: ingranaggi [x, y, verso] e quadrante al centro
+  const GEARS = [[7, 14, 1], [14, 7, -1]], GR = 1.9, DIAL = 3.0;
+  const GEARS_D = [[10.5, 5.1, 1, 0.9], [10.5, 15.9, -1, 0.9], [5.1, 10.5, -1, 0.9], [15.9, 10.5, 1, 0.9]];   // ingranaggini sotto vetro solo per bellezza (non spostano)   // sala dell'orologio: ingranaggi [x, y, verso] e quadrante al centro
   const PLANTS = [[10, 10, 1], [6, 12, 0], [14, 8, 0], [12, 5, 0], [8, 15, 0]];   // serra: piante carnivore [x, y, grande]
   const FLOORS = [
-    { id: 'serra', map: 'torre1', n: 'La serra carnivora', e: '🌿', plants: 1,
+    { id: 'serra', map: 'torre1', n: 'La serra carnivora', e: '🌿', plants: 1, ivy: 1, dense: 1, flies: 1,
       tip: 'Le <b>piante carnivore</b> mordono chi passa vicino! Il fuoco le brucia, il ghiaccio le congela, il fungo le fa diventare enormi, la polvere di fata le rimpicciolisce, sabbia e colla le addormentano.',
-      kind: () => 'serra', cols: { serra: ['#8a5a40', '#84553c'] }, wc: '#56604c',
-      WSEQ: ['glass', 'vines', 'torch', 'pots', 'glass', 'vines', 'glass', 'pots', 'torch', 'vines', 'glass', 'pots', 'vines', 'glass'],
-      BSEQ: ['pot', 'wcan', 'pot', 'sack', 'pot', 'crate', 'pot', 'shelfp', 'pot', 'sack'], FSEQ: ['pot', 'sack', 'wcan', 'crate', 'pot', 'candles'],
-      COVER: [['pot2', 8, 6], ['pot2', 12, 14], ['sack', 5, 14], ['sack', 15, 6], ['books', 6, 9], ['books', 14, 11]] },
-    { id: 'orologio', map: 'torre2', n: 'La sala dell\'orologio', e: '🕰️', gears: 1, pend: 1,
+      kind: (x, y) => dC(x, y) <= 2.3 ? 'bed' : dC(x, y) <= 6.2 ? 'stone' : 'lawn',
+      cols: { lawn: ['#3e6a2e', '#3b662c'], bed: ['#3a2a1e', '#36271c'], stone: ['#66675a', '#626356'] }, wc: '#5a6652',
+      WSEQ: ['glass', 'vines', 'glass', 'basket', 'glass', 'orchids', 'glass', 'vines', 'glass', 'basket', 'glass', 'orchids', 'glass', 'vines'],
+      BSEQ: ['palm', 'terra', 'monst', 'gmush', 'orchid', 'palm', 'lamp2', 'monst', 'terra', 'gmush', 'palm', 'orchid', 'monst', 'lamp2'], FSEQ: ['fernp', 'flowerp', 'fernp', 'gmush', 'flowerp', 'fernp'],
+      DECO: [['flw', 3], ['grs', 4], ['fernL', 2], ['mushL', 1]],
+      COVER: [['monst', 8, 6], ['monst', 12, 14], ['rock', 5, 14], ['rock', 15, 6], ['gmush', 6, 9], ['gmush', 14, 11]] },
+    { id: 'orologio', map: 'torre2', n: 'La sala dell\'orologio', e: '🕰️', gears: 1, pend: 1, rail: 1, dense: 1, dust: 1,
       tip: 'Sotto il vetro gli <b>ingranaggi</b> girano e ti portano con loro; il <b>pendolo</b> spazza il centro e butta via chi c\'è sotto. Spingi l\'altro sotto il pendolo!',
-      kind: (x, y) => dC(x, y) <= DIAL ? 'clock' : GEARS.some(([a, b]) => Math.hypot(x + 0.5 - a, y + 0.5 - b) <= GR) ? 'gear' : 'parq',
+      kind: (x, y) => dC(x, y) <= DIAL ? 'clock' : GEARS.concat(GEARS_D).some(([a, b, , r]) => Math.hypot(x + 0.5 - a, y + 0.5 - b) <= (r || GR)) ? 'gear' : 'parq',
       cols: { parq: ['#5a3a26', '#563824'], clock: [GLASS, GLASS], gear: [GLASS, GLASS] }, wc: '#5e5446',
-      WSEQ: ['gearw', 'torch', 'clockw', 'shelf', 'gearw', 'chart', 'clockw', 'torch', 'gearw', 'shelf', 'clockw', 'banner', 'gearw', 'torch'],
-      BSEQ: ['clockgf', 'gearbox', 'globe', 'books', 'clockgf', 'chest', 'telescope', 'gearbox', 'shelfp', 'clockgf'], FSEQ: ['gearbox', 'barrel', 'books', 'crate', 'candles', 'sack'],
-      COVER: [['clockgf', 4, 11], ['clockgf', 16, 9], ['gearbox', 8, 6], ['gearbox', 12, 14], ['books', 6, 9], ['books', 14, 11], ['barrel', 9, 16, '#6a4a2e'], ['barrel', 11, 4, '#6a4a2e']] },
+      WSEQ: ['gearw', 'pipesw', 'clockw', 'shelfclk', 'gearw', 'torch', 'clockw', 'pipesw', 'gearw', 'shelfclk', 'clockw', 'pipesw', 'gearw', 'torch'],
+      BSEQ: ['clockgf', 'cuckoo', 'pipes', 'wbench', 'glamp', 'clockgf', 'telescope', 'cuckoo', 'pipes', 'wbench', 'clockgf', 'glamp', 'cuckoo'], FSEQ: ['gearbox', 'hglass2', 'books', 'gearbox', 'candles', 'hglass2'],
+      COVER: [['clockgf', 4, 11], ['clockgf', 16, 9], ['hglass', 8, 6], ['hglass', 12, 14], ['orrery', 6, 9], ['orrery', 14, 11]] },
     { id: 'lab', map: 'torre', n: 'Il laboratorio in cima', e: '⚗️', pit: 1,
       tip: 'In cima alla torre: al centro la <b>voragine</b>. Chi ci cade perde un cuore. Spingi, tira… e non avvicinarti troppo al bordo!',
       kind: (x, y) => dC(x, y) <= RIM && !isPit(x, y) ? 'rim' : 'lab', cols: { lab: ['#4a4555', '#46414f'], rim: ['#6b6377', '#665e71'] }, wc: '#575064',
       WSEQ: ['shelf', 'torch', 'win', 'shelf', 'banner', 'potions', 'torch', 'chart', 'win', 'shelf', 'banner', 'torch', 'potions', 'shelf', 'win', 'chart'],
-      BSEQ: ['cauldron', 'globe', 'crystal', 'shelfp', 'owl', 'chest', 'telescope', 'skull', 'shelfp', 'books', 'cauldron2', 'crystal'], FSEQ: ['candles', 'barrel', 'books', 'crate', 'candles', 'sack'],
-      COVER: [['pillar', 5, 14], ['pillar', 15, 6], ['bench', 8, 6], ['bench', 12, 14], ['books', 6, 9], ['books', 14, 11], ['barrel', 9, 15, '#6a4a2e'], ['barrel', 11, 5, '#6a4a2e']] }];
+      BSEQ: ['cauldron', 'globe', 'crystal', 'shelfp', 'owl', 'chest', 'telescope', 'skull', 'shelfp', 'books', 'cauldron2', 'crystal'], FSEQ: ['candles', 'books', 'skull', 'candles', 'urn', 'books'],
+      COVER: [['pillar', 5, 14], ['pillar', 15, 6], ['bench', 8, 6], ['bench', 12, 14], ['books', 6, 9], ['books', 14, 11], ['urn', 9, 15], ['urn', 11, 5]] }];
   FL = FLOORS[2];
   const COLS = () => FL.cols, WCOL = () => FL.wc;
 
@@ -88,10 +91,18 @@
     let bi = 0, fi = 0, k = 0;
     for (const [x, y] of edge) {
       if (near(x, y, keep, 2.4)) continue;
-      if (k++ % 2) continue;   // uno si' e uno no: si passa lungo il muro
+      if (k++ % 2 && !(FL.dense && x + y <= 2 * C - 2)) continue;   // uno si' e uno no (nei piani ricchi in fondo tutti): si passa lungo il muro
       if (x + y <= 2 * C - 2) put(BSEQ[bi++ % BSEQ.length], x, y);
       else if (x + y >= 2 * C + 1 && fi < 9 && k % 3 === 1) put(FSEQ[fi++ % FSEQ.length], x, y);
     }
+    // DECORAZIONI A TERRA che si attraversano (erba, fiori, felci basse, funghetti): disegnate col pavimento, non bloccano
+    const DECOS = [];
+    if (FL.DECO) { let sd = 99; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; }; const tot = FL.DECO.reduce((a, d) => a + d[1], 0);
+      for (let y = 0; y < N; y++) for (let x = 0; x < N; x++) {
+        if (!inside(x, y) || taken.has(x + ',' + y) || near(x, y, keep, 1.3) || dC(x, y) < 2.6) continue;
+        if (rnd() > (FL.kind(x, y) === 'lawn' ? 0.75 : 0.35)) continue;
+        let r = rnd() * tot; const t = FL.DECO.find(d => (r -= d[1]) < 0)[0]; DECOS.push([x, y, t]);
+      } }
     // MURA TONDE: il giro e' diviso in NQ spicchi; ogni spicchio lo disegna la casella che contiene il suo centro (raggio RM).
     // Le caselle fuori dal pavimento che non sono gia' muri per il motore diventano oggetti 'ring' (cosi' vengono disegnate anche loro)
     const QC = {}, QOWN = [];
@@ -101,11 +112,12 @@
     const DEC = []; { const B = Math.PI * 1.25; let i = 0; for (let d = -1.12; d <= 1.121; d += 1.2 / RI) { const th = (B + d + 6.2832) % 6.2832; DEC.push({ th, t: WSEQ[i % WSEQ.length], i: i++, own: QOWN[Math.floor(th / 6.2832 * NQ) % NQ] }); } }
     // luci (per il buio): voragine, torce, finestre, sfere di cristallo, calderoni
     const LIGHTS = FL.pit ? [[C, C, 4.6, 1]] : FL.gears ? [[C, C, 3.4, 0.7]] : [[C, C, 2.6, 0.5]];
-    for (const d of DEC) { const lx = C + (RI - 0.7) * Math.cos(d.th), ly = C + (RI - 0.7) * Math.sin(d.th); if (d.t === 'torch') LIGHTS.push([lx, ly, 3.2, 0.85]); else if (d.t === 'win' || d.t === 'glass') LIGHTS.push([lx, ly, 2.2, 0.4]); }
-    for (const [t, x, y] of props) if (t === 'crystal' || t === 'cauldron' || t === 'cauldron2') LIGHTS.push([x + 0.5, y + 0.5, 2.4, 0.6]);   // solo le luci grandi: ognuna costa al buio (prove/pesi.js)
+    for (const d of DEC) { const lx = C + (RI - 0.7) * Math.cos(d.th), ly = C + (RI - 0.7) * Math.sin(d.th); if (d.t === 'torch') LIGHTS.push([lx, ly, 3.2, 0.85]); else if (d.t === 'win') LIGHTS.push([lx, ly, 2.2, 0.4]); }
+    { let n = 0; for (const [t, x, y] of props) if ((t === 'crystal' || t === 'cauldron' || t === 'cauldron2' || t === 'urn' || t === 'gmush' || t === 'lamp2' || t === 'glamp' || t === 'wbench' || t === 'orrery') && n++ < 7) LIGHTS.push([x + 0.5, y + 0.5, t === 'gmush' ? 2 : 2.5, 0.6]); }   // solo le luci grandi: ognuna costa al buio (prove/pesi.js)
     return { alc: { QC, QOWN, DEC, LIGHTS }, w: N, h: N, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[6, 6], [14, 14]], button: { x: -10, y: -10 }, sabs: {},
       inn: { Laboratorio: 'nel laboratorio' }, help: '', btnTxt: '', sabTxt: '',
-      pxProp: drawFurn, drawWall, floor: { lab: floorLab, rim: floorRim, serra: floorSerra, parq: floorParq, clock: floorGlass, gear: floorGlass },
+      pxProp: drawFurn, drawWall, floor: { lab: floorLab, rim: floorRim, serra: floorSerra, parq: floorParq, clock: floorGlass, gear: floorGlass, lawn: floorLawn, bed: floorBed, stone: floorStone },
+      deco: DECOS, decoDraw,
       bg: () => '#0c0a16', sky: skyDraw };   // dietro la torre: il paesaggio di notte (skyDraw)
   }
   CQ_MAPS.torre1 = { n: 'Serra carnivora', make: () => makeFloor(0), only: 'alchimisti' };
@@ -282,12 +294,46 @@
     if (hsh(x, y, 71) < 0.35) speck(x, y, 7, ['rgba(80,140,60,.45)', 'rgba(60,110,40,.4)'], TW / 16);   // muschio
     if (hsh(x, y, 72) < 0.12) { const [X, Y] = P(0.3 + 0.4 * hsh(x, y, 73), 0.3 + 0.4 * hsh(x, y, 74)); g.fillStyle = hsh(x, y, 75) < 0.5 ? '#5a8a3a' : '#8a7a2a'; g.beginPath(); g.ellipse(X, Y, TW * 0.09, TW * 0.04, hsh(x, y, 76) * 3, 0, 7); g.fill(); }
   }
+  // serra: prato folto con fili d'erba e fiorellini; aiuola di terra scura intorno alla pianta grande; lastre di pietra col muschio
+  function floorLawn(K, x, y) {
+    const { hsh, strokes, S, speck, TW, g } = K, L = [];
+    speck(x, y, 6, ['rgba(120,190,80,.35)', 'rgba(20,50,15,.3)'], TW / 20);
+    for (let i = 0; i < 7; i++) { const u = 0.1 + 0.8 * hsh(x, y, 100 + i), v = 0.1 + 0.8 * hsh(x, y, 110 + i); L.push([S(x + u, y + v, 0), S(x + u + 0.03, y + v, 0.12 + 0.1 * hsh(x, y, 120 + i))]); }
+    strokes(L, 'rgba(140,210,90,.6)', Math.max(1, TW / 45));
+    if (hsh(x, y, 130) < 0.3) { const [X, Y] = S(x + 0.3 + 0.4 * hsh(x, y, 131), y + 0.3 + 0.4 * hsh(x, y, 132), 0.05); g.fillStyle = ['#f2e86a', '#f2f2f2', '#e86aa8', '#8ab8f8'][Math.floor(hsh(x, y, 133) * 4)]; g.beginPath(); g.arc(X, Y, TW * 0.03, 0, 7); g.fill(); }
+  }
+  function floorBed(K, x, y) {
+    const { hsh, speck, S, TW, strokes } = K;
+    speck(x, y, 9, ['rgba(120,90,60,.35)', 'rgba(0,0,0,.25)'], TW / 18);
+    if (hsh(x, y, 140) < 0.5) { const a = S(x + 0.2 + 0.3 * hsh(x, y, 141), y + 0.5, 0), b = S(x + 0.5, y + 0.3 + 0.4 * hsh(x, y, 142), 0), c = S(x + 0.8, y + 0.4 + 0.3 * hsh(x, y, 143), 0); strokes([[a, b], [b, c]], 'rgba(90,60,40,.7)', Math.max(1.5, TW / 30)); }   // radici
+  }
+  function floorStone(K, x, y) {
+    const { hsh, strokes, S, speck, TW, g } = K, P = (u, v) => S(x + u, y + v, 0);
+    const bx2 = (x + (y >> 1)) % 2, by2 = y % 2, L = []; if (!bx2) L.push([P(0, 0), P(0, 1)]); if (!by2) L.push([P(0, 0), P(1, 0)]);
+    strokes(L, 'rgba(30,40,20,.45)', Math.max(1.5, TW / 40));
+    speck(x, y, 4, ['rgba(255,255,255,.06)', 'rgba(0,0,0,.14)'], TW / 22);
+    if (hsh(x, y, 150) < 0.55) { for (let i = 0; i < 3; i++) { const [X, Y] = P(0.15 + 0.7 * hsh(x, y, 151 + i), 0.15 + 0.7 * hsh(x, y, 155 + i)); g.fillStyle = i % 2 ? 'rgba(90,150,60,.55)' : 'rgba(70,120,50,.5)'; g.beginPath(); g.ellipse(X, Y, TW * (0.08 + 0.08 * hsh(x, y, 160 + i)), TW * 0.04, 0, 0, 7); g.fill(); } }   // muschio
+  }
+  // decorazioni a terra (si attraversano): fiori, ciuffi d'erba alta, felci basse, funghetti che brillano
+  function decoDraw(K, t, x, y) {
+    const { S, g, TW, hsh } = K, a = 0.25 + 0.5 * hsh(x, y, 170), b = 0.25 + 0.5 * hsh(x, y, 171);
+    if (t === 'flw') { const cols = ['#f2e86a', '#e86aa8', '#f2f2f2', '#b07aff', '#ff8a5a']; for (let i = 0; i < 4; i++) { const u = a + (i - 1.5) * 0.09, v = b + (i % 2) * 0.08, [X0, Y0] = S(x + u, y + v, 0), [X1, Y1] = S(x + u, y + v, 0.22 + 0.06 * i % 0.18); g.strokeStyle = '#3e7a34'; g.lineWidth = Math.max(1, TW / 50); g.beginPath(); g.moveTo(X0, Y0); g.lineTo(X1, Y1); g.stroke(); g.fillStyle = cols[Math.floor(hsh(x, y, 172 + i) * cols.length)]; g.beginPath(); g.arc(X1, Y1, TW * 0.035, 0, 7); g.fill(); g.fillStyle = '#f8e070'; g.beginPath(); g.arc(X1, Y1, TW * 0.012, 0, 7); g.fill(); } }
+    else if (t === 'grs') { const L = []; for (let i = 0; i < 7; i++) { const u = a + (i - 3) * 0.04; L.push([S(x + u, y + b, 0), S(x + u + (i - 3) * 0.035, y + b, 0.3 + 0.08 * (i % 3))]); } K.strokes(L, '#5a9a3a', Math.max(1.5, TW / 30)); }
+    else if (t === 'fernL') { const c = S(x + a, y + b, 0); for (let i = 0; i < 6; i++) { const ang = i * 1.05 + hsh(x, y, 175), e = S(x + a + Math.cos(ang) * 0.32, y + b + Math.sin(ang) * 0.32, 0.25); g.strokeStyle = i % 2 ? '#2f6a2a' : '#3f8a34'; g.lineWidth = Math.max(2, TW / 13); g.beginPath(); g.moveTo(c[0], c[1]); g.quadraticCurveTo((c[0] + e[0]) / 2, e[1] - TW * 0.1, e[0], e[1]); g.stroke(); } }
+    else if (t === 'mushL') { for (let i = 0; i < 3; i++) { const u = a + (i - 1) * 0.12, v = b + (i % 2) * 0.1; K.cyl(x + u, y + v, 0.025, 0, 0.1, '#e8e4d8'); K.cyl(x + u, y + v, 0.06, 0.1, 0.13, i % 2 ? '#5ae0d0' : '#b07aff'); } }
+  }
   // sala dell'orologio: assi di legno scuro
-  function floorParq(K, x, y) {
-    const { hsh, strokes, S, TW } = K, P = (u, v) => S(x + u, y + v, 0);
-    strokes([[P(0, 0.25), P(1, 0.25)], [P(0, 0.5), P(1, 0.5)], [P(0, 0.75), P(1, 0.75)]], 'rgba(0,0,0,.28)', Math.max(1, TW / 60));
-    const j = 0.2 + 0.6 * hsh(x, y, 81); strokes([[P(j, 0), P(j, 0.25)], [P((j + 0.5) % 1, 0.25), P((j + 0.5) % 1, 0.5)], [P(j, 0.5), P(j, 0.75)], [P((j + 0.3) % 1, 0.75), P((j + 0.3) % 1, 1)]], 'rgba(0,0,0,.22)', Math.max(1, TW / 60));
-    strokes([[P(0.1, 0.12), P(0.6, 0.12)]], 'rgba(255,220,170,.06)');
+  function floorParq(K, x, y) {   // spina di pesce, con due anelli d'ottone e stelle intorno al quadrante
+    const { strokes, S, TW, g } = K, P = (u, v) => S(x + u, y + v, 0), L = [];
+    for (let i = 0; i < 4; i++) { const v = i * 0.25; if ((x + y + i) % 2) L.push([P(0, v), P(0.5, v + 0.25)], [P(0.5, v + 0.25), P(1, v)]); else L.push([P(0, v + 0.25), P(0.5, v)], [P(0.5, v), P(1, v + 0.25)]); }
+    strokes(L, 'rgba(0,0,0,.3)', Math.max(1, TW / 55));
+    strokes([[P(0, 0), P(1, 0)]], 'rgba(255,220,170,.07)');
+    const d = dC(x, y);
+    if ((d > 3.6 && d < 4.8) || (d > 6.6 && d < 7.8)) {
+      clipCell(K, x, y); ring(K, 4.2, '#c8a050', Math.max(2, TW / 22)); ring(K, 4.32, 'rgba(90,60,20,.8)', 1); ring(K, 7.2, '#c8a050', Math.max(2, TW / 22));
+      for (let i = 0; i < 12; i++) { const a = i / 12 * 6.2832, [X, Y] = S(C + Math.cos(a) * 4.2, C + Math.sin(a) * 4.2, 0); g.fillStyle = '#f2d070'; g.beginPath(); g.moveTo(X, Y - TW * 0.09); g.lineTo(X + TW * 0.05, Y); g.lineTo(X, Y + TW * 0.045); g.lineTo(X - TW * 0.05, Y); g.fill(); }
+      g.restore();
+    }
   }
   // vetro sopra gli ingranaggi e il quadrante (si vede quello che c'e' sotto: under)
   function floorGlass(K, x, y) { const { S, poly } = K; poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], 'rgba(170,210,255,.07)'); }
@@ -303,6 +349,10 @@
     ['XII', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI'].forEach((n, i) => { const a = i / 12 * 6.2832 - Math.PI * 0.75, [X, Y] = sp(C + Math.cos(a) * DIAL * 0.75, C + Math.sin(a) * DIAL * 0.75, -0.27); g.save(); g.translate(X, Y); g.scale(1, 0.6); g.fillText(n, 0, 0); g.restore(); });
     const hand = (a, l, w, col) => { const [X0, Y0] = sp(C, C, -0.26), [X1, Y1] = sp(C + Math.cos(a) * l, C + Math.sin(a) * l, -0.26); g.strokeStyle = col; g.lineWidth = w; g.lineCap = 'round'; g.beginPath(); g.moveTo(X0, Y0); g.lineTo(X1, Y1); g.stroke(); };
     hand(t / 360 * 6.2832 - Math.PI * 0.75, DIAL * 0.45, Math.max(3, TW / 9), '#2a1e14'); hand(t / 30 * 6.2832 - Math.PI * 0.75, DIAL * 0.7, Math.max(2, TW / 14), '#2a1e14'); disc(C, C, -0.25, 0.18, '#b08a3a');
+    for (const [gx, gy, v, r] of GEARS_D) {   // ingranaggini
+      disc(gx, gy, -0.4, r + 0.7, '#140e0a'); const a0 = gearAng(t) * v * 2.2, [X, Y] = sp(gx, gy, -0.3), rx = TW * 0.7071, ry = TW * 0.3536;
+      g.fillStyle = '#9a7a34'; g.beginPath(); for (let i = 0; i <= 32; i++) { const a = a0 + i / 32 * 6.2832, rr = (Math.floor(i / 2) % 2 ? r + 0.18 : r); g.lineTo(X + Math.cos(a) * rr * rx, Y + Math.sin(a) * rr * ry); } g.fill(); disc(gx, gy, -0.28, r * 0.5, '#5a4020'); disc(gx, gy, -0.27, 0.15, '#d8b860');
+    }
     // ingranaggi (i denti girano)
     for (const [gx, gy, v] of GEARS) {
       disc(gx, gy, -0.4, GR + 0.9, '#140e0a');
@@ -374,7 +424,7 @@
     if (dC(x, y) < RI + 0.75) {
       g.save(); g.beginPath(); for (const [i, p] of [S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)].entries()) i ? g.lineTo(...p) : g.moveTo(...p); g.closePath(); g.clip();
       const [X0, Y0] = S(C, C, 0); g.beginPath(); g.ellipse(X0, Y0, RI * TW * 0.7071, RI * TW * 0.3536, 0, 0, 7); g.clip();
-      const bk = Object.keys(FL.cols)[0]; K.poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], FL.cols[bk][(x + y) % 2]); if (TW >= 40) ({ lab: floorLab, serra: floorSerra, parq: floorParq })[bk](K, x, y);
+      const bk = Object.keys(FL.cols)[0]; K.poly([S(x, y, 0), S(x + 1, y, 0), S(x + 1, y + 1, 0), S(x, y + 1, 0)], FL.cols[bk][(x + y) % 2]); if (TW >= 40) ({ lab: floorLab, serra: floorSerra, parq: floorParq, lawn: floorLawn, bed: floorBed, stone: floorStone })[bk](K, x, y);
       g.restore();
     }
     if (!Q) return;
@@ -392,6 +442,18 @@
       }
     }
     if (L.length) K.strokes(L, K.shade(col, 0.45));
+    if (FL.ivy && TW >= 40) for (const i of Q) {   // rampicanti che scendono dalla cima del muro, con le foglie; muschio alla base
+      const m = (i + 0.5) / NQ * 6.2832; if (-(Math.cos(m) + Math.sin(m)) <= 0.05) continue; const h = hOf(m);
+      if (i % 7 === 0) { const len = 0.6 + ((i * 37) % 13) / 13 * 1.6; let a2 = m; const P2 = []; for (let z = h; z > h - len; z -= 0.12) { a2 += (((i * 7 + z * 31) % 10) / 10 - 0.5) * 0.004; P2.push(P(RI - 0.02, a2, z)); }
+        K.g.strokeStyle = '#2a4a22'; K.g.lineWidth = Math.max(1.5, TW / 40); K.g.beginPath(); P2.forEach((p, k) => k ? K.g.lineTo(...p) : K.g.moveTo(...p)); K.g.stroke();
+        P2.forEach(([X, Y], k) => { if (k % 2) return; K.g.fillStyle = k % 4 ? '#3e7a34' : '#5a9a3a'; K.g.beginPath(); K.g.ellipse(X + (k % 3 - 1) * 3, Y, TW * 0.06, TW * 0.035, 0.6, 0, 7); K.g.fill(); }); }
+      if (i % 3 === 0) K.poly([P(RI - 0.01, i / NQ * 6.2832, 0), P(RI - 0.01, (i + 3) / NQ * 6.2832, 0), P(RI - 0.01, (i + 3) / NQ * 6.2832, 0.16 + (i % 5) * 0.03), P(RI - 0.01, i / NQ * 6.2832, 0.12)], '#4a6a3a');
+    }
+    if (FL.rail && TW >= 40) {   // corrimano di rame lungo il muro, con i rivetti
+      const R1 = [], R2 = [];
+      for (const i of Q) { const a = i / NQ * 6.2832, b = (i + 1) / NQ * 6.2832, m = (a + b) / 2; if (-(Math.cos(m) + Math.sin(m)) <= 0 || hOf(m) < 1.4) continue; R1.push([P(RI - 0.05, a, 0.95), P(RI - 0.05, b, 0.95)]); R2.push([P(RI - 0.05, a, 0.25), P(RI - 0.05, b, 0.25)]); if (i % 12 === 0) { const [X, Y] = P(RI - 0.06, m, 0.95); K.g.fillStyle = '#e8c070'; K.g.beginPath(); K.g.arc(X, Y, Math.max(1.5, TW / 40), 0, 7); K.g.fill(); } }
+      if (R1.length) { K.strokes(R1, '#b0703a', Math.max(3, TW / 12)); K.strokes(R1, '#d89a5a', Math.max(1, TW / 40)); K.strokes(R2, '#6a4a2a', Math.max(2, TW / 18)); }
+    }
     for (const d of DEC) if (d.own === x + ',' + y) wallDeco(K, d);
   }
   const BOOKS = ['#8a2a2a', '#2a4a7a', '#3a6a3a', '#a8842a', '#5a2a6a', '#2a6a6a', '#c8b88a', '#6a3a1a'];
@@ -432,10 +494,18 @@
         Q(0.06, 0.94, z, z + 0.06, '#5a3c24');
         for (let i = 0; i < 5; i++) { const u = 0.12 + i * 0.16, h = 0.2 + 0.16 * hsh(x, y, i + z * 10), c = PC[Math.floor(hsh(x + i, y, z * 7) * PC.length)]; Q(u, u + 0.1, z + 0.06, z + 0.06 + h, c); Q(u + 0.035, u + 0.065, z + 0.06 + h, z + 0.14 + h, '#c8d0d8'); Q(u + 0.025, u + 0.075, z + 0.14 + h, z + 0.17 + h, '#7a5a3a'); }
       }
-    } else if (t === 'glass') {   // vetrata della serra: tanti vetri con la luna dietro
-      Q(0.08, 0.92, 0.35, 2.45, '#3a4a3a'); for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) Q(0.12 + i * 0.27, 0.36 + i * 0.27, 0.42 + j * 0.5, 0.86 + j * 0.5, (i + j) % 3 ? '#1e3048' : '#24385a');
-      for (let i = 0; i < 5; i++) { const [X, Y] = pt(0.15 + 0.7 * hsh(x, y, 60 + i), 0.5 + 1.8 * hsh(x, y, 70 + i)); g.fillStyle = '#dce8ff'; g.fillRect(X - 1, Y - 1, 2, 2); }
-      gw(0.5, 1.4, 1.8, 'rgba(160,190,255,.22)');
+    } else if (t === 'glass') {   // vetrata della serra: telaio di ferro ad arco, vetri con la notte e grandi foglie che ci premono contro
+      Q(0.02, 0.98, 0.25, 2.6, '#2a3426'); for (let i = 0; i < 3; i++) for (let j = 0; j < 4; j++) Q(0.06 + i * 0.31, 0.33 + i * 0.31, 0.32 + j * 0.56, 0.82 + j * 0.56, (i + j) % 3 ? '#1a2a44' : '#20365a');
+      for (let i = 0; i < 6; i++) { const [X, Y] = pt(0.1 + 0.8 * hsh(x, y, 60 + i), 1.2 + 1.3 * hsh(x, y, 70 + i)); g.fillStyle = '#dce8ff'; g.fillRect(X - 1, Y - 1, 2, 2); }
+      for (let i = 0; i < 4; i++) { const [X, Y] = pt(0.15 + 0.7 * hsh(x, y, 80 + i), 0.4 + 0.9 * hsh(x, y, 90 + i)); g.fillStyle = i % 2 ? '#1e3a1e' : '#24481f'; g.beginPath(); g.ellipse(X, Y, TW * 0.22, TW * 0.11, hsh(x, y, 95 + i) * 3, 0, 7); g.fill(); g.strokeStyle = '#2f5a2a'; g.lineWidth = 1; g.beginPath(); g.moveTo(X - TW * 0.18, Y); g.lineTo(X + TW * 0.18, Y); g.stroke(); }
+      for (let k = 0; k < 4; k++) { const z = 0.3 + k * 0.56; Q(0.02, 0.98, z - 0.02, z + 0.02, '#4a5a44'); } Q(0.36, 0.39, 0.25, 2.6, '#4a5a44'); Q(0.67, 0.7, 0.25, 2.6, '#4a5a44');
+    } else if (t === 'basket') {   // cesto appeso con le foglie che ricadono
+      const [Xa, Ya] = pt(0.5, 2.6), [Xb, Yb] = pt(0.5, 1.75); g.strokeStyle = '#2a2a2a'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(Xa, Ya); g.lineTo(Xb - TW * 0.15, Yb); g.moveTo(Xa, Ya); g.lineTo(Xb + TW * 0.15, Yb); g.stroke();
+      g.fillStyle = '#8a6a3a'; g.beginPath(); g.ellipse(Xb, Yb, TW * 0.2, TW * 0.1, 0, 0, Math.PI); g.fill(); g.fillStyle = '#6a4a2a'; g.beginPath(); g.ellipse(Xb, Yb, TW * 0.2, TW * 0.06, 0, 0, 7); g.fill();
+      for (let i = 0; i < 6; i++) { const ox = (i - 2.5) * TW * 0.07, len = TW * (0.25 + 0.35 * hsh(x, i, 3)); g.strokeStyle = '#2f6a2a'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); g.moveTo(Xb + ox, Yb); g.quadraticCurveTo(Xb + ox * 1.6, Yb + len * 0.5, Xb + ox * 1.3, Yb + len); g.stroke(); g.fillStyle = i % 2 ? '#4f9a40' : '#3e7a34'; g.beginPath(); g.ellipse(Xb + ox * 1.3, Yb + len, TW * 0.05, TW * 0.03, 0, 0, 7); g.fill(); }
+      g.fillStyle = '#e86aa8'; g.beginPath(); g.arc(Xb - TW * 0.05, Yb - TW * 0.05, TW * 0.04, 0, 7); g.arc(Xb + TW * 0.08, Yb - TW * 0.04, TW * 0.035, 0, 7); g.fill();
+    } else if (t === 'orchids') {   // mensola con le orchidee
+      for (const z of [0.9, 1.7]) { Q(0.05, 0.95, z, z + 0.06, '#5a3c24'); for (let i = 0; i < 3; i++) { const u = 0.15 + i * 0.3; Q(u, u + 0.14, z + 0.06, z + 0.22, '#e8e4d8'); const [X, Y] = pt(u + 0.07, z + 0.22); g.strokeStyle = '#3e6a2e'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, Y); g.quadraticCurveTo(X + TW * 0.1, Y - TW * 0.3, X + TW * 0.18, Y - TW * 0.22); g.stroke(); for (let k = 0; k < 3; k++) { g.fillStyle = ['#f0a8e8', '#ffffff', '#c87ae8'][(i + k) % 3]; g.beginPath(); g.arc(X + TW * (0.06 + k * 0.05), Y - TW * (0.26 - k * 0.02), TW * 0.04, 0, 7); g.fill(); } } }
     } else if (t === 'vines') {   // rampicanti che scendono dal muro
       for (let i = 0; i < 5; i++) { const u0 = 0.1 + i * 0.2; let u = u0; const P2 = []; for (let z = 2.6; z > 0.4 + (i % 3) * 0.4; z -= 0.15) { u += (hsh(x, i, Math.round(z * 10)) - 0.5) * 0.05; P2.push(pt(Math.max(0.02, Math.min(0.98, u)), z)); } g.strokeStyle = '#2a4a22'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); P2.forEach((p, k) => k ? g.lineTo(...p) : g.moveTo(...p)); g.stroke(); for (const [X, Y] of P2) { g.fillStyle = hsh(x, Math.round(X), Math.round(Y)) < 0.5 ? '#3e7a34' : '#4f9a40'; g.beginPath(); g.ellipse(X + 3, Y, TW * 0.05, TW * 0.03, 0.5, 0, 7); g.fill(); } }
     } else if (t === 'pots') {   // mensola con i vasetti
@@ -444,9 +514,18 @@
       const [X, Y] = pt(0.5, 1.55); g.fillStyle = '#6a4a28'; g.beginPath(); g.ellipse(X, Y, TW * 0.36, TW * 0.4, 0, 0, 7); g.fill(); g.fillStyle = '#efe4c8'; g.beginPath(); g.ellipse(X, Y, TW * 0.28, TW * 0.32, 0, 0, 7); g.fill();
       g.strokeStyle = '#2a1e14'; g.lineWidth = 2; g.beginPath(); g.moveTo(X, Y); g.lineTo(X, Y - TW * 0.22); g.moveTo(X, Y); g.lineTo(X + TW * 0.14, Y + TW * 0.05); g.stroke();
       Q(0.47, 0.53, 0.6, 1.2, '#b08a3a'); { const [X2, Y2] = pt(0.5, 0.6); g.fillStyle = '#d8b050'; g.beginPath(); g.arc(X2, Y2, TW * 0.09, 0, 7); g.fill(); }
-    } else if (t === 'gearw') {   // grande ingranaggio di ottone sul muro
-      const [X, Y] = pt(0.5, 1.5); g.fillStyle = '#8a6a2e'; g.beginPath(); for (let i = 0; i <= 32; i++) { const a = i / 32 * 6.2832, r = (Math.floor(i / 2) % 2 ? 0.46 : 0.38) * TW; g.lineTo(X + Math.cos(a) * r, Y + Math.sin(a) * r * 1.05); } g.fill();
-      g.fillStyle = '#a8843a'; g.beginPath(); g.arc(X, Y, TW * 0.3, 0, 7); g.fill(); g.fillStyle = '#5a4020'; g.beginPath(); g.arc(X, Y, TW * 0.1, 0, 7); g.fill();
+    } else if (t === 'gearw') {   // tre ingranaggi d'ottone che si incastrano
+      for (const [u, z, r, c] of [[0.42, 1.6, 0.42, '#8a6a2e'], [0.78, 2.15, 0.26, '#a8843a'], [0.72, 1.0, 0.22, '#6a5228']]) {
+        const [X, Y] = pt(u, z); g.fillStyle = c; g.beginPath(); for (let i = 0; i <= 40; i++) { const a = i / 40 * 6.2832 + u * 3, rr = (Math.floor(i / 2) % 2 ? r : r * 0.82) * TW; g.lineTo(X + Math.cos(a) * rr, Y + Math.sin(a) * rr * 1.05); } g.fill();
+        g.fillStyle = K.shade(c, 1.25); g.beginPath(); g.arc(X, Y, r * TW * 0.62, 0, 7); g.fill(); g.strokeStyle = K.shade(c, 0.7); g.lineWidth = Math.max(1.5, TW / 30); g.beginPath(); for (let k = 0; k < 5; k++) { const a = k / 5 * 6.2832; g.moveTo(X, Y); g.lineTo(X + Math.cos(a) * r * TW * 0.62, Y + Math.sin(a) * r * TW * 0.62); } g.stroke(); g.fillStyle = '#3a2a14'; g.beginPath(); g.arc(X, Y, r * TW * 0.2, 0, 7); g.fill();
+      }
+    } else if (t === 'pipesw') {   // tubi di rame orizzontali con manometri e valvole
+      for (const z of [0.6, 1.25, 1.95]) { Q(0.0, 1.0, z, z + 0.12, '#a8683a'); Q(0.0, 1.0, z + 0.09, z + 0.12, '#d8985a'); }
+      Q(0.3, 0.38, 0.6, 2.07, '#8a5430'); Q(0.72, 0.8, 0.6, 1.37, '#8a5430');
+      const [X, Y] = pt(0.55, 1.62); g.fillStyle = '#3a3a3a'; g.beginPath(); g.arc(X, Y, TW * 0.15, 0, 7); g.fill(); g.fillStyle = '#efe8d8'; g.beginPath(); g.arc(X, Y, TW * 0.12, 0, 7); g.fill(); g.strokeStyle = '#c83a2a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + TW * 0.08, Y - TW * 0.06); g.stroke();
+      const [X2, Y2] = pt(0.76, 1.0); g.strokeStyle = '#b8302a'; g.lineWidth = Math.max(2, TW / 20); g.beginPath(); g.arc(X2, Y2, TW * 0.1, 0, 7); g.moveTo(X2 - TW * 0.1, Y2); g.lineTo(X2 + TW * 0.1, Y2); g.moveTo(X2, Y2 - TW * 0.1); g.lineTo(X2, Y2 + TW * 0.1); g.stroke();
+    } else if (t === 'shelfclk') {   // mensole con tanti orologini
+      for (const z of [0.95, 1.75]) { Q(0.04, 0.96, z, z + 0.06, '#5a3c24'); for (let i = 0; i < 3; i++) { const [X, Y] = pt(0.2 + i * 0.3, z + 0.28); g.fillStyle = ['#6a4a28', '#b08a3a', '#4a3a5a'][(i + Math.round(z)) % 3]; g.beginPath(); g.arc(X, Y, TW * 0.13, 0, 7); g.fill(); g.fillStyle = '#efe4c8'; g.beginPath(); g.arc(X, Y, TW * 0.1, 0, 7); g.fill(); g.strokeStyle = '#2a1e14'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + TW * 0.05 * Math.cos(i * 2 + z), Y - TW * 0.07); g.moveTo(X, Y); g.lineTo(X - TW * 0.04, Y + TW * 0.02 * i); g.stroke(); } }
     } else if (t === 'chart') {
       Q(0.14, 0.86, 0.95, 2.05, '#8a6a3a'); Q(0.17, 0.83, 0.99, 2.01, '#dccb9a');
       const P = []; for (let i = 0; i < 6; i++) P.push(pt(0.24 + 0.52 * hsh(x, y, 40 + i), 1.1 + 0.8 * hsh(x, y, 50 + i)));
@@ -553,15 +632,119 @@
         if (big) dot(x + 0.5, y + 0.45, 1.5, 0.07, '#e8508a');
         return true;
       }
+      // --- SERRA ---
+      case 'palm': {   // palma alta nel vaso
+        cyl(x + 0.5, y + 0.5, 0.34, 0, 0.42, '#a85a34'); cyl(x + 0.5, y + 0.5, 0.36, 0.38, 0.46, '#c06a3e');
+        for (let i = 0; i < 9; i++) { const z = 0.46 + i * 0.22, ox = Math.sin(i * 0.35) * 0.05; cyl(x + 0.5 + ox, y + 0.5, 0.09 - i * 0.004, z, z + 0.2, i % 2 ? '#7a5a34' : '#8a6a3e'); }
+        const top = S(x + 0.5 + Math.sin(2.8) * 0.05, y + 0.5, 2.45);
+        for (let i = 0; i < 8; i++) { const a = i / 8 * 6.2832 + 0.3, e = S(x + 0.5 + Math.cos(a) * 1.05, y + 0.5 + Math.sin(a) * 1.05, 1.75 + 0.2 * Math.sin(i * 1.7)), mx = (top[0] + e[0]) / 2, my = Math.min(top[1], e[1]) - TW * 0.25;
+          g.strokeStyle = i % 2 ? '#2f6a2a' : '#3e8a34'; g.lineWidth = Math.max(2, TW / 22); g.beginPath(); g.moveTo(...top); g.quadraticCurveTo(mx, my, e[0], e[1]); g.stroke();
+          for (let k = 1; k < 7; k++) { const u = k / 7, px = (1 - u) * (1 - u) * top[0] + 2 * (1 - u) * u * mx + u * u * e[0], py = (1 - u) * (1 - u) * top[1] + 2 * (1 - u) * u * my + u * u * e[1]; g.beginPath(); g.moveTo(px, py); g.lineTo(px + Math.cos(a + 1.5) * TW * 0.13 * (1 - u * 0.5), py + TW * 0.1); g.moveTo(px, py); g.lineTo(px + Math.cos(a - 1.5) * TW * 0.13 * (1 - u * 0.5), py + TW * 0.1); g.stroke(); } }
+        return true;
+      }
+      case 'monst': {   // monstera: grandi foglie con i tagli
+        cyl(x + 0.5, y + 0.5, 0.38, 0, 0.48, '#3a4a5a'); cyl(x + 0.5, y + 0.5, 0.4, 0.44, 0.52, '#4a5a6a'); cyl(x + 0.5, y + 0.5, 0.35, 0.52, 0.54, '#2a1e14');
+        for (let i = 0; i < 7; i++) { const a = i / 7 * 6.2832 + x, l = 0.35 + 0.15 * (i % 3), z = 0.8 + 0.35 * (i % 3), [X0, Y0] = S(x + 0.5, y + 0.5, 0.54), [X1, Y1] = S(x + 0.5 + Math.cos(a) * l, y + 0.5 + Math.sin(a) * l, z);
+          g.strokeStyle = '#2f5a2a'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); g.moveTo(X0, Y0); g.quadraticCurveTo(X0, Y1, X1, Y1); g.stroke();
+          g.fillStyle = i % 2 ? '#2f7a34' : '#3e8a3e'; g.beginPath(); g.ellipse(X1, Y1, TW * 0.22, TW * 0.15, a, 0, 7); g.fill();
+          g.strokeStyle = '#1e4a20'; g.lineWidth = 1.2; g.beginPath(); g.moveTo(X1 - Math.cos(a) * TW * 0.2, Y1 - Math.sin(a) * TW * 0.13); g.lineTo(X1 + Math.cos(a) * TW * 0.2, Y1 + Math.sin(a) * TW * 0.13); for (let k = -1; k <= 1; k++) { g.moveTo(X1 + k * TW * 0.06, Y1 - TW * 0.02); g.lineTo(X1 + k * TW * 0.09, Y1 - TW * 0.13); } g.stroke(); }
+        return true;
+      }
+      case 'terra':   // terrario di vetro su un tavolino, piantine e una lucina
+        legs4(K, x, y, 0.15, 0.2, 0.85, 0.8, 0.55, '#4a3220'); bx(x + 0.1, y + 0.15, x + 0.9, y + 0.85, 0.55, 0.62, '#6a4a2e');
+        bx(x + 0.16, y + 0.2, x + 0.84, y + 0.8, 0.62, 1.25, '#9ad0c8'); bx(x + 0.16, y + 0.2, x + 0.84, y + 0.8, 0.62, 0.75, '#5a4a32');
+        for (const [a, b, h, c] of [[0.35, 0.6, 0.25, '#3e8a34'], [0.6, 0.55, 0.35, '#5a9a3a'], [0.5, 0.7, 0.18, '#e86aa8']]) { cyl(x + a, y + b, 0.05, 0.75, 0.75 + h, c); dot(x + a, y + b, 0.75 + h, 0.05, K.shade(c, 1.3)); }
+        K.line(S(x + 0.2, y + 0.8, 1.2), S(x + 0.2, y + 0.8, 0.7), '#e8f8f4', 1.5); K.line(S(x + 0.16, y + 0.2, 1.25), S(x + 0.84, y + 0.2, 1.25), '#c8eee8', 1.5);
+        dot(x + 0.62, y + 0.5, 1.05, 0.03, '#f8ff9a');
+        return true;
+      case 'gmush': {   // funghi giganti che brillano
+        for (const [a, b, h, r, c] of [[0.42, 0.45, 1.05, 0.34, '#5ae0d0'], [0.7, 0.62, 0.65, 0.22, '#b07aff'], [0.25, 0.7, 0.45, 0.16, '#5ae0d0']]) {
+          cyl(x + a, y + b, r * 0.32, 0, h, '#ece6d4'); cyl(x + a, y + b, r, h, h + r * 0.35, K.shade(c, 0.75)); cyl(x + a, y + b, r * 0.8, h + r * 0.35, h + r * 0.5, c);
+          for (let k = 0; k < 4; k++) dot(x + a + Math.cos(k * 1.7) * r * 0.5, y + b + Math.sin(k * 1.7) * r * 0.5, h + r * 0.5, 0.02, '#f2fff8');
+        }
+        K.glow(x + 0.45, y + 0.5, 1.2, 1.6, 'rgba(110,240,230,.32)');
+        return true;
+      }
+      case 'rock':   // masso col muschio
+        bx(x + 0.1, y + 0.15, x + 0.85, y + 0.88, 0, 0.55, '#6a6a62'); bx(x + 0.25, y + 0.1, x + 0.75, y + 0.65, 0.55, 0.85, '#7a7a70'); bx(x + 0.18, y + 0.18, x + 0.8, y + 0.8, 0.5, 0.58, '#4a7a3a'); bx(x + 0.3, y + 0.15, x + 0.7, y + 0.55, 0.85, 0.9, '#5a8a40');
+        return true;
+      case 'orchid':   // orchidea su un trespolo
+        cyl(x + 0.5, y + 0.5, 0.15, 0, 0.06, '#3a2a1a'); cyl(x + 0.5, y + 0.5, 0.03, 0.06, 0.9, '#6a4a2e'); cyl(x + 0.5, y + 0.5, 0.18, 0.9, 1.08, '#e8e4d8');
+        { const [X, Y] = S(x + 0.5, y + 0.5, 1.1); g.strokeStyle = '#3e6a2e'; g.lineWidth = 2; g.beginPath(); g.moveTo(X, Y); g.quadraticCurveTo(X + TW * 0.2, Y - TW * 0.6, X + TW * 0.35, Y - TW * 0.4); g.stroke(); for (let k = 0; k < 4; k++) { g.fillStyle = k % 2 ? '#f0a8e8' : '#ffffff'; g.beginPath(); g.arc(X + TW * (0.12 + k * 0.07), Y - TW * (0.52 - k * 0.04), TW * 0.06, 0, 7); g.fill(); g.fillStyle = '#c8407a'; g.beginPath(); g.arc(X + TW * (0.12 + k * 0.07), Y - TW * (0.52 - k * 0.04), TW * 0.02, 0, 7); g.fill(); } }
+        return true;
+      case 'lamp2': case 'glamp': {   // lanterna (serra: ferro e vetro giallo; orologio: lampione d'ottone)
+        const br = t === 'glamp';
+        cyl(x + 0.5, y + 0.5, 0.15, 0, 0.08, br ? '#8a6a2e' : '#2a2a2a'); cyl(x + 0.5, y + 0.5, 0.035, 0.08, 1.8, br ? '#b08a3a' : '#2a2a2a');
+        bx(x + 0.36, y + 0.36, x + 0.64, y + 0.64, 1.8, 2.15, '#ffd890'); bx(x + 0.32, y + 0.32, x + 0.68, y + 0.68, 2.15, 2.22, br ? '#8a6a2e' : '#2a2a2a'); bx(x + 0.42, y + 0.42, x + 0.58, y + 0.58, 2.22, 2.3, br ? '#8a6a2e' : '#2a2a2a');
+        K.glow(x + 0.5, y + 0.5, 2, 2.3, 'rgba(255,210,140,.4)');
+        return true;
+      }
+      case 'fernp': case 'flowerp': {   // vasetto basso con felce o fiori (davanti, non coprono)
+        cyl(x + 0.5, y + 0.5, 0.22, 0, 0.26, '#a85a34'); cyl(x + 0.5, y + 0.5, 0.2, 0.26, 0.28, '#2a1e14');
+        if (t === 'fernp') { const c = S(x + 0.5, y + 0.5, 0.28); for (let i = 0; i < 7; i++) { const a = i * 0.9, e = S(x + 0.5 + Math.cos(a) * 0.4, y + 0.5 + Math.sin(a) * 0.4, 0.55); g.strokeStyle = i % 2 ? '#2f6a2a' : '#4f9a40'; g.lineWidth = Math.max(2, TW / 14); g.beginPath(); g.moveTo(c[0], c[1]); g.quadraticCurveTo((c[0] + e[0]) / 2, e[1] - TW * 0.12, e[0], e[1]); g.stroke(); } }
+        else for (let i = 0; i < 6; i++) { const a = i * 1.05, [X, Y] = S(x + 0.5 + Math.cos(a) * 0.14, y + 0.5 + Math.sin(a) * 0.14, 0.45 + 0.08 * (i % 2)); g.fillStyle = '#3e7a34'; g.fillRect(X - 1, Y, 2, TW * 0.12); g.fillStyle = ['#e86aa8', '#f2e86a', '#b07aff'][i % 3]; g.beginPath(); g.arc(X, Y, TW * 0.06, 0, 7); g.fill(); }
+        return true;
+      }
+      // --- OROLOGIO ---
+      case 'cuckoo':   // orologio a cucu' su un palo, con i pesi a pigna
+        cyl(x + 0.5, y + 0.5, 0.18, 0, 0.06, '#3a2a1a'); cyl(x + 0.5, y + 0.5, 0.05, 0.06, 1.3, '#5a3a20');
+        bx(x + 0.25, y + 0.32, x + 0.75, y + 0.68, 1.3, 1.95, '#7a4a28'); bx(x + 0.18, y + 0.28, x + 0.82, y + 0.72, 1.95, 2.05, '#5a3018');
+        { const [X, Y] = S(x + 0.5, y + 0.5, 2.25); g.fillStyle = '#5a3018'; g.beginPath(); g.moveTo(X - TW * 0.36, Y + TW * 0.12); g.lineTo(X, Y - TW * 0.16); g.lineTo(X + TW * 0.36, Y + TW * 0.12); g.fill(); }
+        qL(x + 0.32, x + 0.68, y + 0.68, 1.45, 1.8, '#efe4c8'); dot(x + 0.5, y + 0.69, 1.86, 0.04, '#2a1e14');
+        for (const [a, h] of [[0.36, 0.7], [0.64, 0.5]]) { K.line(S(x + a, y + 0.7, 1.3), S(x + a, y + 0.7, h + 0.2), '#2a2a2a', 1); cyl(x + a, y + 0.7, 0.05, h, h + 0.2, '#6a4a20'); }
+        return true;
+      case 'hglass': case 'hglass2': {   // clessidra (grande = riparo)
+        const k = t === 'hglass' ? 1 : 0.6, h = 1.6 * k;
+        cyl(x + 0.5, y + 0.5, 0.36 * k, 0, 0.1 * k, '#5a3a20'); cyl(x + 0.5, y + 0.5, 0.36 * k, h - 0.1 * k, h, '#5a3a20');
+        for (const [a, b] of [[0.2, 0.25], [0.8, 0.3], [0.5, 0.85]]) bx(x + 0.5 + (a - 0.5) * k - 0.03, y + 0.5 + (b - 0.5) * k - 0.03, x + 0.5 + (a - 0.5) * k + 0.03, y + 0.5 + (b - 0.5) * k + 0.03, 0.1 * k, h - 0.1 * k, '#7a5a34');
+        const [X0, Y0] = S(x + 0.5, y + 0.5, 0.1 * k), [X1, Y1] = S(x + 0.5, y + 0.5, h - 0.1 * k), Ym = (Y0 + Y1) / 2, w = TW * 0.26 * k;
+        g.fillStyle = '#c8e0e8'; g.beginPath(); g.moveTo(X0 - w, Y0); g.lineTo(X0 + w, Y0); g.lineTo(X0 + 2, Ym); g.lineTo(X1 + w, Y1); g.lineTo(X1 - w, Y1); g.lineTo(X0 - 2, Ym); g.closePath(); g.fill();
+        g.fillStyle = '#e8b04a'; g.beginPath(); g.moveTo(X0 - w * 0.9, Y0); g.lineTo(X0 + w * 0.9, Y0); g.lineTo(X0, Y0 - (Y0 - Ym) * 0.55); g.fill(); g.beginPath(); g.moveTo(X1 - w * 0.5, Y1 + (Ym - Y1) * 0.55); g.lineTo(X1 + w * 0.5, Y1 + (Ym - Y1) * 0.55); g.lineTo(X0, Ym - 1); g.fill(); g.fillRect(X0 - 0.7, Ym - 2, 1.4, (Y0 - Ym) * 0.6);
+        g.strokeStyle = '#ffffff'; g.lineWidth = 1; g.beginPath(); g.moveTo(X1 - w * 0.6, Y1 + 4); g.lineTo(X0 - 4, Ym - 4); g.stroke();
+        return true;
+      }
+      case 'orrery': {   // planetario d'ottone: sole al centro e pianeti sui bracci
+        cyl(x + 0.5, y + 0.5, 0.32, 0, 0.12, '#5a3a20'); cyl(x + 0.5, y + 0.5, 0.05, 0.12, 0.95, '#b08a3a');
+        dot(x + 0.5, y + 0.5, 1.05, 0.13, '#ffc84a'); dot(x + 0.47, y + 0.47, 1.1, 0.05, '#fff2b0');
+        for (const [r, a, c, s2] of [[0.42, 0.6, '#5a8ae0', 0.06], [0.6, 2.4, '#e06a3a', 0.07], [0.78, 4.3, '#c8a86a', 0.08], [0.3, 3.9, '#9a9a9a', 0.04]]) {
+          const [X0, Y0] = S(x + 0.5, y + 0.5, 0.98), px2 = x + 0.5 + Math.cos(a) * r, py2 = y + 0.5 + Math.sin(a) * r, [X1, Y1] = S(px2, py2, 0.98);
+          g.strokeStyle = '#b08a3a'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); g.moveTo(X0, Y0); g.lineTo(X1, Y1); g.stroke(); dot(px2, py2, 1.0, s2, c);
+          const [X2, Y2] = S(x + 0.5, y + 0.5, 0.98); g.strokeStyle = 'rgba(176,138,58,.9)'; g.lineWidth = 1; g.beginPath(); g.ellipse(X2, Y2, r * TW * 0.7071, r * TW * 0.3536, 0, 0, 7); g.stroke();
+        }
+        K.glow(x + 0.5, y + 0.5, 1.05, 1.4, 'rgba(255,200,90,.3)');
+        return true;
+      }
+      case 'wbench':   // banco dell'orologiaio: lente con la lampada, ingranaggi sparsi, attrezzi
+        legs4(K, x, y, 0.08, 0.14, 0.92, 0.86, 0.7, '#4a3220'); bx(x + 0.04, y + 0.1, x + 0.96, y + 0.9, 0.7, 0.8, '#7a5634');
+        for (const [a, b, r] of [[0.3, 0.4, 0.09], [0.45, 0.65, 0.06], [0.65, 0.35, 0.07], [0.25, 0.7, 0.05]]) { cyl(x + a, y + b, r, 0.8, 0.83, '#c8a050'); cyl(x + a, y + b, r * 0.35, 0.83, 0.84, '#6a4e22'); }
+        cyl(x + 0.75, y + 0.7, 0.03, 0.8, 1.35, '#3a3a3a'); { const [X, Y] = S(x + 0.62, y + 0.6, 1.4); g.strokeStyle = '#b08a3a'; g.lineWidth = Math.max(2, TW / 24); g.beginPath(); g.ellipse(X, Y, TW * 0.16, TW * 0.12, 0, 0, 7); g.stroke(); g.fillStyle = '#d8eef4'; g.beginPath(); g.ellipse(X, Y, TW * 0.13, TW * 0.09, 0, 0, 7); g.fill(); }
+        dot(x + 0.75, y + 0.7, 1.4, 0.05, '#ffe08a'); K.glow(x + 0.6, y + 0.55, 1.0, 1.4, 'rgba(255,220,150,.32)');
+        return true;
+      case 'pipes':   // fascio di tubi di rame con valvola e manometro (esce il vapore: over)
+        for (const [a, b] of [[0.3, 0.4], [0.55, 0.3], [0.45, 0.65]]) { cyl(x + a, y + b, 0.1, 0, 2.3, '#a8683a'); for (const z of [0.5, 1.2, 1.9]) cyl(x + a, y + b, 0.12, z, z + 0.08, '#d8985a'); }
+        dot(x + 0.62, y + 0.7, 1.0, 0.1, '#efe8d8'); { const [X, Y] = S(x + 0.62, y + 0.7, 1.0); g.strokeStyle = '#c83a2a'; g.lineWidth = 1.5; g.beginPath(); g.moveTo(X, Y); g.lineTo(X + TW * 0.05, Y - TW * 0.05); g.stroke(); }
+        { const [X, Y] = S(x + 0.32, y + 0.75, 0.7); g.strokeStyle = '#b8302a'; g.lineWidth = Math.max(2, TW / 22); g.beginPath(); g.arc(X, Y, TW * 0.11, 0, 7); g.stroke(); }
+        return true;
+      case 'urn':   // urna di pietra con la fiamma azzurra (laboratorio)
+        cyl(x + 0.5, y + 0.5, 0.24, 0, 0.12, '#5a5466'); cyl(x + 0.5, y + 0.5, 0.12, 0.12, 0.45, '#6a6478'); cyl(x + 0.5, y + 0.5, 0.3, 0.45, 0.75, '#7a7488'); cyl(x + 0.5, y + 0.5, 0.33, 0.72, 0.8, '#8a8498');
+        { const [X, Y] = S(x + 0.5, y + 0.5, 0.82); g.fillStyle = '#5ac8ff'; g.beginPath(); g.moveTo(X - TW * 0.15, Y); g.quadraticCurveTo(X, Y - TW * 0.6, X + TW * 0.15, Y); g.fill(); g.fillStyle = '#d8f4ff'; g.beginPath(); g.moveTo(X - TW * 0.07, Y); g.quadraticCurveTo(X, Y - TW * 0.32, X + TW * 0.07, Y); g.fill(); }
+        K.glow(x + 0.5, y + 0.5, 1.1, 1.6, 'rgba(110,200,255,.35)');
+        return true;
       case 'wcan': cyl(x + 0.5, y + 0.5, 0.18, 0, 0.36, '#7a8a96'); cyl(x + 0.5, y + 0.5, 0.19, 0.34, 0.38, '#9aa8b4'); K.line(S(x + 0.62, y + 0.5, 0.25), S(x + 0.95, y + 0.4, 0.5), '#7a8a96', Math.max(3, TW / 14)); return true;
       case 'plantc':   // vaso della pianta carnivora (la pianta che si muove la disegnano le figure extra)
         cyl(x + 0.5, y + 0.5, o.b ? 0.44 : 0.34, 0, o.b ? 0.55 : 0.42, '#6a3a4a'); cyl(x + 0.5, y + 0.5, (o.b ? 0.44 : 0.34) * 1.08, o.b ? 0.5 : 0.38, o.b ? 0.6 : 0.46, '#8a4a5a'); cyl(x + 0.5, y + 0.5, (o.b ? 0.44 : 0.34) * 0.9, o.b ? 0.6 : 0.46, o.b ? 0.62 : 0.48, '#2a1e14');
         return true;
-      case 'clockgf':   // pendola alta
-        bx(x + 0.22, y + 0.3, x + 0.78, y + 0.7, 0, 2.3, '#5a3420'); bx(x + 0.18, y + 0.26, x + 0.82, y + 0.74, 2.3, 2.45, '#6a4028');
-        qL(x + 0.3, x + 0.7, y + 0.7, 1.55, 2.15, '#efe4c8'); qL(x + 0.32, x + 0.68, y + 0.7, 0.4, 1.4, '#2a1a10'); dot(x + 0.5, y + 0.71, 0.7, 0.08, '#d8b050');
+      case 'clockgf': {   // pendola alta: cassa intagliata, quadrante, vetro col pendolo e i pesi
+        const wd = ['#5a3420', '#3a2a3a', '#6a4a2a'][(x + y) % 3];
+        bx(x + 0.18, y + 0.26, x + 0.82, y + 0.74, 0, 0.18, K.shade(wd, 0.8)); bx(x + 0.22, y + 0.3, x + 0.78, y + 0.7, 0.18, 2.3, wd); bx(x + 0.16, y + 0.24, x + 0.84, y + 0.76, 2.3, 2.42, K.shade(wd, 1.2));
+        { const [X, Y] = S(x + 0.5, y + 0.5, 2.6); g.fillStyle = K.shade(wd, 1.1); g.beginPath(); g.moveTo(X - TW * 0.3, Y + TW * 0.12); g.quadraticCurveTo(X, Y - TW * 0.25, X + TW * 0.3, Y + TW * 0.12); g.fill(); dot(x + 0.5, y + 0.5, 2.7, 0.05, '#d8b050'); }
+        qL(x + 0.28, x + 0.72, y + 0.7, 1.5, 2.2, '#c8a050'); qL(x + 0.31, x + 0.69, y + 0.7, 1.55, 2.15, '#efe4c8');
         K.line(S(x + 0.5, y + 0.71, 1.85), S(x + 0.6, y + 0.71, 1.95), '#2a1e14', 2); K.line(S(x + 0.5, y + 0.71, 1.85), S(x + 0.44, y + 0.71, 2.02), '#2a1e14', 2);
+        qL(x + 0.3, x + 0.7, y + 0.7, 0.35, 1.42, '#1a1410'); qL(x + 0.33, x + 0.67, y + 0.7, 0.38, 1.39, '#2a2018');
+        K.line(S(x + 0.5, y + 0.71, 1.38), S(x + 0.47, y + 0.71, 0.7), '#c8a050', 1.5); dot(x + 0.47, y + 0.71, 0.65, 0.07, '#d8b050');
+        for (const a of [0.38, 0.6]) { K.line(S(x + a, y + 0.71, 1.38), S(x + a, y + 0.71, 1.0), '#8a8a8a', 1); cyl(x + a, y + 0.7, 0.03, 0.85, 1.0, '#b08a3a'); }
         return true;
+      }
       case 'gearbox': {   // cassa con ingranaggi sopra
         bx(x + 0.12, y + 0.12, x + 0.88, y + 0.88, 0, 0.6, '#7a5a34'); bx(x + 0.12, y + 0.46, x + 0.88, y + 0.54, 0.6, 0.63, '#5a4024');
         for (const [a, b, r, z] of [[0.4, 0.4, 0.24, 0.63], [0.66, 0.6, 0.16, 0.66]]) { cyl(x + a, y + b, r, z, z + 0.08, '#b8944a'); cyl(x + a, y + b, r * 0.4, z + 0.08, z + 0.1, '#6a4e22'); }
@@ -1471,7 +1654,7 @@
     speed: c => { const G = cq.g; return G ? speedOf(G, c) : 1; },
     extras(G) {
       const out2 = [];
-      if (FL && FL.plants) for (const p of G.pl || []) { const [x, y] = PLANTS[p.i]; if (!p.__dr) { p.__dr = (g, X, Y, TW) => plantDraw(g, X, Y, TW, (cq.g.pl || [])[p.i] || p); p.__dr.top = 2.2; } out2.push({ x: x + 0.5, y: y + 0.52, L: null, w: 0, f: 1, name: null, all: true, dr: p.__dr }); }
+      if (FL && FL.plants) for (const p of G.pl || []) { const [x, y] = PLANTS[p.i]; if (!p.__dr || (p.__dr.box && (p.st === 'giant') !== !!p.__dr.big)) { p.__dr = (g, X, Y, TW) => plantDraw(g, X, Y, TW, (cq.g.pl || [])[p.i] || p); p.__dr.top = 2.2; p.__dr.big = p.st === 'giant'; p.__dr.box = p.__dr.big ? [1.5, 3.2, 0.4] : PLANTS[p.i][2] ? [1.1, 2.5, 0.3] : [0.9, 2.1, 0.3]; } out2.push({ x: x + 0.5, y: y + 0.52, L: null, w: 0, f: 1, name: null, all: true, dr: p.__dr }); }
       if (FL && FL.pend) { const B = pendPos(G.time); out2.push({ x: B.x, y: B.y, L: null, w: 0, f: 1, name: null, all: true, dr: pendDraw }); }
       return out2;
     },
@@ -1532,7 +1715,10 @@
       G.zn = G.zn.filter(z => G.time < z.te);
       if (st.ph === 'duel' && G.time - st.t0 > DUEL) { const a = G.chars[0], b = G.chars[1]; roundEnd(G, a.hp > b.hp ? a : b.hp > a.hp ? b : null, '⏱ Tempo scaduto'); }
     },
-    local(G, dt) { stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); },
+    local(G, dt) {
+      stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G);
+      if (FL && FL.gears && G.st && G.st.ph !== 'prep') { const k = Math.floor(G.time); if (k !== G.tick) { G.tick = k; swp(k % 2 ? 2100 : 1700, k % 2 ? 1900 : 1500, 0.025, 0.012, 0, 'triangle'); } }   // tic-tac della sala dell'orologio
+    },
     ev(G, c, o) {
       if (o.k === 'belt' && G.st && G.st.ph !== 'mres') c.belt = cleanBelt(o.b);
       else if (o.k === 'rdy' && G.st && G.st.ph === 'prep') { if (o.on) G.st.rd[c.id] = 1; else delete G.st.rd[c.id]; }
@@ -1589,7 +1775,17 @@
       for (const z of G.zn || []) if (z.k !== 'smoke') zoneDraw(g, G, z, sx, sy, TW, t);
       if (FL && FL.pend) { const B = pendPos(G.time); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(sx(B.x, B.y), sy(B.x, B.y), TW * 0.55, TW * 0.25, 0, 0, 7); g.fill(); }
       if (FL && FL.plants) for (const p of G.pl || []) if (p.bid >= 0) { const [x, y] = PLANTS[p.i], r = plReach(p) * TW * 0.7071; g.strokeStyle = 'rgba(255,80,80,.6)'; g.lineWidth = 2; g.beginPath(); g.ellipse(sx(x + 0.5, y + 0.5), sy(x + 0.5, y + 0.5), r, r / 2, 0, 0, 7); g.stroke(); }
-      for (let i = 0; i < 22; i++) {
+      if (FL && FL.flies) for (let i = 0; i < 24; i++) {   // lucciole
+        const bxf = C + Math.cos(i * 2.4) * (2.8 + (i * 0.37 % 1) * 5.5), byf = C + Math.sin(i * 2.4) * (2.8 + (i * 0.37 % 1) * 5.5), x = bxf + Math.sin(t * 0.5 + i) * 0.7, y = byf + Math.cos(t * 0.37 + i * 1.3) * 0.7, z = 0.5 + 0.9 * (0.5 + 0.5 * Math.sin(t * 0.8 + i * 2)), on = 0.5 + 0.5 * Math.sin(t * 2.5 + i * 3.1);
+        if (on < 0.15) continue; const X = sx(x, y), Y = sy(x, y) - z * U;
+        g.globalAlpha = on * 0.35; g.fillStyle = '#d8ff7a'; g.beginPath(); g.arc(X, Y, TW * 0.12, 0, 7); g.fill(); g.globalAlpha = on; g.fillStyle = '#f4ffb0'; g.beginPath(); g.arc(X, Y, Math.max(1.5, TW / 30), 0, 7); g.fill();
+      }
+      if (FL && FL.dust) {   // polvere dorata che scende piano e vapore dai tubi
+        for (let i = 0; i < 18; i++) { const ph = (t * 0.06 + i / 18) % 1, x = C + Math.cos(i * 2.1) * (1 + (i * 0.53 % 1) * 6.5), y = C + Math.sin(i * 2.1) * (1 + (i * 0.53 % 1) * 6.5); g.globalAlpha = Math.sin(ph * Math.PI) * 0.6; g.fillStyle = '#ffe2a0'; g.beginPath(); g.arc(sx(x, y) + Math.sin(t + i) * 6, sy(x, y) - (3 - ph * 3) * U, Math.max(1, TW / 45), 0, 7); g.fill(); }
+        for (const p of CQ_PROPS) if (p[0] === 'pipes') for (let i = 0; i < 4; i++) { const ph = (t * 0.45 + i / 4 + p[1] * 0.13) % 1, x = p[1] + 0.45 + Math.sin(i + t) * 0.1 * ph, y = p[2] + 0.4; g.globalAlpha = (1 - ph) * 0.35; g.fillStyle = '#e8eef4'; g.beginPath(); g.arc(sx(x, y) + ph * 10, sy(x, y) - (2.35 + ph * 1.3) * U, TW * (0.1 + ph * 0.28), 0, 7); g.fill(); }
+      }
+      g.globalAlpha = 1;
+      if (FL && FL.pit) for (let i = 0; i < 22; i++) {
         const ph = (t * 0.22 + i / 22) % 1, a = i * 2.39 + t * 0.15, r = 0.3 + 1.6 * ((i * 0.618) % 1), x = C + Math.cos(a) * r, y = C + Math.sin(a) * r, z = -1.5 + ph * 5;
         g.globalAlpha = Math.sin(ph * Math.PI) * 0.8; g.fillStyle = i % 3 ? '#c8b8ff' : '#9ae8ff';
         g.beginPath(); g.arc(sx(x, y), sy(x, y) - z * U, Math.max(1.2, TW / 34), 0, 7); g.fill();
