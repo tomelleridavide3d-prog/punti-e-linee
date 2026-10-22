@@ -26,6 +26,10 @@ export default [
   [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me); window.__P0 = [cq.x, cq.y]; return 'amico: cuori host visti ' + h.hp + ', pozze ' + G.zn.map(z => z.k).join(','); })()`, 0],
   [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); G.me.thT = 0; G.me.fx = {}; G.sel = 1; window.__alc.myThrow(G, a.x - 0.4, a.y); return 'host: lancio 🦅 vento accanto all\\'amico (' + a.x.toFixed(1) + ',' + a.y.toFixed(1) + ')'; })()`, 2200],
   [1, `(() => { const G = cq.g; return 'amico: spinto da ' + window.__P0.map(v => v.toFixed(1)).join(',') + ' a ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ', cuori ' + G.me.hp + ', scritte viste ' + (G.spl || []).length; })()`, 0],
+  // l'amico BEVE il fuoco (mantello di fiamme): l'host lo applica, l'amico lo vede su di se'
+  [1, `(() => { const G = cq.g; G.me.belt = ['f', '', '', '']; G.sel = 0; G.me.thT = 0; window.__alc.myDrink(G); return 'amico: bevo 🔥'; })()`, 1500],
+  [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); return 'host: stati amico ' + Object.keys(a.fx || {}).filter(k => a.fx[k] > G.time && !k.includes('@')).join(',') + ', cintura amico ' + a.belt.map(k => k || '-').join(','); })()`, 0],
+  [1, `(() => { const G = cq.g; return 'amico: miei stati ' + Object.keys(G.me.fx || {}).filter(k => G.me.fx[k] > G.time && !k.includes('@')).join(','); })()`, 0],
   // ampolle instabili alla cintura dell'amico: l'host lo colpisce col fuoco, il telefono dell'amico le toglie dalla sua cintura
   [1, `(() => { const G = cq.g; G.me.belt = ['ooo', 'ooo', 'ooo', 'f']; cqNetSend({ k: 'belt', b: G.me.belt.join(',') }); G.me.fx = {}; return 'amico: cintura instabile ' + G.me.belt.join(','); })()`, 1200],
   [0, `(() => { const G = cq.g, a = G.chars.find(c => c.remote); a.hp = 3; a.iv = 0; G.me.fx = {}; window.__alc.burst(G, 'f', a.x, a.y, G.me.id); return 'host: fuoco sull\\'amico, sua cintura qui ' + a.belt.map(k => k || '-').join(','); })()`, 2000],
