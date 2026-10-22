@@ -1782,6 +1782,27 @@
     const el = document.createElement('div'); el.id = 'alHelp'; el.className = k; el.innerHTML = HELP[k] + '<button type="button">Ho capito</button>';
     $('#ciack').appendChild(el); el.querySelector('button').onclick = () => el.remove();
   }
+  // FISCHI DELLE AMPOLLE: ogni elemento "suona" in volo (si sente cosa arriva senza guardare). Riga = [forma, nota iniziale, nota finale, durata, ogni quanto,
+  // variazione a caso]; l'elemento principale della pozione decide il suono (un elemento nuovo senza riga usa FISCHIO). Piu' forte se cade vicino a me, piu' acuto mentre arriva
+  const FISCHIO = ['sine', 1000, 1150, 0.12, 0.16, 0];
+  const WHIS = {
+    fire: ['square', 160, 110, 0.03, 0.05, 90], blaze: ['square', 130, 90, 0.04, 0.045, 110],   // crepita
+    ice: ['triangle', 2600, 3100, 0.06, 0.15, 700], statue: ['triangle', 2200, 2500, 0.08, 0.2, 400],   // tintinna
+    wind: ['sine', 850, 1350, 0.16, 0.13, 60], whirl: ['sine', 700, 1500, 0.14, 0.11, 200], steam: ['sawtooth', 1300, 1600, 0.08, 0.1, 150],   // sibila
+    smoke: ['sawtooth', 600, 520, 0.12, 0.16, 40], soot: ['sawtooth', 420, 380, 0.14, 0.18, 30],   // soffia
+    glue: ['sine', 230, 140, 0.09, 0.22, 30], grow: ['sine', 95, 70, 0.15, 0.22, 10], shrink: ['sine', 3000, 3600, 0.04, 0.09, 900], pop: ['square', 600, 1200, 0.03, 0.12, 300],
+    slow: ['triangle', 320, 210, 0.14, 0.42, 0], pull: ['sine', 520, 300, 0.12, 0.15, 50], mirror: ['sine', 1560, 1550, 0.22, 0.34, 0], chaos: ['triangle', 400, 1800, 0.06, 0.1, 1200] };
+  function flSound(G) {
+    if (!store.settings.sound || !G.fl || !G.fl.length) return;
+    const now3 = performance.now() / 1000, T = G.sndT || (G.sndT = {}), L = G.fl.map(f => ({ f, d: Math.hypot(f.x1 - cq.x, f.y1 - cq.y) })).sort((a, b) => a.d - b.d).slice(0, 3);
+    for (const { f, d } of L) {
+      const key = f.q ? f.o + ':' + f.q : f.id, P = brew(f.k); if (!P || (T[key] || 0) > now3) continue;
+      const W = WHIS[P.main] || FISCHIO, u = Math.max(0, Math.min(1, (G.time - f.t0) / Math.min(f.d, f.fz))), up = 1 + 0.25 * u, rnd = (Math.random() - 0.5) * W[5];
+      const vol = 0.011 * (f.o === G.me.id ? 0.5 : 1) * (0.35 + 0.9 * Math.max(0, 1 - d / 9));
+      swp((W[1] + rnd) * up, (W[2] + rnd) * up, W[3], vol, 0, W[0]); T[key] = now3 + W[4];
+    }
+    if (Object.keys(T).length > 40) G.sndT = {};
+  }
   // evento del piano: avviso e inizio (ogni telefono, con il suo suono)
   function evLocal(G) {
     const ev = G.st && G.st.ev, ph = evPh(G), key = ev ? ev.k + G.st.n + ph : ''; if (key === G.evSeen) return; G.evSeen = key;
@@ -1897,7 +1918,7 @@
       if (st.ph === 'duel' && G.time - st.t0 > DUEL) { const a = G.chars[0], b = G.chars[1]; roundEnd(G, a.hp > b.hp ? a : b.hp > a.hp ? b : null, '⏱ Tempo scaduto'); }
     },
     local(G, dt) {
-      stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); evLocal(G);
+      stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); evLocal(G); if (G.st && G.st.ph === 'duel') flSound(G);
       if (FL && FL.gears && G.st && G.st.ph !== 'prep') { const k = Math.floor(G.time); if (k !== G.tick) { G.tick = k; swp(k % 2 ? 2100 : 1700, k % 2 ? 1900 : 1500, 0.025, 0.012, 0, 'triangle'); } }   // tic-tac della sala dell'orologio
     },
     ev(G, c, o) {
