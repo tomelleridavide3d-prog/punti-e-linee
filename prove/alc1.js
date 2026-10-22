@@ -34,8 +34,7 @@
   out.push('computer: si e\' mosso di ' + Math.hypot(bot.x - b0[0], bot.y - b0[1]).toFixed(1) + ' caselle, dentro la torre: ' + (Math.hypot(bot.x - A.C, bot.y - A.C) < A.RAD ? 'si' : 'NO'));
   out.push('barra: ' + $('#cqModeBar').textContent);
   G.st.t0 = G.time - 200; cqModeTick(0.05);
-  out.push('tempo scaduto: ' + G.st.ph + ' | ' + (G.st.msg || '').split('
-').join(' / '));
+  out.push('tempo scaduto: ' + G.st.ph + ' | ' + (G.st.msg || '').split(String.fromCharCode(10)).join(' / '));
   cqCloseTask(); G.phase = 'play'; G.st.t0 = G.time;
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   // ---- foto: io vicino alla voragine, l'altro poco lontano; sotto, tutti i personaggi col cappello ----
