@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Il mazzo</title>
+<style>
+  body { margin: 0; padding: 12px; background: radial-gradient(ellipse at 50% 30%, #2f7d47, #134226); color: #fff; font: 15px system-ui, sans-serif; min-height: 100vh; box-sizing: border-box; }
+  .row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; max-width: 900px; margin: 0 auto 10px; }
+  canvas { width: 100%; height: auto; filter: drop-shadow(0 3px 5px rgba(0, 0, 0, .4)); }
+</style>
+</head>
+<body>
+<div id="all"></div>
+<script src="../giochi/lib/carte.js"></script>
+<script>
+  // tutto il mazzo, 10 carte per seme su due righe (prova: prove/mazzo.html)
+  const dpr = Math.min(3, window.devicePixelRatio || 1), all = document.getElementById('all');
+  const cw = Math.min(170, (Math.min(innerWidth, 900) - 48) / 5);
+  for (const s of (location.search.slice(1) || 'dcsb')) { const row = document.createElement('div'); row.className = 'row'; all.appendChild(row); for (let r = 1; r <= 10; r++) row.appendChild(CARTE.card(s, r, cw * dpr)); }
+</script>
+</body>
+</html>

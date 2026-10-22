@@ -3548,7 +3548,8 @@ const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.
 function cqReception() {
   cqCloseTask(); cqTitle('🏨 Hotel'); $('#cqLookBtn').hidden = false;
   $('#tkTitle').textContent = '🏨 Hotel dei Giochi';
-  $('#tkBody').innerHTML = `<div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`;
+  $('#tkBody').innerHTML = `<div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}<button class="gcard hg" type="button" id="bcSolo"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Carte al tavolino</div><div class="gs">Briscola uno contro uno con il Conte, al tavolino del tè dell'hotel. Nel party: siediti in salotto e sfida un amico.</div></span></button></details>`;
+  $('#bcSolo').onclick = () => bcLoad().then(B => B.solo()).catch(() => cqToast('Non riesco a caricare le carte: controlla la connessione e riprova.'));
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   cqNetBox(); cqNetWatch();
@@ -3602,6 +3603,16 @@ function cqLib(...names) {
     document.head.appendChild(sc);
   })))).then(() => CQ_LIB);
 }
+// BRISCOLA AL TAVOLINO (giochi/briscola.js + giochi/lib/carte.js): attivita' del salotto della hall e gioco da solo, NON e' un gioco con la porta.
+// Si carica appena si e' nella hall di un party (inviti e chi guarda) o dalla reception. Ganci: bcHall in cqHallHud, BC.over nel disegno, BC.busy in cqHallReady.
+function bcLoad() {
+  if (window.BC) return Promise.resolve(window.BC);
+  return cq.bcP || (cq.bcP = new Promise((ok, no) => {
+    const add = (src, then) => { const sc = document.createElement('script'); sc.src = src + '?v=' + (Date.parse(document.lastModified) || 1); sc.onload = then; sc.onerror = () => { cq.bcP = null; no(new Error('non caricato')); }; document.head.appendChild(sc); };
+    add('giochi/lib/carte.js', () => add('giochi/briscola.js', () => window.BC ? ok(window.BC) : (cq.bcP = null, no(new Error('vuoto')))));
+  }));
+}
+function bcHall(salon) { if (window.BC) BC.hud(salon); else if (!cq.bcP && Date.now() > (cq.bcF || 0)) bcLoad().catch(() => { cq.bcF = Date.now() + 30000; }); }
 const cqModeOpt = id => Object.assign({}, CQ_MODES[id].def, ((store.settings.cqModeOpt || {})[id]) || {});
 function cqModeUI(on) { $('#cqChatB').hidden = true; $('#cqChatP').hidden = true; $('#cqPartyB').hidden = true; $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = !on; $('#cqHallBar').hidden = true; $('#cqHallSet').hidden = true; $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; $('#cqKill').classList.remove('hk'); }
 // passo di un personaggio del computer lungo il suo percorso (sp = velocita' rispetto alla mia)
@@ -3739,7 +3750,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible');
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -4132,6 +4143,7 @@ function cqHallHud() {
   const salon = cq.map === 'hotel' && show, near = salon && (cq.sit != null || !!cqSalaNear()), st = cq.sit != null ? '🧍 Alzati' : '🪑 Siediti';
   const it = $('#cqSit'); if (it.hidden === near) it.hidden = !near; if (it.textContent !== st) it.textContent = st;
   const dk = $('#cqDrink'), drink = salon && cq.sit != null; if (dk.hidden === drink) dk.hidden = !drink;
+  if (cq.net && cq.map === 'hotel') bcHall(salon);
 }
 // "Inizia" di chi ha creato il party (e "Si gira!" da solo): parte il 3 2 1
 function cqHallGo() {
@@ -5829,9 +5841,9 @@ function cqDraw() {
     for (const ch of G.chars) {
       if (ch === G.me && G.hall && !ch.alive) continue;
       if (G.mode && G.M.hide && G.M.hide(ch)) continue;
-      if (ch === G.me && G.hall && cq.net) list.push(cqSitDraw({ bub: cq.myBub, ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : ''), sw: cq.swT != null ? G.time - cq.swT : null }, cq.sit));
+      if (ch === G.me && G.hall && cq.net) list.push(cqSitDraw({ sid: cq.net.sid, bub: cq.myBub, ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : ''), sw: cq.swT != null ? G.time - cq.swT : null }, cq.sit));
       else if (ch === G.me) list.push({ mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
-      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push(G.hall ? cqSitDraw({ bub: ch.bub, talk: ch.talk, ang: ch.angel != null ? G.time - ch.angel : null, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || ch.name, sw: ch.swT != null ? G.time - ch.swT : null }, ch.sit) : { mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push(G.hall ? cqSitDraw({ sid: ch.sid, bub: ch.bub, talk: ch.talk, ang: ch.angel != null ? G.time - ch.angel : null, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || ch.name, sw: ch.swT != null ? G.time - ch.swT : null }, ch.sit) : { mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
     }
     // M.prop(c) -> [tipo, opzione, nome visibile?, x, y]: il personaggio si disegna come quell'oggetto della mappa, centrato in x, y (es. Nascondino)
     if (G.mode && G.M.prop) for (const o of list) if (o.mo) { const pr = G.M.prop(o.mo); if (pr) { o.pr = pr; if (!pr[2]) o.name = null; if (pr[3] != null) { o.x = pr[3]; o.y = pr[4]; } } }
@@ -5967,6 +5979,7 @@ function cqDraw() {
   }
   for (const o of list) if (o.xr) { g.globalAlpha = o.ghost ? 0.25 : 0.5; cqPlayer(g, o.sx, o.sy, TW, o.L, o.w, o.f); g.globalAlpha = 1; }   // dietro a un albero (xray): sagoma in trasparenza
   for (const o of list) if (o.on && o.bub && o.bub.u > Date.now()) cqBubble(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)) - 14, o.bub.t);   // chat della hall: fumetto sopra il nome
+  if (G && G.hall && window.BC) BC.over(g, list, TW);   // Briscola: carte in mano a chi gioca
   for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
   const now = performance.now() / 1000;
