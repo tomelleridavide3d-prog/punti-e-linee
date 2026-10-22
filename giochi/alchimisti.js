@@ -2,6 +2,7 @@
 // Passo 1: la TORRE DEI MAGHI (laboratorio tondo, voragine luminosa, ripari, calderoni di ricarica), alchimisti col cappello a punta, online in 2.
 // Passo 2: le POZIONI calcolate dalle proprieta' degli ingredienti (ING, EL, REACT, brew) e la PREPARAZIONE al calderone.
 // Passo 3: il DUELLO (lancio a fionda, effetti dalla tabella FX, pozze ZONE, spinte, voragine, ricarica, manche al meglio di 3, computer che lancia).
+// Passo 6: RICETTARIO (60 monete; descrizioni calcolate dalle tabelle), schede la prima volta, regole.
 // Passo 5: COMPUTER FURBO (cintura valutata con le tabelle e contro quello che lanci, schiva, ti spinge nella voragine, sfrutta le pozze, specchi).
 // Passo 4: REAZIONI SUL CAMPO (pozione + pozza = la reazione della tabella REACT) e AMPOLLE INSTABILI che scoppiano alla cintura se ti colpisce il fuoco.
 (() => {
@@ -70,7 +71,7 @@
     // luci (per il buio): voragine, torce, finestre, sfere di cristallo, calderoni
     LIGHTS = [[C, C, 4.6, 1]];
     for (const d of DEC) { const lx = C + (RI - 0.7) * Math.cos(d.th), ly = C + (RI - 0.7) * Math.sin(d.th); if (d.t === 'torch') LIGHTS.push([lx, ly, 3.2, 0.85]); else if (d.t === 'win') LIGHTS.push([lx, ly, 2.2, 0.4]); }
-    for (const [t, x, y] of props) if (t === 'crystal' || t === 'kettle' || t === 'cauldron' || t === 'cauldron2' || t === 'candles' || t === 'bench') LIGHTS.push([x + 0.5, y + 0.5, t === 'candles' ? 1.8 : 2.4, 0.6]);
+    for (const [t, x, y] of props) if (t === 'crystal' || t === 'cauldron' || t === 'cauldron2') LIGHTS.push([x + 0.5, y + 0.5, 2.4, 0.6]);   // solo le luci grandi: ognuna costa al buio (prove/pesi.js)
     return { w: N, h: N, rooms, doors: [], decals: [], props, tasks: [], hall: 0, cams: [], vending: [], ring: [[6, 6], [14, 14]], button: { x: -10, y: -10 }, sabs: {},
       inn: { Laboratorio: 'nel laboratorio' }, help: '', btnTxt: '', sabTxt: '',
       pxProp: drawFurn, drawWall, floor: { lab: floorLab, rim: floorRim },
@@ -587,13 +588,20 @@
 #alJars button .lq{position:absolute;left:0;right:0;bottom:0;height:38%;opacity:.55}#alJars button .e{font-size:26px;position:relative;margin-top:2px}#alJars button .n{position:relative;margin-top:2px}#alJars button .d{position:relative;font-weight:400;font-size:9.5px;opacity:.8;margin-top:1px}#alJars button:active{transform:scale(.94)}#alJars button.off{opacity:.4}
 #alBelt{display:flex;gap:10px;align-items:flex-end;justify-content:center;width:100%;max-width:480px;padding:6px 0 2px;border-top:2px solid #6a4a2e}#alBelt .lb{font-weight:700;margin-right:2px;align-self:center}
 #alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:30px;height:40px;border-radius:7px 7px 15px 15px;border:2px solid rgba(220,230,240,.8);position:relative;overflow:hidden;background:rgba(255,255,255,.06)}#alBelt .vi::before{content:'';position:absolute;top:-2px;left:8px;width:10px;height:7px;background:#8a6a42;border-radius:2px}#alBelt .vi .lq{position:absolute;left:0;right:0;bottom:0;height:72%}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
-#alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}`;
+#alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}
+#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alPot .bkl{flex-basis:100%;text-align:center;font-size:12.5px;line-height:1.3;color:#f2ead8;max-width:480px}
+#alBook{position:absolute;inset:0;z-index:9;background:rgba(10,6,18,.86);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 60px) 12px 20px;box-sizing:border-box;overflow-y:auto}
+#alBook .bk{width:100%;max-width:460px;background:#2a1e36;border:2px solid #c8a050;border-radius:16px;padding:14px;color:#f2ead8;font:14px/1.4 system-ui,sans-serif}#alBook .bk>b{font-size:17px;display:block;margin-bottom:6px}
+#alBook button{display:block;width:100%;margin-top:10px;padding:11px;border:0;border-radius:12px;font:700 15px system-ui;color:#fff;background:#8a4ad0}#alBook button:disabled{opacity:.4}#alBook .cl{background:rgba(255,255,255,.14)}
+#alBook .rc{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid rgba(255,255,255,.1)}#alBook .rc .ig{flex:0 0 58px;font-size:18px}#alBook small{opacity:.85}
+#alHelp{position:absolute;left:12px;right:12px;bottom:250px;z-index:10;max-width:460px;margin:0 auto;background:rgba(26,18,36,.95);color:#f2ead8;border:1px solid rgba(200,160,80,.6);border-radius:14px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)}#alHelp.prep{bottom:auto;top:240px}
+#alHelp button{display:block;margin:10px auto 0;padding:8px 18px;border:0;border-radius:10px;background:#8a4ad0;color:#fff;font:700 14px system-ui}`;
     document.head.appendChild(st);
   }
   function prepOpen(G) {
     prepCss(); prepClose();
     const el = document.createElement('div'); el.id = 'alPrep';
-    el.innerHTML = `<div class="top"><span class="tm" id="alTm">1:00</span><b>⚗️ Prepara le pozioni</b><button id="alRdy" type="button">✔ Pronto</button></div>
+    el.innerHTML = `<div class="top"><span class="tm" id="alTm">1:00</span><b>⚗️ Prepara</b><button id="alBk" type="button">📖</button><button id="alRdy" type="button">✔ Pronto</button></div>
       <canvas id="alCv"></canvas><div id="alPot"></div><div id="alMsg"></div>
       <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
       <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${g.e}</span><span class="n">${esc(g.n)}</span><span class="d">${esc(g.d)}</span></button>`).join('')}</div>
@@ -602,7 +610,8 @@
     el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
     $('#alBot').onclick = () => bottle(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); prepRender(G); };
-    $('#alRdy').onclick = () => setReady(G, !ready(G));
+    $('#alRdy').onclick = () => setReady(G, !ready(G)); $('#alBk').onclick = () => bookOpen(G);
+    helpOnce('prep');
     U2.pot = []; U2.fx = []; U2.msg = '';
     prepRender(G);
   }
@@ -634,6 +643,7 @@
     const p = document.getElementById('alPot');
     p.innerHTML = U2.pot.length ? U2.pot.map((id, i) => `<button type="button" class="ch" data-p="${i}">${ING_BY[id].e} ${esc(ING_BY[id].n)}<i>✕</i></button>`).join('') + `<span class="h">${U2.pot.length}/${MAXI}</span>`
       : '<span class="h">Tocca un barattolo: l\'ingrediente cade nel calderone (fino a ' + MAXI + ').</span>';
+    if (U2.pot.length && book().own) { const P = brew(potKey(U2.pot)), B = book(); p.insertAdjacentHTML('beforeend', '<div class="bkl">' + (B.f[P.k] ? '📖 <b style="color:' + P.c + '">' + P.e + ' ' + esc(P.n) + '</b>: ' + esc(describe(P)) : '📖 ❓ Pozione mai vista: provala!') + '</div>'); }
     p.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { U2.pot.splice(+b.dataset.p, 1); SFX.pour(); prepRender(G); }; });
     const full = G.me.belt.every(Boolean);
     $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length;
@@ -760,10 +770,10 @@
   const CHAOS = ['fire', 'ice', 'smoke', 'glue', 'grow', 'shrink', 'slow', 'pull', 'wind'];
   // POZZE sul pavimento: sp = velocita' di chi ci sta dentro (x); hurt = un cuore ogni tot secondi; slide = si scivola; hide = dentro non ti vedono; mirror = rimanda le pozioni
   // el = elemento della pozza: una pozione che ci cade sopra reagisce con lui (REACT)
-  const ZONE = { burn: { c: '#ff6a2a', hurt: 1.5, el: 'fire' }, ice: { c: '#bfe8ff', sp: 0.85, slide: 1, el: 'ice' }, glue: { c: '#d89a2a', sp: 0.3, el: 'glue' }, slowz: { c: '#e0c068', sp: 0.5, el: 'slow' },
-    smoke: { c: '#8a8694', hide: 1, el: 'smoke' }, mirror: { c: '#e8f0ff', mirror: 1, el: 'mirror' } };
+  const ZONE = { burn: { c: '#ff6a2a', hurt: 1.5, el: 'fire', d: 'pozza che brucia' }, ice: { c: '#bfe8ff', sp: 0.85, slide: 1, el: 'ice', d: 'ghiaccio che fa scivolare' }, glue: { c: '#d89a2a', sp: 0.3, el: 'glue', d: 'colla a terra' }, slowz: { c: '#e0c068', sp: 0.5, el: 'slow', d: 'sabbia che rallenta' },
+    smoke: { c: '#8a8694', hide: 1, el: 'smoke', d: 'nuvola che nasconde' }, mirror: { c: '#e8f0ff', mirror: 1, el: 'mirror', d: 'specchio che rimanda le pozioni' } };
   // stati sul personaggio: velocita' (x) e cosa si vede
-  const STATE = { slow: { sp: 0.45, e: '⏳' }, stuck: { sp: 0, e: '🍯' }, frz: { sp: 0, e: '🧊' }, big: { sp: 0.75, e: '🍄' }, small: { sp: 1.3, e: '✨' }, blind: { e: '🌑' } };
+  const STATE = { slow: { sp: 0.45, e: '⏳', d: 'rallenta' }, stuck: { sp: 0, e: '🍯', d: 'incolla a terra' }, frz: { sp: 0, e: '🧊', d: 'congela' }, big: { sp: 0.75, e: '🍄', d: 'fa diventare giganti' }, small: { sp: 1.3, e: '✨', d: 'rimpicciolisce' }, blind: { e: '🌑', d: 'acceca' } };
   const RMIN = 1.6, RMAX = 9, PULL = 110, THROW_CD = 0.6, KETTLE_T = 2, IV = 0.9, FALL_T = 2, MRES = 5, WINS = 2;
   const r2 = v => Math.round(v * 100) / 100;
   const gauss = () => (Math.random() + Math.random() + Math.random() - 1.5) * 1.15;
@@ -1131,11 +1141,12 @@
     const was = U2.ph; U2.ph = ph;
     if (was.startsWith('prep') && U2.pot.length && G.me.belt.some(v => !v)) bottle(G);   // tempo scaduto: quello che bolle si imbottiglia da solo
     const p = G.st ? G.st.ph : '';
+    { const h = document.getElementById('alHelp'); if (h) h.remove(); const bk = document.getElementById('alBook'); if (bk) bk.remove(); }
     if (p === 'prep') {
       G.myRdy = false; G.me.belt = G.me.belt && !was ? G.me.belt : Array(BELT_N).fill(''); G.fl = []; G.zn = []; cq.x = SPAWN[sideIdx(G, G.me)][0]; cq.y = SPAWN[sideIdx(G, G.me)][1]; cq.sl = null; G.myFall = null; G.fill = null;
       duelUI(G, false); prepOpen(G);
     } else prepClose();
-    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelUI(G, true); cqToast('⚔️ <b>Duello!</b> Trascina <b>indietro</b> il pulsante dell\'ampolla e lascia per lanciare. Il colore delle ampolle dell\'altro ti dice cosa ha preparato.'); }
+    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelUI(G, true); helpOnce('duel'); cqToast('⚔️ <b>Duello!</b> Trascina <b>indietro</b> il pulsante dell\'ampolla e lascia per lanciare. Il colore delle ampolle dell\'altro ti dice cosa ha preparato.'); }
     else duelUI(G, false);
     if (p === 'mres') SFX[G.st.win === G.me.id ? 'bottle' : 'pour']();
   }
@@ -1159,10 +1170,64 @@
     if (G.fill) { if (!nearKettle(G, me) || out(G, me)) G.fill = null; else if (G.time - G.fill > KETTLE_T) { G.fill = null; fillDone(G, me); } }
   }
   // scoppi e colpi arrivati dall'host (o fatti da me): suoni e scritte su ogni telefono
+  // ======================= IL RICETTARIO (si compra con le monete: BOOK_COST) =======================
+  // Annota ogni pozione vista scoppiare (tua o dell'altro); al calderone ti dice cosa stai preparando, se l'hai gia' scoperta.
+  // Le descrizioni si calcolano dalle tabelle (FX, STATE, ZONE, miccia): un ingrediente nuovo ha subito la sua descrizione
+  const BOOK_COST = 60;
+  const book = () => store.settings.alcBook || (store.settings.alcBook = { own: 0, f: {} });
+  const TOTAL = (() => { let n = 0; const k = ING.length; for (let m = 1; m <= MAXI; m++) { let c = 1; for (let i = 0; i < m; i++) c = c * (k + i) / (i + 1); n += Math.round(c); } return n; })();   // miscele possibili (ingredienti anche ripetuti)
+  function describe(P) {
+    const out = [];
+    for (const [el, v] of Object.entries(P.s).sort((a, b) => b[1] - a[1])) {
+      const F = FX[el]; if (!F) continue; const t = [];
+      if (F.dmg && v >= 0.6) t.push('-1 ❤️');
+      if (F.st) t.push(STATE[F.st[0]].d);
+      if (F.push > 0) t.push('spinge via'); else if (F.push < 0) t.push('tira verso il centro');
+      if (F.whirl) t.push('scaraventa a caso'); if (F.chaos) t.push('effetto a sorpresa');
+      if (F.zone) t.push(ZONE[F.zone[0]].d);
+      out.push(EL[el].e + ' ' + t.join(', '));
+    }
+    const reach = P.spd * P.fuse;
+    if (P.bnc) out.push('🪶 rimbalza');
+    out.push(reach < 4 ? '⚠️ scoppia dopo ' + reach.toFixed(1).replace('.', ',') + ' caselle!' : '🎯 arriva a ' + Math.min(RMAX, reach).toFixed(0) + ' caselle');
+    if (P.inst >= VOLATILE) out.push('💥 instabile alla cintura');
+    return out.join(' · ');
+  }
+  function bookNote(key) {
+    const B = book(); if (!B.own || !key || B.f[key]) return;
+    B.f[key] = Date.now(); saveStore();
+    const P = brew(key); cqToast('📖 <b>Nuova pozione nel ricettario!</b> ' + P.ings.map(g => g.e).join('') + ' = ' + esc(P.n) + ' (' + Object.keys(B.f).length + '/' + TOTAL + ')');
+  }
+  function bookOpen(G) {
+    const host = document.getElementById('alPrep') || $('#ciack'), old = document.getElementById('alBook'); if (old) old.remove();
+    const B = book(), el = document.createElement('div'); el.id = 'alBook';
+    const coins = cqBank().coins;
+    if (!B.own) el.innerHTML = '<div class="bk"><b>📖 Ricettario dell\'alchimista</b><p>Annota ogni pozione che vedi scoppiare: nome, ingredienti ed effetto. Al calderone ti dice cosa stai preparando, se l\'hai già scoperta.</p><p>Costa <b>🪙 ' + BOOK_COST + '</b> · ne hai <b>' + coins + '</b>' + (coins < BOOK_COST ? '<br><small>Le monete si vincono giocando: 3 per ogni vittoria, 1 per ogni partita.</small>' : '') + '</p><button type="button" id="alBuy"' + (coins < BOOK_COST ? ' disabled' : '') + '>🪙 Compra</button><button type="button" class="cl">Chiudi</button></div>';
+    else {
+      const L = Object.entries(B.f).sort((a, b) => b[1] - a[1]).map(([k]) => brew(k)).filter(Boolean);
+      el.innerHTML = '<div class="bk"><b>📖 Ricettario · ' + L.length + ' / ' + TOTAL + ' pozioni</b>' + (L.length ? L.map(P => '<div class="rc"><span class="ig">' + P.ings.map(g => g.e).join('') + '</span><span><b style="color:' + P.c + '">' + P.e + ' ' + esc(P.n) + '</b><br><small>' + esc(describe(P)) + '</small></span></div>').join('') : '<p>Ancora vuoto: lancia pozioni (o guarda quelle dell\'altro) per riempirlo!</p>') + '<button type="button" class="cl">Chiudi</button></div>';
+    }
+    host.appendChild(el);
+    el.querySelector('.cl').onclick = () => el.remove();
+    const buy = el.querySelector('#alBuy'); if (buy) buy.onclick = () => { const b = cqBank(); if (b.coins < BOOK_COST) return; b.coins -= BOOK_COST; book().own = 1; saveStore(); SFX.bottle(); cqToast('📖 <b>Ricettario comprato!</b> Da ora annota ogni pozione che scopri.'); bookOpen(G); if (G) prepRender(G); };
+  }
+  // SCHEDE di spiegazione: la prima volta di ogni fase su questo telefono (non fermano il tempo)
+  const HELP = {
+    prep: '<b>🧪 Prepara le pozioni</b><br>Tocca i barattoli: gli ingredienti cadono nel calderone (fino a 3). <b>Imbottiglia</b> per metterla nella cintura (4 ampolle). Cosa viene fuori? Lo scopri lanciando! Se il calderone <b>trema e ribolle forte</b>, la miscela è instabile: potrebbe scoppiarti vicino.',
+    duel: '<b>⚔️ Duello</b><br>Scegli l\'ampolla in basso, poi <b>trascina indietro</b> il pulsante tondo come una fionda e lascia. Le pozze sul pavimento <b>reagiscono</b> con le pozioni (fuoco sul ghiaccio = vapore!). Attento alla <b>voragine</b> e alla cintura che sfrigola. A secco? Torna al <b>calderone</b> del tuo angolo.'
+  };
+  function helpOnce(k) {
+    let seen = {}; try { seen = JSON.parse(localStorage.getItem('alcHelp') || '{}'); } catch {}
+    if (seen[k]) return; seen[k] = 1; try { localStorage.setItem('alcHelp', JSON.stringify(seen)); } catch {}
+    const old = document.getElementById('alHelp'); if (old) old.remove();
+    const el = document.createElement('div'); el.id = 'alHelp'; el.className = k; el.innerHTML = HELP[k] + '<button type="button">Ho capito</button>';
+    $('#ciack').appendChild(el); el.querySelector('button').onclick = () => el.remove();
+  }
   function fxEvents(G) {
     for (const b of G.bx) if (b[0] > (G.bxSeen || 0)) {
       G.bxSeen = b[0]; if (G.time - b[4] > 1.5) continue;
       G.spl = (G.spl || []).filter(s => performance.now() / 1000 - s.t < 2.2); G.spl.push({ k: b[1], x: b[2], y: b[3], t: performance.now() / 1000, how: b[5] });
+      if (b[1] && b[5] !== 'react' && b[5] !== 'mirror') bookNote(b[1]);
       if (b[5] === 'react') { SFX.boom(); swp(400, 1600, 0.3, 0.04, 0.05, 'triangle'); continue; }
       const P = b[1] && brew(b[1]); if (b[5] !== 'bounce') { SFX.smash(P ? P.main : ''); if (b[5] === 'early' || (P && P.inst >= 0.45)) SFX.boom(); } else swp(400, 900, 0.12, 0.04);
       if (G.guest) G.fl = G.fl.filter(f => !(f.loc && Math.hypot(f.x1 - b[2], f.y1 - b[3]) < 0.1));
@@ -1175,7 +1240,7 @@
     }
   }
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b> (60 s, poi 30 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. Gli ingredienti si combinano in centinaia di modi: lo scopri solo lanciando! Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte. <b>3 cuori</b> a testa: li perdi con le pozioni che bruciano o esplodono, sbattendo contro i muri e cadendo nella <b>voragine</b>. Finite le ampolle, ricarica al <b>calderone del tuo angolo</b> (resti fermo 2 s).</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno in cima alla <b>torre dei maghi</b>, al meglio di 3 manche.</p><p><b>1. Preparazione</b> (60 s, poi 30 s): al calderone mescoli in segreto fino a 3 ingredienti per pozione e riempi le <b>4 ampolle</b> della cintura. I 12 ingredienti si combinano in <b>centinaia</b> di pozioni: lo scopri solo lanciando! Se il calderone trema e ribolle forte, la miscela è instabile: la miccia è corta e potrebbe scoppiarti vicino.</p><p><b>2. Duello</b> (90 s): scegli l\'ampolla in basso, <b>trascina indietro</b> il pulsante come una fionda e lascia. Le ampolle si vedono arrivare: <b>schivale</b>! Fuoco, ghiaccio, colla, fumo, vento… lasciano pozze e spinte, e le pozze <b>reagiscono</b> con le pozioni che ci cadono sopra (fuoco sul ghiaccio = vapore che sbalza, ghiaccio sulla colla = cristallo che congela). <b>3 cuori</b> a testa: li perdi bruciando, sbattendo contro i muri e cadendo nella <b>voragine</b>. Le ampolle instabili alla cintura <b>sfrigolano</b>: se ti prende il fuoco possono scoppiarti addosso. Finite le ampolle, ricarica al <b>calderone del tuo angolo</b>.</p><p><b>📖 Ricettario</b> (🪙 ' + 60 + ' monete, dal pulsante 📖 al calderone): annota le pozioni che scopri e ti dice cosa stai preparando.</p><p>Vince la manche chi toglie tutti i cuori all\'altro o, allo scadere, chi ne ha di più.</p></details>';
 
   CQ_MODES.alchimisti = {
     n: 'Duello degli alchimisti',
@@ -1329,5 +1394,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); const th = document.getElementById('alTh'), sl = document.getElementById('alSel'); if (th) th.remove(); if (sl) sl.remove(); U2.ph = ''; } });
-  window.__alc = { potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
+  window.__alc = { book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart };   // per le prove (prove/alc*.js)
 })();
