@@ -11,14 +11,14 @@
   const START = [[3.2, 9], [26.8, 9]], STOCK0 = [[2.4, 6.4], [27.6, 6.4]];
   const PILES = [[12.4, 5.3], [17.6, 5.3], [12.4, 12.7], [17.6, 12.7], [15, 2.4], [15, 15.6]];
   const FOUNT = [15, 9];
-  const B_T0 = 55, B_T1 = 25, REVEAL = 2.8, FIGHT = 120, DOWN = 2.8, MRES = 6.5, WINS = 2, MAXR = 4;
+  const B_T0 = 44, B_T1 = 25, REVEAL = 2.8, FIGHT = 120, DOWN = 2.8, MRES = 6.5, WINS = 2, MAXR = 4;
   const NV0 = 72, NV1 = 20, ASSI = 3, HAND = 3, HITS = 3, STOCK_MAX = 10;
   const SP = 0.5, HLEN = 0.3, TH1 = 0.16, TH2 = 0.28, WH1 = 0.82, WH2 = 0.94;
   const R1 = 0.31, R2 = 0.42, RP = 0.34;   // sagome per camminare (capsule intorno ai blocchi; il personaggio e' un quadrato di 0,3)
   const TURN = 0.7;   // 40 gradi di curva = un pilastro
   const SAL = { w1: 3, w2: 6, p1: 3, p2: 5, as: 2 };
-  const RMIN = 1.2, RMAX_D = 12, RMAX_L = 14, V_D = 11, V_L = 6, PULL = 110, CD = 0.5, LEAN = 1.0, SPORTO = 0.8;
-  const MK = { s: 0.6, p: 1.0, w: 1.1 }, PILE_N = 5, PILE_MAX = 6, PILE_RG = 10;
+  const RMIN = 1.2, RMAX_D = 12, RMAX_L = 14, V_D = 11, V_L = 7, PULL = 110, CD = 0.5, LEAN = 1.0, SPORTO = 0.8;
+  const MK = { s: 0.6, p: 0.8, w: 1.1 }, PILE_N = 5, PILE_MAX = 6, PILE_RG = 10;
   const SIDE = [{ c: '#d8402e', c2: '#f4a07a', d: '#8a2414', n: 'rosso' }, { c: '#2e6ad8', c2: '#9ac0f4', d: '#14348a', n: 'blu' }];
   // PASSO 2: igloo e gnomi (costano palle in mano; massimo 3 in campo; un colpo e sono fuori)
   const IG_COST = 8, IG_HP = 4, IG_R = 0.62;
@@ -26,6 +26,9 @@
   const GN_MAX = 3, GN_LIFE = 45, DIG_T = 1.4, ROLL_V = 2.7, SNIPE_T = 1.8, SNIPE_R = 5.5, GLANCE = 0.7, HIDE_V = 1.6;
   // PASSO 3: lo SLITTINO-ARIETE compare al centro a SLED_AT s; chi ci sale per primo va piu' veloce per SLED_T s, sfonda i muri presi di petto
   // (di striscio scivola), ha un cannone con SLED_AM palle grosse (2 di danno ai muri) e travolge chi incontra. Un colpo e cadi dallo slittino.
+  // QUARTO GIRO (adrenalina, scelte dell'utente): niente slittino (SLED_ON spento, il codice resta), TORMENTA FINALE negli ultimi STORM s
+  // (palle piu' veloci, mucchi pieni, ogni colpo vale doppio), RAFFICA (3 colpi di fila entro RAF_T s = palla di ghiaccio), fischio, cuore, rallentatore
+  const SLED_ON = false, STORM = 40, RAF_T = 8;
   const SLED_AT = 40, SLED_T = 15, SLED_AM = 6, SLED_POS = [15, 12.9], SLED_SP = 1.7, RAM_DMG = 3, SLED_CD = 0.8;
   const now = () => performance.now() / 1000;
   const r2 = v => Math.round(v * 100) / 100;
@@ -524,6 +527,10 @@
     dig: () => { swp(1500, 1200, 0.04, 0.025, 0, 'square'); noise(0.1, 0.06, 1800, 0.02, 'bandpass', 2); },
     roll: () => { noise(0.9, 0.06, 220); swp(90, 60, 0.8, 0.03); },
     slide: () => { noise(0.35, 0.06, 2600, 0, 'bandpass', 1.5); swp(700, 1300, 0.3, 0.015, 0, 'triangle'); },
+    wind: () => { noise(2.4, 0.07, 500, 0, 'bandpass', 0.6); noise(2.0, 0.04, 1400, 0.4, 'bandpass', 1.2); },
+    heart: () => { swp(70, 45, 0.12, 0.12, 0, 'sine'); swp(65, 40, 0.12, 0.09, 0.2, 'sine'); },
+    whiz: () => { swp(2400, 600, 0.3, 0.04, 0, 'triangle'); noise(0.25, 0.05, 3000, 0, 'highpass'); },
+    ice: () => { [1318, 1568, 1976, 2637].forEach((f, i) => swp(f, f, 0.18, 0.03, i * 0.07, 'triangle')); },
     jingle: () => { for (let i = 0; i < 8; i++) { swp(2200 + (i % 3) * 300, 2100 + (i % 3) * 300, 0.12, 0.018, i * 0.09, 'triangle'); swp(3300, 3200, 0.08, 0.01, i * 0.09 + 0.03, 'sine'); } },
     ram: () => { noise(0.4, 0.22, 260); swp(90, 40, 0.35, 0.1, 0, 'square'); noise(0.3, 0.1, 1200, 0.05); },
     igloo: () => { noise(0.3, 0.14, 600); swp(240, 120, 0.25, 0.04, 0, 'triangle'); },
@@ -566,20 +573,21 @@
   }
   function hitPlayer(G, s, x, y, from) {
     const st = G.st, p = st.p[s]; if (p.d) return;
-    p.h++; p.mk = null; p.stn = r2(G.time + 0.35);
+    const dmg2 = stormOn(G, G.time) ? 2 : 1; p.h = Math.min(HITS, p.h + dmg2); p.mk = null; p.stn = r2(G.time + 0.35);
     if (riding(G, s)) { st.sl = { ph: "x" }; ev(G, "sx", x, y, s); }   // colpito sullo slittino: cade e lo slittino si rompe
     if (p.h >= HITS) { p.d = 1; ev(G, 'bu', x, y, s); if (st.ph === 'fight') { st.ph = 'down'; st.t0 = r2(G.time); st.win = 1 - s; } }
-    else ev(G, 'h', x, y, s, from);
+    else ev(G, 'h', x, y, s, from, dmg2);
   }
   const riding = (G, s) => { const sl = G.st && G.st.sl; return !!(sl && sl.ph === 'r' && sl.s === s); };
   function throwFrom(G, s, ty, tx, tyy) {
     const st = G.st, T = G.time, p = st.p[s], c = charOf(G, s), P = posOf(G, c), rd = riding(G, s); if (!st || st.ph !== 'fight' || p.d || (rd ? st.sl.am <= 0 : p.b <= 0) || making(G, s, T) || T - p.lt < (rd ? SLED_CD : CD) || (p.stn || 0) > T) return false;
     let dx = tx - P.x, dy = tyy - P.y, d = Math.hypot(dx, dy); if (d < 0.3) return false;
     const RM = ty === 'd' ? RMAX_D : RMAX_L; if (d > RM) { dx *= RM / d; dy *= RM / d; d = RM; } if (d < RMIN) { dx *= RMIN / d; dy *= RMIN / d; d = RMIN; }
-    const dur = ty === 'd' ? d / V_D : Math.max(0.75, d / V_L);
+    const ice = !rd && !!p.ice; if (ice) p.ice = 0; const kv = (stormOn(G, T) ? 1.3 : 1) * (ice ? 1.6 : 1);
+    const dur = ty === 'd' ? d / (V_D * kv) : Math.max(0.6, d / (V_L * kv));
     if (rd) st.sl.am--; else p.b--; p.lt = r2(T); if (ty === 'd') p.sp = r2(T);
     if (!c.bot && !G.tut && G.chars.some(o => o.bot && !o.remote)) { const M = piMem(); if (ty === 'l') M.lob++; else M.dr++; }
-    st.bn++; st.B.push([st.bn, s, ty, r2(P.x), r2(P.y), r2(P.x + dx), r2(P.y + dy), r2(T), r2(dur), 0, rd ? 2 : 1]);   // [9] gnomo, [10] danno ai muri (palla grossa del cannone = 2)
+    st.bn++; st.B.push([st.bn, s, ty, r2(P.x), r2(P.y), r2(P.x + dx), r2(P.y + dy), r2(T), r2(dur), 0, ice ? 99 : rd ? 2 : 1]);   // 99 = palla di ghiaccio: la campata che prende crolla tutta   // [9] gnomo, [10] danno ai muri (palla grossa del cannone = 2)
     ev(G, ty === 'd' ? 'td' : 'tl', P.x, P.y, s);
     return true;
   }
@@ -604,9 +612,9 @@
         const skip = dritIgnore(G, B), d = Math.hypot(x1 - x0, y1 - y0), n = Math.max(1, Math.ceil((u1 - u0) * d / 0.12)); let done = false;
         for (let i = 1; i <= n && !done; i++) {
           const u = u0 + (u1 - u0) * i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u;
-          if (canHit && Math.hypot(Q.x - x, Q.y - y) < 0.42) { hitPlayer(G, o, x, y, s); gone(); done = true; break; }
-          if (ballOnGnome(G, s, x, y, 0.08)) { gone(); done = true; break; }
-          const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - x, ig[1] - y) < IG_R) { igHit(G, o, x, y, B[10] || 1); gone(); done = true; break; }
+          if (canHit && Math.hypot(Q.x - x, Q.y - y) < 0.42) { hitPlayer(G, o, x, y, s); if (!B[9]) streak(G, s); gone(); done = true; break; }
+          if (ballOnGnome(G, s, x, y, 0.08)) { if (!B[9]) streak(G, s); gone(); done = true; break; }
+          const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - x, ig[1] - y) < IG_R) { igHit(G, o, x, y, B[10] === 99 ? 2 : B[10] || 1); gone(); done = true; break; }
           const k = blockAt(G, x, y, 0.04, skip); if (k >= 0) { hitWall(G, k, x, y, B[10] || 1); gone(); done = true; break; }
         }
         if (done) continue;
@@ -614,9 +622,9 @@
       G.bu.set(B[0], u1);
       if (u1 < 1) continue;
       gone();
-      if (canHit && Math.hypot(Q.x - x1, Q.y - y1) < (ty === 'd' ? 0.45 : 0.62)) { hitPlayer(G, o, x1, y1, s); continue; }
-      if (ballOnGnome(G, s, x1, y1, ty === 'd' ? 0.12 : 0.3)) continue;
-      if (ty === 'l') { const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - x1, ig[1] - y1) < IG_R + 0.12) { igHit(G, o, x1, y1, B[10] || 1); continue; } const k = blockAt(G, x1, y1, 0.22); if (k >= 0) { hitWall(G, k, x1, y1, B[10] || 1); continue; } }
+      if (canHit && Math.hypot(Q.x - x1, Q.y - y1) < (ty === 'd' ? 0.45 : 0.62)) { hitPlayer(G, o, x1, y1, s); if (!B[9]) streak(G, s); continue; }
+      if (ballOnGnome(G, s, x1, y1, ty === 'd' ? 0.12 : 0.3)) { if (!B[9]) streak(G, s); continue; }
+      if (ty === 'l') { const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - x1, ig[1] - y1) < IG_R + 0.12) { igHit(G, o, x1, y1, B[10] === 99 ? 2 : B[10] || 1); continue; } const k = blockAt(G, x1, y1, 0.22); if (k >= 0) { hitWall(G, k, x1, y1, B[10] || 1); continue; } }
       ev(G, 'p', x1, y1, s);
       void S;
     }
@@ -643,7 +651,7 @@
       else if (k === 'w') { if (!live(G, ref)) continue; const b = G.S.bl[ref]; hitWall(G, ref, b.x, b.y); }
       p.b = Math.min(HAND, p.b + 1);
     }
-    if (T - (st.pr || 0) > PILE_RG) { st.pr = r2(T); st.pl = st.pl.map(v => Math.min(PILE_MAX, v + 1)); }
+    { const so = stormOn(G, T); if (T - (st.pr || 0) > (so ? 2 : PILE_RG)) { st.pr = r2(T); st.pl = st.pl.map(v => Math.min(so ? PILE_MAX + 2 : PILE_MAX, v + 1)); } }
   }
   // ======================= IL FORTINO NASCONDE (su ogni telefono, e per Pierino) =======================
   // Chi sta fermo (o cammina piano) subito dietro un muro non si vede da lontano: si vede solo dove era. Correre, tirare dritto (ti sporgi) o stare allo scoperto ti mostrano.
@@ -780,7 +788,7 @@
   // ======================= LO SLITTINO-ARIETE =======================
   function sledTick(G) {
     const st = G.st, T = G.time;
-    if (!st.sl && T - st.t0 > SLED_AT && !tutOn(G)) { st.sl = { ph: 'w', x: SLED_POS[0], y: SLED_POS[1], t0: r2(T) }; ev(G, 'sa', SLED_POS[0], SLED_POS[1], -1); return; }
+    if (SLED_ON && !st.sl && T - st.t0 > SLED_AT && !tutOn(G)) { st.sl = { ph: 'w', x: SLED_POS[0], y: SLED_POS[1], t0: r2(T) }; ev(G, 'sa', SLED_POS[0], SLED_POS[1], -1); return; }
     const sl = st.sl; if (!sl || sl.ph !== 'r') return;
     if (T - sl.t0 > SLED_T) { const P = posOf(G, charOf(G, sl.s)); st.sl = { ph: 'x' }; ev(G, 'sx', P.x, P.y, sl.s); return; }
     // TRAVOLTO: chi sta davanti allo slittino prende un colpo
@@ -831,6 +839,24 @@
     if (T >= (c.rideT || 0)) { c.rideA = Math.atan2(dy, dx) + (Math.random() < 0.5 ? 1 : -1) * (0.9 + Math.random() * 0.7); c.rideT = T + 0.6 + Math.random() * 0.5; }
   }
 
+  // TORMENTA FINALE: gli ultimi STORM secondi della battaglia (non nel tutorial)
+  const stormOn = (G, T) => !!(G.st && G.st.ph === 'fight' && !tutOn(G) && T - G.st.t0 > FIGHT - STORM);
+  // RAFFICA: colpi di fila (persone o gnomi) entro RAF_T s l'uno dall'altro; al terzo, palla di ghiaccio
+  function streak(G, s) {
+    const p = G.st.p[s], T = G.time, P = posOf(G, charOf(G, s)); p.rf = T - (p.rfT || -99) < RAF_T ? (p.rf || 0) + 1 : 1; p.rfT = r2(T);
+    if (p.rf >= 3) { p.rf = 0; p.ice = 1; ev(G, 'ice', P.x, P.y, s); } else if (p.rf === 2) ev(G, 'rf2', P.x, P.y, s);
+  }
+  // sensazioni sul mio telefono: fischio quando una palla ti sfiora, cuore quando ti resta un colpo, vento della tormenta
+  function feelTick(G) {
+    const st = G.st, t = now(); if (!st || st.ph !== 'fight') { U.nm = {}; U.storm = 0; return; }
+    const s = mySide(G), T = lt(G), p = st.p[s]; U.nm = U.nm || {}; const alive = new Set();
+    for (const B of st.B || []) { if (B[1] === s) continue; alive.add(String(B[0])); const u = Math.max(0, Math.min(1, (T - B[7]) / B[8])), x = B[3] + (B[5] - B[3]) * u, y = B[4] + (B[6] - B[4]) * u, d = Math.hypot(x - cq.x, y - cq.y), m = U.nm[B[0]]; U.nm[B[0]] = m == null ? d : Math.min(m, d); }
+    for (const id in U.nm) if (!alive.has(id)) { if (U.nm[id] < 1.0 && t - (U.hitT || 0) > 0.6 && !p.d) { SFX.whiz(); U.fx.push({ k: 'txt', x: cq.x, y: cq.y, t, s: '💨 di un soffio!', c: '#dfe8ff' }); } delete U.nm[id]; }
+    const so = stormOn(G, T);
+    if (!p.d && (p.h >= HITS - 1 || (so && p.h >= HITS - 2)) && t - (U.hbT || 0) > 0.85) { U.hbT = t; SFX.heart(); }
+    if (so) { if (!U.storm) { U.storm = 1; SFX.wind(); U.shake = t; } if (t - (U.wT || 0) > 2.6) { U.wT = t; SFX.wind(); } } else U.storm = 0;
+  }
+
   function roundEnd(G, win, why) {
     const st = G.st; st.sc = st.sc || {}; if (win >= 0) st.sc[win] = (st.sc[win] || 0) + 1;
     st.ph = 'mres'; st.t0 = r2(G.time); st.win = win; st.B = []; st.gn = []; G.gn = [];
@@ -842,7 +868,7 @@
   }
   function finalEnd(G) {
     const st = G.st, a = G.chars[0], b = G.chars[1], s = i => st.sc[i] || 0, w = s(0) > s(1) ? a : s(1) > s(0) ? b : null;
-    { const bot = G.chars.find(c => c.bot && !c.remote); if (bot && !G.tut && G.chars.every(c => c.bot || !c.remote)) { const M = piMem(); M.lv = Math.max(0.1, Math.min(1, M.lv + (w === bot ? -0.1 : w ? 0.15 : 0))); saveStore(); } }   // vinci tu: Pierino si fa piu' forte; vince lui: piu' calmo
+    { const bot = G.chars.find(c => c.bot && !c.remote); if (bot && !G.tut && G.chars.every(c => c.bot || !c.remote)) { const M = piMem(); M.lv = Math.max(0.2, Math.min(1, M.lv + (w === bot ? -0.1 : w ? 0.15 : 0))); saveStore(); } }   // vinci tu: Pierino si fa piu' forte; vince lui: piu' calmo
     cqModeEnd({ t: w ? '🏆 Vince ' + esc(w.name) + '!' : '🤝 Pari!', why: 'Manche ' + s(0) + ' – ' + s(1), rank: (w === b ? [b, a] : [a, b]).map(c => [c.name, s(sideOf(G, c)) + ' manche']), win: w ? [w.id] : [] });
   }
 
@@ -953,13 +979,13 @@
       }
       if (hid) {   // nascosto: pallonetto dove l'ha visto (a caso intorno) oppure butta giu' il muro che lo copre
         const M = c.mem || Q, dm = Math.hypot(M.x - c.x, M.y - c.y);
-        if (p.b > 1 && T - p.lt > CD + 1.2 + Math.random() * 1.5 && T - (c.mem ? c.mem.t : 0) < 9) {
+        if (p.b > 0 && T - p.lt > CD + 1.4 + Math.random() * 1.6 + (1 - L) * 1.2) {   // nascosto da tanto: lo cerca lo stesso intorno a dove l'ha visto
           const wb = traceWall(G, c.x, c.y, M.x, M.y, skip0); if (wb && G.S.bl[wb.n].o === so && dm <= RMAX_D && Math.random() < 0.55) { throwFrom(G, s, 'd', wb.x, wb.y); return; }
-          if (dm <= RMAX_L && dm >= 3) { throwFrom(G, s, 'l', M.x + (Math.random() - 0.5) * 1.6, M.y + (Math.random() - 0.5) * 1.6); return; }
+          if (dm <= RMAX_L && dm >= 3) { const e = 1.6 + Math.min(2, (T - (c.mem ? c.mem.t : T)) * 0.1); throwFrom(G, s, 'l', M.x + (Math.random() - 0.5) * e, M.y + (Math.random() - 0.5) * e); return; }
         }
       }
       const d = Math.hypot(Q.x - c.x, Q.y - c.y), saving = !!(c.want && iglooOf(G, s) && p.b < GN[c.want[0]].cost);   // mette da parte le palle per lo gnomo che vuole
-      if (!hid && p.b > 0 && !(saving && d > 6) && T - p.lt > CD + 0.7 + Math.random() * 0.9 + (1 - L) * 1.6 && !st.p[so].d) {
+      if (!hid && p.b > 0 && !(saving && d > 6) && T - p.lt > CD + 0.7 + Math.random() * 0.9 + (1 - L) * (stormOn(G, T) ? 0.5 : 1.6) && !st.p[so].d) {
         const vx = o.vx || 0, vy = o.vy || 0, skip = skip0;
         const lead = d / V_D * 0.8, ex = Q.x + vx * lead, ey = Q.y + vy * lead, block = traceWall(G, c.x, c.y, ex, ey, skip);
         if (!block && d <= RMAX_D) { const e = (0.18 + d * 0.025) * (1.9 - L); throwFrom(G, s, 'd', ex + (Math.random() - 0.5) * e * 2, ey + (Math.random() - 0.5) * e * 2); return; }
@@ -976,7 +1002,7 @@
         return;
       }
       // con le palle in mano: dietro un muro a distanza di tiro
-      if (!c.path || !c.path.length) { const P = postFor(G, s, Q); if (P && Math.hypot(P[0] - c.x, P[1] - c.y) > 0.6 && Math.random() < (c.style === 'wall' ? 0.85 : c.style === 'move' ? 0.75 : 0.5)) botGo(G, c, P[0], P[1]); else if (!P && d > RMAX_D - 1 && T - st.t0 > 8 + (1 - L) * 14) approach(G, c, s, Q, p.b >= 3 && L > 0.45 && T - st.t0 > 25); }
+      if (!c.path || !c.path.length) { const P = postFor(G, s, Q); if (P && Math.hypot(P[0] - c.x, P[1] - c.y) > 0.6 && Math.random() < (c.style === 'wall' ? 0.85 : c.style === 'move' ? 0.75 : 0.5)) botGo(G, c, P[0], P[1]); else if (!P && d > RMAX_D - 1 && T - st.t0 > 8 + (1 - L) * 14) approach(G, c, s, Q, (p.b >= 3 && L > 0.45 && T - st.t0 > 25) || (stormOn(G, T) && p.b >= 2)); }
     }
     if (c.path && c.path.length) { const q = c.path[0]; if (blkAt(G, q[0], q[1])) { c.path = []; c.goal = null; } else cqModeStep(c, dt, 0.92); } else { c.walk = 0; c.dodge = 0; }
   }
@@ -1078,7 +1104,7 @@
   function myMake(G) { const st = G.st; if (!st || st.ph !== 'fight') return; if (G.guest) cqNetSend({ k: 'mk' }); else if (startMake(G, mySide(G)) && G.tut) G.tutMk = 1; }
   function uiTickFight(G) {
     const p = PS(G, G.me), T = lt(G), h = document.getElementById('nvHand'); if (!h) return;
-    const rd = riding(G, mySide(G)), sl = G.st.sl, tx = rd ? '🛷 cannone ' + '🔵'.repeat(Math.max(0, sl.am)) + ' · ' + Math.max(0, Math.ceil(SLED_T - (T - sl.t0))) + ' s' : '⚪'.repeat(Math.max(0, p.b || 0)) + '<span style="opacity:.35">' + '⚪'.repeat(Math.max(0, HAND - (p.b || 0))) + '</span> in mano'; if (h.innerHTML !== tx) h.innerHTML = tx;
+    const rd = riding(G, mySide(G)), sl = G.st.sl, tx = rd ? '🛷 cannone ' + '🔵'.repeat(Math.max(0, sl.am)) + ' · ' + Math.max(0, Math.ceil(SLED_T - (T - sl.t0))) + ' s' : '⚪'.repeat(Math.max(0, p.b || 0)) + '<span style="opacity:.35">' + '⚪'.repeat(Math.max(0, HAND - (p.b || 0))) + '</span> in mano' + (rd ? '' : p.ice ? '<br>❄️ <b>PALLA DI GHIACCIO</b> pronta!' : p.rf > 0 && T - (p.rfT || -99) < RAF_T ? '<br>🔥 raffica ' + p.rf + '/3' : ''); if (h.innerHTML !== tx) h.innerHTML = tx;
     const off = !(rd ? sl.am > 0 : p.b > 0) || !!p.d || making(G, mySide(G), T); for (const id of ['nvD', 'nvL']) { const e = document.getElementById(id); if (e && e.classList.contains('off') !== off) e.classList.toggle('off', off); }
   }
   // ---- GLI GNOMI: tre pulsanti (solo con l'igloo in piedi). Tocchi lo gnomo, poi tocchi il punto da attaccare (se non tocchi, sceglie lui) ----
@@ -1126,8 +1152,10 @@
       else if (k === 'p') { SFX.plof(); U.fx.push({ k: 'puff', x, y, t: T }); }
       else if (k === 'w') { SFX.wall(); U.fx.push({ k: 'chunk', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: 'CRAC', c: '#bfe0ff' }); }
       else if (k === 'cr') { SFX.crash(); U.fx.push({ k: 'big', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: b > 6 ? '💥 CROLLA TUTTO!' : '💥 CROLLATO!', c: '#ffd0a0' }); U.shake = T; }
-      else if (k === 'h') { SFX.hit(); U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); U.fx.push({ k: 'txt', x, y, t: T, s: me ? '❄️ PRESO!' : '❄️ PLOF!', c: me ? '#ff9a8a' : '#ffffff' }); if (me) U.shake = T; }
-      else if (k === 'bu') { SFX.buried(); U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); U.bur = { s: a, t: T }; U.fx.push({ k: 'txt', x, y, t: T, s: '☃️ SEPOLTO!', c: '#ffffff' }); }
+      else if (k === 'h') { SFX.hit(); const two = e[6] === 2; U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); U.fx.push({ k: 'txt', x, y, t: T, s: (me ? '❄️ PRESO!' : '❄️ PLOF!') + (two ? ' x2' : ''), c: me ? '#ff9a8a' : '#ffffff' }); if (me) { U.shake = T; U.hitT = T; } }
+      else if (k === 'ice') { SFX.ice(); U.fx.push({ k: 'txt', x, y, t: T, s: me ? '🔥 RAFFICA! ❄️ palla di ghiaccio pronta' : '🔥 RAFFICA di ' + (G.chars[a] ? G.chars[a].name : ''), c: '#9ad8ff' }); }
+      else if (k === 'rf2') { if (me) U.fx.push({ k: 'txt', x, y, t: T, s: '🔥 2 di fila! Ancora uno…', c: '#ffd0a0' }); }
+      else if (k === 'bu') { SFX.buried(); U.slow = T; if (a === mySide(G)) U.hitT = T; U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); U.bur = { s: a, t: T }; U.fx.push({ k: 'txt', x, y, t: T, s: '☃️ SEPOLTO!', c: '#ffffff' }); }
       else if (k === 'mk' && me) SFX.crunch();
       else if (k === 'gs') { SFX.gnome(); U.fx.push({ k: 'txt', x, y, t: T, s: GN[b] ? GN[b].ico + ' ' + GN[b].n + '!' : '', c: me ? '#c8ffb0' : '#ffd0a0' }); }
       else if (k === 'gk') { SFX.squeak(); U.fx.push({ k: 'puff', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '😵 gnomo a terra!', c: '#ffffff' }); }
@@ -1165,7 +1193,7 @@
     { t: '➡️ Il <b>tiro dritto</b> è veloce, ma <b>il muro lo ferma</b>: la ✖ ti dice dove si fermerebbe. Provalo.', ph: 'fight', at: () => qs('#nvD'), ok: G => (G.tutThrow || '').includes('d') },
     { t: 'Per fare altre palle vai al tuo mucchio 📦 (o ai mucchi in mezzo) e premi <b>⚪ Fai palla</b>. Resti fermo un attimo: occhio ai pallonetti!', ph: 'fight', at: G => { const b = qs('#cqKill'); if (b && !b.hidden) return b; const p = PS(G, G.me); return { x: p.sx, y: p.sy }; }, ok: G => !!G.tutMk },
     { t: 'Ora uno <b>gnomo</b>: tocca ⛏️ <b>Picconatore</b> e poi il <b>muro di Pierino</b> da scavare.', ph: 'fight', go: G => { if (!G.guest) G.st.p[mySide(G)].b = HAND; }, at: () => qs('#nvG [data-k=p]'), ok: G => !!G.tutGn || G.time - (G.tutT || 0) > 30 },
-    { t: '💡 Ultimi segreti: se stai <b>fermo dietro un muro</b> Pierino non ti vede. A metà battaglia arriva al centro lo <b>slittino-ariete</b> 🛷. Ora si fa sul serio: buona battaglia!', ph: 'fight', at: () => null, ok: G => G.time - (G.tutT || 0) > 8 }];
+    { t: '💡 Ultimi segreti: se stai <b>fermo dietro un muro</b> Pierino non ti vede. Colpi di fila = <b>raffica</b> 🔥 e palla di ghiaccio; negli ultimi 40 secondi arriva la <b>tormenta</b> 🌨️ e ogni colpo vale doppio. Ora si fa sul serio: buona battaglia!', ph: 'fight', at: () => null, ok: G => G.time - (G.tutT || 0) > 8 }];
   window.neveTutorial = () => {
     if (cq.net) { cqToast('🎓 Il tutorial si fa <b>da soli</b>: esci dal set e riprova.'); return; }
     U.tut = 1; const go = document.getElementById('lbGo'); if (go) go.click();
@@ -1194,7 +1222,7 @@
   }
   cqEachFrame(() => tutTick(cq.g));
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nel <b>giardino innevato</b> dell\'hotel. Vince chi prende per primo <b>2 manche</b>.</p><p><b>1. Il fortino</b> (in segreto, sotto la nevicata): disegna col dito i muri nella tua zona. Hai poca neve, e <b>la stessa neve serve per le palle</b>: quella che avanzi finisce nel mucchio delle scorte 📦 (una palla ogni 2 neve).</p><p><b>2. La tenuta</b>: ogni <b>angolo</b> del muro, ogni <b>asse di legno</b> 🪵 e ogni <b>attacco</b> a un altro muro è un <b>pilastro</b> 🚩. Il pezzo fra due pilastri è una <b>campata</b>: i colpi la crepano e quando cede <b>cade tutta insieme</b>. Un muro lungo e dritto crolla in un colpo solo; uno a zig-zag perde un pezzo alla volta (ma costa più neve). <b>Ripassa</b> un muro per farlo <b>doppio</b>: regge il doppio.</p><p><b>3. La battaglia</b>: ➡️ <b>tiro dritto</b> = veloce, ma <b>il muro lo ferma</b>; 🌙 <b>pallonetto</b> = lento, <b>passa sopra i muri</b>, e la sua <b>ombra</b> avvisa dove cade. Trascini il pulsante all\'indietro come una fionda: più tiri, più va lontano.</p><p><b>4. Le palle</b>: al massimo 3 in mano. Per farne altre ti chini (fermo!) sul tuo mucchio 📦, sui <b>mucchi di neve fresca</b> al centro, o <b>grattando il tuo muro</b> (che si indebolisce).</p><p><b>5.</b> Quando tiri dritto ti <b>sporgi</b>: per un attimo il tuo muro non ti copre. <b>3 colpi</b> e diventi un pupazzo di neve ☃️.</p><p><b>6. Nascosto</b>: se stai <b>fermo</b> (o cammini piano) subito dietro un muro, l\'altro <b>non ti vede</b>: vede solo un ❓ dove eri. Correre o tirare dritto ti scopre. Buttare giù i suoi muri serve anche a <b>scoprirlo</b>.</p><p><b>7. Gli gnomi</b> 🛖: costruisci un <b>igloo</b> (8 neve) e in battaglia ne escono gli gnomi, che <b>costano palle</b> (al massimo 3 in campo; un colpo e sono a terra). Tocchi lo gnomo e poi il punto da attaccare (o lasci scegliere lui). ⛏️ <b>Picconatore</b> (2): scava un muro (quello doppio gli costa il doppio). 🎯 <b>Cecchino</b> (3): entra dai varchi e ti tira da vicino. ☃️ <b>Rotolone</b> (2): spinge una palla che <b>cresce rotolando</b>: se prende un muro <b>di petto</b> lo sfonda, se lo prende <b>di striscio</b> (muro inclinato, a V) <b>scivola via</b>.</p><p><b>8. Lo slittino-ariete</b> 🛷: a metà manche compare <b>al centro</b>. Chi ci arriva per primo ci sale (pulsante grande) e per 15 secondi va più veloce, <b>sfonda i muri</b> spingendoci contro (di petto; di striscio scivola), <b>travolge</b> chi incontra e ha un <b>cannone</b> con 6 palle grosse. Ma se ti colpiscono cadi giù!</p><p>Tra una manche e l\'altra il fortino <b>resta</b>: i pezzi crollati restano a terra, le crepe si richiudono, e hai un po\' di neve nuova per ripararlo.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nel <b>giardino innevato</b> dell\'hotel. Vince chi prende per primo <b>2 manche</b>.</p><p><b>1. Il fortino</b> (in segreto, sotto la nevicata): disegna col dito i muri nella tua zona. Hai poca neve, e <b>la stessa neve serve per le palle</b>: quella che avanzi finisce nel mucchio delle scorte 📦 (una palla ogni 2 neve).</p><p><b>2. La tenuta</b>: ogni <b>angolo</b> del muro, ogni <b>asse di legno</b> 🪵 e ogni <b>attacco</b> a un altro muro è un <b>pilastro</b> 🚩. Il pezzo fra due pilastri è una <b>campata</b>: i colpi la crepano e quando cede <b>cade tutta insieme</b>. Un muro lungo e dritto crolla in un colpo solo; uno a zig-zag perde un pezzo alla volta (ma costa più neve). <b>Ripassa</b> un muro per farlo <b>doppio</b>: regge il doppio.</p><p><b>3. La battaglia</b>: ➡️ <b>tiro dritto</b> = veloce, ma <b>il muro lo ferma</b>; 🌙 <b>pallonetto</b> = lento, <b>passa sopra i muri</b>, e la sua <b>ombra</b> avvisa dove cade. Trascini il pulsante all\'indietro come una fionda: più tiri, più va lontano.</p><p><b>4. Le palle</b>: al massimo 3 in mano. Per farne altre ti chini (fermo!) sul tuo mucchio 📦, sui <b>mucchi di neve fresca</b> al centro, o <b>grattando il tuo muro</b> (che si indebolisce).</p><p><b>5.</b> Quando tiri dritto ti <b>sporgi</b>: per un attimo il tuo muro non ti copre. <b>3 colpi</b> e diventi un pupazzo di neve ☃️.</p><p><b>6. Nascosto</b>: se stai <b>fermo</b> (o cammini piano) subito dietro un muro, l\'altro <b>non ti vede</b>: vede solo un ❓ dove eri. Correre o tirare dritto ti scopre. Buttare giù i suoi muri serve anche a <b>scoprirlo</b>.</p><p><b>7. Gli gnomi</b> 🛖: costruisci un <b>igloo</b> (8 neve) e in battaglia ne escono gli gnomi, che <b>costano palle</b> (al massimo 3 in campo; un colpo e sono a terra). Tocchi lo gnomo e poi il punto da attaccare (o lasci scegliere lui). ⛏️ <b>Picconatore</b> (2): scava un muro (quello doppio gli costa il doppio). 🎯 <b>Cecchino</b> (3): entra dai varchi e ti tira da vicino. ☃️ <b>Rotolone</b> (2): spinge una palla che <b>cresce rotolando</b>: se prende un muro <b>di petto</b> lo sfonda, se lo prende <b>di striscio</b> (muro inclinato, a V) <b>scivola via</b>.</p><p><b>8. La raffica</b> 🔥: colpisci l\'altro (o un suo gnomo) <b>3 volte di fila</b> senza fermarti troppo e ti arriva una <b>palla di ghiaccio</b> ❄️: velocissima, e il pezzo di muro che prende <b>crolla tutto</b>.</p><p><b>9. La tormenta</b> 🌨️: negli <b>ultimi 40 secondi</b> arriva la bufera: palle più veloci, mucchi al centro pieni di neve e <b>ogni colpo vale doppio</b>. Chi è sotto può ancora ribaltare tutto!</p><p>Tra una manche e l\'altra il fortino <b>resta</b>: i pezzi crollati restano a terra, le crepe si richiudono, e hai un po\' di neve nuova per ripararlo.</p></details>';
 
   CQ_MODES.neve = {
     n: 'Battaglia di palle di neve',
@@ -1242,7 +1270,7 @@
       const st = G.st; if (!st) return '⏳ Un attimo…'; const T = lt(G), p = PS(G, G.me);
       if (st.ph === 'build') return p.rd ? '' : T - st.t0 < 3 ? (st.n === 1 ? '✏️ Disegna il tuo fortino!' : '🔧 Ripara il fortino!') : '';
       if (st.ph === 'reveal') return T - st.t0 < 1.4 ? '🌨️ La nevicata si dirada…' : '👀 Ecco il fortino di ' + (G.opp ? G.opp.name : '…') + '!';
-      if (st.ph === 'fight') { if (T - st.t0 < 1.2) return '❄️ VIA!'; if (p.d) return ''; if (st.sl && st.sl.ph === 'w' && T - st.sl.t0 < 3) return '🛷 Lo SLITTINO-ARIETE è al centro!'; if (riding(G, mySide(G)) && T - st.sl.t0 < 2.5) return '🛷 Spingi contro i muri per sfondarli!'; if (making(G, mySide(G), T)) return '🫳 Fai una palla…'; return ''; }
+      if (st.ph === 'fight') { if (T - st.t0 < 1.2) return '❄️ VIA!'; if (p.d) return ''; if (!tutOn(G)) { const so = T - st.t0 - (FIGHT - STORM); if (so >= 0 && so < 3.5) return '🌨️ TORMENTA! Ogni colpo vale DOPPIO'; if (so > -9 && so < -5) return '🌬️ Sta arrivando la tormenta…'; } if (st.sl && st.sl.ph === 'w' && T - st.sl.t0 < 3) return '🛷 Lo SLITTINO-ARIETE è al centro!'; if (riding(G, mySide(G)) && T - st.sl.t0 < 2.5) return '🛷 Spingi contro i muri per sfondarli!'; if (making(G, mySide(G), T)) return '🫳 Fai una palla…'; return ''; }
       if (st.ph === 'down') { return st.win === mySide(G) ? '☃️ L\'hai sepolto!' : '☃️ Sei un pupazzo di neve!'; }
       if (st.ph === 'mres') return st.msg + (st.fin ? '' : '\nProssima manche tra ' + Math.max(1, Math.ceil(MRES - (T - st.t0))) + '…');
       return '';
@@ -1291,7 +1319,7 @@
       if (G.guest && G.wdS != null && G.wdV !== (G.S && G.S.v)) setGeo(G, G.wdV, decode(G.wdS));
       if (G.guest && G.st.wv && (!G.S || G.S.v !== G.st.wv) && now() - U.wdAsk > 1.2) { U.wdAsk = now(); cqNetSend({ k: 'wd?', v: G.S ? G.S.v : -1 }); }
       if (G.guest && G.S && G.S.v === G.st.wv && G.ackV !== G.S.v) { G.ackV = G.S.v; cqNetSend({ k: 'wda', v: G.S.v }); }
-      syncProps(G); stage(G); fxEvents(G); velTick(G, dt); gnUI(G); gnSmooth(G, dt); rideTick(G, dt);
+      syncProps(G); stage(G); fxEvents(G); velTick(G, dt); gnUI(G); gnSmooth(G, dt); rideTick(G, dt); feelTick(G);
       if (G.st.ph === 'build') uiTickBuild(G); if (G.st.ph === 'fight') uiTickFight(G);
       if (U.pend && (now() - U.pend.at > 1.5 || (G.S && G.S.v === G.st.wv && G.S.v !== U.pend.v0))) U.pend = null;
     },
@@ -1370,7 +1398,7 @@
         const [, bs, ty, x0, y0, x1, y1, t0, dur] = B, u = Math.max(0, Math.min(1, (T - t0) / dur)), x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u, d = Math.hypot(x1 - x0, y1 - y0), z = ballZ(ty, u, d);
         if (ty === 'l') { const k = 0.4 + 0.6 * u; g.fillStyle = 'rgba(30,40,80,' + (0.18 + 0.3 * u) + ')'; g.beginPath(); g.ellipse(sx(x1, y1), sy(x1, y1), TW * 0.34 * k, TW * 0.15 * k, 0, 0, 7); g.fill(); if (bs !== s) { g.strokeStyle = 'rgba(255,80,60,' + (0.3 + 0.5 * u) + ')'; g.lineWidth = 2; g.beginPath(); g.ellipse(sx(x1, y1), sy(x1, y1), TW * 0.42, TW * 0.19, 0, 0, 7); g.stroke(); } }
         g.fillStyle = 'rgba(30,40,80,.25)'; g.beginPath(); g.ellipse(sx(x, y), sy(x, y), TW * 0.1, TW * 0.045, 0, 0, 7); g.fill();
-        const [X, Y] = P3(x, y, z), r = Math.max(3.5, TW * 0.085); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(X, Y, r, 0, 7); g.fill(); g.fillStyle = 'rgba(150,175,210,.6)'; g.beginPath(); g.arc(X + r * 0.25, Y + r * 0.25, r * 0.6, 0, Math.PI); g.fill();
+        const [X, Y] = P3(x, y, z), r = Math.max(3.5, TW * 0.085) * (B[10] === 99 ? 1.25 : 1); if (B[10] === 99) { g.fillStyle = 'rgba(140,210,255,.45)'; for (let i = 1; i < 5; i++) { const u2 = Math.max(0, u - i * 0.04), [Xs, Ys] = P3(x0 + (x1 - x0) * u2, y0 + (y1 - y0) * u2, ballZ(ty, u2, d)); g.beginPath(); g.arc(Xs, Ys, r * (1 - i * 0.18), 0, 7); g.fill(); } } g.fillStyle = B[10] === 99 ? '#bfe8ff' : '#ffffff'; g.beginPath(); g.arc(X, Y, r, 0, 7); g.fill(); g.fillStyle = 'rgba(150,175,210,.6)'; g.beginPath(); g.arc(X + r * 0.25, Y + r * 0.25, r * 0.6, 0, Math.PI); g.fill();
       }
       // LA MIA MIRA: tiro dritto = linea (si ferma dove c'e' un muro: ✖), pallonetto = arco a puntini e cerchio dove cade
       if (st.ph === 'fight' && U.aim && U.aim.ok) {
@@ -1412,6 +1440,9 @@
       if (U.gsel) { const D = GN[U.gsel.ty], k = Math.max(0, 1 - (now() - U.gsel.t) / 3.5); g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); const w = Math.min(cq.w - 24, 340), x0 = (cq.w - w) / 2, y0 = 118;
         g.fillStyle = 'rgba(20,40,24,.88)'; cqRR(g, x0, y0, w, 44, 14); g.fill(); g.fillStyle = '#ffd24a'; g.fillRect(x0 + 10, y0 + 37, (w - 20) * k, 3);
         g.fillStyle = '#fff'; g.font = '800 13.5px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('👆 Tocca dove mandare il ' + D.ico + ' ' + D.n, cq.w / 2, y0 + 14); g.font = '600 11.5px system-ui'; g.fillStyle = '#cfe8c8'; g.fillText('(se non tocchi, sceglie lui il punto più debole)', cq.w / 2, y0 + 28); g.restore(); }
+      if (st.ph === 'fight' && stormOn(G, T)) { const k = Math.min(1, (T - st.t0 - (FIGHT - STORM)) / 2); g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.fillStyle = 'rgba(220,232,248,' + 0.13 * k + ')'; g.fillRect(0, 0, cq.w, cq.h);
+        g.strokeStyle = 'rgba(255,255,255,' + 0.75 * k + ')'; g.lineWidth = 2; g.beginPath(); for (let i = 0; i < 70; i++) { const ph = (t * (0.9 + (i % 7) * 0.08) + i * 0.137) % 1, x = ((i * 97) % 100) / 100 * cq.w * 1.3 - ph * cq.w * 0.5, y = ph * cq.h * 1.1 - 20; g.moveTo(x, y); g.lineTo(x - 16, y + 6); } g.stroke(); g.restore(); }
+      if (U.slow && t - U.slow < 2.4) { const k = Math.min(1, (t - U.slow) * 3) * Math.min(1, (2.4 - (t - U.slow)) * 2), W2 = cq.w, H2 = cq.h; g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.7); gr.addColorStop(0, 'rgba(10,20,50,0)'); gr.addColorStop(1, 'rgba(10,20,50,' + 0.6 * k + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2); g.restore(); }
       // scossa dello schermo
       if (U.shake && t - U.shake < 0.3) { const k = 1 - (t - U.shake) / 0.3; g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.fillStyle = 'rgba(255,255,255,' + 0.18 * k + ')'; g.fillRect(0, 0, cq.w, cq.h); g.restore(); }
     }
