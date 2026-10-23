@@ -580,6 +580,12 @@ function modalClose() { const m = document.getElementById('bcModal'); if (m) m.r
 // "🃏 Carte": con chi gioco? (gli amici seduti al tavolino, o il Conte)
 function pick() {
   const N = cq.net, Gm = cq.g; if (!Gm || !Gm.hall) return;
+  if (window.SC && !pick.chosen) {   // Scopa (giochi/scopa.js): si sceglie il gioco prima dell'avversario
+    modal(`<h2>🃏 Carte al tavolino</h2><p>A cosa giocate?</p><button type="button" data-k="bc" class="bcPick">🃏 Briscola</button><button type="button" data-k="sc" class="bcPick">🧹 Scopa</button><button type="button" data-k="x">Annulla</button>`, k => {
+      if (k === 'bc') { pick.chosen = 1; pick(); pick.chosen = 0; } else if (k === 'sc') SC.pickSeated();
+    });
+    return;
+  }
   const busy = playing(), fr = Gm.chars.filter(c => c.remote && c.alive && c.sit != null && !busy.has(c.sid));
   const list = fr.map((c, i) => `<button type="button" data-k="f${i}" class="bcPick">🙂 ${esc(c.name)}</button>`).join('');
   modal(`<h2>🃏 Briscola al tavolino</h2><p>Con chi giochi?</p>${list || '<p style="opacity:.7">Nessun amico seduto al tavolino: invita qualcuno a sedersi!</p>'}

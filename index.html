@@ -3561,8 +3561,9 @@ function cqReception() {
   $('#tkBody').innerHTML = `<div class="rcSec">🎮 Minigiochi</div><div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`
     + `<div class="rcSec">🎲 Giochi da tavola <small>contro il computer o sfidando un amico</small></div>`
     + `<button class="gcard hg" type="button" id="tgBc"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Briscola</div><div class="gs">Carte napoletane, 1 contro 1: contro il Conte o sfida un amico.</div></span></button>`
+    + `<button class="gcard hg" type="button" id="tgSc"><span class="gi" style="background:#2f6a8a">🧹</span><span><div class="gt">Scopa</div><div class="gs">Carte napoletane, 1 contro 1: prese, scope e primiera, si vince a 11.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button>`;
-  $('#tgBc').onclick = tgBriscola; $('#tgDots').onclick = tgDots;
+  $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots;
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#tkBack').hidden = false; $('#tkBack').onclick = () => { cqCloseTask(); cqOpenPick(); };   // ← Indietro: di nuovo il personaggio
@@ -3764,7 +3765,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()));
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -3986,6 +3987,15 @@ function frPicker(el, onPick, extra) {
 }
 // BRISCOLA dalla reception: contro il Conte, oppure sfida a un amico = un party "solo su invito" con l'invito g: 'bc'; appena l'amico entra
 // nella hall parte la sfida al tavolino (bcWantCheck) e lui la accetta da solo (l'aveva gia' accettata dall'invito: bcAutoOk in briscola.js)
+// Scopa dalla reception: contro il Conte; con gli amici si gioca al tavolino del salotto (🃏 Carte -> Scopa)
+function tgScopa() {
+  cqCloseTask(); $('#tkTitle').textContent = '🧹 Scopa';
+  $('#tkBody').innerHTML = '<p class="lead" style="margin-top:0">Carte napoletane, 1 contro 1. Prendi le carte di pari valore o che sommate fanno il valore della tua; tavola vuota = scopa! Si vince a 11.</p><button class="btn primary go" type="button" id="tsAI">🎩 Gioca contro il Conte (computer)</button>'
+    + '<p class="hint">Con gli amici: aprite un party, sedetevi al tavolino del salotto e premete <b>🃏 Carte</b> → <b>🧹 Scopa</b>.</p>';
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#tkBack').hidden = false; $('#tkBack').onclick = cqReception;
+  $('#tsAI').onclick = () => bcLoad().then(() => { cqCloseTask(); SC.startAI(); }).catch(() => cqToast('Non riesco a caricare le carte: controlla la connessione e riprova.'));
+}
 function tgBriscola() {
   cqCloseTask(); $('#tkTitle').textContent = '🃏 Briscola';
   $('#tkBody').innerHTML = '<p class="lead" style="margin-top:0">Carte napoletane, 1 contro 1. Vince chi fa più di 60 punti.</p><button class="btn primary go" type="button" id="tbAI">🎩 Gioca contro il Conte (computer)</button>'
@@ -4169,6 +4179,7 @@ function cqHallTick(dt) {
   if (window.HL) HL.tick(G, dt);   // caramelle pazze
   if (window.DA) DA.tick(G, dt);   // freccette (pulsante sulla linea di tiro, sfide, lavagna dei record)
   if (window.BI) BI.tick(G, dt); if (window.AH) AH.tick(G, dt);   // biliardo e air hockey (giochi/lib/tavolo.js)
+  if (window.SC) SC.tick(G, dt);   // scopa al tavolino (sfide e chi guarda)
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
@@ -6680,5 +6691,6 @@ applyPrefs(); render();
 <script src="giochi/lib/tavolo.js"></script>
 <script src="giochi/biliardo.js"></script>
 <script src="giochi/airhockey.js"></script>
+<script src="giochi/scopa.js"></script>
 </body>
 </html>
