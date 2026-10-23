@@ -940,9 +940,11 @@
           const shot = U2.fx.filter(e => e.k === 'shot' && e.id === c.id).pop(), ag = shot ? now() - shot.t : 9, mira = me && st && winOpen(G2, lt(G2)) >= 0 && U2.acted !== st.bk && !p.d;
           const aim = ag < 0.6 ? 1 : ag < 0.9 ? 1 - (ag - 0.6) / 0.3 : (me && U2.myAim && now() - U2.myAim < 0.3) || mira ? 1 : 0;
           const opt = { sheriff: !!c.sheriff || c.name === 'Lo Sceriffo' && c.bot, noHat: !!p.h, aim, flash: shot && shot.k === 'shot' && ag < 0.12 ? 1 - ag / 0.12 : 0 };
-          if (p.d) {   // a terra: cade all'indietro piano (rallentatore)
-            const kf = U2.slow && U2.slow.id === c.id ? Math.min(1, (now() - U2.slow.t) / 0.9) : 1;
-            longShadow(g, X, Y, TW, 1.2, 0.18); g.save(); g.translate(X, Y); g.rotate(-ff * 1.45 * kf); g.translate(-X, -Y); cowboy(g, X, Y, TW, L2, 0, ff, s, Object.assign(opt, { aim: 0, noHat: true })); g.restore(); return;
+          if (p.d) {   // colpito: la caduta classica del motore (come l'accoltellato di Ciack US, senza coltello) con la macchia di sangue; il cappello rotola accanto
+            const a = U2.slow && U2.slow.id === c.id ? now() - U2.slow.t + 0.3 : 9;
+            cqBody(g, X, Y, TW, L2.skin === 'omino' ? Object.assign({}, L2, { hat: 'nessuno' }) : L2, ff, a, true);
+            if (a > 0.7) { const u = TW / 34, k = Math.min(1, (a - 0.7) / 0.5); g.save(); g.translate(X - ff * (30 + 14 * k) * u, Y - 4 * u - Math.sin(k * Math.PI) * 10 * u); g.rotate(ff * k * 2.4); g.scale(u, u * 0.8); hatShape(g, 0, 0, SIDE[s], opt.sheriff); g.restore(); }
+            return;
           }
           { const T2 = lt(G2), dv = st && st.ph === 'duel' && ((p.dk === st.bk && T2 >= st.bt && T2 < st.bt + WIN + 0.25) || (p.dw && T2 - p.dw >= 0 && T2 - p.dw < 0.9) || (me && U2.myDive && U2.myDive.k === st.bk && now() - U2.myDive.t < 1.8 && T2 < st.bt + WIN + 0.25));
             if (dv) {   // TUFFO: disteso nella polvere, di lato, con un po' di polvere che si alza
