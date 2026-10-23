@@ -2390,8 +2390,8 @@ cqUseMap('studio');
 function cqBlocked(x, y) {
   const cx = Math.floor(x), cy = Math.floor(y);
   if (!cqFloor[cy] || !cqFloor[cy][cx]) return true;
-  const s = cqSolid[cy][cx]; if (s && !s.soft) return true;   // soft: casella che vale solo per i percorsi dei computer (cqPath); la sagoma vera la decide il gioco
-  const G = cq.g; if (G && G.hall && cq.map === 'hotel' && cqSalaBlk(x, y)) return true;
+  const s = cqSolid[cy][cx]; if (s && !s.soft && !(s.prop && cq.fly && cq.g && cq.g.hall)) return true;   // cq.fly: caramella Fluttuante, si passa sopra i mobili (non i muri)   // soft: casella che vale solo per i percorsi dei computer (cqPath); la sagoma vera la decide il gioco
+  const G = cq.g; if (G && G.hall && cq.map === 'hotel' && !cq.fly && cqSalaBlk(x, y)) return true;
   return !!(G && G.mode && G.M.blk && G.phase === 'play' && G.M.blk(G, x, y));   // M.blk(G, x, y): ostacoli del gioco che si muovono senza scatti (es. l'ariete dell'Assedio)
 }
 function cqFree(x, y) { const r = CQ_R; return !(cqBlocked(x - r, y - r) || cqBlocked(x + r, y - r) || cqBlocked(x - r, y + r) || cqBlocked(x + r, y + r)); }
@@ -2767,7 +2767,7 @@ async function cqNetOpen(code, role) {
   }, 10000);
   // hall: stato di tutti, scherzi per me, conto alla rovescia dell'host
   N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hl`), s => { N.hl = s.val() || {}; }));
-  N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) { let sl = null; if (v.s) { if (cq.sit != null) { const p = cq.sitFrom; cq.sit = null; if (p) { cq.x = p.x; cq.y = p.y; } } sl = cqSlapTo(cq.x, cq.y, +v.dx || 0, +v.dy || 0); cq.x = sl.x1; cq.y = sl.y1; thud(0.9, 1700); } cqHallDie(G.me, String(v.n || '').slice(0, 14), sl); } }));
+  N.unsubs.push(F.onChildAdded(cqNetRef(`cq/${code}/hk/${N.sid}`), sn => { const v = sn.val(); F.remove(sn.ref).catch(() => {}); const G = cq.g; if (G && G.hall && v && G.me.alive) { let sl = null; if (v.s) { if (cq.sit != null) { const p = cq.sitFrom; cq.sit = null; if (p) { cq.x = p.x; cq.y = p.y; } } sl = cqSlapTo(cq.x, cq.y, +v.dx || 0, +v.dy || 0, 2.2 * Math.min(3, Math.max(1, +v.p || 1))); cq.x = sl.x1; cq.y = sl.y1; thud(0.9, 1700); } cqHallDie(G.me, String(v.n || '').slice(0, 14), sl); } }));
   if (role !== 'host') N.unsubs.push(F.onValue(cqNetRef(`cq/${code}/hc`), s => { const v = s.val(); N.hc = v ? v.n : null; }));
   N.t0 = Date.now(); cq.hlog = [];
   N.unsubs.push(F.onChildAdded(F.query(cqNetRef(`cq/${code}/hm`), F.limitToLast(20)), sn => { if (cq.net === N) cqChatGot(sn.val()); }));   // chat della hall
@@ -3793,6 +3793,7 @@ function cqHallUI(on) {
   $('#ciack').classList.toggle('hallMode', !!on); $('#cqModeBar').hidden = true;
   $('#cqHallBar').hidden = !on; $('#cqHallSet').hidden = !on; if (!on) $('#cqCount').hidden = true;
   if (!on) { $('#cqChatB').hidden = true; $('#cqChatP').hidden = true; $('#cqPartyB').hidden = true; }
+  if (!on && window.HL) HL.off();   // gli effetti delle caramelle valgono solo nella hall
   if (!on) { $('#cqKill').hidden = true; $('#cqSlap').hidden = true; $('#cqSit').hidden = true; $('#cqDrink').hidden = true; cq.sit = null; $('#cqKill').classList.remove('hk'); }
 }
 function cqHallDie(c, by, sl) {   // sl = schiaffo {x0, y0 da dove vola, x1, y1 dove cade, f verso}
@@ -3819,18 +3820,19 @@ function cqHallPrank(kind) {
   me.pcd = CQ_HALL_CD;
   let sl = null, dx = v.x - cq.x, dy = v.y - cq.y; const l = Math.hypot(dx, dy) || 1; dx /= l; dy /= l;
   if (kind === 's') {
-    sl = cqSlapTo(v.x, v.y, dx, dy); cq.sw = (cq.sw || 0) + 1; cq.swT = G.time; cq.face = dx - dy >= 0 ? 1 : -1; cqHallPub(true);
+    const pw = window.HL ? HL.pow() : 1; sl = cqSlapTo(v.x, v.y, dx, dy, 2.2 * pw); cq.sw = (cq.sw || 0) + 1; cq.swT = G.time; cq.face = dx - dy >= 0 ? 1 : -1; cqHallPub(true);
     thud(0.9, 1700); beep(260, 0.05, 0.05, 0, 'square'); beep(1400, 0.04, 0.03, 0.02, 'square');
+    if (pw > 1) { thud(1, 120); beep(90, 0.3, 0.06, 0.03, 'sawtooth'); cqToast('💪 SCHIAFFONE SUPER!'); }
   }
-  if (v.remote) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/hk/${v.sid}`), sl ? { f: N.sid, n: me.name, s: 1, dx: Math.round(dx * 100) / 100, dy: Math.round(dy * 100) / 100 } : { f: N.sid, n: me.name }).catch(() => {}); v.pred = G.time + 1.5; }
+  if (v.remote) { const N = cq.net; if (N) N.F.push(cqNetRef(`cq/${N.code}/hk/${v.sid}`), sl ? { f: N.sid, n: me.name, s: 1, dx: Math.round(dx * 100) / 100, dy: Math.round(dy * 100) / 100, p: sl.p || 1 } : { f: N.sid, n: me.name }).catch(() => {}); v.pred = G.time + 1.5; }
   if (sl) { v.x = v.tx = sl.x1; v.y = v.ty = sl.y1; }
   cqHallDie(v, me.name, sl);
 }
 // dove finisce chi prende lo schiaffo: fino a 2,2 caselle nella direzione del colpo, fermandosi prima di muri, mobili e poltrone
-function cqSlapTo(x, y, dx, dy) {
+function cqSlapTo(x, y, dx, dy, len = 2.2) {   // len: piu' lontano con la caramella Superforza
   let x1 = x, y1 = y;
-  for (let t = 0.1; t <= 2.2; t += 0.1) { const nx = x + dx * t, ny = y + dy * t; if (!cqFree(nx, ny)) break; x1 = nx; y1 = ny; }
-  return { x0: x, y0: y, x1, y1, f: dx - dy >= 0 ? 1 : -1 };
+  for (let t = 0.1; t <= len; t += 0.1) { const nx = x + dx * t, ny = y + dy * t; if (!cqFree(nx, ny)) break; x1 = nx; y1 = ny; }
+  return { x0: x, y0: y, x1, y1, f: dx - dy >= 0 ? 1 : -1, p: Math.round(len / 2.2) };
 }
 // ---- SALOTTO della hall: tavolino del te' (prop 'teatable' nella casella 3,11) e poltrone attorno, TANTE QUANTE LE PERSONE DEL SET (2-8).
 // Le poltrone non stanno nella mappa pronta: si disegnano a ogni fotogramma (si risistemano quando cambia il numero) e fermano il passo (cqSalaBlk).
@@ -4092,7 +4094,7 @@ function cqBubble(g, X, Y, t) {
 // il mio stato per gli altri del set (ogni 0,15 s se cambia, altrimenti ogni 2 s)
 function cqHallPub(now) {
   const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
-  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, k: G.me.alive || !G.me.slap ? 0 : 1, s: cq.sit != null ? cq.sit + 1 : 0, dk: cq.dk || 0, sw: cq.sw || 0, i: 1 }, k = JSON.stringify(o), t = performance.now();
+  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, k: G.me.alive || !G.me.slap ? 0 : 1, s: cq.sit != null ? cq.sit + 1 : 0, dk: cq.dk || 0, sw: cq.sw || 0, cy: window.HL ? HL.pub() : 0, i: 1 }, k = JSON.stringify(o), t = performance.now();
   if (!now && (t - (N.hlT || 0) < 150 || (k === N.hlK && t - N.hlT < 2000))) return;
   N.hlT = t; N.hlK = k; o.t = Math.round(t); cqNetPut(`cq/${N.code}/hl/${N.sid}`, o);
 }
@@ -4143,7 +4145,7 @@ function cqHallNet() {
     c.name = String(p.name || 'Amico').slice(0, 14); c.look = cqNetLook(p.look); c.dname = c.name + (h.r ? ' ✅' : '');
     if (h !== c.lh) { c.lh = h; cqNetGot(c, h.x, h.y, (h.t != null ? h.t : performance.now()) / 1000, h.w); }
     c.face = h.f === -1 ? -1 : 1; c.mv = h.w;
-    c.sit = h.s ? h.s - 1 : null;
+    c.sit = h.s ? h.s - 1 : null; c.cy = h.cy || 0;   // cy: effetto della caramella (giochi/hall.js)
     if (h.dk !== c.dkN) { if (c.dkN != null) c.dkT = G.time; c.dkN = h.dk; }   // ha cominciato a bere
     if (h.sw !== c.swN) { if (c.swN != null) c.swT = G.time; c.swN = h.sw; }   // ha dato uno schiaffo
     if (h.d && c.alive && !(c.pred > G.time)) cqHallDie(c, '', h.k ? { x0: c.x, y0: c.y, x1: c.tx, y1: c.ty, f: c.tx - c.x - (c.ty - c.y) >= 0 ? 1 : -1 } : null);
@@ -4161,6 +4163,7 @@ function cqHallCount() {
 function cqHallTick(dt) {
   const G = cq.g, me = G.me, N = cq.net;
   G.time += dt; me.x = cq.x; me.y = cq.y; me.face = cq.face; me.pcd = Math.max(0, (me.pcd || 0) - dt);
+  if (window.HL) HL.tick(G, dt);   // caramelle pazze
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
@@ -5339,14 +5342,16 @@ function cqFrame(t) {
   const G = cq.g, playing = !!G && G.phase === 'play' && $('#cqPick').hidden;
   let d = (!G || playing || (G.hall && G.me.alive && $('#cqPick').hidden)) && !(G && G.mode && G.pre > 0) ? cqDir() : null;
   if (d && G && G.hall && cq.sit != null) { cqSitToggle(); d = null; }   // seduto in poltrona: muovere il dito fa alzare
+  if (G && G.hall && window.HL && cq.sit == null && G.me.alive) d = HL.dir(d);   // caramelle della hall: comandi al contrario, rimbalzina che non si ferma
   const cam = cqCam();
   if (d && cam) { const k = CQ_SPEED * 1.6 * dt; cam.x = Math.max(0, Math.min(CQ_W, cam.x + d.wx * k)); cam.y = Math.max(0, Math.min(CQ_H, cam.y + d.wy * k)); cq.walk = 0; }   // telecamera libera (fantasmino): il mio personaggio resta fermo
   else if (d) {
     const up = CQ_MAP.hz && cqHz(cq.x + d.wx * 1.5, cq.y + d.wy * 1.5) > cqHz(cq.x, cq.y) + 0.3 ? 0.72 : 1;   // in salita piu' piano
-    const sp = up * CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1) * (G && G.mode && G.M.speed ? G.M.speed(G.me) : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
+    const sp = up * CQ_SPEED * (G && G.fast > G.time ? 1.7 : 1) * (G && G.mode && G.M.speed ? G.M.speed(G.me) : 1) * (G && G.hall && window.HL ? HL.spd() : 1), nx = cq.x + d.wx * sp * dt, ny = cq.y + d.wy * sp * dt; cq.wdx = d.wx; cq.wdy = d.wy;   // si prova un asse alla volta: lungo i muri si scivola
     if (G && G.mode && G.phase === 'play' && !cqFree(cq.x, cq.y)) cqUnstick();   // finito dentro un ostacolo (es. in mare): fuori
     if (cqFreeZ(cq.x, cq.y, nx, cq.y)) cq.x = nx;
     if (cqFreeZ(cq.x, cq.y, cq.x, ny)) cq.y = ny;
+    if (G && G.hall && window.HL) HL.moved(cq.x !== nx, cq.y !== ny);
     if (d.sx) cq.face = d.sx > 0 ? 1 : -1;
     cq.lx = d.wx - d.wy; cq.ly = (d.wx + d.wy) / 2;   // dove guardo, sullo schermo
     cq.walk += dt * 11;
@@ -5923,11 +5928,13 @@ function cqDraw() {
       list.push({ cup: p, x: p.cx, y: p.cy, t: t != null && t < 2.3 ? t : null, sitK: 0.29, d: t != null && t < 2.3 ? p.x + p.y + 0.03 : 15.02 });
     }   // nk: senza il coltello (es. preso dalla Cosa)
     for (const ch of G.chars) {
+      const n0 = list.length;
       if (ch === G.me && G.hall && !ch.alive) continue;
       if (G.mode && G.M.hide && G.M.hide(ch)) continue;
       if (ch === G.me && G.hall && cq.net) list.push(cqSitDraw({ sid: cq.net.sid, bub: cq.myBub, ang: ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: ch.name + (cqHallReady() ? ' ✅' : ''), sw: cq.swT != null ? G.time - cq.swT : null }, cq.sit));
       else if (ch === G.me) list.push({ mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: cq.x, y: cq.y, L: meLook, w: cq.walk, f: cq.face, ghost: !ch.alive, name: (G.disg && G.disg.until > G.time ? G.chars[G.disg.id].name : ch.name) + (ch.alive ? '' : ' (fantasma)') });
       else if ((ch.alive || (G.mode && G.me.alive === false)) && seen(ch.x, ch.y)) list.push(G.hall ? cqSitDraw({ sid: ch.sid, bub: ch.bub, talk: ch.talk, ang: ch.angel != null ? G.time - ch.angel : null, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || ch.name, sw: ch.swT != null ? G.time - ch.swT : null }, ch.sit) : { mo: G.mode ? ch : null, dr: G.mode && G.M.draw ? G.M.draw(ch) : null, nc: G.mode && G.M.nameCol ? G.M.nameCol(ch) : null, tint: G.mode && G.M.tint ? G.M.tint(ch) : null, ghost: G.mode && !ch.alive, ang: (G.hall || G.mode) && ch.angel != null ? G.time - ch.angel : null, talk: ch.talk, x: ch.x, y: ch.y, L: cqLookOf(ch), w: ch.walk, f: ch.face, name: ch.dname || (ch.disg && ch.disg.until > G.time ? G.chars[ch.disg.id].name : ch.name), prog: ch.doing && ch.doT > 0 ? Math.min(1, Math.max(0, 1 - ch.wait / ch.doT)) : null, red: (G.me.imp && ch.imp) || G.known[ch.id] === true, green: G.known[ch.id] === false });
+      if (G.hall && window.HL && list.length > n0) HL.look(list[list.length - 1], ch);   // effetto della caramella
     }
     // M.prop(c) -> [tipo, opzione, nome visibile?, x, y]: il personaggio si disegna come quell'oggetto della mappa, centrato in x, y (es. Nascondino)
     if (G.mode && G.M.prop) for (const o of list) if (o.mo) { const pr = G.M.prop(o.mo); if (pr) { o.pr = pr; if (!pr[2]) o.name = null; if (pr[3] != null) { o.x = pr[3]; o.y = pr[4]; } } }
@@ -6662,5 +6669,6 @@ applyPrefs(); render();
 })();
 </script>
 <script src="giochi/lib/pixel.js"></script>
+<script src="giochi/hall.js"></script>
 </body>
 </html>
