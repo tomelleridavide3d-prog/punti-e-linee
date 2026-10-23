@@ -218,6 +218,8 @@ details.gList summary{cursor:pointer;font-weight:700;font-size:16px;padding:8px 
 details.gList summary::-webkit-details-marker{display:none}
 details.gList summary::after{content:' ▾';opacity:.6}
 details.gList[open] summary::after{content:' ▴'}
+/* un colore per sezione della reception: viola i minigiochi, verde tavolo i giochi da tavola */
+details.gList.gMini,details.gList.gTav{border:2px solid var(--gc);background:color-mix(in srgb,var(--gc) 12%,var(--panel))}details.gList.gMini summary,details.gList.gTav summary,.rcSec.gMini,.rcSec.gTav{color:var(--gc)}.gMini{--gc:#8b5cf6}.gTav{--gc:#2f9a55}
 .gdesc{font-size:15px;line-height:1.45;color:var(--ink);margin:6px 0 4px}
 .gname{font-size:19px;font-weight:800;margin:10px 0 0}
 #cqModeBar{position:absolute;left:12px;right:12px;top:62px;background:rgba(20,22,28,.72);color:#fff;border-radius:12px;padding:8px 12px;font-size:14px;font-weight:600;pointer-events:none;text-align:center}
@@ -3571,9 +3573,9 @@ const cqTitle = t => { const e = $('#cqTitle'); if (e && e.textContent !== t) e.
 function cqReception() {
   cqCloseTask(); cqTitle('🏨 Hotel'); $('#cqLookBtn').hidden = false;
   $('#tkTitle').textContent = '🏨 Hotel dei Giochi';
-  $('#tkBody').innerHTML = `<div class="rcSec">🎮 Minigiochi</div><div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`
-    + `<div class="rcSec">🎲 Giochi da tavola <small>contro il computer o sfidando un amico</small></div>`
-    + `<details class="gList" id="tgList"${cq.tgOpen ? ' open' : ''}><summary>🎲 Scegli un gioco da tavola</summary>`
+  $('#tkBody').innerHTML = `<div class="rcSec gMini">🎮 Minigiochi</div><div id="lbNet"></div><details class="gList gMini"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`
+    + `<div class="rcSec gTav">🎲 Giochi da tavola <small>contro il computer o sfidando un amico</small></div>`
+    + `<details class="gList gTav" id="tgList"${cq.tgOpen ? ' open' : ''}><summary>🎲 Scegli un gioco da tavola</summary>`
     + `<button class="gcard hg" type="button" id="tgBc"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Briscola</div><div class="gs">Carte napoletane, 1 contro 1: contro il Conte o sfida un amico.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgSc"><span class="gi" style="background:#2f6a8a">🧹</span><span><div class="gt">Scopa</div><div class="gs">Carte napoletane, 1 contro 1: prese, scope e primiera, si vince a 11.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button></details>`;
