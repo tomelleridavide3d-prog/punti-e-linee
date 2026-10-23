@@ -936,6 +936,10 @@
 #alBook .rc{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid rgba(255,255,255,.1)}#alBook .rc .ig{flex:0 0 58px;font-size:18px}#alBook small{opacity:.85}
 #alHelp{position:absolute;left:12px;right:12px;bottom:250px;z-index:10;max-width:460px;margin:0 auto;background:rgba(26,18,36,.95);color:#f2ead8;border:1px solid rgba(200,160,80,.6);border-radius:14px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)}#alHelp.prep{bottom:auto;top:240px}
 #alAsc{position:absolute;inset:0;z-index:12;background:#070b1c;cursor:pointer}#alAsc canvas{width:100%;height:100%;display:block}#alAsc .tx{position:absolute;left:0;right:0;top:27%;text-align:center;color:#f4ecd8;text-shadow:0 2px 14px #000,0 0 4px #000;font:700 15px system-ui,sans-serif;display:flex;flex-direction:column;gap:6px;opacity:0;transition:opacity .45s;pointer-events:none}#alAsc .tx b{font-size:30px}#alAsc .tx span{font-size:21px;color:#ffe2a0}#alAsc .tx small{font-size:14px;opacity:.85;letter-spacing:.08em}
+#alTut{position:absolute;inset:0;z-index:20;pointer-events:none}#alTut .bub{position:absolute;left:10px;right:10px;top:calc(env(safe-area-inset-top) + 56px);max-width:460px;margin:0 auto;background:#fff8e8;color:#3a2416;border:3px solid #ffd24a;border-radius:16px;padding:9px 12px 10px;font:600 15px/1.35 system-ui,sans-serif;box-shadow:0 6px 22px rgba(0,0,0,.5);pointer-events:auto}#alTut.duel .bub{top:calc(env(safe-area-inset-top) + 104px)}#alTut .bub small{display:block;font:800 11.5px system-ui;color:#8a5a20;letter-spacing:.04em;margin-bottom:3px}#alTut .bub button{position:absolute;top:6px;right:8px;border:0;background:none;color:#8a5a20;font:700 12px system-ui;padding:2px 4px;cursor:pointer}
+#alTut .hl{position:absolute;border:3px solid #ffd24a;box-shadow:0 0 0 5px rgba(255,210,74,.35),0 0 18px rgba(255,210,74,.8);animation:alPulse 1s ease-in-out infinite}#alTut .fg{position:absolute;font-size:40px;line-height:1;transform:translateX(-35%);filter:drop-shadow(0 3px 4px rgba(0,0,0,.6));animation:alBob .7s ease-in-out infinite alternate}
+@keyframes alBob{from{margin-top:0}to{margin-top:10px}}@keyframes alPulse{0%,100%{opacity:1}50%{opacity:.45}}
+#alTutBox{margin:4px 0 12px;padding:12px;border-radius:14px;background:linear-gradient(135deg,#3a2a5e,#5a3a8a);border:2px solid #ffd24a;color:#fff;text-align:center}#alTutBox b{display:block;font-size:17px;margin-bottom:4px}#alTutBox button{margin-top:8px;padding:11px 18px;border:0;border-radius:12px;background:#ffd24a;color:#3a2416;font:800 16px system-ui;cursor:pointer}#alTutBox.done{background:rgba(90,58,138,.35);border-width:1px;padding:8px}#alTutBox.done b{font-size:14px}#alTutBox.done button{padding:8px 14px;font-size:14px}
 #alHelp button{display:block;margin:10px auto 0;padding:8px 18px;border:0;border-radius:10px;background:#8a4ad0;color:#fff;font:700 14px system-ui}`;
     document.head.appendChild(st);
   }
@@ -953,7 +957,7 @@
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
     $('#alBot').onclick = () => bottle(G); $('#alFill').onclick = () => quickFill(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); spell('Ops… 🙈', 'oops'); prepRender(G); };
     $('#alRdy').onclick = () => setReady(G, !ready(G)); if (ADV()) { $('#alBk').onclick = () => bookOpen(G); $('#alCol').onclick = () => bookOpen(G); }
-    helpOnce('prep');
+    if (!G.tut) helpOnce('prep');
     U2.pot = []; U2.fx = []; U2.msg = '';
     prepRender(G);
   }
@@ -1305,7 +1309,7 @@
     midnight: { e: '🕛', d: 6, warn: '🔔 <b>Sta per suonare la mezzanotte…</b>', go: '🕛 <b>MEZZANOTTE!</b> Il tempo rallenta per tutti', sp: 0.55, fl: 0.5 },
     surge: { e: '🌋', d: 10, warn: '🌋 <b>La voragine trema…</b>', go: '🌋 <b>ERUZIONE MAGICA!</b> Tutte le pozioni sono più forti', amp: 1.5, ar: 1.25 } };
   const evPh = G => { const E = G.st && G.st.ph === 'duel' && G.st.ev && EVENTS[G.st.ev.k]; if (!E) return ''; const t = G.time - G.st.ev.t; return t < -EV_WARN ? '' : t < 0 ? 'warn' : t < E.d ? 'on' : 'done'; };
-  const evOk = G => G.chars.every(c => (c.bot && !c.remote) || (c === G.me ? LV() : c.lv || 0) >= ADV_AT);   // eventi solo se tutti i giocatori veri sono esperti
+  const evOk = G => !G.tut && G.chars.every(c => (c.bot && !c.remote) || (c === G.me ? LV() : c.lv || 0) >= ADV_AT);   // eventi solo se tutti i giocatori veri sono esperti
   const evOn = (G, k) => !!(G.st && G.st.ev && G.st.ev.k === k && evPh(G) === 'on');
   function evTick(G) {   // host: le fioriture (una volta, quando comincia)
     const ev = G.st.ev; if (!ev || ev.done || evPh(G) !== 'on') return; ev.done = 1;
@@ -1438,6 +1442,7 @@
   function dash(G, c, dx, dy, len) { const l = Math.hypot(dx, dy); if (l < 0.01) return; c.kbN = (c.kbN || 0) + 1; c.kb = [c.kbN, r2(dx / l * len), r2(dy / l * len), 1]; }
   function hurt(G, c, why, n = 1) {
     if (out(G, c) || (c.iv || 0) > G.time || !G.st || G.st.ph !== 'duel' || fxOn(G, c, 'stone')) return;
+    if (G.tut && G.tutS < TUT_FREE) n = Math.min(n, c.hp - 1);   // tutorial: durante i passi guidati non si perde (al massimo si resta con 1 cuore)
     c.hp = Math.max(0, c.hp - n); c.iv = r2(G.time + IV); c.hitT = r2(G.time);
     G.hxN++; G.hx.push(n > 1 ? [G.hxN, c.id, why, 'combo'] : [G.hxN, c.id, why]); if (G.hx.length > 8) G.hx.shift();
     if (c.hp <= 0) roundEnd(G, oppOf(G, c), (n > 1 ? '💥 COMBO! ' : '💀 ') + c.name + ' è a terra!');
@@ -1683,7 +1688,7 @@
     st.ph = 'mres'; st.t0 = G.time; st.win = win ? win.id : -1;
     const a = G.chars[0], b = G.chars[1], s = c => st.sc[c.id] || 0;
     st.msg = (win ? '🏆 Manche a ' + win.name + '!' : '🤝 Manche pari!') + '\n' + why + '\n' + a.name + ' ' + s(a) + ' – ' + s(b) + ' ' + b.name;
-    st.fin = st.n >= FLOORS.length ? 1 : 0;   // sempre 3 manche, una per piano (vince chi ne prende di piu')
+    st.fin = st.n >= FLOORS.length || G.tut ? 1 : 0;   // (il tutorial e' una manche sola)   // sempre 3 manche, una per piano (vince chi ne prende di piu')
     if (!st.fin) st.msg += '\n⬆️ Si sale: ' + FLOORS[st.n].e + ' ' + FLOORS[st.n].n;
   }
   function newRound(G) {
@@ -1896,16 +1901,18 @@
     { const h = document.getElementById('alHelp'); if (h) h.remove(); const bk = document.getElementById('alBook'); if (bk) bk.remove(); }
     G.me.cos = myCos(); if (G.guest && G.cosSent !== G.me.cos) { G.cosSent = G.me.cos; cqNetSend({ k: 'cos', v: G.me.cos, lv: LV() }); }   // i miei premi (e le mie partite) all'host
     if (p === 'prep') {
-      useFloor(Math.min(FLOORS.length, G.st.n) - 1); if (!G.guest && !(G.pl && G.pl.length === (FL.plants ? PLANTS.length : 0))) plantsInit(G);
+      useFloor(Math.min(FLOORS.length, G.st.n) - 1); if (!G.guest && !G.tut && !(G.pl && G.pl.length === (FL.plants ? PLANTS.length : 0))) plantsInit(G);
       G.myRdy = false; G.me.belt = G.me.belt && !was ? G.me.belt : Array(BELT_N).fill(''); G.fl = []; G.zn = []; cq.x = SPAWN[sideIdx(G, G.me)][0]; cq.y = SPAWN[sideIdx(G, G.me)][1]; cq.sl = null; G.myFall = null; G.fill = null;
       duelUI(G, false); prepOpen(G);
       if (was.startsWith('mres') && G.st.n > 1) ascOpen(G.st.n);   // si sale: scena lungo la torre
     } else prepClose();
-    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelArm(G, G.me); duelUI(G, true); helpOnce('duel'); cqToast('⚔️ <b>Duello!</b> <b>Tocca la mappa</b> dove vuoi lanciare. Le ampolle sono poche: <b>non sprecarle</b>. Prima <b>blocca</b> l\'altro (🍯 colla, 🧊 gelo, ⏳ sabbia), poi <b>brucialo</b>: <b>COMBO = -2 cuori!</b>'); }
+    if (p === 'prep' && G.guest && !store.settings.alcTut && !ADV() && !G.tutHint) { G.tutHint = 1; setTimeout(() => cqToast('🎓 Sei nuovo? Dopo prova il <b>Tutorial</b> da solo: è nelle impostazioni del gioco.'), 5000); }
+    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelArm(G, G.me); duelUI(G, true); if (!G.tut) helpOnce('duel'); if (!G.tut) cqToast('⚔️ <b>Duello!</b> <b>Tocca la mappa</b> dove vuoi lanciare. Le ampolle sono poche: <b>non sprecarle</b>. Prima <b>blocca</b> l\'altro (🍯 colla, 🧊 gelo, ⏳ sabbia), poi <b>brucialo</b>: <b>COMBO = -2 cuori!</b>'); }
     else duelUI(G, false);
     if (p === 'mres') SFX[G.st.win === G.me.id ? 'bottle' : 'pour']();
-    if (p === 'mres' && G.st.fin && !G.counted && !U2.tut) { G.counted = 1; store.settings.alcGames = LV() + 1; saveStore(); }   // una partita completa in piu'
-    if (p === 'prep') cqToast(FL.e + ' <b>Piano ' + G.st.n + ' di ' + FLOORS.length + ': ' + FL.n + '</b><br>' + FL.tip);
+    if (p === 'mres' && G.st.fin && G.tut && !G.counted) { G.counted = 1; tutEnd(G, true); cqToast('🎓 <b>Tutorial finito!</b> Ora sei pronto per sfidare gli amici. 🧙'); }
+    if (p === 'mres' && G.st.fin && !G.counted && !G.tut) { G.counted = 1; store.settings.alcGames = LV() + 1; saveStore(); }   // una partita completa in piu'
+    if (p === 'prep' && !G.tut) cqToast(FL.e + ' <b>Piano ' + G.st.n + ' di ' + FLOORS.length + ': ' + FL.n + '</b><br>' + FL.tip);
     if (p === 'prep') unlockNews();
   }
   // annuncio degli sblocchi (la prima preparazione dopo aver raggiunto un nuovo livello)
@@ -2112,7 +2119,7 @@
     maps: [['torre', 'Torre dei maghi']],
     ns: [[2, '2']],
     def: { map: 'torre', n: 2, fill: true },
-    opts: () => RULES,
+    opts: () => { prepCss(); const done = store.settings.alcTut; return '<div id="alTutBox"' + (done ? ' class="done"' : '') + '>' + (done ? '<b>🎓 Vuoi ripassare?</b>' : '<b>🎓 Prima volta? Impara in 2 minuti!</b><small>Una partita da solo, passo passo, con un dito che ti mostra cosa toccare.</small><br>') + '<button type="button" onclick="alcTutorial()">🎓 Tutorial</button></div>' + RULES; },
     read: () => ({}),
     start(G) {
       G.opp = G.chars.find(c => c !== G.me) || null;
@@ -2120,6 +2127,7 @@
       G.chars.forEach((c, i) => { const [x, y] = SPAWN[i % 2]; c.x = x; c.y = y; c.face = i ? -1 : 1; c.hp = HP; c.fx = {}; c.path = []; c.think = 1 + i; c.belt = Array(BELT_N).fill(''); });
       G.st = { n: 1, ph: 'prep', t0: 0, rd: {}, sc: {} }; U2.ph = '';
       useFloor(0); plantsInit(G);
+      G.tut = !!U2.tut; U2.tut = null; if (G.tut) { G.pl = []; G.tutS = 0; G.tutT = 0; for (const c of G.chars) if (c.bot) c.hold = 1; }   // tutorial
       for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(G); G.st.rd[c.id] = 1; c.cos = PRIZES.filter(() => Math.random() < 0.35).map(p => p.id).join(','); }   // anche il computer ha qualche premio
       G.me.cos = myCos();
     },
@@ -2169,6 +2177,7 @@
     },
     tick(G, dt) {
       const st = G.st;
+      if (G.tut && G.tutS < TUT_FREE && st.ph !== 'mres') st.t0 = G.time;   // tutorial: il tempo non scorre finche' si impara
       if (st.ph === 'prep') {
         const left = (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0);
         if (G.chars.every(c => st.rd[c.id]) || left < -1.5) { st.ph = 'duel'; st.t0 = G.time; st.rd = {}; st.ev = FL && FL.ev && evOk(G) ? { k: FL.ev, t: r2(G.time + EV_AT) } : null; for (const c of G.chars) if (c.bot && !c.remote) duelArm(G, c); }
@@ -2294,7 +2303,51 @@
       return { a: 0.42, r: 5, lights: LIGHTS, see: () => true };
     }
   };
+  // ======================= TUTORIAL (una manche da soli contro il computer, che sta fermo finche' non si e' imparato) =======================
+  // Si avvia dal riquadro 🎓 nelle impostazioni della partita (window.alcTutorial). Niente conto alla rovescia, niente piante ne' eventi.
+  // Passi in TUT: t = cosa dire, at = dove punta il dito (elemento o punto della mappa), ok = quando e' fatto, go = cosa preparare all'inizio del passo
+  const qs = q => document.querySelector(q);
+  const tutBot = G => G.chars.find(c => c.bot && !c.remote);
+  const beltHas = (G, id) => G.me.belt.findIndex(k => k && k.includes(id));
+  const putBelt = (G, k) => { if (beltHas(G, k) >= 0 || G.fl.some(f => f.o === G.me.id)) return; const i = G.me.belt.findIndex(v => !v); G.me.belt[i >= 0 ? i : 3] = k; };
+  const TUT = [
+    { t: 'Benvenuto, apprendista! 🧙 Per fare una pozione tocca il 🌶️ <b>Peperoncino</b>.', at: () => qs('#alJars [data-i="f"]'), ok: G => U2.pot.includes('f') || beltHas(G, 'f') >= 0 },
+    { t: 'È nel calderone! Ora tocca 🧪 <b>Imbottiglia</b>: la pozione va nella cintura.', at: () => qs('#alBot'), ok: G => beltHas(G, 'f') >= 0 },
+    { t: 'Brava/o! Adesso una pozione che <b>blocca</b>: tocca la 🍯 <b>Resina</b>, poi 🧪 <b>Imbottiglia</b>.', at: () => U2.pot.includes('r') ? qs('#alBot') : qs('#alJars [data-i="r"]'), ok: G => beltHas(G, 'r') >= 0 },
+    { t: 'Le altre ampolle le riempio io: tocca ⚡ <b>Riempi per me</b>.', at: () => qs('#alFill'), ok: G => G.me.belt.every(Boolean) },
+    { t: 'Leggi sotto il calderone cosa fanno le pozioni. Quando vuoi tocca ✔ <b>Pronto</b>!', at: () => qs('#alRdy'), ok: G => G.st.ph === 'duel' },
+    { t: 'Questa in basso è la tua cintura. Scegli l\'ampolla con la 🍯 <b>colla</b>.', at: G => qs('#alSel [data-s="' + Math.max(0, beltHas(G, 'r')) + '"]'), ok: G => (G.me.belt[G.sel] || '').includes('r'), go: G => { putBelt(G, 'r'); const b = tutBot(G); b.hold = 1; b.x = 11; b.y = 10; b.path = []; b.hp = HP; cq.x = SPAWN[0][0] + 0.5; cq.y = SPAWN[0][1] + 0.5; } },
+    { t: 'Ora <b>tocca l\'avversario</b> sulla mappa: l\'ampolla vola dove tocchi! (Per camminare invece trascina il dito.)', at: G => ({ x: tutBot(G).x, y: tutBot(G).y }), ok: G => fxOn(G, tutBot(G), 'stuck'), keep: G => { if (!(G.me.belt[G.sel] || '').includes('r') && !G.fl.length) { putBelt(G, 'r'); G.sel = beltHas(G, 'r'); } } },
+    { t: 'È incollato! 🍯 Scegli il 🔥 <b>fuoco</b> e tocca di nuovo l\'avversario: bloccato + fuoco = <b>COMBO</b>, -2 cuori!', at: G => (G.me.belt[G.sel] || '').includes('f') ? { x: tutBot(G).x, y: tutBot(G).y } : qs('#alSel [data-s="' + Math.max(0, beltHas(G, 'f')) + '"]'), ok: G => G.hx.some(h => h[0] > (G.tutH || 0) && h[3] === 'combo'), go: G => { G.tutH = G.hxN; }, keep: G => { const b = tutBot(G); b.fx = b.fx || {}; b.fx.stuck = G.time + 1; b.fx['stuck@'] = Math.min(b.fx['stuck@'] || G.time, G.time - 1); b.iv = 0; if (!G.fl.length) putBelt(G, 'f'); } },
+    { t: 'COMBO! 💥 Le ampolle si possono anche <b>bere</b>: scegline una e tocca 🍷 <b>Bevi</b> (sotto la cintura vedi cosa ti fa).', at: () => qs('#alDr'), ok: G => G.hx.some(h => h[0] > (G.tutH || 0) && h[3] === 'drink' && h[1] === G.me.id), go: G => { G.tutH = G.hxN; if (!G.me.belt.some(Boolean)) G.me.belt[0] = 'i'; } },
+    { t: 'Ampolle finite? <b>Cammina</b> (trascina il dito) fino al 🫕 <b>calderone del tuo angolo</b> e tocca <b>Ricarica</b>.', at: G => ({ x: KETTLE[0][0] + 0.5, y: KETTLE[0][1] + 0.5 }), ok: G => (G.me.rf || 0) < (G.tutRf || 0) || G.me.belt.filter(Boolean).length > (G.tutB || 0), go: G => { G.me.belt[0] = ''; G.me.rf = Math.max(1, G.me.rf || 0); G.tutRf = G.me.rf; G.tutB = G.me.belt.filter(Boolean).length; } },
+    { t: 'Bravissimo! 🎉 Ora l\'avversario si difende e lancia anche lui: <b>battilo!</b> 💪', at: () => null, ok: () => false, go: G => { const b = tutBot(G); b.hold = 0; b.hp = HP; G.me.hp = HP; G.st.t0 = G.time; } }];
+  const TUT_FREE = TUT.length - 1;   // dall'ultimo passo si gioca davvero (tempo che scorre)
+  window.alcTutorial = () => {
+    if (cq.net) { cqToast('🎓 Il tutorial si fa <b>da soli</b>: esci dalla festa e riprova.'); return; }
+    U2.tut = 1; const r = document.querySelector('#lbF input[name="fill"][value="1"]'); if (r) r.checked = true;
+    const go = document.getElementById('lbGo'); if (go) go.click();
+  };
+  function tutEnd(G, done) { G.tutS = TUT_FREE; const el = document.getElementById('alTut'); if (el) el.remove(); if (done) { store.settings.alcTut = 1; saveStore(); } }
+  function tutTick(G) {
+    let el = document.getElementById('alTut');
+    if (!G || G.mode !== 'alchimisti' || !G.tut || G.phase !== 'play' || G.tutS == null || (G.tutS >= TUT_FREE && G.time - (G.tutT || 0) > 5)) { if (el) el.remove(); return; }
+    const S = TUT[G.tutS];
+    if (!el) {
+      el = document.createElement('div'); el.id = 'alTut'; el.innerHTML = '<div class="bub"><small></small><span></span><button type="button">Salta ✕</button></div><div class="hl"></div><div class="fg">👆</div>'; $('#ciack').appendChild(el);
+      el.querySelector('button').onclick = () => { const G2 = cq.g; if (G2) { tutEnd(G2, true); const b = tutBot(G2); if (b) b.hold = 0; } };
+    }
+    if (el.dataset.s !== String(G.tutS)) { el.dataset.s = G.tutS; el.querySelector('span').innerHTML = S.t; el.querySelector('small').textContent = '🎓 Tutorial · ' + (G.tutS + 1) + ' di ' + TUT.length; el.classList.toggle('duel', G.st && G.st.ph === 'duel'); }
+    if (S.keep) S.keep(G);
+    const tg = S.at(G), fg = el.querySelector('.fg'), hl = el.querySelector('.hl'), box = $('#ciack').getBoundingClientRect(); let X = null, Y = null, rw = 0, rh = 0;
+    if (tg && tg.getBoundingClientRect) { const b = tg.getBoundingClientRect(); if (b.width) { X = b.left + b.width / 2 - box.left; Y = b.top + b.height / 2 - box.top; rw = b.width; rh = b.height; } }
+    else if (tg && G.camv) { const cv = document.getElementById('cqCanvas').getBoundingClientRect(), vz = cq.vz || 1, V = G.camv; X = cv.left - box.left + (V.tx + (tg.x - tg.y) * V.TW / 2) * vz; Y = cv.top - box.top + (V.ty + (tg.x + tg.y) * V.TW / 4) * vz; rw = rh = V.TW * vz * 1.1; }
+    fg.style.display = hl.style.display = X == null ? 'none' : '';
+    if (X != null) { const up = Y < box.height - 120; fg.textContent = up ? '👆' : '👇'; fg.style.left = X + 'px'; fg.style.top = (up ? Y + rh / 2 - 4 : Y - rh / 2 - 52) + 'px'; hl.style.left = (X - rw / 2 - 5) + 'px'; hl.style.top = (Y - rh / 2 - 5) + 'px'; hl.style.width = (rw + 10) + 'px'; hl.style.height = (rh + 10) + 'px'; hl.style.borderRadius = tg && tg.getBoundingClientRect ? '14px' : '50%'; }
+    if (G.tutS < TUT_FREE && S.ok(G)) { G.tutS++; G.tutT = G.time; SFX.prize(); const N = TUT[G.tutS]; if (N.go) N.go(G); }
+  }
+  cqEachFrame(() => tutTick(cq.g));
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } $('#ciack').classList.remove('alDuel'); U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk, quickFill, tapThrow };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk, quickFill, tapThrow, TUT, tutEnd };   // per le prove (prove/alc*.js)
 })();
