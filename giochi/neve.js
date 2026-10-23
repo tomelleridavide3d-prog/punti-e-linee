@@ -836,6 +836,7 @@
   }
   function finalEnd(G) {
     const st = G.st, a = G.chars[0], b = G.chars[1], s = i => st.sc[i] || 0, w = s(0) > s(1) ? a : s(1) > s(0) ? b : null;
+    { const bot = G.chars.find(c => c.bot && !c.remote); if (bot && !G.tut && G.chars.every(c => c.bot || !c.remote)) { const M = piMem(); M.lv = Math.max(0.1, Math.min(1, M.lv + (w === bot ? -0.1 : w ? 0.15 : 0))); saveStore(); } }   // vinci tu: Pierino si fa piu' forte; vince lui: piu' calmo
     cqModeEnd({ t: w ? '🏆 Vince ' + esc(w.name) + '!' : '🤝 Pari!', why: 'Manche ' + s(0) + ' – ' + s(1), rank: (w === b ? [b, a] : [a, b]).map(c => [c.name, s(sideOf(G, c)) + ' manche']), win: w ? [w.id] : [] });
   }
 
@@ -850,7 +851,8 @@
   };
   // PIERINO IMPARA (per dispositivo, store.settings.nevePi): quanto ti nascondi, se tiri piu' pallonetti o dritti, se corri allo slittino,
   // e quale dei suoi fortini funziona meglio contro di te. A inizio manche ti dice cosa ha capito e cambia gioco.
-  const piMem = () => { const S = store.settings; if (!S.nevePi || typeof S.nevePi !== 'object' || !S.nevePi.fw) S.nevePi = { n: 0, hid: 0, tot: 0, lob: 0, dr: 0, sled: 0, fw: {} }; return S.nevePi; };
+  const piMem = () => { const S = store.settings; if (!S.nevePi || typeof S.nevePi !== 'object' || !S.nevePi.fw) S.nevePi = { n: 0, hid: 0, tot: 0, lob: 0, dr: 0, sled: 0, fw: {} }; if (S.nevePi.lv == null) S.nevePi.lv = 0.3; return S.nevePi; };
+  const piLv = G => G.tut ? 0.3 : (G.piLv != null ? G.piLv : (G.piLv = piMem().lv));
   function piRead() {
     const M = piMem(); if (M.n < 1 || M.tot < 120) return null; const hr = M.hid / M.tot, lr = M.lob / Math.max(1, M.lob + M.dr);
     if (hr > 0.4) return ['Ti nascondi sempre dietro i muri… stavolta ti mando un cecchino. 🎯', 'c'];
@@ -893,7 +895,7 @@
   }
   // nessun muro buono: si avvicina allo scoperto fino a tiro (con 3 palle anche nella terra di nessuno)
   function approach(G, c, s, Q, bold) {
-    const d = Math.hypot(Q.x - c.x, Q.y - c.y) || 1, lim = s ? (bold ? 16.4 : 19.6) : (bold ? 13.6 : 10.4);
+    const d = Math.hypot(Q.x - c.x, Q.y - c.y) || 1, lim = s ? (bold ? 17.4 : 19.6) : (bold ? 12.6 : 10.4);
     for (let k = 0; k < 6; k++) { const r = 10 - k * 0.4, a = (Math.random() - 0.5) * 0.9, ux = (c.x - Q.x) / d, uy = (c.y - Q.y) / d, x0 = Q.x + (ux * Math.cos(a) - uy * Math.sin(a)) * r, y = Math.max(1.6, Math.min(16.4, Q.y + (ux * Math.sin(a) + uy * Math.cos(a)) * r)), x = s ? Math.max(lim, x0) : Math.min(lim, x0);
       if (freeAt(G, x, y)) { botGo(G, c, x, y); return true; } }
     return false;
@@ -919,10 +921,11 @@
   function botTick(G, c, dt) {
     const st = G.st, s = sideOf(G, c), p = st.p[s], o = oppOf(G, c), so = 1 - s, Q = posOf(G, o), T = G.time;
     if (st.ph !== 'fight' || frozenS(G, s, T)) { c.path = []; c.walk = 0; return; }
+    const L = piLv(G);
     if (riding(G, s)) { botRide(G, c, dt); return; }
     { const sl = st.sl; if (sl && sl.ph === 'w') { const dS = Math.hypot(sl.x - c.x, sl.y - c.y), dH = Math.hypot(sl.x - Q.x, sl.y - Q.y);
       if (dS < 1.2 && mountSled(G, s)) { c.path = []; return; }
-      const rush = c.style === 'sled' ? 7 : 3; if (p.h < 2 && dS < dH + rush && (!c.goal || Math.hypot(c.goal[0] - sl.x, c.goal[1] - sl.y) > 0.5)) { botGo(G, c, sl.x, sl.y); } if (p.h < 2 && dS < dH + rush) { if (c.path && c.path.length) cqModeStep(c, dt, 0.95); return; } } }
+      const rush = c.style === 'sled' ? 7 : L < 0.45 ? 0 : 3; if (p.h < 2 && dS < dH + rush && (!c.goal || Math.hypot(c.goal[0] - sl.x, c.goal[1] - sl.y) > 0.5)) { botGo(G, c, sl.x, sl.y); } if (p.h < 2 && dS < dH + rush) { if (c.path && c.path.length) cqModeStep(c, dt, 0.95); return; } } }
     // schiva: un pallonetto che mi cade addosso (vede l'ombra), o a volte un tiro dritto
     for (const B of st.B) { if (B[1] === s) continue; const u = (T - B[7]) / B[8], left = (1 - u) * B[8];
       if (B[2] === 'l' && left > 0.22 && Math.hypot(B[5] - c.x, B[6] - c.y) < (c.style === 'move' ? 1.35 : 0.95) && !c.dodge) { const a = Math.atan2(c.y - B[6], c.x - B[5]) + (Math.random() - 0.5) * 0.8, x = c.x + Math.cos(a) * 1.3, y = c.y + Math.sin(a) * 1.3; if (freeAt(G, x, y)) { c.path = [[x, y]]; c.dodge = B[0]; } }
@@ -940,7 +943,7 @@
       if (iglooOf(G, s) && T > (c.gnT || 0) && gnAlive(G, s) < 2) {
         if (!c.want) { c.want = chooseGnome(G, c, s, hid); c.wantT = T; if (!c.want) c.gnT = T + 5; }
         if (c.want && (T - c.wantT > 20 || gnAlive(G, s) >= GN_MAX)) { c.want = null; c.gnT = T + 6; }
-        else if (c.want && p.b >= GN[c.want[0]].cost && spawnGnome(G, s, c.want[0], c.want[1], c.want[2])) { c.want = null; c.gnT = T + 13 + Math.random() * 10; return; }
+        else if (c.want && p.b >= GN[c.want[0]].cost && spawnGnome(G, s, c.want[0], c.want[1], c.want[2])) { c.want = null; c.gnT = T + 13 + Math.random() * 10 + (1 - L) * 14; return; }
       }
       if (hid) {   // nascosto: pallonetto dove l'ha visto (a caso intorno) oppure butta giu' il muro che lo copre
         const M = c.mem || Q, dm = Math.hypot(M.x - c.x, M.y - c.y);
@@ -950,11 +953,11 @@
         }
       }
       const d = Math.hypot(Q.x - c.x, Q.y - c.y), saving = !!(c.want && iglooOf(G, s) && p.b < GN[c.want[0]].cost);   // mette da parte le palle per lo gnomo che vuole
-      if (!hid && p.b > 0 && !(saving && d > 6) && T - p.lt > CD + 0.7 + Math.random() * 0.9 && !st.p[so].d) {
+      if (!hid && p.b > 0 && !(saving && d > 6) && T - p.lt > CD + 0.7 + Math.random() * 0.9 + (1 - L) * 1.6 && !st.p[so].d) {
         const vx = o.vx || 0, vy = o.vy || 0, skip = skip0;
         const lead = d / V_D * 0.8, ex = Q.x + vx * lead, ey = Q.y + vy * lead, block = traceWall(G, c.x, c.y, ex, ey, skip);
-        if (!block && d <= RMAX_D) { const e = 0.18 + d * 0.025; throwFrom(G, s, 'd', ex + (Math.random() - 0.5) * e * 2, ey + (Math.random() - 0.5) * e * 2); return; }
-        if (d <= RMAX_L && d >= 3) { const dur = Math.max(0.75, d / V_L), still = Math.hypot(vx, vy) < 0.3, e = still ? 0.3 : 0.7; throwFrom(G, s, 'l', Q.x + vx * dur * 0.7 + (Math.random() - 0.5) * e * 2, Q.y + vy * dur * 0.7 + (Math.random() - 0.5) * e * 2); return; }
+        if (!block && d <= RMAX_D) { const e = (0.18 + d * 0.025) * (1.9 - L); throwFrom(G, s, 'd', ex + (Math.random() - 0.5) * e * 2, ey + (Math.random() - 0.5) * e * 2); return; }
+        if (d <= RMAX_L && d >= 3) { const dur = Math.max(0.75, d / V_L), still = Math.hypot(vx, vy) < 0.3, e = (still ? 0.3 : 0.7) * (1.9 - L); throwFrom(G, s, 'l', Q.x + vx * dur * 0.7 + (Math.random() - 0.5) * e * 2, Q.y + vy * dur * 0.7 + (Math.random() - 0.5) * e * 2); return; }
         if (block && d <= RMAX_D && block.n >= 0 && G.S.bl[block.n].o === so && Math.random() < 0.45) { throwFrom(G, s, 'd', block.x, block.y); return; }   // gli butta giu' il muro
       }
       // a secco: va a fare le palle (prima le scorte, poi la neve fresca, poi gratta il suo muro)
@@ -967,7 +970,7 @@
         return;
       }
       // con le palle in mano: dietro un muro a distanza di tiro
-      if (!c.path || !c.path.length) { const P = postFor(G, s, Q); if (P && Math.hypot(P[0] - c.x, P[1] - c.y) > 0.6 && Math.random() < (c.style === 'wall' ? 0.85 : c.style === 'move' ? 0.75 : 0.5)) botGo(G, c, P[0], P[1]); else if (!P && d > RMAX_D - 1) approach(G, c, s, Q, p.b >= 2); }
+      if (!c.path || !c.path.length) { const P = postFor(G, s, Q); if (P && Math.hypot(P[0] - c.x, P[1] - c.y) > 0.6 && Math.random() < (c.style === 'wall' ? 0.85 : c.style === 'move' ? 0.75 : 0.5)) botGo(G, c, P[0], P[1]); else if (!P && d > RMAX_D - 1 && T - st.t0 > 8 + (1 - L) * 14) approach(G, c, s, Q, p.b >= 3 && L > 0.45 && T - st.t0 > 25); }
     }
     if (c.path && c.path.length) { const q = c.path[0]; if (blkAt(G, q[0], q[1])) { c.path = []; c.goal = null; } else cqModeStep(c, dt, 0.92); } else { c.walk = 0; c.dodge = 0; }
   }
@@ -1265,7 +1268,7 @@
         if ([0, 1].every(s => st.p[s].rd) || left < -0.5) startFight(G);
         return;
       }
-      if (st.ph === 'reveal') { if (G.time - st.t0 > REVEAL) { st.ph = 'fight'; st.t0 = r2(G.time); const b = G.chars.find(c => c.bot && !c.remote); if (b) { b.gnT = G.time + 6 + Math.random() * 6; b.want = null; b.mem = null; b.hidN = 0; const r = G.tut ? null : piRead(); b.style = r ? r[1] : null; if (!G.tut) { if (r && Math.random() < 0.8) st.say = { id: b.id, t: r2(G.time), x: r[0] }; else say(G, b, 'start'); } } } return; }
+      if (st.ph === 'reveal') { if (G.time - st.t0 > REVEAL) { st.ph = 'fight'; st.t0 = r2(G.time); const b = G.chars.find(c => c.bot && !c.remote); if (b) { b.gnT = G.time + 10 + Math.random() * 6 + (1 - piLv(G)) * 14; b.want = null; b.mem = null; b.hidN = 0; const r = G.tut ? null : piRead(); b.style = r ? r[1] : null; if (!G.tut) { if (r && Math.random() < 0.8) st.say = { id: b.id, t: r2(G.time), x: r[0] }; else say(G, b, 'start'); } } } return; }
       if (st.ph === 'fight') {
         { const b = G.chars.find(c => c.bot && !c.remote); if (b && !G.tut && G.time - (G.piT || 0) > 0.25) { G.piT = G.time; const M = piMem(), h = oppOf(G, b); M.tot++; if (hiddenFrom(G, sideOf(G, b), h)) M.hid++; } }
         ballTick(G); makeTick(G); if (st.ph === 'fight') { gnomeTick(G, dt); sledTick(G); }
@@ -1350,6 +1353,8 @@
         for (let i = 0; i < S.bl.length; i++) { if (!S.pil[i] || S.bl[i].o !== s) continue; const b = S.bl[i], [X, Y] = P3(b.x, b.y, (b.k === 2 ? WH2 : WH1) + 0.2); g.fillStyle = '#ffffff'; g.strokeStyle = '#1a2848'; g.lineWidth = 2; g.beginPath(); g.arc(X, Y, Math.max(4, TW / 11), 0, 7); g.fill(); g.stroke(); }
         g.restore();
       }
+      if (G.S && st.ph !== 'mres') { const S = G.S; g.save(); g.lineCap = 'round'; for (let i = 0; i < S.bl.length; i++) { const b = S.bl[i]; if (!b.as || !vis(G, b) || !live(G, i)) continue; const h = (b.k === 2 ? WH2 : WH1) * 0.92, A = P3(b.fx, b.fy, 0), B = P3(b.x, b.y, h);
+        g.globalAlpha = st.ph === 'build' ? 0.9 : 0.55; g.strokeStyle = '#5a3a20'; g.lineWidth = Math.max(3, TW / 9); g.beginPath(); g.moveTo(A[0], A[1]); g.lineTo(B[0], B[1]); g.stroke(); g.strokeStyle = '#c8945a'; g.lineWidth = Math.max(1.5, TW / 18); g.beginPath(); g.moveTo(A[0], A[1] - 1); g.lineTo(B[0], B[1] - 1); g.stroke(); } g.restore(); }
       // il tratto che sto disegnando
       if (U.str && U.str.pts.length) { g.save(); g.strokeStyle = U.tool === 'a' ? '#c8945a' : U.tool === 'e' ? '#ff8a7a' : '#ffffff'; g.lineWidth = Math.max(4, TW / 7); g.lineCap = 'round'; g.lineJoin = 'round'; g.globalAlpha = 0.8; g.setLineDash(U.tool === 'w' ? [] : [6, 6]); g.beginPath(); U.str.pts.forEach(([x, y], i) => { const [X, Y] = P3(x, y, 0.5); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); g.restore(); }
       if (U.pend && U.pend.t === 'w' && now() - U.pend.at < 1.5) { g.save(); g.strokeStyle = 'rgba(255,255,255,.5)'; g.lineWidth = Math.max(4, TW / 7); g.lineCap = 'round'; g.beginPath(); U.pend.pts.forEach(([x, y], i) => { const [X, Y] = P3(x, y, 0.5); i ? g.lineTo(X, Y) : g.moveTo(X, Y); }); g.stroke(); g.restore(); }
