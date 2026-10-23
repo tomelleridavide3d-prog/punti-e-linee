@@ -827,3 +827,21 @@ PESCA DEI PELUCHE - DECISIONI DELL'UTENTE (23-10-2026):
 - COSE PRONTE DA RIUSARE: struttura del Duello degli alchimisti (manche, preparazione segreta con pannello, pronti, fasi host in G.st, lancio toccando la mappa = sparo toccando, computer che non spara a chi non vede, tutorial guidato con dito animato, Maestro e Apprendista se servono livelli); motore CQ_MODES; regole BATTERIA E RETE STABILE; REGOLA DELLE LUCI (solo K.glow); prove con nomi zz (zzBa...), browser di prova muti e chiusi con PowerShell; uno screenshot al massimo prima di pubblicare; commit e push a ogni passo; link del sito a fine messaggio.
 - LEZIONI DALL'ALCHIMISTA: partire SEMPLICI (chi entra la prima volta deve capire in 10 secondi); spiegare con il gioco stesso (anteprime, frasi brevi) e non con schede lunghe; niente tiri a raffica a caso: ogni colpo deve essere una DECISIONE.
 - File previsto: giochi/bari.js (id 'bari', riga in CQ_GAMES, porta nella hall).
+
+## DUELLO ALL'ALBA DEI BARI: DECISIONI (23-10-2026, sessione "Minigioco Duello all'alba dei bari")
+Spiegata l'idea originale e criticata (salve inutili, nel tempo reale non si ragiona, nessun indizio): l'utente ha scelto un MISTO tra azione e "rintocchi".
+- TEMPO: si corre liberi tra i ripari, ma si SPARA SOLO AL RINTOCCO della campana (~3 s). Tra un rintocco e l'altro: spostarsi e decidere.
+- MIRA: si tocca l'avversario; scoperto = preso, dietro un riparo = colpo al riparo. Conta dove sta, non la mano.
+- TAMBURO: 6 camere, 3 veri + 3 salve nell'ordine scelto in segreto prima della manche (10 s). Contatore pubblico dei colpi sparati.
+- SALVE SPAVENTANO: una salve che ti prende fa volare il cappello e ti blocca ~1 s (il colpo dopo dell'altro puo' finirti), ma rivela che era salve. Colpo vero su un barile lo crepa/rompe (2 colpi veri), salve no = indizio.
+- UN COLPO VERO = MANCHE PERSA; al meglio di 5.
+- MOSSE EXTRA: FINTA (gesto al rintocco senza sparare, non consuma la camera) e RICARICA (1 volta per manche: rifai l'ordine del tamburo, fermo e scoperto per 2 rintocchi). Scartati calcio al barile e lancio del cappello.
+- STESSO RINTOCCO: vince il dito piu' veloce nella finestra dopo la campana; se il primo colpo era salve, parte quello dell'altro.
+- COMPUTER: "lo Sceriffo che impara" (carattere, frasi, sputo, tocco di cappello; legge le abitudini sull'ordine del tamburo e te lo dice).
+- MAPPA: strada FISSA (saloon, abbeveratoio, cavallo, rotolacampo, alba e ombre lunghe), ripari che cambiano posto a ogni manche, sempre simmetrici. Grafica solita del motore.
+PIANO A PASSI (file giochi/bari.js, id 'bari', riga in CQ_GAMES, porta nella hall; riusare la struttura degli alchimisti):
+  1) Strada all'alba + due pistoleri col cappello + ripari simmetrici casuali; camminata libera.
+  2) Tamburo segreto (pannello 10 s), tre passi + "GIRATI!", campana, sparo toccando, veri/salve/barili, finestra del dito piu' veloce, manche al meglio di 5.
+  3) Finta e ricarica; rallentatore, fumo, cappello che vola, suoni.
+  4) Lo Sceriffo (computer che legge le abitudini, frasi).
+  5) Online in 2 + rivincita + tutorial col dito animato.
