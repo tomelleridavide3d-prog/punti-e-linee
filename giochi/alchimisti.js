@@ -1751,6 +1751,25 @@
     th.querySelector('i').textContent = !b.some(Boolean) ? 'VAI AL CALDERONE' : 'TIRA INDIETRO';
     sel.querySelectorAll('[data-s]').forEach(x => { const k = b[+x.dataset.s], Q = k && brew(k); setFlask(x.querySelector('.vi'), Q && Q.c); x.querySelector('.ig').textContent = Q ? Q.ings.map(g => g.e).join('') : ''; x.classList.toggle('on', +x.dataset.s === G.sel && !!Q); });
   }
+  // LANCIO TOCCANDO LA MAPPA: un tocco breve (senza trascinare) su un punto della mappa lancia li' l'ampolla scelta (fino a RMAX caselle).
+  // Trascinare resta il modo per camminare; la fionda resta per chi la preferisce
+  { let tp = null; const root = document.getElementById('ciack');
+    if (root && !root.__alTap) { root.__alTap = 1;
+      root.addEventListener('pointerdown', e => { const G = cq.g; tp = G && G.mode === 'alchimisti' && e.target && e.target.id === 'cqCanvas' ? { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now() } : null; }, true);
+      root.addEventListener('pointerup', e => {
+        const T = tp; tp = null; const G = cq.g; if (!T || T.id !== e.pointerId || !G || G.mode !== 'alchimisti' || !G.st || G.st.ph !== 'duel' || !G.camv) return;
+        if (performance.now() - T.t > 320 || Math.hypot(e.clientX - T.x, e.clientY - T.y) > 12) return;   // era un trascinamento (camminare)
+        tapThrow(G, e.clientX, e.clientY);
+      }, true);
+    } }
+  function tapThrow(G, cx2, cy2) {
+    const cv = document.getElementById('cqCanvas'), rc = cv.getBoundingClientRect(), vz = cq.vz || 1, lx = (cx2 - rc.left) / vz, ly = (cy2 - rc.top) / vz, V = G.camv;
+    const a = 2 * (lx - V.tx) / V.TW, b = 4 * (ly - V.ty) / V.TW; let x = (a + b) / 2, y = (b - a) / 2;
+    const d = Math.hypot(x - cq.x, y - cq.y); if (d < 0.7) return;   // toccato me stesso: niente
+    if (d > RMAX) { x = cq.x + (x - cq.x) * RMAX / d; y = cq.y + (y - cq.y) * RMAX / d; }
+    const k = G.me.belt[G.sel]; if (!k) { cqToast('Ampolle finite: torna al 🫕 calderone del tuo angolo'); return; }
+    G.tapFx = { x, y, t: performance.now() / 1000, c: brew(k).c }; myThrow(G, x, y);
+  }
   // trascino il pulsante: direzione opposta (fionda), distanza = quanto tiro (come l'arco dell'Assedio)
   function aimFrom(dx, dy) {
     const TW = Math.max(48, Math.min(cq.w, cq.h) / 8), m = Math.hypot(dx, dy); if (m < 14) return { ok: false };
@@ -1882,7 +1901,7 @@
       duelUI(G, false); prepOpen(G);
       if (was.startsWith('mres') && G.st.n > 1) ascOpen(G.st.n);   // si sale: scena lungo la torre
     } else prepClose();
-    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelArm(G, G.me); duelUI(G, true); helpOnce('duel'); cqToast('⚔️ <b>Duello!</b> Le ampolle sono poche: <b>non sprecarle</b>. Prima <b>blocca</b> l\'altro (🍯 colla, 🧊 gelo, ⏳ sabbia), poi <b>brucialo</b>: <b>COMBO = -2 cuori!</b>'); }
+    if (p === 'duel') { G.sel = Math.max(0, G.me.belt.findIndex(Boolean)); duelArm(G, G.me); duelUI(G, true); helpOnce('duel'); cqToast('⚔️ <b>Duello!</b> <b>Tocca la mappa</b> dove vuoi lanciare. Le ampolle sono poche: <b>non sprecarle</b>. Prima <b>blocca</b> l\'altro (🍯 colla, 🧊 gelo, ⏳ sabbia), poi <b>brucialo</b>: <b>COMBO = -2 cuori!</b>'); }
     else duelUI(G, false);
     if (p === 'mres') SFX[G.st.win === G.me.id ? 'bottle' : 'pour']();
     if (p === 'mres' && G.st.fin && !G.counted && !U2.tut) { G.counted = 1; store.settings.alcGames = LV() + 1; saveStore(); }   // una partita completa in piu'
@@ -2027,7 +2046,7 @@
   // SCHEDE di spiegazione: la prima volta di ogni fase su questo telefono (non fermano il tempo)
   const HELP = {
     prep: '<b>🧪 Prepara le pozioni</b><br>Tocca i barattoli: gli ingredienti cadono nel calderone (fino a 3). <b>Imbottiglia</b> per metterla nella cintura (4 ampolle). Sotto il calderone leggi <b>cosa uscirà</b>; se gli ingredienti <b>reagiscono tra loro</b> è un segreto (provalo, o compra il 📖 ricettario). Prepara una <b>coppia</b>: una pozione che <b>blocca</b> (🍯 ❄️ ⏳) e una che <b>brucia</b> 🌶️.',
-    duel: '<b>⚔️ Duello</b><br>Scegli l\'ampolla in basso, poi <b>trascina indietro</b> il pulsante tondo come una fionda e lascia. Le ampolle sono <b>poche</b>: il calderone del tuo angolo ti ridà le <b>tue</b> pozioni, ma ha solo 🫕 ' + RESERVE + ' ricariche (+1 ogni ' + RES_T + ' s). <b>COMBO</b>: se l\'altro è incollato, congelato o rallentato, il fuoco gli toglie <b>' + COMBO + ' cuori</b>! <b>🍷 Bevi</b>: ogni ampolla si può anche <b>bere</b> per un potere su di te (🛡️ mantello di fiamme, 💨 scatto, 🪞 scudo, ⛸️ pattini…).'
+    duel: '<b>⚔️ Duello</b><br>Scegli l\'ampolla in basso, poi <b>tocca la mappa</b> dove vuoi lanciarla (o usa la fionda: trascina indietro il pulsante tondo e lascia). Per camminare trascina il dito. Le ampolle sono <b>poche</b>: il calderone del tuo angolo ti ridà le <b>tue</b> pozioni, ma ha solo 🫕 ' + RESERVE + ' ricariche (+1 ogni ' + RES_T + ' s). <b>COMBO</b>: se l\'altro è incollato, congelato o rallentato, il fuoco gli toglie <b>' + COMBO + ' cuori</b>! <b>🍷 Bevi</b>: ogni ampolla si può anche <b>bere</b> per un potere su di te (🛡️ mantello di fiamme, 💨 scatto, 🪞 scudo, ⛸️ pattini…).'
   };
   function helpOnce(k) {
     let seen = {}; try { seen = JSON.parse(localStorage.getItem('alcHelp2') || '{}'); } catch {}   // (2: schede nuove con ampolle contate e combo)
@@ -2239,6 +2258,8 @@
     // sopra alla mappa: luce dalla voragine, bolle dei calderoni, pozze, ampolle in volo, schizzi, mira
     over(g, G, sx, sy, TW) {
       const t = performance.now() / 1000, U = TW * 0.575;
+      G.camv = { tx: sx(0, 0), ty: sy(0, 0), TW };   // per il lancio toccando la mappa (da punto dello schermo a casella)
+      if (G.tapFx && t - G.tapFx.t < 0.6) { const k = (t - G.tapFx.t) / 0.6, X = sx(G.tapFx.x, G.tapFx.y), Y = sy(G.tapFx.x, G.tapFx.y), r = TW * (0.6 - 0.25 * k); g.save(); g.globalAlpha = 1 - k; g.strokeStyle = G.tapFx.c; g.lineWidth = 3; g.beginPath(); g.ellipse(X, Y, r, r / 2, 0, 0, 7); g.stroke(); g.beginPath(); g.moveTo(X - r * 0.4, Y); g.lineTo(X + r * 0.4, Y); g.moveTo(X, Y - r * 0.2); g.lineTo(X, Y + r * 0.2); g.stroke(); g.restore(); }
       for (const z of G.zn || []) if (z.k !== 'smoke') zoneDraw(g, G, z, sx, sy, TW, t);
       if (FL && FL.pend) { const B = pendPos(G.time); g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(sx(B.x, B.y), sy(B.x, B.y), TW * 0.55, TW * 0.25, 0, 0, 7); g.fill(); }
       if (FL && FL.plants) for (const p of G.pl || []) if (p.bid >= 0) { const [x, y] = PLANTS[p.i], r = plReach(p) * TW * 0.7071; g.strokeStyle = 'rgba(255,80,80,.6)'; g.lineWidth = 2; g.beginPath(); g.ellipse(sx(x + 0.5, y + 0.5), sy(x + 0.5, y + 0.5), r, r / 2, 0, 0, 7); g.stroke(); }
@@ -2275,5 +2296,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } $('#ciack').classList.remove('alDuel'); U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk, quickFill };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk, quickFill, tapThrow };   // per le prove (prove/alc*.js)
 })();
