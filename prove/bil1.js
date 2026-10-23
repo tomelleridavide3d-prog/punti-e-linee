@@ -11,7 +11,7 @@
   o.push('apertura: in buca ' + a.ev.pots.join(',') + ' passi ' + a.ev.n + ' uguali ' + (JSON.stringify(a.B) === JSON.stringify(b.B)));
   cq.x = CQ_W - 2 - 10.5; cq.y = 9.6; await w(500);
   const B = document.getElementById('tvB_bi'); o.push('pulsante ' + (B && !B.hidden)); if (!B || B.hidden) return o.join(' | ');
-  B.click(); await w(300); document.querySelector('#tvModal [data-k=ai]').click(); await w(600);
+  B.click(); await w(300); document.querySelector('#tvModal [data-k=ai]').click(); await w(300); document.querySelector('#tvModal [data-k=b0]').click(); await w(600);
   let shots = 0, msgs = new Set();
   for (let g = 0; g < 400 && BI.T && BI.T.S.ph === 'play'; g++) {
     const T = BI.T, S = T.S;

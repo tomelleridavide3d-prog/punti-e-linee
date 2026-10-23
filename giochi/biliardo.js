@@ -1,6 +1,6 @@
 // ==== BILIARDO (8-ball) NELLA HALL (23-10-2026, piano in CLAUDE.md "PIANO PASSATEMPI DELLA HALL", sessione 2) ====
 // Tavolo nell'angolo giochi (prop 'pool', x R-12..R-9, y 7-8). Partita a tutto schermo vista dall'alto, tavolo in verticale (50 x 100 unita').
-// Mira: tocca il panno e trascina (linea guida fino al primo urto, con la direzione della palla colpita); forza: tira giu' la stecca sulla barra a destra e lascia.
+// Mira e forza come 8 Ball Pool (vedi "Comandi" sotto). Si puo' giocare a soldi: posta 10/25/50 monete a testa, chi vince prende tutto (giochi/lib/tavolo.js).
 // Fisica: passi fissi di 1/240 s con solo + - * / e radici (uguale su tutti i telefoni). Il banco (giochi/lib/tavolo.js) riceve il tiro {dx, dy, p, cb},
 // lo simula fino in fondo, applica le regole e pubblica lo stato con le palle di partenza del tiro: ogni telefono rifa' la stessa simulazione per
 // l'animazione e alla fine si mette sulle posizioni del banco. Regole: piene (1-7) / spezzate (9-15) assegnate alla prima palla imbucata dopo
@@ -157,50 +157,90 @@ window.BI = (() => {
   }
 
   // ---- visuale ----
+  // Comandi (come 8 Ball Pool, 23-10-2026): trascinando sul panno la stecca GIRA attorno alla bianca seguendo il dito (prendi la stecca e
+  // portala dove vuoi, oppure prendi la linea guida); tocco su una palla = mira dritta su quella; rotella sotto il tavolo = mira fine;
+  // forza: tira indietro la stecca col dito (dal legno della stecca) oppure la barra a destra, e lascia.
+  const PULL = 16;   // quanto si tira indietro la stecca (unita' del tavolo) per la forza piena
   let X = null;
   function view(T) {
     const r = T.root;
     r.style.background = 'radial-gradient(ellipse at 50% 45%,#3a2a20,#120c0a)';
     r.innerHTML = '<canvas></canvas><div class="tvTop"></div><div class="tvHint"></div>';
-    T.cv = r.querySelector('canvas'); T.aim = { dx: 0, dy: -1 }; T.pull = null; T.drag = null; T.anim = null; T.seen = T.S.shot ? T.S.shot.id : 0;
+    T.cv = r.querySelector('canvas'); T.aim = { dx: 0, dy: -1 }; T.pull = null; T.drag = null; T.turn = null; T.fine = null; T.anim = null; T.seen = T.S.shot ? T.S.shot.id : 0;
+    T.ori = {}; T.lp = {}; T.bc = {};
     const cv = T.cv;
     cv.addEventListener('pointerdown', e => down(T, e)); cv.addEventListener('pointermove', e => move(T, e)); cv.addEventListener('pointerup', e => up(T, e));
-    cv.addEventListener('pointercancel', () => { T.pull = null; T.drag = null; draw(T); });
+    cv.addEventListener('pointercancel', () => { T.pull = null; T.drag = null; T.turn = null; T.fine = null; T.grab = null; draw(T); });
     T.ro = () => { if (T.root === r) { size(T); draw(T); } }; window.addEventListener('resize', T.ro);
     size(T);
   }
   function size(T) {
     const cv = T.cv, dpr = Math.min(window.devicePixelRatio || 1, 2.5), Wp = cv.clientWidth, Hp = cv.clientHeight;
     cv.width = Math.round(Wp * dpr); cv.height = Math.round(Hp * dpr); T.W = Wp; T.H = Hp; T.dpr = dpr;
-    const k = Math.min((Wp - 92) / (W + 8), (Hp - 150) / (H + 8)); T.k = k; T.ox = (Wp - 56) / 2 - W * k / 2 + 4; T.oy = 76 + (Hp - 150 - (H + 8) * k) / 2 + 4 * k;
+    const k = Math.min((Wp - 92) / (W + 8), (Hp - 190) / (H + 8)); T.k = k; T.ox = (Wp - 56) / 2 - W * k / 2 + 4; T.oy = 76 + (Hp - 190 - (H + 8) * k) / 2 + 4 * k;
+    const yb = T.oy + (H + 4) * k + 6; T.wh = { x0: T.ox + W * k * 0.08, x1: T.ox + W * k * 0.92, y0: yb + 9, y1: yb + 35 };
+    T.bc = {};
   }
   const toS = (T, x, y) => [T.ox + x * T.k, T.oy + y * T.k], toT = (T, px, py) => [(px - T.ox) / T.k, (py - T.oy) / T.k];
-  const myTurn = T => T.S.ph === 'play' && T.me >= 0 && T.S.tu === T.me && !T.anim;
+  const myTurn = T => T.S.ph === 'play' && T.me >= 0 && T.S.tu === T.me && !T.anim && !T.strike;
   const cueOf = T => { const c = T.S.b.find(b => b[0] === 0); return c ? [c[1], c[2]] : [25, 76]; };
+  const angOf = T => Math.atan2(T.aim.dy, T.aim.dx);
+  const setAng = (T, a) => { T.aim = { dx: Math.cos(a), dy: Math.sin(a) }; };
+  function onStick(T, tx, ty) {   // il dito e' sulla stecca? (dietro la bianca, lungo la stecca)
+    const [cx, cy] = cueOf(T), rx = cx - tx, ry = cy - ty, along = rx * T.aim.dx + ry * T.aim.dy, side = Math.abs(rx * T.aim.dy - ry * T.aim.dx);
+    return along > BR + 0.3 && along < BR + 48 && side < Math.max(2.4, 16 / T.k);
+  }
   function down(T, e) {
     if (!myTurn(T)) return;
-    e.preventDefault(); T.cv.setPointerCapture(e.pointerId);
-    const px = e.offsetX, py = e.offsetY, [tx, ty] = toT(T, px, py), [cx, cy] = cueOf(T);
-    if (px > T.W - 56) { T.pull = { y0: py, p: 0 }; loop(T); return; }   // barra della forza
+    e.preventDefault(); try { T.cv.setPointerCapture(e.pointerId); } catch {}
+    const px = e.offsetX, py = e.offsetY, [tx, ty] = toT(T, px, py), [cx, cy] = cueOf(T), wh = T.wh;
+    if (px > T.W - 56) { T.pull = { bar: 1, y0: py, p: 0 }; loop(T); return; }   // barra della forza
+    if (py > wh.y0 - 8 && py < wh.y1 + 10 && px > wh.x0 - 10 && px < wh.x1 + 10) { T.fine = { x0: px, a0: angOf(T) }; return; }   // rotella: mira fine
     if (T.S.bih && Math.hypot(tx - cx, ty - cy) < 4) { T.drag = true; return; }   // palla in mano: sposto la bianca
-    aimAt(T, tx, ty); draw(T);
+    // prendo la stecca: tirata indietro = forza, spostata di lato = la giro (decide il primo movimento)
+    if (onStick(T, tx, ty)) { T.grab = { s0: (cx - tx) * T.aim.dx + (cy - ty) * T.aim.dy, px, py, a0: Math.atan2(ty - cy, tx - cx), aim0: angOf(T) }; return; }
+    T.turn = { a0: Math.atan2(ty - cy, tx - cx), aim0: angOf(T), px, py, moved: false };
   }
-  function aimAt(T, tx, ty) { const [cx, cy] = cueOf(T), dx = tx - cx, dy = ty - cy, l = Math.hypot(dx, dy); if (l > 0.5) T.aim = { dx: dx / l, dy: dy / l }; }
   function move(T, e) {
     if (!myTurn(T)) return;
-    const [tx, ty] = toT(T, e.offsetX, e.offsetY);
-    if (T.pull) { T.pull.p = Math.max(0, Math.min(1, (e.offsetY - T.pull.y0) / 200)); return; }
+    const px = e.offsetX, py = e.offsetY, [tx, ty] = toT(T, px, py), [cx, cy] = cueOf(T);
+    if (T.grab) {
+      const G = T.grab, mx = px - G.px, my = py - G.py; if (Math.hypot(mx, my) < 8) return;
+      const along = -(mx * T.aim.dx + my * T.aim.dy), side = Math.abs(mx * T.aim.dy - my * T.aim.dx); T.grab = null;
+      if (Math.abs(along) >= side) { T.pull = { s0: G.s0, p: 0 }; loop(T); }
+      else T.turn = { a0: G.a0, aim0: G.aim0, px: G.px, py: G.py, moved: true };
+    }
+    if (T.pull) {
+      if (T.pull.bar) T.pull.p = Math.max(0, Math.min(1, (py - T.pull.y0) / 200));
+      else T.pull.p = Math.max(0, Math.min(1, ((cx - tx) * T.aim.dx + (cy - ty) * T.aim.dy - T.pull.s0) / PULL));
+      return;
+    }
+    if (T.fine) { setAng(T, T.fine.a0 + (px - T.fine.x0) * 0.0022); T.fine.dx = px - T.fine.x0; draw(T); return; }
     if (T.drag) { if (free(T.S, tx, ty, T.S.kit)) { const c = T.S.b.find(b => b[0] === 0); c[1] = tx; c[2] = ty; T.cbMoved = true; } draw(T); return; }
-    if (e.buttons || e.pressure > 0) { aimAt(T, tx, ty); draw(T); }
+    if (T.turn) {
+      const U = T.turn; if (Math.hypot(px - U.px, py - U.py) > 6) U.moved = true;
+      if (!U.moved) return;
+      if (Math.hypot(tx - cx, ty - cy) < 3) { U.a0 = null; return; }   // troppo vicino alla bianca: l'angolo ballerebbe
+      const a = Math.atan2(ty - cy, tx - cx); if (U.a0 == null) { U.a0 = a; U.aim0 = angOf(T); return; }
+      setAng(T, U.aim0 + (a - U.a0)); draw(T);
+    }
   }
-  function up(T) {
+  function up(T, e) {
+    if (T.grab) { T.grab = null; return; }
     if (T.drag) { T.drag = false; draw(T); return; }
+    if (T.fine) { T.fine = null; draw(T); return; }
+    if (T.turn) {   // tocco senza trascinare su una palla: mira dritta su quella
+      const U = T.turn; T.turn = null;
+      if (!U.moved && e) { const [tx, ty] = toT(T, e.offsetX, e.offsetY), hit = T.S.b.find(([id, bx, by]) => id && Math.hypot(bx - tx, by - ty) < BR * 1.8); if (hit) { const [cx, cy] = cueOf(T), l = Math.hypot(hit[1] - cx, hit[2] - cy); if (l > 0.5) T.aim = { dx: (hit[1] - cx) / l, dy: (hit[2] - cy) / l }; } }
+      draw(T); return;
+    }
     if (!T.pull) return;
-    const p = T.pull.p; T.pull = null;
-    if (p < 0.04) { hint(T, 'Tira <b>giù</b> la stecca sulla barra a destra e lasciala!'); draw(T); return; }
-    const [cx, cy] = cueOf(T);
-    thud(0.3 + p * 0.6, 900);
-    BIL.act({ k: 'shot', dx: T.aim.dx, dy: T.aim.dy, p, cb: T.S.bih ? [r3(cx), r3(cy)] : null });
+    const p = T.pull.p, bar = T.pull.bar; T.pull = null;
+    if (p < 0.04) { hint(T, bar ? 'Tira <b>giù</b> la barra a destra e lasciala!' : 'Tira <b>indietro</b> la stecca e lasciala!'); draw(T); return; }
+    // la stecca scatta in avanti, poi parte il tiro
+    const [cx, cy] = cueOf(T), sh = { k: 'shot', dx: T.aim.dx, dy: T.aim.dy, p, cb: T.S.bih ? [r3(cx), r3(cy)] : null };
+    T.strike = { t: performance.now(), p }; loop(T);
+    setTimeout(() => { T.strike = null; if (BIL.T !== T) return; thud(0.3 + p * 0.6, 900); BIL.act(sh); }, 90);
   }
   function hint(T, h) { const e = T.root.querySelector('.tvHint'); if (e && e.innerHTML !== h) e.innerHTML = h; }
   function render(T) {
@@ -215,9 +255,9 @@ window.BI = (() => {
     const top = T.root.querySelector('.tvTop');
     const gl = i => S.grp[i] ? (S.grp[i] === 'pi' ? '🟡 piene ' : '⚪ spezzate ') + (7 - left(S, S.grp[i])) + '/7' : 'tavolo aperto';
     const pl = i => `<div class="pl${S.ph === 'play' && S.tu === i ? ' on' : ''}">${i === T.me ? '⭐ ' : ''}${esc(S.n[i] || '?')}<br><small>${gl(i)}</small></div>`;
-    top.innerHTML = pl(0) + `<div class="mid">🎱${T.watch ? '<br>👀 ' + T.watch : ''}</div>` + pl(1);
+    top.innerHTML = pl(0) + `<div class="mid">🎱${S.bet ? '<br>🪙 ' + 2 * S.bet : ''}${T.watch ? '<br>👀 ' + T.watch : ''}</div>` + pl(1);
     const who = esc(S.n[S.tu] || '');
-    const base = S.ph !== 'play' ? '' : T.anim ? '' : myTurn(T) ? (S.bih ? '✋ Palla in mano: trascina la bianca' + (S.kit ? ' (sotto la linea)' : '') + ', poi ' : '') + 'trascina sul panno per mirare, tira giù la stecca a destra e lascia.' : T.me < 0 ? '👀 Tira ' + who + '.' : 'Tira ' + who + '…';
+    const base = S.ph !== 'play' ? '' : T.anim ? '' : myTurn(T) ? (S.bih ? '✋ Palla in mano: trascina la bianca' + (S.kit ? ' (sotto la linea)' : '') + '. ' : '') + 'Gira la stecca trascinando sul panno (rotella sotto = mira fine), poi tira indietro la stecca o la barra a destra.' : T.me < 0 ? '👀 Tira ' + who + '.' : 'Tira ' + who + '…';
     hint(T, (S.msg && !T.anim ? S.msg + ' ' : '') + base);
     if (!T.anim) BIL.endBox(esc(S.n[0]) + ' contro ' + esc(S.n[1]));
     draw(T);
@@ -233,17 +273,67 @@ window.BI = (() => {
         if (A.sim.done) { T.anim = null; render(T); }
       }
       draw(T);
-      if (T.anim || T.pull) T.raf = requestAnimationFrame(step);
+      if (T.anim || T.pull || T.strike) T.raf = requestAnimationFrame(step);
     };
     T.raf = requestAnimationFrame(step);
   }
-  function ball(g, x, y, r, id) {
+  // ---- palle che rotolano: ogni palla ha il suo orientamento (matrice 3x3, solo per il disegno, non tocca la fisica) ----
+  // z entra nello schermo, il panno e' dietro la palla: muovendosi di (dx, dy) la palla gira attorno all'asse (dy, -dx, 0) di |d|/BR.
+  function roll(T, id, x, y) {
+    let M = T.ori[id];
+    if (!M) { const a = Math.random() * 6.28, t = (Math.random() - 0.5) * 0.9, c = Math.cos(a), s = Math.sin(a), ct = Math.cos(t), st = Math.sin(t); M = T.ori[id] = [c, -s * ct, s * st, s, c * ct, -c * st, 0, st, ct]; }
+    const lp = T.lp[id]; T.lp[id] = [x, y];
+    if (!lp) return;
+    const dx = x - lp[0], dy = y - lp[1], d = Math.hypot(dx, dy);
+    if (d < 1e-4 || d > 8) return;
+    const kx = dy / d, ky = -dx / d, th = d / BR, c = Math.cos(th), s = Math.sin(th), C = 1 - c;
+    // rotazione di Rodrigues attorno a (kx, ky, 0)
+    const R = [c + kx * kx * C, kx * ky * C, ky * s, kx * ky * C, c + ky * ky * C, -kx * s, -ky * s, kx * s, c];
+    const N = new Array(9);
+    for (let i = 0; i < 3; i++) for (let j = 0; j < 3; j++) N[i * 3 + j] = R[i * 3] * M[j] + R[i * 3 + 1] * M[3 + j] + R[i * 3 + 2] * M[6 + j];
+    T.ori[id] = N; const b = T.bc[id]; if (b) b.dirty = 1;
+  }
+  const hexRGB = h => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+  const RGB = COL.map(hexRGB), WHITE = hexRGB('#f6f2e8');
+  const LX = -0.36, LY = -0.46, LZ = -0.81, HX = LX / 1.9, HY = LY / 1.9, HZ = (LZ - 1) / 1.9;   // luce in alto a sinistra, verso chi guarda
+  function ballImg(T, id, r) {
+    const D = Math.ceil(2 * r * T.dpr) + 2;
+    let b = T.bc[id];
+    if (!b || b.D !== D) { const cv = document.createElement('canvas'); cv.width = cv.height = D; b = T.bc[id] = { cv, g: cv.getContext('2d'), D, img: null, dirty: 1 }; b.img = b.g.createImageData(D, D); }
+    if (!b.dirty) return b.cv;
+    b.dirty = 0;
+    const M = T.ori[id] || [1, 0, 0, 0, 1, 0, 0, 0, 1], px = b.img.data, rr = r * T.dpr, h = D / 2, base = RGB[id > 8 ? id - 8 : id];
+    for (let j = 0; j < D; j++) for (let i = 0; i < D; i++) {
+      const u = (i + 0.5 - h) / rr, v = (j + 0.5 - h) / rr, q = u * u + v * v, o = (j * D + i) * 4;
+      if (q > 1.06) { px[o + 3] = 0; continue; }
+      const w = Math.sqrt(Math.max(0, 1 - q)), nz = -w;
+      // punto della palla (coordinate della palla) = M trasposta * normale
+      const bx = M[0] * u + M[3] * v + M[6] * nz, by = M[1] * u + M[4] * v + M[7] * nz, bz = M[2] * u + M[5] * v + M[8] * nz;
+      let c;
+      if (id === 0) c = WHITE;
+      else if (bz > 0.88 || bz < -0.88) c = WHITE;   // i due cerchietti bianchi del numero
+      else if (id > 8) c = Math.abs(by) < 0.52 ? base : WHITE;   // spezzate: fascia colorata
+      else c = base;
+      const df = Math.max(0, u * LX + v * LY + nz * LZ), sp = Math.pow(Math.max(0, u * HX + v * HY + nz * HZ), 38) * 230, sh = 0.42 + 0.68 * df;
+      px[o] = Math.min(255, c[0] * sh + sp); px[o + 1] = Math.min(255, c[1] * sh + sp); px[o + 2] = Math.min(255, c[2] * sh + sp);
+      px[o + 3] = Math.max(0, Math.min(255, ((1 - Math.sqrt(q)) * rr + 0.5) * 255));
+    }
+    b.g.putImageData(b.img, 0, 0);
+    return b.cv;
+  }
+  function ball(T, g, x, y, r, id) {
     g.fillStyle = 'rgba(0,0,0,.35)'; g.beginPath(); g.arc(x + r * 0.25, y + r * 0.3, r, 0, 7); g.fill();
-    const c = colOf(id);
-    if (id > 8) { g.fillStyle = '#f4f0e6'; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); g.save(); g.beginPath(); g.arc(x, y, r, 0, 7); g.clip(); g.fillStyle = c; g.fillRect(x - r, y - r * 0.55, r * 2, r * 1.1); g.restore(); }
-    else { g.fillStyle = c; g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); }
-    if (id) { g.fillStyle = '#fff'; g.beginPath(); g.arc(x, y, r * 0.5, 0, 7); g.fill(); g.fillStyle = '#111'; g.font = `800 ${Math.max(6, r * 0.62)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(id, x, y + 0.5); }
-    g.fillStyle = 'rgba(255,255,255,.55)'; g.beginPath(); g.arc(x - r * 0.35, y - r * 0.4, r * 0.25, 0, 7); g.fill();
+    const im = ballImg(T, id, r), D = im.width / T.dpr; g.drawImage(im, x - D / 2, y - D / 2, D, D);
+    if (!id) return;
+    // il numero sul cerchietto che guarda verso di noi (piu' piccolo e trasparente quando sta per girare dietro)
+    const M = T.ori[id]; if (!M) return;
+    for (const sg of [1, -1]) {
+      const wx = M[2] * sg, wy = M[5] * sg, wz = M[8] * sg; if (wz > -0.35) continue;
+      const f = Math.min(1, (-wz - 0.35) / 0.4);
+      g.save(); g.globalAlpha = f; g.translate(x + wx * r, y + wy * r); g.rotate(Math.atan2(M[3], M[0])); g.scale(1, Math.max(0.3, -wz));
+      g.fillStyle = '#111'; g.font = `800 ${Math.max(6, r * 0.6)}px system-ui`; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(id, 0, 0.5);
+      g.restore();
+    }
   }
   // linea guida: fino alla prima palla (palla fantasma + direzione della palla colpita) o alla prima sponda
   function guide(T) {
@@ -271,33 +361,46 @@ window.BI = (() => {
     g.fillStyle = '#e8d8a8'; for (const [dx, dy] of [[12.5, -2.7], [25, -2.7], [37.5, -2.7], [12.5, H + 2.7], [25, H + 2.7], [37.5, H + 2.7], [-2.7, 25], [-2.7, 75], [W + 2.7, 25], [W + 2.7, 75]]) { const [px, py] = toS(T, dx, dy); g.beginPath(); g.arc(px, py, Math.max(1.5, k * 0.45), 0, 7); g.fill(); }
     if (S.kit && S.ph === 'play') { const [l0, ly] = toS(T, 0, KIT), [l1] = toS(T, W, KIT); g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 1; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(l0, ly); g.lineTo(l1, ly); g.stroke(); g.setLineDash([]); }
     for (const [px, py, pr] of PK) { const [sx, sy] = toS(T, px, py); g.fillStyle = '#0a0806'; g.beginPath(); g.arc(sx, sy, pr * k * 0.92, 0, 7); g.fill(); g.strokeStyle = '#c8a050'; g.lineWidth = 2; g.stroke(); }
-    // palle (durante il tiro quelle della simulazione)
+    // palle (durante il tiro quelle della simulazione), che girano mentre corrono
     const balls = T.anim ? T.anim.sim.B.filter(b => !b.in).map(b => [b.id, b.x, b.y]) : S.b;
-    const aiming = myTurn(T) && !T.drag;
+    for (const [id, bx, by] of balls) roll(T, id, bx, by);
+    const aiming = myTurn(T) && !T.drag, striking = !!T.strike;
     if (aiming) {
       const G = guide(T), [sx, sy] = toS(T, G.cx, G.cy), [ex, ey] = toS(T, G.gx, G.gy);
       g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1.5; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke(); g.setLineDash([]);
       g.beginPath(); g.arc(ex, ey, BR * k, 0, 7); g.stroke();
       if (G.hit) { const nx = G.hit[0] - G.gx, ny = G.hit[1] - G.gy, nl = Math.hypot(nx, ny) || 1, [hx, hy] = toS(T, G.hit[0], G.hit[1]); g.strokeStyle = 'rgba(255,240,150,.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + nx / nl * 12 * k, hy + ny / nl * 12 * k); g.stroke(); }
     }
-    for (const [id, bx, by] of balls) { const [sx, sy] = toS(T, bx, by); ball(g, sx, sy, BR * k, id); }
+    for (const [id, bx, by] of balls) { const [sx, sy] = toS(T, bx, by); ball(T, g, sx, sy, BR * k, id); }
     if (myTurn(T) && S.bih) { const [cx, cy] = cueOf(T), [sx, sy] = toS(T, cx, cy); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 2; g.setLineDash([3, 3]); g.beginPath(); g.arc(sx, sy, BR * k + 5, 0, 7); g.stroke(); g.setLineDash([]); }
-    // stecca dietro la bianca e barra della forza
-    if (aiming) {
-      const [cx, cy] = cueOf(T), [sx, sy] = toS(T, cx, cy), p = T.pull ? T.pull.p : 0, back = (BR + 1.5 + p * 9) * k, len = 46 * k;
+    // stecca dietro la bianca (si allontana quando la tiri indietro, scatta in avanti quando lasci), barra della forza e rotella
+    if (aiming || striking) {
+      let p = T.pull ? T.pull.p : 0;
+      if (striking) p = T.strike.p * Math.max(0, 1 - (performance.now() - T.strike.t) / 80);
+      const [cx, cy] = cueOf(T), [sx, sy] = toS(T, cx, cy), back = (BR + 0.6 + p * PULL) * k, len = 46 * k;
       const bx = sx - T.aim.dx * back, by = sy - T.aim.dy * back, ex = bx - T.aim.dx * len, ey = by - T.aim.dy * len;
-      g.lineCap = 'round'; g.strokeStyle = '#d8b878'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
+      g.lineCap = 'round'; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = Math.max(4, k * 1.2); g.beginPath(); g.moveTo(bx + 4, by + 5); g.lineTo(ex + 4, ey + 5); g.stroke();
+      g.strokeStyle = '#d8b878'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
       g.strokeStyle = '#3a2010'; g.lineWidth = Math.max(4, k * 1.2); g.beginPath(); g.moveTo(bx - T.aim.dx * len * 0.55, by - T.aim.dy * len * 0.55); g.lineTo(ex, ey); g.stroke();
       g.strokeStyle = '#4a8ad8'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - T.aim.dx * 1.2, by - T.aim.dy * 1.2); g.stroke(); g.lineCap = 'butt';
+      if (T.pull && !T.pull.bar) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; g.setLineDash([2, 4]); g.beginPath(); g.moveTo(sx - T.aim.dx * (BR + 0.6) * k, sy - T.aim.dy * (BR + 0.6) * k); g.lineTo(sx - T.aim.dx * (BR + 0.6 + PULL) * k, sy - T.aim.dy * (BR + 0.6 + PULL) * k); g.stroke(); g.setLineDash([]); }
       const zx = T.W - 30, zy = T.H * 0.3, zh = T.H * 0.42;
       g.fillStyle = 'rgba(0,0,0,.55)'; cqRR(g, zx - 14, zy - 22, 28, zh + 34, 12); g.fill();
       const pg = g.createLinearGradient(0, zy, 0, zy + zh); pg.addColorStop(0, '#7bff8a'); pg.addColorStop(0.6, '#ffe14a'); pg.addColorStop(1, '#ff5a3a');
       g.fillStyle = 'rgba(255,255,255,.12)'; g.fillRect(zx - 7, zy, 14, zh); g.fillStyle = pg; g.fillRect(zx - 7, zy, 14, zh * p);
       g.fillStyle = '#fff'; g.font = '700 10px system-ui'; g.textAlign = 'center'; g.fillText('FORZA', zx, zy - 9); g.fillText('⬇', zx, zy + zh + 9);
+      // rotella della mira fine: righe che scorrono col dito
+      const wh = T.wh, ww = wh.x1 - wh.x0, wy = (wh.y0 + wh.y1) / 2;
+      g.fillStyle = '#2a1a10'; cqRR(g, wh.x0 - 4, wh.y0 - 3, ww + 8, wh.y1 - wh.y0 + 6, 10); g.fill();
+      const rg = g.createLinearGradient(wh.x0, 0, wh.x1, 0); rg.addColorStop(0, '#3a3a40'); rg.addColorStop(0.5, '#9a9aa6'); rg.addColorStop(1, '#3a3a40');
+      g.fillStyle = rg; cqRR(g, wh.x0, wh.y0, ww, wh.y1 - wh.y0, 8); g.fill();
+      const off = ((angOf(T) / 0.0022) % 14 + 14) % 14; g.strokeStyle = 'rgba(20,20,26,.6)'; g.lineWidth = 2;
+      for (let x = wh.x0 + off; x < wh.x1; x += 14) { const f = 1 - Math.abs((x - wh.x0) / ww - 0.5) * 2; g.globalAlpha = 0.25 + f * 0.75; g.beginPath(); g.moveTo(x, wh.y0 + 3); g.lineTo(x, wh.y1 - 3); g.stroke(); }
+      g.globalAlpha = 1; g.fillStyle = T.fine ? '#ffe14a' : 'rgba(255,255,255,.7)'; g.font = '700 10px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('◀ MIRA FINE ▶', wh.x0 + ww / 2, wy + 0.5);
     }
   }
   const BIL = cqTable({
-    id: 'bi', title: 'Biliardo', emoji: '🎱', aiName: 'Il Conte', rule: '8-ball: piene o spezzate, la nera per ultima',
+    id: 'bi', title: 'Biliardo', emoji: '🎱', aiName: 'Il Conte', rule: '8-ball: piene o spezzate, la nera per ultima', bets: [0, 10, 25, 50],
     near: () => { const R = CQ_W - 2; return cq.x > R - 13.3 && cq.x < R - 7.7 && cq.y > 5.8 && cq.y < 10.2; },
     newMatch, act, aiTurn, aiDelay: T => (((T.S.shot ? T.S.shot.dur : 0) * 1000) + 1400) / (window.cqFast || 1),
     view, render, drop: T => { cancelAnimationFrame(T.raf); if (T.ro) window.removeEventListener('resize', T.ro); },
