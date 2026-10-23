@@ -106,7 +106,8 @@ window.DA = (() => {
     open();
   }
   function close() {
-    if (!T) return;
+    if (!T || T.closing) return;
+    T.closing = 1; try { window.cqCloseWhy = (window.cqCloseWhy || '') + ' | ' + new Error().stack.slice(0, 400); } catch {}   // closing: avvisare l'altro fa tornare qui (ascolto della rete): niente giri infiniti
     clearTimeout(T.at); clearTimeout(T.it); clearTimeout(T.nt); cancelAnimationFrame(T.raf);
     if (T.root) T.root.remove();
     const N = cq.net;

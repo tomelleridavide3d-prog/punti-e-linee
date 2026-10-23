@@ -2331,6 +2331,9 @@ function cqMapHotel() {
   // angolo giochi (disposizione approvata il 23-10-2026): lampada R-4,1; bersaglio e lavagna dei record dipinti sul muro (R-3 e R-2..R-1, giochi/lib/pixel.js);
   // R,1 riservata alla gru; corsia di tiro x R-4..R-2, y 2-4 libera; linea di tiro a y 5. Liberi per il biliardo x R-12..R-9, y 7-8 e l'air hockey x R-6..R-5, y 8-9
   pp('lamp', R - 4, 1);
+  // tavolo da biliardo (4 x 2) e air hockey (2 x 3): ogni casella sa quale pezzo e' ('i,j,larghezza,profondita'), il disegno e' in giochi/lib/pixel.js
+  for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) pp('pool', R - 12 + i, 7 + j, i + ',' + j + ',4,2');
+  for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) pp('hockey', R - 6 + i, 7 + j, i + ',' + j + ',2,3');
   // salottini
   pp('teatable', 3, 11); pp('lamp', 1, 14);   // salotto: tavolino del te' (le poltrone attorno: cqSalaSeats) pp('plant', 5, 14); pp('tv', 1, 9);
   prow('sofa', R - 11, 12, 3, 1, 0); pp('table', R - 8, 12); pp('lamp', R, 14); pp('plant', R - 12, 14); pp('coffee', R, 11);   // divani degli spettatori verso i tavoli
@@ -3761,7 +3764,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()));
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -4165,6 +4168,7 @@ function cqHallTick(dt) {
   G.time += dt; me.x = cq.x; me.y = cq.y; me.face = cq.face; me.pcd = Math.max(0, (me.pcd || 0) - dt);
   if (window.HL) HL.tick(G, dt);   // caramelle pazze
   if (window.DA) DA.tick(G, dt);   // freccette (pulsante sulla linea di tiro, sfide, lavagna dei record)
+  if (window.BI) BI.tick(G, dt); if (window.AH) AH.tick(G, dt);   // biliardo e air hockey (giochi/lib/tavolo.js)
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
@@ -6673,5 +6677,8 @@ applyPrefs(); render();
 <script src="giochi/lib/pixel.js"></script>
 <script src="giochi/hall.js"></script>
 <script src="giochi/freccette.js"></script>
+<script src="giochi/lib/tavolo.js"></script>
+<script src="giochi/biliardo.js"></script>
+<script src="giochi/airhockey.js"></script>
 </body>
 </html>

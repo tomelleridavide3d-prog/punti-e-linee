@@ -201,6 +201,45 @@
               }
             }
           }
+        },
+        "bi": {
+          "$t": {
+            "s": {
+              ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 12000"
+            },
+            "a": {
+              "$id": {
+                ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 1000"
+              }
+            },
+            "w": {
+              "$sid": {
+                ".validate": "newData.isNumber()"
+              }
+            }
+          }
+        },
+        "ah": {
+          "$t": {
+            "s": {
+              ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 12000"
+            },
+            "a": {
+              "$id": {
+                ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 1000"
+              }
+            },
+            "w": {
+              "$sid": {
+                ".validate": "newData.isNumber()"
+              }
+            },
+            "r": {
+              "$seat": {
+                ".validate": "newData.hasChildren(['t']) && newData.child('t').isNumber()"
+              }
+            }
+          }
         }
       }
     },

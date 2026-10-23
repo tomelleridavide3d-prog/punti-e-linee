@@ -106,10 +106,12 @@
     const R = P.w - 2; ROOM = { R, W: P.w, H: P.h };
     RUGS.length = 3; for (const [t, x, y] of P.props) if (t === 'gdoor') RUGS.push({ x0: x + 0.14, y0: y + 1.08, x1: x + 0.86, y1: y + 1.72, mat: 1 });   // zerbino davanti a ogni porta
     LIGHTS = [{ x: 11, y: 8, r: 6, c: [0.32, 0.25, 0.1] }];   // lampadario sopra il tappeto
-    for (const [t, x, y] of P.props) {
+    for (const [t, x, y, o] of P.props) {
       if (t === 'lamp') LIGHTS.push({ x: x + 0.5, y: y + 0.5, r: 3.4, c: [0.46, 0.33, 0.12] });
       if (t === 'monitor') LIGHTS.push({ x: x + 0.5, y: y + 0.6, r: 2, c: [0.16, 0.22, 0.08] });
       if (t === 'tv') LIGHTS.push({ x: x + 1.2, y: y + 0.5, r: 2, c: [0.04, 0.1, 0.2] });
+      if (t === 'pool' && o === '1,0,4,2') LIGHTS.push({ x: x + 1, y: y + 1, r: 3.2, c: [0.34, 0.27, 0.12] });   // lampada sopra il biliardo
+      if (t === 'hockey' && o === '0,1,2,3') LIGHTS.push({ x: x + 1, y: y + 0.5, r: 2.6, c: [0.06, 0.12, 0.26] });   // luce fredda dell'air hockey
       if (t === 'candy') LIGHTS.push({ x: x + 0.5, y: y + 0.9, r: 2.2, c: [0.22, 0.08, 0.18] });   // il vetro delle caramelle fa una luce rosata
     }
     LIGHTS.push({ x: R - 2.5, y: 1.6, r: 2.4, c: [0.26, 0.2, 0.08] });   // faretto sul bersaglio delle freccette
@@ -151,7 +153,7 @@
     const k = x + ',' + y; if (FL.has(k)) return FL.get(k);
     const S = spr(32, 17, 16, 0), solid = cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop && cqSolid[y][x].prop !== 'gdoor';
     const var0 = 0.96 + 0.07 * h2(x, y), tint = (h2(y, x) - 0.5) * 0.06;
-    const SHL = { candy: 0.36, counter: 0.42, monitor: 0.42, plant: 0.4, lamp: 0.22, sofa: 0.34, table: 0.28, tv: 0.3, coffee: 0.4, rack: 0.45, crate: 0.32, crate2: 0.45, bell: 0.3 };
+    const SHL = { pool: 0.25, hockey: 0.25, candy: 0.36, counter: 0.42, monitor: 0.42, plant: 0.4, lamp: 0.22, sofa: 0.34, table: 0.28, tv: 0.3, coffee: 0.4, rack: 0.45, crate: 0.32, crate2: 0.45, bell: 0.3 };
     const ln = cqSolid[y] && cqSolid[y][x - 1], shLen = ln && ln.prop ? SHL[ln.prop] || 0 : 0, up = cqSolid[y - 1] && cqSolid[y - 1][x], shUp = up && up.prop ? (SHL[up.prop] || 0) * 0.5 : 0;
     S.top(0, 0, 1, 1, 0, (u, v, X, Y) => {
       const wx = x + u, wy = y + v, Xg = (x - y) * 16 + X, Yg = (x + y) * 8 + Y;
@@ -342,6 +344,36 @@
         // maniglia e targhetta
         S.emit = 0; const [hxp, hyp] = S.P(0.72, F, 1.15); S.set(Math.round(hxp), Math.round(hyp), C.gold2); S.set(Math.round(hxp) + 1, Math.round(hyp), C.gold);
         S.emit = 1; S.faceY(0.13, 0.87, F, 2.25, 2.75, (s, tt) => { const ac = (0.13 + s * 0.74 - 0.5) / 0.38, z = 2.25 + tt * 0.5; return z < 2.3 + 0.45 * Math.sqrt(Math.max(0, 1 - ac * ac)) - 0.06 && Math.abs(ac) < 0.93 && !(Math.abs(ac) < 0.05 || fr(ac * 3 + 0.5) < 0.08) ? C.shade : null; }); S.emit = 0;
+        break;
+      }
+      case 'pool': case 'hockey': {   // tavoli dell'angolo giochi: ogni casella dipinge il suo pezzo (o = 'i,j,larghezza,profondita'), facce solo sul bordo davanti
+        const [i, j, w, h] = o.split(',').map(Number), pool = t === 'pool', z1 = pool ? 0.78 : 0.72, e = pool ? 0.16 : 0.12;
+        const body = pool ? C.wood : hx('#2a2e38'), top = pool ? hx('#2e8a4a') : hx('#eef6fc');
+        for (const [lx, ly] of [[0, 0], [w, 0], [0, h], [w, h]]) { const ax = lx - i, ay = ly - j; if (ax >= 0 && ax <= 1 && ay >= 0 && ay <= 1) { const x0 = Math.min(Math.max(ax - 0.2, 0.02), 0.78), y0 = Math.min(Math.max(ay - 0.2, 0.02), 0.78); S.box(x0, y0, x0 + 0.18, y0 + 0.18, 0, z1 - 0.3, pool ? C.woodD : hx('#3a3e48')); } }   // gambe
+        const side = (s, tt) => tt > 0.82 ? (pool ? C.brass : hx('#c8303a')) : pool && fr((i + s) * 3) < 0.06 ? C.woodD : sh(body, 0.9);
+        if (j === h - 1) S.faceY(0, 1, 1, z1 - 0.3, z1, side);
+        if (i === w - 1) S.faceX(1, 0, 1, z1 - 0.3, z1, (s, tt) => sh(side(s, tt), 0.78));
+        const PKS = [[0, 0], [w / 2, 0], [w, 0], [0, h], [w / 2, h], [w, h]];
+        S.top(0, 0, 1, 1, z1, (u, v, X, Y) => {
+          const U = i + u, V = j + v;
+          if (pool) {
+            for (const [px, py] of PKS) if (Math.hypot(U - px, (V - py) * 1.0) < 0.15) return hx('#0a0806');
+            if (U < e || U > w - e || V < e || V > h - e) { const m = Math.min(U, w - U, V, h - V); if (m > e * 0.45 && m < e * 0.65 && fr((U + V) * 2) < 0.12) return C.cream; return m < 0.04 ? C.woodD : C.wood2; }
+            const lt = 1.1 - 0.25 * Math.hypot((U - w / 2) / w, (V - h / 2) / h); return sh(top, (X + Y) % 7 === 0 ? lt * 0.96 : lt);
+          }
+          if (U < e || U > w - e) return hx('#c8303a');
+          if (V < e || V > h - e) return Math.abs(U - w / 2) < 0.35 ? hx('#1a1a22') : hx(V < h / 2 ? '#c8303a' : '#2a5ad8');
+          if (Math.abs(V - h / 2) < 0.025) return hx('#c8303a');
+          if (Math.abs(Math.hypot(U - w / 2, V - h / 2) - 0.32) < 0.025) return hx('#2a5ad8');
+          return (X % 3 === 0 && Y % 2 === 0) ? hx('#b8cce0') : top;
+        });
+        const ballAt = (bx, by, c) => { const ax = bx - i, ay = by - j; if (ax < 0 || ax >= 1 || ay < 0 || ay >= 1) return; const [cx2, cy2] = S.P(ax, ay, z1 + 0.06); S.ell(cx2, cy2, 1.9, 1.7, (dx, dy) => dx < -0.2 && dy < -0.2 ? sh(c, 1.25) : dy > 0.4 ? sh(c, 0.75) : c); };
+        if (pool) {   // palle sistemate nel triangolo e la bianca
+          const rk = [['#f2c230'], ['#2a5ad8', '#d8342a'], ['#6a3aa8', '#1a1a1a', '#f08a24'], ['#2e8a44', '#8a2a2a', '#f2c230', '#2a5ad8']];
+          rk.forEach((row, r) => row.forEach((c, q) => ballAt(w * 0.68 + r * 0.11, h / 2 + (q - (row.length - 1) / 2) * 0.13, hx(c))));
+          ballAt(w * 0.27, h / 2, hx('#f4f0e6'));
+        } else { ballAt(w / 2, h * 0.5, hx('#1a1a1a')); ballAt(w / 2, h * 0.2, hx('#2a5ad8')); ballAt(w / 2, h * 0.8, hx('#d8342a')); }
+        skip = () => true;
         break;
       }
       case 'candy': {   // distributore delle caramelle pazze: mobiletto rosso con la feritoia delle monete e lo sportellino, boccia di vetro piena di caramelle, cappello rosso
