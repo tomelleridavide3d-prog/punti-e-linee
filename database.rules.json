@@ -184,6 +184,23 @@
           "$k": {
             ".validate": "newData.isNumber()"
           }
+        },
+        "da": {
+          "$t": {
+            "s": {
+              ".validate": "newData.hasChildren(['m']) && newData.child('m').isString() && newData.child('m').val().length < 12000"
+            },
+            "a": {
+              "$id": {
+                ".validate": "newData.hasChildren(['s', 'm']) && newData.child('m').isString() && newData.child('m').val().length < 1000"
+              }
+            },
+            "w": {
+              "$sid": {
+                ".validate": "newData.isNumber()"
+              }
+            }
+          }
         }
       }
     },
@@ -248,6 +265,16 @@
             ".validate": "newData.hasChildren(['a','t']) && newData.child('a').isString() && newData.child('a').val().length <= 1000 && newData.child('t').isNumber()"
           }
         }
+      }
+    },
+    "dr": {
+      ".read": true,
+      ".indexOn": [
+        "p"
+      ],
+      "$k": {
+        ".write": true,
+        ".validate": "$k.length <= 14 && newData.hasChildren(['n', 'p']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('p').isNumber() && newData.child('p').val() >= 0 && newData.child('p').val() <= 540"
       }
     }
   }

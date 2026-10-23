@@ -3761,7 +3761,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()));
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -4164,6 +4164,7 @@ function cqHallTick(dt) {
   const G = cq.g, me = G.me, N = cq.net;
   G.time += dt; me.x = cq.x; me.y = cq.y; me.face = cq.face; me.pcd = Math.max(0, (me.pcd || 0) - dt);
   if (window.HL) HL.tick(G, dt);   // caramelle pazze
+  if (window.DA) DA.tick(G, dt);   // freccette (pulsante sulla linea di tiro, sfide, lavagna dei record)
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
@@ -6064,6 +6065,7 @@ function cqDraw() {
     g.fillStyle = '#7be0a0'; cqRR(g, bx, by, Math.max(4, bw * o.prog), 5, 2.5); g.fill();
   }
   if (G && G.hall) cqHallSigns(g, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y), TW);
+  if (G && G.hall && cq.map === 'hotel' && window.DA) DA.sign(g, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y), TW);   // record sopra la lavagna
   if (G && G.mode) {   // giochi del motore: cose sopra alla mappa e sopra ai personaggi
     if (G.M.over) G.M.over(g, G, (x, y) => tx + px(x, y), (x, y) => ty + py(x, y) - cqZpx(x, y, TW), TW);
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
@@ -6670,5 +6672,6 @@ applyPrefs(); render();
 </script>
 <script src="giochi/lib/pixel.js"></script>
 <script src="giochi/hall.js"></script>
+<script src="giochi/freccette.js"></script>
 </body>
 </html>
