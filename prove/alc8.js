@@ -15,7 +15,7 @@
   step(0.2);
   // 1) PREPARAZIONE: tempo e anteprima
   out.push('1) tempo di preparazione: ' + $('#alTm').textContent + ' (prima manche)');
-  const prev = ids => { A.U2.pot = []; ids.forEach(id => A.addIng(G, id)); const t = (document.querySelector('#alPot .pv') || {}).textContent || 'NIENTE'; A.U2.pot = []; return t; };
+  const prev = ids => { A.U2.pot = []; ids.forEach(id => A.addIng(G, id)); const t = (document.querySelector('#alPv .pv') || {}).textContent || 'NIENTE'; A.U2.pot = []; return t; };
   B.own = 0;
   out.push('   🌶️ da solo: ' + prev(['f']));
   out.push('   🌶️⏳ peperoncino + sabbia: ' + prev(['f', 's']));

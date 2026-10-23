@@ -10,11 +10,11 @@
   cqCloseTask(); cqLobby(); await w(300); $('#lbGo').click(); await w(1500);
   const G = cq.g; if (!G || G.mode !== 'alchimisti') return 'partita non partita';
   await w(3000);
-  const card = () => { const pv = document.querySelector('#alPot .pv'); if (!pv) return 'NIENTE'; const q = s => [...pv.querySelectorAll(s + ' li')].map(l => l.textContent).join(' | '); return '[' + pv.querySelector('b').textContent + '] LANCI: ' + q('.th') + ' || BEVI: ' + q('.dr'); };
+  const card = () => { const pv = document.querySelector('#alPv .pv'); if (!pv) return 'NIENTE'; const q = s => [...pv.querySelectorAll(s + ' li')].map(l => l.textContent).join(' | '); return '[' + document.getElementById('alNmP').textContent + '] LANCI: ' + q('.th') + ' || BEVI: ' + q('.dr'); };
   for (const ids of [['f'], ['f', 'r'], ['f', 'r', 'v'], ['f', 'i'], ['s', 'f'], ['m'], ['o']]) { A.U2.pot = []; ids.forEach(id => A.addIng(G, id)); out.push(ids.join('+') + ' -> ' + card()); }
   A.U2.pot = []; ['f', 'r'].forEach(id => A.addIng(G, id)); await w(300);
   B.own = own0;
-  const pv = document.querySelector('#alPot .pv').getBoundingClientRect(), act = document.getElementById('alAct').getBoundingClientRect();
+  const pv = document.querySelector('#alPv .pv').getBoundingClientRect(), act = document.getElementById('alAct').getBoundingClientRect();
   out.push('riquadri ' + Math.round(pv.top) + '-' + Math.round(pv.bottom) + ', pulsanti da ' + Math.round(act.top) + ' -> ' + (pv.bottom <= act.top ? 'ok, non si sovrappongono' : 'SOVRAPPOSTI'));
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300));
   const pb = document.getElementById('alPrep'); pb.scrollTop = Math.max(0, pv.top - 260);

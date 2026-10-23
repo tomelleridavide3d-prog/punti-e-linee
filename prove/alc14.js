@@ -20,7 +20,7 @@
   out.push('leggendaria grw: ' + Lg.e + ' ' + Lg.n + ', forza ' + JSON.stringify(Lg.s) + ' (gw normale ' + JSON.stringify(N.s) + '), segreta ' + A.secret(A.brew('cfx')));
   let cpu = 0; for (let i = 0; i < 40; i++) if (A.cpuBelt(G).some(k => A.brew(k).leg)) cpu++; out.push('cinture del computer con una leggendaria (su 40): ' + cpu);
   A.U2.pot = []; ['g', 'r', 'w'].forEach(id => A.addIng(G, id)); await w(200);
-  out.push('calderone g+r+w: ' + ((document.querySelector('#alPot .pv') || {}).textContent || '').slice(0, 90) + ' | avviso: ' + (toasts.filter(t => /LEGGENDARIA/.test(t)).pop() || 'NO') + ' | premi "' + A.myCos() + '"');
+  out.push('calderone g+r+w: ' + ((document.querySelector('#alPv .pv') || {}).textContent || '').slice(0, 90) + ' | avviso: ' + (toasts.filter(t => /LEGGENDARIA/.test(t)).pop() || 'NO') + ' | premi "' + A.myCos() + '"');
   A.U2.pot = [];
   A.bookOpen(G); await w(100); const bk = document.getElementById('alBook'); out.push('ricettario: ' + bk.textContent.replace(/\s+/g, ' ').slice(0, 330)); bk.remove();
   out.push('riga collezione: ' + A.colLine().replace(/<[^>]+>/g, ''));

@@ -10,6 +10,6 @@
   cqCloseTask(); cqLobby(); await w(300); $('#lbGo').click(); await w(1500);
   const G = cq.g, A = window.__alc; if (!G || G.mode !== 'alchimisti') return 'partita non partita';
   await w(3000); ['f', 's', 'r'].forEach(id => A.addIng(G, id)); await w(1200);
-  const r = id => document.getElementById(id).getBoundingClientRect(), pot = r('alPot'), act = r('alAct'), msg = r('alMsg');
-  return 'scritte ' + Math.round(pot.top) + '-' + Math.round(pot.bottom) + ', messaggio ' + Math.round(msg.top) + '-' + Math.round(msg.bottom) + ', pulsanti ' + Math.round(act.top) + '-' + Math.round(act.bottom) + ' -> ' + (pot.bottom <= msg.top + 0.5 && msg.bottom <= act.top + 0.5 ? 'nessuna sovrapposizione' : 'SOVRAPPOSTI') + ' | errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300);
+  const r = id => document.getElementById(id).getBoundingClientRect(), pot = r('alPot'), act = r('alAct'), msg = r('alPv');
+  return 'scritte ' + Math.round(pot.top) + '-' + Math.round(pot.bottom) + ', riquadri ' + Math.round(msg.top) + '-' + Math.round(msg.bottom) + ', pulsanti ' + Math.round(act.top) + '-' + Math.round(act.bottom) + ' -> ' + (pot.bottom <= msg.top + 0.5 && msg.bottom <= act.top + 0.5 ? 'nessuna sovrapposizione' : 'SOVRAPPOSTI') + ' | errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300);
 })()

@@ -900,28 +900,30 @@
   function prepCss() {
     if (document.getElementById('alCss')) return;
     const st = document.createElement('style'); st.id = 'alCss';
-    st.textContent = `#alPrep{position:absolute;inset:0;z-index:7;background:radial-gradient(ellipse at 50% 30%,#3c285a,#0e0a18 70%);color:#f2ead8;font:14px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px);box-sizing:border-box;overflow-y:auto;touch-action:pan-y;gap:8px}
+    st.textContent = `#alPrep{position:absolute;inset:0;z-index:7;background:radial-gradient(ellipse at 50% 30%,#3c285a,#0e0a18 70%);color:#f2ead8;font:14px system-ui,sans-serif;display:flex;flex-direction:column;align-items:center;padding:calc(env(safe-area-inset-top) + 10px) 10px calc(env(safe-area-inset-bottom) + 10px);box-sizing:border-box;overflow:hidden;touch-action:none;gap:6px}#alPrep>*{flex-shrink:0}
 #alPrep>*{flex-shrink:0}#alPrep .top{width:100%;max-width:480px;display:flex;align-items:center;gap:8px}#alPrep .top b{flex:1;font-size:16px}#alPrep .tm{font:800 20px system-ui;min-width:56px;text-align:center;padding:4px 8px;border-radius:10px;background:rgba(0,0,0,.35)}#alPrep .tm.low{color:#ff8a7a}
 #alPrep button{font:700 14px system-ui,sans-serif;border:0;border-radius:12px;color:#fff;cursor:pointer}
 #alRdy{background:#2f8a4a;padding:9px 12px}#alRdy.on{background:#5a5a62}
-#alCv{width:100%;max-width:480px;height:190px;display:block}
-#alPot{display:flex;gap:6px;min-height:34px;align-items:center;justify-content:center;flex-wrap:wrap}#alPot .ch{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:5px 9px;font-weight:600}#alPot .ch i{font-style:normal;opacity:.6;margin-left:4px}#alPot .h{opacity:.7;font-size:13px}
+#alStage{position:relative;flex:1 1 0!important;min-height:70px;width:100%;max-width:480px}#alCv{position:absolute;inset:0;width:100%;height:100%;display:block}#alNmP{position:absolute;left:0;right:0;bottom:0;text-align:center;font:800 15px system-ui,sans-serif;text-shadow:0 1px 4px #000,0 0 2px #000;pointer-events:none}#alMsg{position:absolute;left:0;right:0;top:0;pointer-events:none}
+#alPv{width:100%;max-width:480px;height:112px}#alPv .pvc{height:100%}#alPv .cd{overflow:hidden}
+#alPot{display:flex;gap:5px;height:32px;align-items:center;justify-content:center;flex-wrap:nowrap;width:100%;max-width:480px;overflow:hidden}#alPot .ch{white-space:nowrap;padding:4px 8px!important;font-size:13px}#alPot .ch{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:5px 9px;font-weight:600}#alPot .ch i{font-style:normal;opacity:.6;margin-left:4px}#alPot .h{opacity:.7;font-size:13px}
 #alAct{display:flex;gap:8px;width:100%;max-width:480px}#alAct button{flex:1;padding:12px 6px}#alBot{background:#8a4ad0;font-size:16px!important}#alBot:disabled,#alEmp:disabled{opacity:.35}#alEmp{background:rgba(255,255,255,.14)}
 #alJars{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:480px}
-#alJars button{position:relative;min-height:80px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.22);border-radius:14px 14px 10px 10px;overflow:hidden;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:600;font-size:11px;line-height:1.1}
-#alJars button .lq{position:absolute;left:0;right:0;bottom:0;height:38%;opacity:.55}#alJars button .e{font-size:26px;position:relative;margin-top:2px}#alJars button .n{position:relative;margin-top:2px}#alJars button .d{position:relative;font-weight:600;font-size:10.5px;color:#ffe6b0;margin-top:2px}#alJars button:active{transform:scale(.94)}#alJars button.off{opacity:.4}
+#alJars button{position:relative;min-height:64px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.22);border-radius:14px 14px 10px 10px;overflow:hidden;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:600;font-size:11px;line-height:1.1}
+#alJars button .lq{position:absolute;left:0;right:0;bottom:0;height:38%;opacity:.55}#alJars button .e{font-size:22px;position:relative;margin-top:1px}#alJars button .n{position:relative;margin-top:2px}#alJars button .d{position:relative;font-weight:600;font-size:10.5px;color:#ffe6b0;margin-top:2px}#alJars button:active{transform:scale(.94)}#alJars button.off{opacity:.4}
 #alBelt{display:flex;gap:10px;align-items:flex-end;justify-content:center;width:100%;max-width:480px;padding:6px 0 2px;border-top:2px solid #6a4a2e}#alBelt .lb{font-weight:700;margin-right:2px;align-self:center}
-#alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:36px;height:50px;display:block}#alBelt .vi svg,#alSel .vi svg,#alTh .vi svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
+#alBelt button{width:58px;background:none;padding:0;display:flex;flex-direction:column;align-items:center;gap:2px}#alBelt .vi{width:30px;height:42px;display:block}#alBelt .vi svg,#alSel .vi svg,#alTh .vi svg{width:100%;height:100%;display:block;overflow:visible;filter:drop-shadow(0 2px 3px rgba(0,0,0,.4))}#alBelt .ig{font-size:12px;min-height:16px;font-weight:400}
 #alMsg{min-height:18px;font-size:13px;color:#ffd890;text-align:center}
-#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alFl{width:100%;max-width:480px;text-align:center;font-size:14px;line-height:1.3;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 10px;box-sizing:border-box}#alFl small{font-size:12px;opacity:.9}#alPot .pv{flex-basis:100%;max-width:480px;display:flex;flex-direction:column;gap:6px;margin-top:2px}#alPot .pv>b{text-align:center;font-size:15px}
-#alPot .pvc{display:grid;grid-template-columns:1fr 1fr;gap:8px}#alPot .cd{background:rgba(10,6,18,.55);border:1.5px solid;border-radius:12px;padding:7px 9px 8px;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
-#alPot .cd.th{border-color:rgba(255,140,90,.6)}#alPot .cd.dr{border-color:rgba(200,130,255,.6)}#alPot .cd>i{display:block;font-style:normal;font-weight:800;font-size:12.5px;letter-spacing:.02em;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.12)}#alPot .cd.th>i{color:#ffb48a}#alPot .cd.dr>i{color:#dcb0ff}
-#alPot .cd ul{margin:0;padding:0;list-style:none}#alPot .cd li{font-size:12.5px;line-height:1.3;padding:2px 0}#alPot .cd li.w{color:#ffcf7a}#alPot .cd li.q{opacity:.8;font-style:italic}
+#alBk{background:rgba(255,255,255,.14);padding:9px 11px}#alFl{width:100%;max-width:480px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;line-height:1.2;background:rgba(0,0,0,.25);border-radius:12px;padding:6px 10px;box-sizing:border-box}#alFl>span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#alFl small{font-size:12px;opacity:.9}#alPv .pv{height:100%}
+#alPv .pvc{display:grid;grid-template-columns:1fr 1fr;gap:8px}#alPv .cd{background:rgba(10,6,18,.55);border:1.5px solid;border-radius:12px;padding:7px 9px 8px;text-align:left;box-shadow:inset 0 1px 0 rgba(255,255,255,.08)}
+#alPv .cd.th{border-color:rgba(255,140,90,.6)}#alPv .cd.dr{border-color:rgba(200,130,255,.6)}#alPv .cd>i{display:block;font-style:normal;font-weight:800;font-size:12.5px;letter-spacing:.02em;margin-bottom:5px;padding-bottom:4px;border-bottom:1px solid rgba(255,255,255,.12)}#alPv .cd.th>i{color:#ffb48a}#alPv .cd.dr>i{color:#dcb0ff}
+#alPv .cd ul{margin:0;padding:0;list-style:none}#alPv .cd li{font-size:12px;line-height:1.25;padding:1px 0}#alPv .cd li.w{color:#ffcf7a}#alPv .cd li.q{opacity:.8;font-style:italic}
 #alBook{position:absolute;inset:0;z-index:9;background:rgba(10,6,18,.86);display:flex;align-items:flex-start;justify-content:center;padding:calc(env(safe-area-inset-top) + 60px) 12px 20px;box-sizing:border-box;overflow-y:auto}
 #alBook .bk{width:100%;max-width:460px;background:#2a1e36;border:2px solid #c8a050;border-radius:16px;padding:14px;color:#f2ead8;font:14px/1.4 system-ui,sans-serif}#alBook .bk>b{font-size:17px;display:block;margin-bottom:6px}
 #alBook button{display:block;width:100%;margin-top:10px;padding:11px;border:0;border-radius:12px;font:700 15px system-ui;color:#fff;background:#8a4ad0}#alBook button:disabled{opacity:.4}#alBook .cl{background:rgba(255,255,255,.14)}
 #alBook .col{margin-bottom:12px;padding-bottom:8px;border-bottom:1px solid rgba(200,160,80,.4)}#alBook .col>b{display:block;font-size:16px;margin:4px 0}#alBook .col>small{display:block;opacity:.8;margin-bottom:4px}#alBook .pz{display:flex;gap:8px;align-items:center;padding:4px 0;opacity:.5}#alBook .pz.on{opacity:1}#alBook .pz span{flex:0 0 26px;font-size:18px;text-align:center}#alBook .pz i{margin-left:auto;font-style:normal;font-weight:700;color:#ffd890}#alBook .pz em{font-size:13px}
-#alCol{width:100%;max-width:480px;text-align:center;font-size:12.5px;background:rgba(200,160,80,.14);border:1px solid rgba(200,160,80,.35);border-radius:10px;padding:5px 8px;box-sizing:border-box;cursor:pointer}
+#alCol{flex:0 0 auto;font-size:12px;background:rgba(200,160,80,.18);border:1px solid rgba(200,160,80,.4);border-radius:9px;padding:3px 7px;cursor:pointer;white-space:nowrap}
+@media (max-height:700px){#alJars button{min-height:54px}#alJars button .e{font-size:19px}#alJars button .d{display:none}#alPv{height:96px}#alPrep{gap:4px}#alPv .cd li{font-size:11px;line-height:1.2}#alPv .cd>i{margin-bottom:3px;padding-bottom:3px}}@media (max-width:400px){#alPv .cd{padding:6px 7px}#alPv .cd li{font-size:11px}}
 #alBook .rc{display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid rgba(255,255,255,.1)}#alBook .rc .ig{flex:0 0 58px;font-size:18px}#alBook small{opacity:.85}
 #alHelp{position:absolute;left:12px;right:12px;bottom:250px;z-index:10;max-width:460px;margin:0 auto;background:rgba(26,18,36,.95);color:#f2ead8;border:1px solid rgba(200,160,80,.6);border-radius:14px;padding:12px 14px;font:14px/1.4 system-ui,sans-serif;box-shadow:0 6px 24px rgba(0,0,0,.5)}#alHelp.prep{bottom:auto;top:240px}
 #alAsc{position:absolute;inset:0;z-index:12;background:#070b1c;cursor:pointer}#alAsc canvas{width:100%;height:100%;display:block}#alAsc .tx{position:absolute;left:0;right:0;top:27%;text-align:center;color:#f4ecd8;text-shadow:0 2px 14px #000,0 0 4px #000;font:700 15px system-ui,sans-serif;display:flex;flex-direction:column;gap:6px;opacity:0;transition:opacity .45s;pointer-events:none}#alAsc .tx b{font-size:30px}#alAsc .tx span{font-size:21px;color:#ffe2a0}#alAsc .tx small{font-size:14px;opacity:.85;letter-spacing:.08em}
@@ -932,9 +934,8 @@
     prepCss(); prepClose();
     const el = document.createElement('div'); el.id = 'alPrep';
     el.innerHTML = `<div class="top"><span class="tm" id="alTm">${mmss((G.st && G.st.n > 1) ? PREP2 : PREP)}</span><b>⚗️ Prepara</b><button id="alBk" type="button">📖</button><button id="alRdy" type="button">✔ Pronto</button></div>
-      <div id="alFl">${FL.e} <b>Piano ${G.st ? G.st.n : 1} di ${FLOORS.length}: ${FL.n}</b><br><small>${FL.tip}</small></div>
-      <div id="alCol">${colLine()}</div>
-      <canvas id="alCv"></canvas><div id="alPot"></div><div id="alMsg"></div>
+      <div id="alFl"><span>${FL.e} <b>Piano ${G.st ? G.st.n : 1}/${FLOORS.length}</b> ${FL.n}</span><span id="alCol">${colShort()}</span></div>
+      <div id="alStage"><canvas id="alCv"></canvas><div id="alNmP"></div><div id="alMsg"></div></div><div id="alPot"></div><div id="alPv"></div>
       <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
       <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${g.e}</span><span class="n">${esc(g.n)}</span><span class="d">${esc(g.d)}</span></button>`).join('')}</div>
       <div id="alBelt"><span class="lb">Cintura</span>${Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-b="${i}"><span class="vi">${FLASK}</span><span class="ig"></span></button>`).join('')}</div>`;
@@ -974,10 +975,12 @@
     const el = document.getElementById('alPrep'); if (!el) return;
     const p = document.getElementById('alPot');
     p.innerHTML = U2.pot.length ? U2.pot.map((id, i) => `<button type="button" class="ch" data-p="${i}">${ING_BY[id].e} ${esc(ING_BY[id].n)}<i>✕</i></button>`).join('') + `<span class="h">${U2.pot.length}/${MAXI}</span>`
-      : '<span class="h">Tocca un barattolo: l\'ingrediente cade nel calderone (fino a ' + MAXI + ').</span>';
+      : '<span class="h">Tocca un barattolo (fino a ' + MAXI + ' ingredienti)</span>';
     // ANTEPRIMA: cosa esce dal calderone, in DUE RIQUADRI (se la lanci / se la bevi) che cambiano a ogni ingrediente.
     // Se gli ingredienti REAGISCONO tra loro e' un segreto (lo svela il ricettario): si vede solo quanto lontano arriva
-    if (U2.pot.length) p.insertAdjacentHTML('beforeend', pvHtml(brew(potKey(U2.pot))));
+    const P0 = U2.pot.length ? brew(potKey(U2.pot)) : null, sec0 = P0 && secret(P0), nm = document.getElementById('alNmP');
+    if (nm) { nm.textContent = P0 ? (sec0 ? '✨ Reazione misteriosa' : (P0.rx.length && !P0.leg ? '📖 ' : '') + P0.e + ' ' + P0.n) : ''; nm.style.color = P0 ? (sec0 ? '#e8d8ff' : cqShade(P0.c, 1.4)) : ''; }
+    const pv = document.getElementById('alPv'); if (pv) pv.innerHTML = pvHtml(P0);
     p.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { U2.pot.splice(+b.dataset.p, 1); SFX.pour(); prepRender(G); }; });
     const full = G.me.belt.every(Boolean);
     $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length;
@@ -1936,12 +1939,13 @@
     return L.length ? L : ['— non fa niente'];
   }
   function pvHtml(P) {
-    const li = (t, c) => '<li' + (c ? ' class="' + c + '"' : '') + '>' + esc(t) + '</li>', reach = P.spd * P.fuse, sec = secret(P);
-    const warn = [reach < 4 ? '⚠️ ti scoppia vicino (' + reach.toFixed(1).replace('.', ',') + ' caselle)' : '🎯 arriva a ' + Math.min(RMAX, reach).toFixed(0) + ' caselle'].concat(P.inst >= VOLATILE ? ['💥 instabile: attento al fuoco'] : []);
-    const th = (sec ? [li('❓ reagiscono tra loro: effetto segreto', 'q')] : throwLines(P).map(t => li(t))).concat(warn.map(t => li(t, 'w')));
-    const dr = (sec ? [li('❓ segreto', 'q')] : drinkLines(P).map(t => li(t))).concat(P.inst >= VOLATILE ? [li('🤢 può farti male', 'w')] : []);
-    const title = sec ? '✨ Reazione misteriosa' : (P.rx.length && !P.leg ? '📖 ' : '') + P.e + ' ' + esc(P.n);
-    return '<div class="pv"><b style="color:' + (sec ? '#e8d8ff' : cqShade(P.c, 1.4)) + '">' + title + '</b><div class="pvc"><div class="cd th"><i>🎯 Se la lanci</i><ul>' + th.join('') + '</ul></div><div class="cd dr"><i>🍷 Se la bevi</i><ul>' + dr.join('') + '</ul></div></div>' + (sec ? '<small style="text-align:center;opacity:.75">📖 il ricettario svela le reazioni</small>' : '') + '</div>';
+    const li = (t, c) => '<li' + (c ? ' class="' + c + '"' : '') + '>' + esc(t) + '</li>';
+    if (!P) return '<div class="pv"><div class="pvc"><div class="cd th"><i>🎯 Se la lanci</i><ul>' + li('…aggiungi un ingrediente', 'q') + '</ul></div><div class="cd dr"><i>🍷 Se la bevi</i><ul>' + li('…', 'q') + '</ul></div></div></div>';
+    const reach = P.spd * P.fuse, sec = secret(P);
+    const warn = [(reach < 4 ? '⚠️ ti scoppia vicino' : '🎯 arriva a ' + Math.min(RMAX, reach).toFixed(0) + ' caselle') + (P.inst >= VOLATILE ? ' · 💥 instabile' : '')];
+    const th = (sec ? [li('❓ reagiscono tra loro: segreto (📖 lo svela)', 'q')] : throwLines(P).slice(0, 3).map(t => li(t))).concat(warn.map(t => li(t, 'w')));
+    const dr = (sec ? [li('❓ segreto', 'q')] : drinkLines(P).slice(0, 3).map(t => li(t))).concat(P.inst >= VOLATILE ? [li('🤢 può farti male', 'w')] : []);
+    return '<div class="pv"><div class="pvc"><div class="cd th"><i>🎯 Se la lanci</i><ul>' + th.join('') + '</ul></div><div class="cd dr"><i>🍷 Se la bevi</i><ul>' + dr.join('') + '</ul></div></div></div>';
   }
   // COLLEZIONE: ogni pozione vista scoppiare (tua o dell'altro) e' una SCOPERTA, anche senza ricettario. Ai traguardi di PRIZES si sblocca un premio
   // per il proprio mago (lo vede anche l'altro). Le leggendarie (LEGEND) danno il loro ornamento a chi le PREPARA (B.leg)
@@ -1972,6 +1976,7 @@
       + PRIZES.map(p => '<div class="pz' + (n >= p.n ? ' on' : '') + '"><span>' + p.e + '</span>' + esc(p.t) + '<i>' + (n >= p.n ? '✔' : p.n) + '</i></div>').join('')
       + '<b>🌟 Pozioni leggendarie</b>' + Object.entries(LEGEND).map(([k, L]) => (B.leg || {})[k] ? '<div class="pz on"><span>' + LEG_PR[L.pr][0] + '</span>' + esc(L.n) + ' = ' + brew(k).ings.map(g => g.e).join('') + '<i>✔</i></div>' : '<div class="pz"><span>' + FLOORS[L.fl].e + '</span><em>«' + esc(L.rid) + '»</em></div>').join('') + '</div>';
   }
+  function colShort() { return '🏅 ' + found() + '/' + TOTAL + ' · 🌟 ' + Object.keys(book().leg || {}).filter(k => LEGEND[k]).length + '/' + Object.keys(LEGEND).length; }
   function colLine() { const n = found(), nx = PRIZES.find(p => n < p.n), lg = Object.keys(book().leg || {}).filter(k => LEGEND[k]).length; return '🏅 <b>' + n + '</b>/' + TOTAL + ' scoperte' + (nx ? ' · 🎁 a ' + nx.n + ': ' + nx.e + ' ' + esc(nx.t) : ' · 🎁 tutti i premi!') + ' · 🌟 ' + lg + '/' + Object.keys(LEGEND).length; }
   function bookOpen(G) {
     const host = document.getElementById('alPrep') || $('#ciack'), old = document.getElementById('alBook'); if (old) old.remove();
