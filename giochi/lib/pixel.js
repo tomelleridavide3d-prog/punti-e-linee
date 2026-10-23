@@ -110,12 +110,14 @@
       if (t === 'lamp') LIGHTS.push({ x: x + 0.5, y: y + 0.5, r: 3.4, c: [0.46, 0.33, 0.12] });
       if (t === 'monitor') LIGHTS.push({ x: x + 0.5, y: y + 0.6, r: 2, c: [0.16, 0.22, 0.08] });
       if (t === 'tv') LIGHTS.push({ x: x + 1.2, y: y + 0.5, r: 2, c: [0.04, 0.1, 0.2] });
+      if (t === 'candy') LIGHTS.push({ x: x + 0.5, y: y + 0.9, r: 2.2, c: [0.22, 0.08, 0.18] });   // il vetro delle caramelle fa una luce rosata
     }
+    LIGHTS.push({ x: R - 2.5, y: 1.6, r: 2.4, c: [0.26, 0.2, 0.08] });   // faretto sul bersaglio delle freccette
     for (const x of SCONCE_B(R)) LIGHTS.push({ x: x + 0.5, y: 1.2, r: 2.4, c: [0.3, 0.21, 0.08] });
     for (const y of SCONCE_L) LIGHTS.push({ x: 1.2, y: y + 0.5, r: 2.4, c: [0.3, 0.21, 0.08] });
     for (const y of WIN_L) LIGHTS.push({ x: 1.4, y: y + 0.5, r: 2.8, c: [-0.03, 0.03, 0.16] });
   }
-  const SCONCE_B = R => { const a = []; for (let x = 13; x < R; x += 2) a.push(x); return a; }, SCONCE_L = [5, 9, 13], WIN_L = [3, 7, 11];
+  const SCONCE_B = R => { const a = []; for (let x = 13; x < R - 4; x += 2) a.push(x); return a; }, SCONCE_L = [5, 9, 13], WIN_L = [3, 7, 11];   // niente applique sull'angolo giochi (bersaglio e lavagna)
   const lightAt = (wx, wy) => {
     let r = AMB[0], g = AMB[1], b = AMB[2];
     for (const L of LIGHTS) { const dd = Math.hypot(wx - L.x, wy - L.y); if (dd >= L.r) continue; const f = (1 - dd / L.r) ** 2; r += L.c[0] * f; g += L.c[1] * f; b += L.c[2] * f; }
@@ -149,7 +151,7 @@
     const k = x + ',' + y; if (FL.has(k)) return FL.get(k);
     const S = spr(32, 17, 16, 0), solid = cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop && cqSolid[y][x].prop !== 'gdoor';
     const var0 = 0.96 + 0.07 * h2(x, y), tint = (h2(y, x) - 0.5) * 0.06;
-    const SHL = { counter: 0.42, monitor: 0.42, plant: 0.4, lamp: 0.22, sofa: 0.34, table: 0.28, tv: 0.3, coffee: 0.4, rack: 0.45, crate: 0.32, crate2: 0.45, bell: 0.3 };
+    const SHL = { candy: 0.36, counter: 0.42, monitor: 0.42, plant: 0.4, lamp: 0.22, sofa: 0.34, table: 0.28, tv: 0.3, coffee: 0.4, rack: 0.45, crate: 0.32, crate2: 0.45, bell: 0.3 };
     const ln = cqSolid[y] && cqSolid[y][x - 1], shLen = ln && ln.prop ? SHL[ln.prop] || 0 : 0, up = cqSolid[y - 1] && cqSolid[y - 1][x], shUp = up && up.prop ? (SHL[up.prop] || 0) * 0.5 : 0;
     S.top(0, 0, 1, 1, 0, (u, v, X, Y) => {
       const wx = x + u, wy = y + v, Xg = (x - y) * 16 + X, Yg = (x + y) * 8 + Y;
@@ -164,6 +166,8 @@
         else if (u < 2 / 16 || v < 1.6 / 16) c = sh(c, 1.08);
         else if (u > 15 / 16 || v > 15 / 16) c = sh(c, 0.86);
       }
+      // linea di tiro delle freccette: listello d'ottone incassato nel marmo (y 5, x R-4..R-2)
+      if (wy >= 4.94 && wy < 5.2 && wx > ROOM.R - 3.85 && wx < ROOM.R - 1.15) c = wy < 4.99 || wy > 5.15 || fr(wx * 2) < 0.05 ? C.brassD : wy < 5.05 ? C.gold2 : C.brass;
       if ((shLen && u < shLen && v > 0.1 && v < 0.9 && (u < shLen - 0.06 || dith(X, Y) < 0.5)) || (shUp && v < shUp && u > 0.15 && u < 0.85 && (v < shUp - 0.05 || dith(X, Y) < 0.5))) c = mix(sh(c, 0.8), [70, 60, 112], 0.16);   // ombra proiettata
       if (solid) { const e = Math.min(u, 1 - u, v, 1 - v); if (e > 0.12 || (e > 0.06 && dith(X, Y) < 0.5)) c = sh(c, 0.78); }   // ombra sotto l'oggetto
       return c;
@@ -210,6 +214,29 @@
         return z > 1.78 ? hx('#3e6a44') : hx('#2a4a72');
       }
       if (Math.hypot(w - 10.5, (z - 2.15) * 0.75) < 0.34) { const d = Math.hypot(w - 10.5, (z - 2.15) * 0.75); if (d > 0.27) return C.gold; const ang = Math.atan2(z - 2.15, w - 10.5); if ((d < 0.2 && Math.abs(ang - 1.2) < 0.18) || (d < 0.15 && Math.abs(ang + 0.4) < 0.25)) return hx('#2a1a14'); return C.cream; }
+      // angolo giochi: bersaglio delle freccette su una tavola di sughero (R-3) e lavagna dei record col gesso (R-2..R-1)
+      const bw = ROOM.R - 2.5, dz = (z - 1.78) * 0.78, db = Math.hypot(w - bw, dz);
+      if (Math.abs(w - bw) < 0.5 && z > 1.12 && z < 2.44) {
+        if (db < 0.42) {
+          if (db > 0.37) return hx('#1a1414');   // anello dei numeri
+          if (db < 0.05) return hx('#c8303a');
+          if (db < 0.1) return hx('#2e8a44');
+          const sec = Math.floor((Math.atan2(dz, w - bw) / (2 * Math.PI) + 1 + 1 / 40) * 20) % 20, alt = sec % 2;
+          if ((db > 0.32 && db <= 0.37) || (db > 0.19 && db < 0.23)) return alt ? hx('#2e8a44') : hx('#c8303a');   // doppi e tripli
+          return alt ? hx('#efe4c4') : hx('#1e1a18');
+        }
+        return Math.abs(w - bw) > 0.45 || z < 1.17 || z > 2.39 ? C.woodD : sh(hx('#6a4a34'), h2(X, Y) > 0.7 ? 0.88 : 1);
+      }
+      if (w > ROOM.R - 1.9 && w < ROOM.R - 0.1 && z > 1.3 && z < 2.6) {
+        if (w < ROOM.R - 1.82 || w > ROOM.R - 0.18 || z < 1.38 || z > 2.52) return C.wood2;   // cornice
+        const lw = w - (ROOM.R - 1.82), lz = 2.52 - z, row = Math.floor((lz - 0.12) / 0.22), q = fr((lz - 0.12) / 0.22), chalk = hx('#ece8d4');
+        if (lz > 0.05 && lz < 0.13 && lw > 0.4 && lw < 1.24 && h2(Math.floor(w * 16), Math.floor(z * 14)) > 0.3) return chalk;   // "RECORD"
+        if (row >= 1 && row <= 4 && q > 0.35 && q < 0.65) {
+          if (lw > 0.08 && lw < 0.16) return row === 1 ? C.gold2 : sh(chalk, 0.8);   // la stellina del primo, i numeri degli altri
+          if (lw > 0.24 && lw < 1.5 - row * 0.1 && h2(Math.floor(w * 16), row) > 0.25) return sh(chalk, 0.86);
+        }
+        return h2(X, Y) > 0.9 ? hx('#3a4840') : hx('#26322c');   // ardesia
+      }
       if (SCONCE_B(ROOM.R).includes(Math.floor(w)) && Math.abs(fr(w) - 0.5) < 0.09 && z > 2.0 && z < 2.45) return z > 2.3 ? (EM = 1, C.shade) : C.brass;
     }
     // strati del muro
@@ -315,6 +342,31 @@
         // maniglia e targhetta
         S.emit = 0; const [hxp, hyp] = S.P(0.72, F, 1.15); S.set(Math.round(hxp), Math.round(hyp), C.gold2); S.set(Math.round(hxp) + 1, Math.round(hyp), C.gold);
         S.emit = 1; S.faceY(0.13, 0.87, F, 2.25, 2.75, (s, tt) => { const ac = (0.13 + s * 0.74 - 0.5) / 0.38, z = 2.25 + tt * 0.5; return z < 2.3 + 0.45 * Math.sqrt(Math.max(0, 1 - ac * ac)) - 0.06 && Math.abs(ac) < 0.93 && !(Math.abs(ac) < 0.05 || fr(ac * 3 + 0.5) < 0.08) ? C.shade : null; }); S.emit = 0;
+        break;
+      }
+      case 'candy': {   // distributore delle caramelle pazze: mobiletto rosso con la feritoia delle monete e lo sportellino, boccia di vetro piena di caramelle, cappello rosso
+        const red = hx('#c42a34'), cand = ['#3a7ae8', '#8a5a3a', '#e84a4a', '#f0c040', '#ff7ac8', '#9a5ae8', '#4ac868', '#40d8e8', '#f4f4f4', '#ff9a3a'].map(hx);
+        S.box(0.2, 0.22, 0.8, 0.78, 0, 0.12, C.woodD);
+        S.box(0.24, 0.26, 0.76, 0.74, 0.12, 0.98, red, { l: (s, tt) => {
+          if (tt > 0.9 || tt < 0.06) return C.brass;
+          if (Math.abs(s - 0.5) < 0.16 && tt > 0.2 && tt < 0.42) return Math.abs(s - 0.5) < 0.12 && tt > 0.24 && tt < 0.38 ? hx('#2a1418') : C.brass;   // sportellino
+          if (Math.abs(s - 0.5) < 0.1 && tt > 0.58 && tt < 0.78) return Math.abs(s - 0.5) < 0.025 && tt > 0.62 && tt < 0.74 ? hx('#1a1010') : C.gold2;   // feritoia delle monete
+          return sh(red, 0.85);
+        }, r: sh(red, 0.62), t: C.brass });
+        S.cyl(0.5, 0.5, 0.16, 0.98, 1.08, hx('#d8dce4'), { top: hx('#eef0f4') });
+        const [gx, gy] = S.P(0.5, 0.5, 1.5), gr = 10.5;
+        S.emit = 1;
+        S.ell(gx, gy, gr, gr, (dx, dy, X, Y) => {
+          if (dx < -0.25 && dx > -0.55 && dy < -0.15 && dy > -0.6) return hx('#ffffff');   // riflesso del vetro
+          if (dy < -0.62) return mix(hx('#a8c8e0'), hx('#e8f4fc'), dx < 0 ? 0.5 : 0.1);   // vetro vuoto in cima
+          const cx = Math.floor((X + (Math.floor(Y / 3) % 2) * 1.5) / 3), cy = Math.floor(Y / 3), e = (X + (Math.floor(Y / 3) % 2) * 1.5) % 3 < 0.9 || Y % 3 === 0;
+          const c = cand[Math.floor(h2(cx, cy) * 10)];
+          return sh(c, e ? 0.7 : dx < -0.2 && dy < 0.2 ? 1.12 : dx > 0.5 || dy > 0.6 ? 0.82 : 1);
+        });
+        S.emit = 0;
+        S.cyl(0.5, 0.5, 0.2, 1.97, 2.1, red, { top: sh(red, 1.15) });
+        S.cyl(0.5, 0.5, 0.06, 2.1, 2.2, hx('#d8dce4'));
+        glow.push([0.5, 0.6, 1.5, 1.5, 'rgba(255,130,200,.22)']);
         break;
       }
       case 'lamp': {   // lampada a stelo d'ottone con il paralume acceso
@@ -429,6 +481,7 @@
   const pxFloor = (K, x, y) => {
     put(K, floorSpr(x, y), x, y);
     if (x === 11 && y === 8) K.glow(11, 8, 3.6 * ZS, 3.2, 'rgba(255,214,150,.16)');   // lampadario (solo luce)
+    if (x === ROOM.R - 3 && y === 2) K.glow(ROOM.R - 2.5, 1.0, 1.8 * ZS, 1.2, 'rgba(255,210,140,.22)');   // faretto sul bersaglio
   };
   const drawWall = (K, x, y) => { put(K, wallSpr(x, y), x, y); const back = y === 0, left = x === 0; if (back && SCONCE_B(ROOM.R).includes(x)) K.glow(x + 0.5, y + 0.95, 2.35 * ZS, 1.1, 'rgba(255,200,120,.3)'); if (left && SCONCE_L.includes(y)) K.glow(x + 0.95, y + 0.5, 2.35 * ZS, 1.1, 'rgba(255,200,120,.3)'); };
   const pxProp = (K, t, x, y, o) => { const s = propSpr(t, x, y, o); if (!s) return false; put(K, s, x, y); for (const [a, b, z, r, col] of s.glow) K.glow(x + a, y + b, z * ZS, r, col); return true; };

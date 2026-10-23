@@ -2314,7 +2314,8 @@ const cqMapIds = () => Object.keys(CQ_MAPS).filter(cqMapOk);
 // hall dell'hotel: la stanza d'attesa prima della partita (non si sceglie tra le mappe di gioco)
 function cqMapHotel() {
   // porte dei giochi sulla parete in fondo, a destra della reception: una per gioco piu' una "presto". Con piu' giochi la hall si allunga (R = ultima colonna)
-  const nd = CQ_GAMES.length + 1, R = Math.max(20, 12 + 2 * nd);
+  // +3: l'angolo giochi in fondo a destra (bersaglio delle freccette, lavagna dei record, gru) ha il suo pezzo di muro dopo l'ultima porta
+  const nd = CQ_GAMES.length + 1, R = Math.max(20, 12 + 2 * nd) + 3;
   const rooms = [{ n: 'Hall', x: 1, y: 1, w: R, h: 15, c: ['#d8cfbd', '#c9bfab'], wc: '#6e3b34', k: 'tile', nl: true, nm: true }];
   const decals = [
     [7, 5, 8, 6, '#8a2a2a'], [7.25, 5.25, 7.5, 5.5, '#e0b84a'], [7.4, 5.4, 7.2, 5.2, '#a83434'],   // tappeto rosso con il bordo d'oro
@@ -2324,14 +2325,17 @@ function cqMapHotel() {
   const props = [], pp = (t, x, y, o) => props.push([t, x, y, o]), prow = (t, x0, y0, n, dx, dy, f) => { for (let i = 0; i < n; i++) pp(t, x0 + dx * i, y0 + dy * i, f ? f(i) : undefined); };
   // reception
   prow('counter', 3, 1, 6, 1, 0); pp('monitor', 9, 1); pp('plant', 2, 1); pp('plant', 10, 1); pp('bell', 6, 3);
+  pp('candy', 11, 1);   // distributore delle caramelle pazze, in fondo al tappeto rosso
   // porte dei giochi (con lo zerbino davanti) e piante in mezzo
   for (let i = 0; i < nd; i++) { const g = CQ_GAMES[i], x = 12 + 2 * i; pp('gdoor', x, 1, { c: g ? g[3] : '#6b6f78', k: g ? g[0] : null }); decals.push([x + 0.12, 2.1, 0.76, 0.7, '#5a3e26']); if (i < nd - 1) pp('plant', x + 1, 1); }
-  if (R > 12 + 2 * nd - 2) pp('lamp', R, 1);
+  // angolo giochi (disposizione approvata il 23-10-2026): lampada R-4,1; bersaglio e lavagna dei record dipinti sul muro (R-3 e R-2..R-1, giochi/lib/pixel.js);
+  // R,1 riservata alla gru; corsia di tiro x R-4..R-2, y 2-4 libera; linea di tiro a y 5. Liberi per il biliardo x R-12..R-9, y 7-8 e l'air hockey x R-6..R-5, y 8-9
+  pp('lamp', R - 4, 1);
   // salottini
   pp('teatable', 3, 11); pp('lamp', 1, 14);   // salotto: tavolino del te' (le poltrone attorno: cqSalaSeats) pp('plant', 5, 14); pp('tv', 1, 9);
-  prow('sofa', R - 4, 12, 3, 1, 0); pp('table', R - 3, 10); pp('lamp', R, 14); pp('plant', R - 5, 14); pp('coffee', R, 9);
+  prow('sofa', R - 11, 12, 3, 1, 0); pp('table', R - 8, 12); pp('lamp', R, 14); pp('plant', R - 12, 14); pp('coffee', R, 11);   // divani degli spettatori verso i tavoli
   // bagagli, piante e lampade
-  pp('rack', R, 5); pp('rack', R, 6); pp('crate', 1, 5); pp('crate2', 1, 6); pp('plant', 7, 14); pp('plant', R - 6, 14); pp('lamp', 6, 7); pp('lamp', R - 5, 7);
+  pp('rack', 1, 7); pp('rack', 1, 8); pp('crate', 1, 5); pp('crate2', 1, 6); pp('plant', 7, 14); pp('plant', R - 13, 14); pp('lamp', 6, 7); pp('lamp', R - 13, 7); pp('lamp', R - 2, 9);
   const ring = [[10, 8], [11, 8], [12, 8], [9, 9], [13, 9], [10, 10], [12, 10], [8, 8], [14, 8], [11, 12]];
   return { w: R + 2, h: 17, rooms, doors: [], decals, props, tasks: [], hall: 0, cams: [], vending: [], ring, button: { x: -10, y: -10 }, sabs: {}, inn: { Hall: 'nella hall' }, help: '', btnTxt: '', sabTxt: '' };
 }
