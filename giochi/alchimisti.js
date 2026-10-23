@@ -790,6 +790,13 @@
     if (has('rose')) { const rx = x0 + f * 7, ry = hy - 4; g.fillStyle = '#3e7a34'; g.beginPath(); g.ellipse(rx + f * 3, ry + 1, 2.6, 1.2, 0.4 * f, 0, 7); g.fill(); g.fillStyle = '#c8203a'; g.beginPath(); g.arc(rx, ry, 2.8, 0, 7); g.fill(); g.fillStyle = '#ff4a62'; g.beginPath(); g.arc(rx - 0.6, ry - 0.6, 1.5, 0, 7); g.fill(); }
     if (has('gear')) { const gx = x0 - f * 6, gy = hy - 4.5, a = t * 1.5; g.fillStyle = '#e8b830'; g.beginPath(); for (let i = 0; i < 16; i++) { const an = a + i * Math.PI / 8, r = i % 2 ? 2.4 : 3.2; i ? g.lineTo(gx + Math.cos(an) * r, gy + Math.sin(an) * r) : g.moveTo(gx + Math.cos(an) * r, gy + Math.sin(an) * r); } g.closePath(); g.fill(); g.fillStyle = '#7a5a10'; g.beginPath(); g.arc(gx, gy, 0.9, 0, 7); g.fill(); }
     if (has('phoenix')) { const px = x0 - f * 8, py = hy - 3; g.strokeStyle = '#ff8a2a'; g.lineWidth = 2.2; g.beginPath(); g.moveTo(px, py); g.quadraticCurveTo(px - f * 6, py - 8, px - f * 4, py - 16); g.stroke(); g.strokeStyle = '#ffd24a'; g.lineWidth = 1; g.beginPath(); g.moveTo(px, py); g.quadraticCurveTo(px - f * 6, py - 8, px - f * 4, py - 16); g.stroke(); g.fillStyle = Math.sin(t * 12) > 0 ? '#ffe070' : '#ff7a2a'; g.beginPath(); g.arc(px - f * 4, py - 16.5, 1.3, 0, 7); g.fill(); }
+    if (has('mentor')) {   // nappina d'oro del Maestro: pende dalla punta del cappello e dondola
+      const sw = Math.sin(t * 2.6 + (walk || 0)) * 0.35, L = 9, ex = tx + Math.sin(sw) * L * 0.6 + f * 2, ey = ty + Math.cos(sw) * L;
+      g.strokeStyle = '#f2c040'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(tx, ty); g.quadraticCurveTo(tx + f * 3, ty + L * 0.4, ex, ey); g.stroke();
+      g.fillStyle = '#f2c040'; g.beginPath(); g.arc(tx, ty, 1.5, 0, 7); g.fill();
+      g.beginPath(); g.moveTo(ex - 1.2, ey); g.lineTo(ex + 1.2, ey); g.lineTo(ex + 2.2 + sw, ey + 5.5); g.lineTo(ex - 2.2 + sw, ey + 5.5); g.closePath(); g.fill();
+      g.fillStyle = '#c89018'; g.fillRect(ex - 1.4, ey - 0.5, 2.8, 1.4);
+    }
     if (has('owl')) {   // gufetto sulla spalla (dalla parte opposta a dove guarda), dondola un po'
       const ox = x0 - f * 13, oy = hy + 14 + Math.sin(t * 2.2) * 0.6;
       g.fillStyle = '#7a5a3a'; g.beginPath(); g.ellipse(ox, oy, 4.6, 5.6, 0, 0, 7); g.fill();
@@ -889,8 +896,15 @@
   const ADV_AT = 3;
   const LV = () => { const S = store.settings; if (S.alcGames == null) { let old = 0; try { old = localStorage.getItem('alcHelp') || localStorage.getItem('alcHelp2') ? 1 : 0; } catch {} const B = S.alcBook || {}; S.alcGames = old || B.own || Object.keys(B.f || {}).length >= 5 ? ADV_AT : 0; saveStore(); } return S.alcGames; };
   const ADV = () => LV() >= ADV_AT;
-  const ingOk = g => (g.lv || 0) <= LV();
-  const maxI = () => ADV() ? MAXI : 2;
+  // MAESTRO E APPRENDISTA (online): si gioca al livello del MENO esperto (G.st.ml, deciso dall'host con i livelli mandati dagli amici), cosi' nessuno parte svantaggiato.
+  //   L'esperto diventa 🎓 Maestro: se l'apprendista arriva in fondo alla partita vince la nappina d'oro (alcMentor); per l'apprendista la partita conta DOPPIO
+  const PL = () => { const G = cq.g, m = G && G.mode === 'alchimisti' && G.st ? G.st.ml : null; return m != null ? Math.min(LV(), m) : LV(); };
+  const PADV = () => PL() >= ADV_AT;
+  const mentor = G => !!(G && G.st && G.st.ml != null && G.st.ml < ADV_AT && G.st.mx >= ADV_AT);
+  const ingOk = g => (g.lv || 0) <= PL();
+  const maxI = () => PADV() ? MAXI : 2;
+  const beltOk = k => !k || (k.length <= maxI() && [...k].every(id => ING_BY[id] && ingOk(ING_BY[id])));
+  const lockTxt = g => (g.lv || 0) <= LV() ? 'non oggi 🎓' : 'tra ' + ((g.lv || 0) - LV()) + ' partit' + ((g.lv || 0) - LV() === 1 ? 'a' : 'e');
   const U2 = { pot: [], ph: '', fx: [], shake: 0, drain: 0, msg: '', msgT: 0 };
   const now = () => performance.now() / 1000;
   const sfxOk = () => { if (!store.settings.sound) return null; try { actx = actx || new (window.AudioContext || window.webkitAudioContext)(); if (actx.state === 'suspended') actx.resume(); return actx; } catch { return null; } };
@@ -947,16 +961,16 @@
     prepCss(); prepClose();
     const el = document.createElement('div'); el.id = 'alPrep';
     el.innerHTML = `<div class="top"><span class="tm" id="alTm">${mmss((G.st && G.st.n > 1) ? PREP2 : PREP)}</span><b>⚗️ Prepara</b>${ADV() ? '<button id="alBk" type="button">📖</button>' : ''}<button id="alRdy" type="button">✔ Pronto</button></div>
-      <div id="alFl"><span>${FL.e} <b>Piano ${G.st ? G.st.n : 1}/${FLOORS.length}</b> ${FL.n}</span>${ADV() ? '<span id="alCol">' + colShort() + '</span>' : '<span id="alCol" class="nv">🎓 Partita ' + (LV() + 1) + ' di ' + ADV_AT + ' da apprendista</span>'}</div>
+      <div id="alFl"><span>${FL.e} <b>Piano ${G.st ? G.st.n : 1}/${FLOORS.length}</b> ${FL.n}</span>${mentor(G) && ADV() ? '<span id="alCol" class="nv">🎓 Oggi sei il Maestro</span>' : ADV() ? '<span id="alCol">' + colShort() + '</span>' : '<span id="alCol" class="nv">🎓 Partita ' + (LV() + 1) + ' di ' + ADV_AT + ' da apprendista' + (mentor(G) ? ' (vale 2!)' : '') + '</span>'}</div>
       <div id="alStage"><canvas id="alCv"></canvas><div id="alNmP"></div><div id="alMsg"></div></div><div id="alPot"></div><div id="alPv"></div>
       <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alFill" type="button">⚡ Riempi per me</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
-      <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${ingOk(g) ? g.e : '🔒'}</span><span class="n">${esc(g.n)}</span><span class="d">${ingOk(g) ? esc(g.d) : 'tra ' + ((g.lv || 0) - LV()) + ' partit' + ((g.lv || 0) - LV() === 1 ? 'a' : 'e')}</span></button>`).join('')}</div>
+      <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${ingOk(g) ? g.e : '🔒'}</span><span class="n">${esc(g.n)}</span><span class="d">${ingOk(g) ? esc(g.d) : lockTxt(g)}</span></button>`).join('')}</div>
       <div id="alBelt"><span class="lb">Cintura</span>${Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-b="${i}"><span class="vi">${FLASK}</span><span class="ig"></span></button>`).join('')}</div>`;
     $('#ciack').appendChild(el);
     el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
     $('#alBot').onclick = () => bottle(G); $('#alFill').onclick = () => quickFill(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); spell('Ops… 🙈', 'oops'); prepRender(G); };
-    $('#alRdy').onclick = () => setReady(G, !ready(G)); if (ADV()) { $('#alBk').onclick = () => bookOpen(G); $('#alCol').onclick = () => bookOpen(G); }
+    $('#alRdy').onclick = () => setReady(G, !ready(G)); if (ADV()) { $('#alBk').onclick = () => bookOpen(G); if (!mentor(G)) $('#alCol').onclick = () => bookOpen(G); }
     if (!G.tut) helpOnce('prep');
     U2.pot = []; U2.fx = []; U2.msg = '';
     prepRender(G);
@@ -965,8 +979,9 @@
   const ready = G => !!(G.st && G.st.rd && G.st.rd[G.me.id]) || !!G.myRdy;
   function say(t) { U2.msg = t; U2.msgT = now(); const m = document.getElementById('alMsg'); if (m) m.textContent = t; }
   function addIng(G, id) {
-    const g0 = ING_BY[id]; if (!ingOk(g0)) { const n = (g0.lv || 0) - LV(); say('🔒 ' + g0.n + ': si sblocca tra ' + n + (n === 1 ? ' partita' : ' partite') + ' completa' + (n === 1 ? '' : 'e')); SFX.full(); return; }
-    if (U2.pot.length >= maxI()) { say('Al massimo ' + maxI() + ' ingredienti: imbottiglia o svuota.' + (ADV() ? '' : ' (3 dopo ' + ADV_AT + ' partite)')); SFX.full(); U2.shake = now(); return; }
+    const g0 = ING_BY[id]; if (!ingOk(g0) && (g0.lv || 0) <= LV()) { say('🎓 ' + g0.n + ': oggi si gioca con gli ingredienti da apprendista'); SFX.full(); return; }
+    if (!ingOk(g0)) { const n = (g0.lv || 0) - LV(); say('🔒 ' + g0.n + ': si sblocca tra ' + n + (n === 1 ? ' partita' : ' partite') + ' completa' + (n === 1 ? '' : 'e')); SFX.full(); return; }
+    if (U2.pot.length >= maxI()) { say('Al massimo ' + maxI() + ' ingredienti: imbottiglia o svuota.' + (PADV() ? '' : ADV() ? ' (oggi si gioca da apprendisti)' : ' (3 dopo ' + ADV_AT + ' partite)')); SFX.full(); U2.shake = now(); return; }
     U2.pot.push(id); U2.fx.push({ id, t: now() }); SFX.plop(); say(''); spell(cqPickOne(SPELLS));
     legendCheck(G); prepRender(G);
   }
@@ -1237,7 +1252,7 @@
   }
   const hurts = P => Object.entries(P.s).some(([el, v]) => FX[el] && FX[el].dmg && v >= 0.6);   // toglie cuori
   const stops = P => Object.keys(P.s).some(el => FX[el] && FX[el].st && BLOCK.includes(FX[el].st[0]));   // blocca (prepara la combo)
-  const secret = P => P.rx.length > 0 && !book().own && !P.leg && ADV();   // (da apprendista le reazioni si vedono subito)   // (le leggendarie si annunciano da sole)   // nata da una reazione e senza ricettario: non si sa cosa fa
+  const secret = P => P.rx.length > 0 && !book().own && !P.leg && PADV();   // (da apprendista le reazioni si vedono subito)   // (le leggendarie si annunciano da sole)   // nata da una reazione e senza ricettario: non si sa cosa fa
   const pushOf = P => Object.entries(P.s).reduce((a, [el, v]) => a + ((FX[el] && FX[el].push) || 0) * v, 0);   // + spinge via, - tira
 
   // ======================= IL DUELLO =======================
@@ -1911,9 +1926,27 @@
     else duelUI(G, false);
     if (p === 'mres') SFX[G.st.win === G.me.id ? 'bottle' : 'pour']();
     if (p === 'mres' && G.st.fin && G.tut && !G.counted) { G.counted = 1; tutEnd(G, true); cqToast('🎓 <b>Tutorial finito!</b> Ora sei pronto per sfidare gli amici. 🧙'); }
-    if (p === 'mres' && G.st.fin && !G.counted && !G.tut) { G.counted = 1; store.settings.alcGames = LV() + 1; saveStore(); }   // una partita completa in piu'
+    if (p === 'mres' && G.st.fin && !G.counted && !G.tut) {
+      G.counted = 1; const S = store.settings, M = mentor(G), lv0 = LV();
+      S.alcGames = lv0 + (M && lv0 < ADV_AT ? 2 : 1);   // con un Maestro conta doppio
+      if (M && lv0 >= ADV_AT) { S.alcMentor = (S.alcMentor || 0) + 1; const first = S.alcMentor === 1; G.me.cos = myCos(); if (G.guest) cqNetSend({ k: 'cos', v: G.me.cos, lv: LV() });
+        setTimeout(() => { cqToast(first ? '🎁 <b>Premio del Maestro!</b> 🎓 Nappina d\'oro sul cappello. Grazie per aver insegnato!' : '🎓 <b>Bravo Maestro!</b> Hai insegnato a ' + S.alcMentor + ' apprendisti.'); SFX.prize(); }, 1500); }
+      else if (M) setTimeout(() => cqToast('🎓 <b>Partita col Maestro: conta doppio!</b>'), 1500);
+      saveStore();
+    }   // una partita completa in piu'
     if (p === 'prep' && !G.tut) cqToast(FL.e + ' <b>Piano ' + G.st.n + ' di ' + FLOORS.length + ': ' + FL.n + '</b><br>' + FL.tip);
     if (p === 'prep') unlockNews();
+  }
+  function mentorTick(G) {
+    const pl = PL(); if (U2.plv === pl && U2.mnt === mentor(G)) return;
+    const was = U2.plv; U2.plv = pl; U2.mnt = mentor(G);
+    if (was != null && G.st && G.st.ph === 'prep' && document.getElementById('alPrep')) {
+      const b = G.me.belt; if (b.some(k => !beltOk(k))) { G.me.belt = b.map(k => beltOk(k) ? k : ''); sendBelt(G); }
+      if (ready(G) && G.me.belt.some(v => !v)) setReady(G, false); prepOpen(G);
+    }
+    if (mentor(G) && !G.mentorSaid && !G.tut) { G.mentorSaid = 1; setTimeout(() => cqToast(ADV()
+      ? '🎓 <b>Oggi sei il Maestro!</b> Il tuo amico è nuovo: tutti e due con gli ingredienti da apprendista. Se arriva in fondo alla partita vinci un premio: 🎓 <b>nappina d\'oro</b> sul cappello!'
+      : '🎓 <b>Giochi con un Maestro!</b> Stessi ingredienti per tutti e due. Questa partita <b>conta doppio</b> per sbloccare quelli nuovi.'), 1200); }
   }
   // annuncio degli sblocchi (la prima preparazione dopo aver raggiunto un nuovo livello)
   function unlockNews() {
@@ -2011,7 +2044,7 @@
     { n: 50, id: 'crown', e: '👑', t: 'Corona d\'oro sul cappello' }, { n: 80, id: 'embers', e: '🔥', t: 'Scintille ai piedi' }, { n: 120, id: 'aura', e: '🌙', t: 'Aura di luna' }];
   const LEG_PR = { rose: ['🌹', 'Rosa della Regina sul cappello'], gear: ['⚙️', 'Ingranaggio d\'oro sul cappello'], phoenix: ['🪶', 'Piuma di fenice sul cappello'] };
   const found = () => Object.keys(book().f).length;
-  function myCos() { const B = book(), n = found(); return PRIZES.filter(p => n >= p.n).map(p => p.id).concat(Object.keys(B.leg || {}).filter(k => LEGEND[k]).map(k => LEGEND[k].pr)).join(','); }
+  function myCos() { const B = book(), n = found(); return PRIZES.filter(p => n >= p.n).map(p => p.id).concat(store.settings.alcMentor ? ['mentor'] : []).concat(Object.keys(B.leg || {}).filter(k => LEGEND[k]).map(k => LEGEND[k].pr)).join(','); }
   const cleanCos = v => String(v || '').replace(/[^a-z,]/g, '').slice(0, 80);
   function bookNote(key) {
     const B = book(); if (!key || key.length > MAXI || !brew(key) || B.f[key]) return;
@@ -2026,14 +2059,14 @@
     const key = potKey(U2.pot), LG = LEGEND[key], B = book(); if (!LG) return;
     U2.gold = now(); SFX.prize(); spell('WOOOW! 🌟', 'leg');
     if ((B.leg || {})[key]) return;
-    B.leg = B.leg || {}; B.leg[key] = Date.now(); saveStore(); G.me.cos = myCos(); if (G.guest) cqNetSend({ k: 'cos', v: G.me.cos });
+    B.leg = B.leg || {}; B.leg[key] = Date.now(); saveStore(); G.me.cos = myCos(); if (G.guest) cqNetSend({ k: 'cos', v: G.me.cos, lv: LV() });
     cqToast('🌟 <b>POZIONE LEGGENDARIA!</b> ' + esc(LG.n) + '<br>🎁 ' + LEG_PR[LG.pr][0] + ' ' + LEG_PR[LG.pr][1]);
   }
   function colHtml() {
     const B = book(), n = found();
     return '<div class="col"><b>🏅 Collezione · ' + n + ' / ' + TOTAL + ' scoperte</b><small>Ogni pozione che vedi scoppiare (tua o dell\'altro) è una scoperta.</small>'
       + PRIZES.map(p => '<div class="pz' + (n >= p.n ? ' on' : '') + '"><span>' + p.e + '</span>' + esc(p.t) + '<i>' + (n >= p.n ? '✔' : p.n) + '</i></div>').join('')
-      + '<b>🌟 Pozioni leggendarie</b>' + Object.entries(LEGEND).map(([k, L]) => (B.leg || {})[k] ? '<div class="pz on"><span>' + LEG_PR[L.pr][0] + '</span>' + esc(L.n) + ' = ' + brew(k).ings.map(g => g.e).join('') + '<i>✔</i></div>' : '<div class="pz"><span>' + FLOORS[L.fl].e + '</span><em>«' + esc(L.rid) + '»</em></div>').join('') + '</div>';
+      + (store.settings.alcMentor ? '<div class="pz on"><span>🎓</span>Nappina d\'oro del Maestro (' + store.settings.alcMentor + ' apprendisti)<i>✔</i></div>' : '<div class="pz"><span>🎓</span>Nappina d\'oro: insegna a un amico nuovo<i>?</i></div>') + '<b>🌟 Pozioni leggendarie</b>' + Object.entries(LEGEND).map(([k, L]) => (B.leg || {})[k] ? '<div class="pz on"><span>' + LEG_PR[L.pr][0] + '</span>' + esc(L.n) + ' = ' + brew(k).ings.map(g => g.e).join('') + '<i>✔</i></div>' : '<div class="pz"><span>' + FLOORS[L.fl].e + '</span><em>«' + esc(L.rid) + '»</em></div>').join('') + '</div>';
   }
   function colShort() { return '🏅 ' + found() + '/' + TOTAL + ' · 🌟 ' + Object.keys(book().leg || {}).filter(k => LEGEND[k]).length + '/' + Object.keys(LEGEND).length; }
   function colLine() { const n = found(), nx = PRIZES.find(p => n < p.n), lg = Object.keys(book().leg || {}).filter(k => LEGEND[k]).length; return '🏅 <b>' + n + '</b>/' + TOTAL + ' scoperte' + (nx ? ' · 🎁 a ' + nx.n + ': ' + nx.e + ' ' + esc(nx.t) : ' · 🎁 tutti i premi!') + ' · 🌟 ' + lg + '/' + Object.keys(LEGEND).length; }
@@ -2131,7 +2164,7 @@
       for (const c of G.chars) if (c.bot && !c.remote) { c.belt = cpuBelt(G); G.st.rd[c.id] = 1; c.cos = PRIZES.filter(() => Math.random() < 0.35).map(p => p.id).join(','); }   // anche il computer ha qualche premio
       G.me.cos = myCos();
     },
-    gstart(G) { syncFloor(); G.pl = []; G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
+    gstart(G) { if (G.guest) cqNetSend({ k: 'cos', v: myCos(), lv: LV() }); syncFloor(); G.pl = []; G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; U2.ph = ''; Object.assign(G, { fl: [], zn: [], bx: [], hx: [], sel: 0 }); G.chars.forEach(c => { c.hp = HP; c.fx = {}; c.belt = Array(BELT_N).fill(''); }); },
     intro: () => '⚗️ Benvenuto nella torre dei maghi!',
     voice: () => 1,   // voce sempre aperta tra i due
     speed: c => { const G = cq.g; return G ? speedOf(G, c) : 1; },
@@ -2179,6 +2212,7 @@
       const st = G.st;
       if (G.tut && G.tutS < TUT_FREE && st.ph !== 'mres') st.t0 = G.time;   // tutorial: il tempo non scorre finche' si impara
       if (st.ph === 'prep') {
+        { const L = G.chars.filter(c => !(c.bot && !c.remote)).map(c => c === G.me ? LV() : c.lv); if (L.every(v => v != null)) { st.ml = Math.min(...L); st.mx = Math.max(...L); } }
         const left = (st.n > 1 ? PREP2 : PREP) - (G.time - st.t0);
         if (G.chars.every(c => st.rd[c.id]) || left < -1.5) { st.ph = 'duel'; st.t0 = G.time; st.rd = {}; st.ev = FL && FL.ev && evOk(G) ? { k: FL.ev, t: r2(G.time + EV_AT) } : null; for (const c of G.chars) if (c.bot && !c.remote) duelArm(G, c); }
         return;
@@ -2201,7 +2235,7 @@
       if (st.ph === 'duel' && G.time - st.t0 > DUEL) { const a = G.chars[0], b = G.chars[1]; roundEnd(G, a.hp > b.hp ? a : b.hp > a.hp ? b : null, '⏱ Tempo scaduto'); }
     },
     local(G, dt) {
-      stage(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); evLocal(G); if (G.st && G.st.ph === 'duel') flSound(G);
+      stage(G); mentorTick(G); if (G.st && G.st.ph === 'duel') { meTick(G, dt); duelUITick(G); } fxEvents(G); evLocal(G); if (G.st && G.st.ph === 'duel') flSound(G);
       if (FL && FL.gears && G.st && G.st.ph !== 'prep') { const k = Math.floor(G.time); if (k !== G.tick) { G.tick = k; swp(k % 2 ? 2100 : 1700, k % 2 ? 1900 : 1500, 0.025, 0.012, 0, 'triangle'); } }   // tic-tac della sala dell'orologio
     },
     ev(G, c, o) {
@@ -2349,5 +2383,5 @@
   cqEachFrame(() => tutTick(cq.g));
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } $('#ciack').classList.remove('alDuel'); U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk, quickFill, tapThrow, TUT, tutEnd };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, PL, mentor, beltOk, maxI, ingOk, quickFill, tapThrow, TUT, tutEnd };   // per le prove (prove/alc*.js)
 })();
