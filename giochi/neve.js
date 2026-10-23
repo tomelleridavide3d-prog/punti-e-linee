@@ -20,9 +20,14 @@
   const RMIN = 1.2, RMAX_D = 12, RMAX_L = 14, V_D = 11, V_L = 6, PULL = 110, CD = 0.5, LEAN = 1.0, SPORTO = 0.8;
   const MK = { s: 0.6, p: 1.0, w: 1.1 }, PILE_N = 5, PILE_MAX = 6, PILE_RG = 10;
   const SIDE = [{ c: '#d8402e', c2: '#f4a07a', d: '#8a2414', n: 'rosso' }, { c: '#2e6ad8', c2: '#9ac0f4', d: '#14348a', n: 'blu' }];
+  // PASSO 2: igloo e gnomi (costano palle in mano; massimo 3 in campo; un colpo e sono fuori)
+  const IG_COST = 8, IG_HP = 4, IG_R = 0.62;
+  const GN = { p: { cost: 2, ico: '⛏️', n: 'Picconatore', sp: 0.6 }, c: { cost: 3, ico: '🎯', n: 'Cecchino', sp: 0.7 }, r: { cost: 2, ico: '☃️', n: 'Rotolone', sp: 0.55 } };
+  const GN_MAX = 3, GN_LIFE = 45, DIG_T = 1.4, ROLL_V = 2.7, SNIPE_T = 1.8, SNIPE_R = 5.5, GLANCE = 0.7, HIDE_V = 1.6;
   const now = () => performance.now() / 1000;
   const r2 = v => Math.round(v * 100) / 100;
-  const U = { ph: '', tool: 'w', str: null, evSeen: 0, fx: [], aim: null, wdAsk: 0, lastCs: '', vis: '', tPrev: null, tAt: 0 };
+  const U = { ph: '', tool: 'w', str: null, evSeen: 0, fx: [], aim: null, wdAsk: 0, lastCs: '', vis: '', tPrev: null, tAt: 0, vel: {}, seen: {}, gsel: null, gp: {} };
+  const U0 = () => ({ ph: '', tool: 'w', str: null, evSeen: 0, fx: [], aim: null, bur: null, pend: null, wdAsk: 0, tPrev: null, vel: {}, seen: {}, gsel: null, gp: {} });
 
   // ======================= IL GIARDINO =======================
   const LAMPS = [[11, 1], [19, 1], [11, 16], [19, 16], [1, 1], [28, 16]];
@@ -119,7 +124,7 @@
     if (t === 'fount') {   // fontana ghiacciata in mezzo (2 x 2 caselle, centro nell'angolo 15, 9)
       const cx = 15, cy = 9;
       cyl(cx, cy, 0.95, 0, 0.38, '#9aa8b8'); cyl(cx, cy, 0.82, 0.38, 0.4, '#bfe4f4');
-      g.fillStyle = 'rgba(255,255,255,.55)'; { const [X, Y] = S(cx - 0.3, cy - 0.2, 0.41); g.beginPath(); g.ellipse(X, Y, TW * 0.22, TW * 0.06, -0.3, 0, 7); g.fill(); }
+      g.fillStyle = '#e2f4fb'; { const [X, Y] = S(cx - 0.3, cy - 0.2, 0.41); g.beginPath(); g.ellipse(X, Y, TW * 0.22, TW * 0.06, -0.3, 0, 7); g.fill(); }
       cyl(cx, cy, 0.16, 0.4, 1.3, '#9aa8b8'); cyl(cx, cy, 0.42, 1.3, 1.42, '#aab6c4'); cyl(cx, cy, 0.36, 1.42, 1.48, '#f2f6fb');
       for (let i = 0; i < 6; i++) { const a = i * 1.047, [X, Y] = S(cx + Math.cos(a) * 0.38, cy + Math.sin(a) * 0.38, 1.3); g.fillStyle = '#d6f0fa'; g.beginPath(); g.moveTo(X - 2, Y); g.lineTo(X + 2, Y); g.lineTo(X, Y + TW * 0.18); g.closePath(); g.fill(); }   // ghiaccioli
       cyl(cx, cy, 0.1, 1.48, 1.9, '#c8d4e0'); { const [X, Y] = S(cx, cy, 2.0); g.fillStyle = '#f2f6fb'; g.beginPath(); g.arc(X, Y, TW * 0.09, 0, 7); g.fill(); }
@@ -137,7 +142,7 @@
     for (const v of [-0.22, 0.22]) { g.strokeStyle = '#3a2a20'; g.lineWidth = Math.max(2, TW / 22); g.beginPath(); g.moveTo(...R(-0.45, v, 0.04)); g.lineTo(...R(0.4, v, 0.04)); g.quadraticCurveTo(...R(0.62, v, 0.06), ...R(0.55, v, 0.28)); g.stroke(); }
     K.poly([R(-0.45, -0.28, 0.22), R(0.45, -0.28, 0.22), R(0.45, 0.28, 0.22), R(-0.45, 0.28, 0.22)], '#b8402a');
     K.poly([R(-0.45, 0.28, 0.22), R(0.45, 0.28, 0.22), R(0.45, 0.28, 0.14), R(-0.45, 0.28, 0.14)], '#8a2a1a');
-    K.poly([R(-0.3, -0.24, 0.235), R(0.3, -0.24, 0.235), R(0.3, 0.24, 0.235), R(-0.3, 0.24, 0.235)], 'rgba(255,255,255,.7)');
+    K.poly([R(-0.3, -0.24, 0.235), R(0.3, -0.24, 0.235), R(0.3, 0.24, 0.235), R(-0.3, 0.24, 0.235)], '#f2e2dc');
   }
   // ---- IL CIELO DI SERA e la neve tutto intorno (la parte ferma si disegna una volta) ----
   let SKY = null;
@@ -251,8 +256,11 @@
     const S = G.S, st = G.st; if (!S || !st) return false;
     const L = S.hash.get(Math.floor(y) * W + Math.floor(x));
     if (L) for (const n of L) { if (!live(G, n) || !vis(G, S.bl[n])) continue; if (bDist(S, n, x, y) < bRad(S, n)) return true; }
+    for (let s = 0; s < 2; s++) { const ig = st.p && st.p[s] && st.p[s].ig; if (ig && ig[2] > 0 && (s === mySide(G) || revealed(G)) && Math.hypot(x - ig[0], y - ig[1]) < IG_R + 0.04) return true; }
     return false;
   }
+  // l'igloo vivo di un lato (o null)
+  const iglooOf = (G, s) => { const ig = G.st && G.st.p && G.st.p[s] && G.st.p[s].ig; return ig && ig[2] > 0 ? ig : null; };
   // geometria che viaggia in rete: un testo compatto (cambia solo costruendo e a fine manche)
   function encode(B) { return B.map(b => [b.o, b.s, b.i, Math.round(b.x * 100), Math.round(b.y * 100), Math.round(b.a * 100), b.k, b.j ? 1 : 0, b.as ? 1 : 0, b.as ? Math.round(b.fx * 100) : 0, b.as ? Math.round(b.fy * 100) : 0].join(',')).join(';'); }
   function decode(s) { if (!s) return []; return s.split(';').map(t => { const v = t.split(',').map(Number); return { o: v[0], s: v[1], i: v[2], x: v[3] / 100, y: v[4] / 100, a: v[5] / 100, k: v[6], j: v[7], as: v[8], fx: v[9] / 100, fy: v[10] / 100 }; }); }
@@ -277,6 +285,7 @@
     const p = PSd(G, s), P = posOf(G, charOf(G, s));
     if (Math.hypot(P.x - x, P.y - y) < 0.62) return true;
     if (Math.hypot(p.sx - x, p.sy - y) < 0.8) return true;
+    if (p.ig && Math.hypot(p.ig[0] - x, p.ig[1] - y) < 0.95) return true;
     return false;
   }
   function addStroke(G, s, raw, opt = {}) {
@@ -322,23 +331,47 @@
   }
   function placeStock(G, s, x, y) {
     const p = PSd(G, s); [x, y] = clampZ(s, x, y);
-    if (G.wb.some(b => b.o === s && Math.hypot(b.x - x, b.y - y) < 0.85)) return false;
+    if (G.wb.some(b => b.o === s && Math.hypot(b.x - x, b.y - y) < 0.85) || (p.ig && Math.hypot(p.ig[0] - x, p.ig[1] - y) < 1.1)) return false;
     p.sx = r2(x); p.sy = r2(y); return true;
+  }
+  // l'IGLOO degli gnomi (8 neve, uno solo; toccando di nuovo si sposta)
+  function placeIgloo(G, s, x, y) {
+    const p = PSd(G, s); [x, y] = clampZ(s, x, y); const P = START[s];
+    if (G.wb.some(b => b.o === s && Math.hypot(b.x - x, b.y - y) < 1.0) || Math.hypot(P[0] - x, P[1] - y) < 1.2 || Math.hypot(p.sx - x, p.sy - y) < 1.1) return false;
+    if (!p.ig) { if (p.nv < IG_COST) return false; p.nv -= IG_COST; }
+    p.ig = [r2(x), r2(y), IG_HP]; return true;
   }
   function buildAct(G, s, t, pts) {
     const st = G.st; if (!st || st.ph !== 'build' || PSd(G, s).rd) return;
-    const tap = pts.length < 3 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.3, [lx, ly] = pts[pts.length - 1];
+    const tap = pts.length < 3 && Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]) < 0.3, [lx, ly] = pts[pts.length - 1], p = PSd(G, s);
     if (t === 'w') addStroke(G, s, pts);
     else if (t === 'a') addAsse(G, s, pts);
-    else if (t === 'e') eraseAt(G, s, lx, ly);
+    else if (t === 'e') { if (p.ig && Math.hypot(p.ig[0] - lx, p.ig[1] - ly) < 0.8) { p.ig = 0; p.nv += IG_COST; } else eraseAt(G, s, lx, ly); }
     else if (t === 's' && tap) placeStock(G, s, lx, ly);
+    else if (t === 'i' && tap) placeIgloo(G, s, lx, ly);
   }
 
   // ---- disegno di un blocco di neve (nella mappa pronta: si ridisegna solo quando cambia) ----
+  // una casella della mappa pronta: i blocchi di muro e gli oggetti fermi (mucchi, scorte, igloo) che hanno il centro qui, dal piu' lontano al piu' vicino
   function wallCell(K, x, y) {
-    const G = cq.g; if (!G || G.mode !== 'neve' || !G.S) return; const S = G.S, L = S.cell.get(y * W + x); if (!L) return;
-    const order = L.filter(n => vis(G, S.bl[n]) && live(G, n)).sort((p, q) => (S.bl[p].x + S.bl[p].y) - (S.bl[q].x + S.bl[q].y));
-    for (const n of order) { const b = S.bl[n], c = S.camp[S.bc[n]], sal = salOf(G, n); if (b.as) asseDraw(K, b); if (S.pil[n]) pilDraw(K, b, sal / c.max); else blockDraw(K, b, sal / c.max, S, n); }
+    const G = cq.g; if (!G || G.mode !== 'neve') return; const S = G.S, k = y * W + x, L = S ? S.cell.get(k) || [] : [], items = [];
+    for (const n of L) if (vis(G, S.bl[n]) && live(G, n)) items.push([S.bl[n].x + S.bl[n].y, n]);
+    for (const o of (G.objCell && G.objCell.get(k)) || []) items.push([o[1] + o[2], o]);
+    items.sort((p, q) => p[0] - q[0]);
+    for (const [, it] of items) {
+      if (typeof it === 'number') { const b = S.bl[it], c = S.camp[S.bc[it]], sal = salOf(G, it); if (b.as) asseDraw(K, b); if (S.pil[it]) pilDraw(K, b, sal / c.max); else blockDraw(K, b, sal / c.max, S, it); continue; }
+      const [t, ox, oy, n, s] = it, [X, Y] = K.S(ox, oy, 0);
+      if (t === 'p') pileDraw(K.g, X, Y, K.TW, n, 0); else if (t === 's') pileDraw(K.g, X, Y, K.TW, n, s + 1); else iglooDraw(K.g, X, Y, K.TW, s, n);
+    }
+  }
+  // oggetti bassi fermi: anche loro nella mappa pronta (si ridisegnano solo quando cambiano: costa molto meno che a ogni immagine)
+  function objList(G) {
+    const st = G.st, L = []; if (!st || !st.pl) return L;
+    PILES.forEach(([x, y], i) => L.push(['p', x, y, st.pl[i], i]));
+    for (let s = 0; s < 2; s++) { const p = st.p[s]; if (!(s === mySide(G) || revealed(G))) continue;
+      L.push(['s', p.sx, p.sy, st.ph !== 'build' ? p.sk : Math.min(STOCK_MAX, Math.floor(Math.max(0, p.nv) / 2)), s]);
+      if (p.ig && p.ig[2] > 0) L.push(['i', p.ig[0], p.ig[1], p.ig[2], s]); }
+    return L;
   }
   function blockDraw(K, b, hp, S, n) {
     const { g, S: P, poly, TW } = K, c = Math.cos(b.a), s = Math.sin(b.a), T = b.k === 2 ? TH2 : TH1, h = b.k === 2 ? WH2 : WH1, L = HLEN;
@@ -349,7 +382,7 @@
       const nx = c * nu - s * nv, ny = s * nu + c * nv; if (nx + ny <= 0.001) continue;
       const sh = (Math.max(0, nx) * 0.74 + Math.max(0, ny) * 0.88) / (Math.max(0, nx) + Math.max(0, ny));
       const A = C[i0], B = C[i1]; poly([pt(A[0], A[1], 0), pt(B[0], B[1], 0), pt(B[0], B[1], h), pt(A[0], A[1], h)], cqShade('#e2eaf3', sh));
-      if (TW >= 30) { g.strokeStyle = 'rgba(120,150,190,.35)'; g.lineWidth = Math.max(1, TW / 48); g.beginPath(); for (const z of [h * 0.36, h * 0.7]) { const a = pt(A[0], A[1], z), bb = pt(B[0], B[1], z); g.moveTo(a[0], a[1]); g.lineTo(bb[0], bb[1]); } g.stroke(); }
+      if (TW >= 30) { g.strokeStyle = cqShade('#c8d4e2', sh + 0.12); g.lineWidth = Math.max(1, TW / 48); g.beginPath(); for (const z of [h * 0.36, h * 0.7]) { const a = pt(A[0], A[1], z), bb = pt(B[0], B[1], z); g.moveTo(a[0], a[1]); g.lineTo(bb[0], bb[1]); } g.stroke(); }
     }
     poly([pt(-L, -T, h), pt(L, -T, h), pt(L, T, h), pt(-L, T, h)], '#f6f9fd');
     { const a = pt(-L * 0.8, -T * 0.4, h + 0.05), bb = pt(L * 0.8, T * 0.4, h + 0.05), m = pt(0, 0, h + 0.09); g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(a[0], a[1]); g.quadraticCurveTo(m[0], m[1], bb[0], bb[1]); g.lineTo(a[0], a[1]); g.fill(); }
@@ -364,7 +397,7 @@
   function pilDraw(K, b, hp) {
     const { cyl, g, S, TW } = K, h = (b.k === 2 ? WH2 : WH1) + 0.14, r = b.k === 2 ? 0.27 : 0.21;
     cyl(b.x, b.y, r, 0, h, '#e6eef6'); cyl(b.x, b.y, r * 0.86, h, h + 0.06, '#ffffff');
-    { const [X, Y] = S(b.x, b.y, h + 0.16); g.fillStyle = '#f8fbff'; g.beginPath(); g.arc(X, Y, TW * r * 0.55, 0, 7); g.fill(); g.fillStyle = 'rgba(150,175,210,.4)'; g.beginPath(); g.arc(X + TW * 0.03, Y + TW * 0.03, TW * r * 0.4, 0, Math.PI); g.fill(); }
+    { const [X, Y] = S(b.x, b.y, h + 0.16); g.fillStyle = '#f8fbff'; g.beginPath(); g.arc(X, Y, TW * r * 0.55, 0, 7); g.fill(); g.fillStyle = '#d0dbe8'; g.beginPath(); g.arc(X + TW * 0.03, Y + TW * 0.03, TW * r * 0.4, 0, Math.PI); g.fill(); }
     // bandierina del colore del fortino (si capisce subito dove sono i pilastri)
     const [Xs, Ys] = S(b.x, b.y, h + 0.25), [Xt, Yt] = S(b.x, b.y, h + 0.62); g.strokeStyle = '#4a3424'; g.lineWidth = Math.max(1.2, TW / 40); g.beginPath(); g.moveTo(Xs, Ys); g.lineTo(Xt, Yt); g.stroke();
     g.fillStyle = SIDE[b.o].c; g.beginPath(); g.moveTo(Xt, Yt); g.lineTo(Xt + TW * 0.16, Yt + TW * 0.05); g.lineTo(Xt, Yt + TW * 0.11); g.closePath(); g.fill();
@@ -379,26 +412,35 @@
   // le caselle con i muri diventano oggetti della mappa (solo per disegnarli e per i percorsi del computer: la sagoma vera e' blkAt)
   function syncProps(G) {
     const S = G.S; if (!S) return;
-    const st = G.st, sig = (S.v || 0) + '|' + (st && st.wv === S.v ? (st.cs || []).join('') : '') + '|' + (revealed(G) ? 1 : 0) + mySide(G);
+    const st = G.st, objs = objList(G);
+    const sig = (S.v || 0) + '|' + (st && st.wv === S.v ? (st.cs || []).join('') : '') + '|' + (revealed(G) ? 1 : 0) + mySide(G) + '|' + objs.map(o => o.join(',')).join(';');
     if (sig === G.geoSig) return; G.geoSig = sig;
-    const want = new Map();
+    const want = new Map(), oc = new Map();
+    for (const o of objs) { const k = Math.floor(o[2]) * W + Math.floor(o[1]); (oc.get(k) || oc.set(k, []).get(k)).push(o); }
+    G.objCell = oc;
     for (const [k, L] of S.cell) { let s = ''; for (const n of L) { const b = S.bl[n]; if (!vis(G, b)) continue; s += n + ':' + salOf(G, n) + (b.as ? 'a' : '') + ','; } if (s) want.set(k, s); }
+    for (const [k, L] of oc) want.set(k, (want.get(k) || '') + '|' + L.map(o => o.join(',')).join(';'));
     const old = G.propSig || new Map();
     for (const [k] of old) if (!want.has(k)) { const x = k % W, y = (k / W) | 0; if (cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop === 'nw') cqSolid[y][x] = null; cqBgCell(x, y); }
     for (const [k, s] of want) {
       if (old.get(k) === s) continue; const x = k % W, y = (k / W) | 0; if (!cqSolid[y]) continue;
-      const L = S.cell.get(k), anyLive = L.some(n => vis(G, S.bl[n]) && live(G, n));
-      if (anyLive) { if (!cqSolid[y][x] || cqSolid[y][x].prop === 'nw') cqSolid[y][x] = { prop: 'nw', soft: true, o: { k } }; }
-      else if (cqSolid[y][x] && cqSolid[y][x].prop === 'nw') cqSolid[y][x] = null;
+      const L = S.cell.get(k) || [], any = oc.has(k) || L.some(n => vis(G, S.bl[n]) && live(G, n)), cur = cqSolid[y][x];
+      if (any) { if (!cur || cur.prop === 'nw' || cur.prop === 'nwx') cqSolid[y][x] = { prop: 'nw', soft: true, o: { k } }; }
+      else if (cur && cur.prop === 'nw') cqSolid[y][x] = null;
       cqBgCell(x, y);
     }
-    // anche le caselle toccate dalla sagoma (non solo dal centro) sono chiuse per i percorsi del computer
+    G.propSig = want;
+    // anche le caselle toccate dalla sagoma (non solo dal centro) sono chiuse per i percorsi del computer (solo se i muri sono cambiati)
+    const wsig = sig.slice(0, sig.lastIndexOf('|')) + [0, 1].map(s => { const ig = iglooOf(G, s); return ig ? ig[0] + ',' + ig[1] : '-'; }).join('/');
+    if (wsig === G.wallSig) return; G.wallSig = wsig;
     if (G.softX) for (const k of G.softX) { const x = k % W, y = (k / W) | 0; if (cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop === 'nwx') cqSolid[y][x] = null; }
     G.softX = [];
     for (let n = 0; n < S.bl.length; n++) { const b = S.bl[n]; if (!vis(G, b) || !live(G, n)) continue; const c = Math.cos(b.a) * HLEN, s = Math.sin(b.a) * HLEN;
       for (const [px, py] of [[b.x + c, b.y + s], [b.x - c, b.y - s]]) { const x = Math.floor(px), y = Math.floor(py); if (cqSolid[y] && !cqSolid[y][x] && cqFloor[y] && cqFloor[y][x]) { cqSolid[y][x] = { prop: 'nwx', soft: true }; G.softX.push(y * W + x); } } }
-    G.propSig = want;
+    for (let s = 0; s < 2; s++) { const ig = iglooOf(G, s); if (!ig || !(s === mySide(G) || revealed(G))) continue;
+      for (const [px, py] of [[0, 0], [0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]) { const x = Math.floor(ig[0] + px), y = Math.floor(ig[1] + py); if (cqSolid[y] && !cqSolid[y][x] && cqFloor[y] && cqFloor[y][x]) { cqSolid[y][x] = { prop: 'nwx', soft: true }; G.softX.push(y * W + x); } } }
     for (const c of G.chars) if (c.bot && !c.remote) { c.path = []; c.goal = null; }
+    for (const g of G.gn || []) g.path = [];
   }
   function clearProps() {
     for (let y = 0; y < CQ_H; y++) for (let x = 0; x < CQ_W; x++) { const s = cqSolid[y] && cqSolid[y][x]; if (s && (s.prop === 'nw' || s.prop === 'nwx')) cqSolid[y][x] = null; }
@@ -429,8 +471,8 @@
   // pupazzo di neve (sepolto: cresce dal basso; s = lato per il berretto, 2 = pupazzo del giardino col cappello)
   function snowman(g, X, Y, TW, k, s) {
     const u = TW / 34, e = Math.max(0, Math.min(1, k)); g.save(); g.translate(X, Y); g.scale(u, u);
-    g.fillStyle = 'rgba(60,80,120,.22)'; g.beginPath(); g.ellipse(0, 1, 17, 6, 0, 0, 7); g.fill();
-    const ball = (y, r) => { if (r <= 0) return; g.fillStyle = '#f2f6fb'; g.beginPath(); g.arc(0, y, r, 0, 7); g.fill(); g.fillStyle = 'rgba(150,175,210,.45)'; g.beginPath(); g.arc(r * 0.25, y + r * 0.2, r * 0.8, -0.3, 1.9); g.fill(); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(-r * 0.35, y - r * 0.35, r * 0.3, 0, 7); g.fill(); };
+    g.fillStyle = '#c8d4e2'; g.beginPath(); g.ellipse(0, 1, 17, 6, 0, 0, 7); g.fill();
+    const ball = (y, r) => { if (r <= 0) return; g.fillStyle = '#f2f6fb'; g.beginPath(); g.arc(0, y, r, 0, 7); g.fill(); g.fillStyle = '#cfdae8'; g.beginPath(); g.arc(r * 0.25, y + r * 0.2, r * 0.8, -0.3, 1.9); g.fill(); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(-r * 0.35, y - r * 0.35, r * 0.3, 0, 7); g.fill(); };
     ball(-12 * Math.min(1, e * 1.6), 15 * Math.min(1, e * 1.6)); if (e > 0.35) ball(-33, 11 * Math.min(1, (e - 0.35) * 2.5)); if (e > 0.6) ball(-50, 8.5 * Math.min(1, (e - 0.6) * 3));
     if (e > 0.85) {
       g.fillStyle = '#1a1a22'; for (const a of [-3, 3]) { g.beginPath(); g.arc(a, -52, 1.3, 0, 7); g.fill(); } for (const yy of [-36, -30, -16, -8]) { g.beginPath(); g.arc(0, yy, 1.5, 0, 7); g.fill(); }
@@ -474,6 +516,12 @@
     crash: () => { noise(0.9, 0.22, 320); noise(0.5, 0.12, 900, 0.1); swp(110, 40, 0.7, 0.08); },
     crunch: () => { for (let i = 0; i < 4; i++) noise(0.06, 0.06, 1400 + i * 200, i * 0.13, 'bandpass', 2); },
     draw: () => { noise(0.07, 0.03, 2200, 0, 'bandpass', 2); },
+    gnome: () => { swp(900, 1600, 0.08, 0.03, 0, 'square'); swp(1300, 1900, 0.06, 0.025, 0.09, 'square'); },
+    squeak: () => { swp(1800, 2600, 0.1, 0.03, 0, 'triangle'); swp(2600, 900, 0.25, 0.03, 0.1, 'triangle'); noise(0.2, 0.08, 900, 0.05); },
+    dig: () => { swp(1500, 1200, 0.04, 0.025, 0, 'square'); noise(0.1, 0.06, 1800, 0.02, 'bandpass', 2); },
+    roll: () => { noise(0.9, 0.06, 220); swp(90, 60, 0.8, 0.03); },
+    slide: () => { noise(0.35, 0.06, 2600, 0, 'bandpass', 1.5); swp(700, 1300, 0.3, 0.015, 0, 'triangle'); },
+    igloo: () => { noise(0.3, 0.14, 600); swp(240, 120, 0.25, 0.04, 0, 'triangle'); },
     ok: () => { swp(660, 990, 0.12, 0.03, 0, 'triangle'); },
     no: () => { swp(300, 200, 0.15, 0.03, 0, 'square'); },
     reveal: () => { noise(1.4, 0.05, 4000, 0, 'highpass'); [523, 659, 784].forEach((f, i) => swp(f, f, 0.3, 0.03, 0.3 + i * 0.1, 'triangle')); },
@@ -491,8 +539,9 @@
     }
     G.undo = {};
     const p = [0, 1].map(s => { const q = old && old.p ? old.p[s] : null, standing = G.wb.filter(b => b.o === s && b.as).length;
-      return { nv: first ? NV0 : NV1, as: Math.max(0, ASSI - standing), rd: 0, b: 0, sk: 0, h: 0, d: 0, mk: null, lt: -9, sp: -9, stn: 0, sx: q ? q.sx : STOCK0[s][0], sy: q ? q.sy : STOCK0[s][1] }; });
-    G.st = { n, ph: 'build', t0: r2(G.time), bt: first ? B_T0 : B_T1, sc: sc || {}, p, cs: [], wv: 0, B: [], bn: (old && old.bn) || 0, ev: [], en: (old && old.en) || 0, pl: PILES.map(() => PILE_N), pr: 0, say: null };
+      return { nv: first ? NV0 : NV1, as: Math.max(0, ASSI - standing), rd: 0, b: 0, sk: 0, h: 0, d: 0, mk: null, lt: -9, sp: -9, stn: 0, sx: q ? q.sx : STOCK0[s][0], sy: q ? q.sy : STOCK0[s][1], ig: q && q.ig && q.ig[2] > 0 ? [q.ig[0], q.ig[1], IG_HP] : 0 }; });
+    G.st = { n, ph: 'build', t0: r2(G.time), bt: first ? B_T0 : B_T1, sc: sc || {}, p, cs: [], wv: 0, B: [], bn: (old && old.bn) || 0, ev: [], en: (old && old.en) || 0, pl: PILES.map(() => PILE_N), pr: 0, say: null, gn: [] };
+    G.gn = []; G.gnN = G.gnN || 0;
     if (G.tut) G.st.bt = 999;
     regeo(G);
     G.chars.forEach((c, i) => { const P = START[i % 2]; if (c === G.me) { cq.x = P[0]; cq.y = P[1]; } else if (!c.remote) { c.x = P[0]; c.y = P[1]; } c.path = []; c.face = i ? -1 : 1; });
@@ -548,6 +597,8 @@
         for (let i = 1; i <= n && !done; i++) {
           const u = u0 + (u1 - u0) * i / n, x = x0 + (x1 - x0) * u, y = y0 + (y1 - y0) * u;
           if (canHit && Math.hypot(Q.x - x, Q.y - y) < 0.42) { hitPlayer(G, o, x, y, s); gone(); done = true; break; }
+          if (ballOnGnome(G, s, x, y, 0.08)) { gone(); done = true; break; }
+          const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - x, ig[1] - y) < IG_R) { igHit(G, o, x, y); gone(); done = true; break; }
           const k = blockAt(G, x, y, 0.04, skip); if (k >= 0) { hitWall(G, k, x, y); gone(); done = true; break; }
         }
         if (done) continue;
@@ -556,7 +607,8 @@
       if (u1 < 1) continue;
       gone();
       if (canHit && Math.hypot(Q.x - x1, Q.y - y1) < (ty === 'd' ? 0.45 : 0.62)) { hitPlayer(G, o, x1, y1, s); continue; }
-      if (ty === 'l') { const k = blockAt(G, x1, y1, 0.22); if (k >= 0) { hitWall(G, k, x1, y1); continue; } }
+      if (ballOnGnome(G, s, x1, y1, ty === 'd' ? 0.12 : 0.3)) continue;
+      if (ty === 'l') { const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - x1, ig[1] - y1) < IG_R + 0.12) { igHit(G, o, x1, y1); continue; } const k = blockAt(G, x1, y1, 0.22); if (k >= 0) { hitWall(G, k, x1, y1); continue; } }
       ev(G, 'p', x1, y1, s);
       void S;
     }
@@ -584,9 +636,141 @@
     }
     if (T - (st.pr || 0) > PILE_RG) { st.pr = r2(T); st.pl = st.pl.map(v => Math.min(PILE_MAX, v + 1)); }
   }
+  // ======================= IL FORTINO NASCONDE (su ogni telefono, e per Pierino) =======================
+  // Chi sta fermo (o cammina piano) subito dietro un muro non si vede da lontano: si vede solo dove era. Correre, tirare dritto (ti sporgi) o stare allo scoperto ti mostrano.
+  function coveredFrom(G, vx, vy, P) {
+    const dx = vx - P.x, dy = vy - P.y, d = Math.hypot(dx, dy); if (d < 2.4) return false;
+    for (let k = 0.3; k <= 1.35; k += 0.15) { const x = P.x + dx / d * k, y = P.y + dy / d * k; if (blockAt(G, x, y, 0.03) >= 0) return true; }
+    return false;
+  }
+  const spdOf = (G, c) => { const v = U.vel[c.id]; return v ? v.v : 0; };
+  function hiddenFrom(G, vs, c) {
+    const st = G.st; if (!st || st.ph !== 'fight' || !G.S) return false; const s = sideOf(G, c), p = st.p[s], T = lt(G);
+    if (s === vs || p.d || T - (p.sp || -9) < SPORTO + 0.2 || T - (p.lt || -9) < 0.45 || spdOf(G, c) > HIDE_V) return false;
+    const V = posOf(G, G.chars[vs]); return coveredFrom(G, V.x, V.y, posOf(G, c));
+  }
+  function velTick(G, dt) {   // velocita' di ognuno (lisciata) su questo telefono
+    if (!(dt > 0)) return;
+    for (const c of G.chars) { const P = posOf(G, c), v = U.vel[c.id] || (U.vel[c.id] = { x: P.x, y: P.y, v: 0 }); const sp = Math.hypot(P.x - v.x, P.y - v.y) / dt; v.v = v.v * 0.8 + Math.min(8, sp) * 0.2; v.x = P.x; v.y = P.y;
+      if (c !== G.me) { if (!hiddenFrom(G, mySide(G), c)) U.seen[c.id] = { x: P.x, y: P.y, t: now(), h: 0 }; else if (U.seen[c.id]) U.seen[c.id].h = 1; } }
+  }
+
+  // ======================= GLI GNOMI (host) =======================
+  // Nascono dall'igloo (costano palle in mano), un tocco sceglie il bersaglio (se no lo scelgono loro), poi si arrangiano. Un colpo e sono fuori.
+  const homeDir = s => s ? 1 : -1;
+  const gnAlive = (G, s) => G.gn.filter(g => g.s === s).length;
+  function spawnGnome(G, s, ty, tx, tyy) {
+    const st = G.st, T = G.time, p = st.p[s], ig = iglooOf(G, s), D = GN[ty]; if (!D || !ig || st.ph !== 'fight' || p.d || p.b < D.cost || gnAlive(G, s) >= GN_MAX) return false;
+    let x = ig[0] - homeDir(s) * 0.9, y = ig[1];
+    if (!freeAt(G, x, y)) { for (const [a, b] of [[0, 0.9], [0, -0.9], [homeDir(s) * 0.9, 0], [-homeDir(s) * 0.7, 0.7], [-homeDir(s) * 0.7, -0.7]]) if (freeAt(G, ig[0] + a, ig[1] + b)) { x = ig[0] + a; y = ig[1] + b; break; } }
+    p.b -= D.cost;
+    const g = { id: ++G.gnN, s, ty, x, y, st: 0, t0: T, tx: tx != null && isFinite(tx) ? +tx : null, ty2: tyy != null && isFinite(tyy) ? +tyy : null, r: ty === 'r' ? 0.28 : 0, a: s ? Math.PI : 0, nb: ty === 'c' ? 3 : 0, wt: 0.6, path: [], tg: -1 };
+    G.gn.push(g); ev(G, 'gs', x, y, s, ty); return true;
+  }
+  function killGnome(G, g, k) { G.gn = G.gn.filter(o => o !== g); ev(G, k || 'gk', g.ty === 'r' && g.st === 2 ? g.bx : g.x, g.ty === 'r' && g.st === 2 ? g.by : g.y, g.s, g.ty); }
+  function gStep(g, dt, sp) {
+    const q = g.path[0]; if (!q) return true; const dx = q[0] - g.x, dy = q[1] - g.y, d = Math.hypot(dx, dy), st = CQ_SPEED * sp * dt;
+    if (d <= st) { g.x = q[0]; g.y = q[1]; g.path.shift(); } else { g.x += dx / d * st; g.y += dy / d * st; } if (d > 0.01) g.a = Math.atan2(dy, dx); return !g.path.length;
+  }
+  function gGo(g, x, y) { const p = cqPath(g.x, g.y, x, y); if (p.length) { p[p.length - 1] = [x, y]; g.path = p; } else g.path = Math.hypot(x - g.x, y - g.y) < 1.6 ? [[x, y]] : []; return g.path.length > 0; }
+  function igHit(G, s, x, y, dmg = 1) { const ig = iglooOf(G, s); if (!ig) return; ig[2] = Math.max(0, ig[2] - dmg); ev(G, ig[2] <= 0 ? 'ix' : 'ih', x, y, s); }
+  // dove si mette il picconatore per scavare un blocco: dalla parte di fuori (verso casa sua)
+  function digSpot(G, g, n) { const S = G.S, b = S.bl[n], off = (S.pil[n] ? 0.22 : b.k === 2 ? TH2 : TH1) + 0.5; let nx = -Math.sin(b.a), ny = Math.cos(b.a); if (S.pil[n] || Math.abs(nx) < 0.2) { nx = homeDir(g.s); ny = 0; } else if (nx * homeDir(g.s) < 0) { nx = -nx; ny = -ny; } return [b.x + nx * off, b.y + ny * off]; }
+  function pickDig(G, g) {
+    const S = G.S, o = 1 - g.s, want = g.tx != null ? [g.tx, g.ty2] : null; let best = -1, bs = -1e9;
+    for (let n = 0; n < S.bl.length; n++) { const b = S.bl[n]; if (b.o !== o || !live(G, n)) continue; const c = S.camp[S.bc[n]];
+      let sc = want ? -Math.hypot(b.x - want[0], b.y - want[1]) * 3 : c.b.length * 1.2 - salOf(G, n) * 0.6 - Math.abs(b.x - MID) * 0.5;
+      sc -= Math.hypot(b.x - g.x, b.y - g.y) * 0.08; if (sc <= bs) continue;
+      const [x, y] = digSpot(G, g, n); if (!freeAt(G, x, y)) continue; bs = sc; best = n; }
+    return best;
+  }
+  // il ROTOLONE parte dal davanti del suo fortino e rotola dritto: scelta del bersaglio (di petto, se puo') e del punto di partenza
+  function launchFor(G, g) {
+    const S = G.S, o = 1 - g.s, X = g.s ? 19.0 : 11.0, free = (x, y) => { for (const d of [0, 0.5, -0.5, 1, -1, 1.5, -1.5]) if (freeAt(G, x, y + d)) return [x, y + d]; return null; };
+    if (g.tx != null) { const L = free(X, Math.max(1.8, Math.min(16.2, g.ty2))); return L ? { L, T: [g.tx, g.ty2] } : null; }
+    let best = null, bs = -1e9;
+    for (let n = 0; n < S.bl.length; n++) { const b = S.bl[n]; if (b.o !== o || !live(G, n) || S.pil[n]) continue; const L = free(X, Math.max(1.8, Math.min(16.2, b.y))); if (!L) continue;
+      const dx = b.x - L[0], dy = b.y - L[1], l = Math.hypot(dx, dy) || 1, inc = Math.acos(Math.min(1, Math.abs((dx * Math.cos(b.a) + dy * Math.sin(b.a)) / l))), c = S.camp[S.bc[n]];
+      const sc = (inc > GLANCE + 0.1 ? 3 : -3) + c.b.length * 0.4 - salOf(G, n) * 0.3 - l * 0.05 + Math.random() * 0.5; if (sc > bs) { bs = sc; best = { L, T: [b.x, b.y] }; } }
+    if (!best) { const Q = posOf(G, charOf(G, o)), L = free(X, Math.max(1.8, Math.min(16.2, Q.y))); if (L) best = { L, T: [Q.x, Q.y] }; }
+    return best;
+  }
+  function gnomeThrow(G, g, ty, x, y) {
+    const st = G.st, d = Math.hypot(x - g.x, y - g.y), dur = ty === 'd' ? d / V_D : Math.max(0.75, d / V_L);
+    st.bn++; st.B.push([st.bn, g.s, ty, r2(g.x), r2(g.y), r2(x), r2(y), r2(G.time), r2(dur), 1]); ev(G, ty === 'd' ? 'td' : 'tl', g.x, g.y, g.s);
+  }
+  function rollTick(G, g, dt) {
+    const S = G.S, st = G.st, o = 1 - g.s, T = G.time, step = ROLL_V * dt;
+    g.bx += g.dx * step; g.by += g.dy * step; g.trav += step; g.r = Math.min(0.78, 0.28 + 0.045 * g.trav); g.a = Math.atan2(g.dy, g.dx);
+    g.x = g.bx - g.dx * (g.r + 0.22); g.y = g.by - g.dy * (g.r + 0.22);
+    const cx = Math.floor(g.bx), cy = Math.floor(g.by), fl = cqFloor[cy] && cqFloor[cy][cx], sol = cqSolid[cy] && cqSolid[cy][cx];
+    if (!fl || (sol && !sol.soft) || g.trav > 21) { killGnome(G, g, 'rb'); return; }
+    const oc = charOf(G, o), Q = posOf(G, oc); if (!st.p[o].d && !(oc.remote && cqLagging(oc)) && Math.hypot(Q.x - g.bx, Q.y - g.by) < g.r + 0.3) { hitPlayer(G, o, Q.x, Q.y, g.s); killGnome(G, g, 'rb'); return; }
+    for (const e of G.gn.slice()) if (e.s !== g.s && Math.hypot((e.st === 2 ? e.bx : e.x) - g.bx, (e.st === 2 ? e.by : e.y) - g.by) < g.r + 0.25 + (e.r || 0)) killGnome(G, e);
+    const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - g.bx, ig[1] - g.by) < g.r + IG_R) { igHit(G, o, g.bx, g.by, 2); killGnome(G, g, 'rb'); return; }
+    const seen = new Set();
+    for (let yy = cy - 1; yy <= cy + 1; yy++) for (let xx = cx - 1; xx <= cx + 1; xx++) { const L = S.hash.get(yy * W + xx); if (!L) continue;
+      for (const n of L) { if (seen.has(n)) continue; seen.add(n); if (!live(G, n)) continue; const c = S.bc[n]; if (g.skipC === c && T < g.skipT) continue;
+        const half = S.pil[n] ? 0.22 : S.bl[n].k === 2 ? TH2 : TH1; if (bDist(S, n, g.bx, g.by) >= g.r + half) continue;
+        const b = S.bl[n], ux = Math.cos(b.a), uy = Math.sin(b.a), dot = g.dx * ux + g.dy * uy, inc = Math.acos(Math.min(1, Math.abs(dot)));
+        if (!S.pil[n] && inc < GLANCE) {   // DI STRISCIO: scivola lungo il muro
+          const sg = dot >= 0 ? 1 : -1; g.dx = ux * sg; g.dy = uy * sg; g.r *= 0.93; g.trav = (g.r - 0.28) / 0.045; g.skipC = c; g.skipT = T + 0.6; ev(G, 'rs', g.bx, g.by, g.s); return;
+        }
+        const dmg = Math.min(5, 1 + Math.round((g.r - 0.28) / 0.12));   // DI PETTO: sfonda (piu' e' grossa, piu' fa danno)
+        hitWall(G, n, g.bx, g.by, dmg);
+        if (st.cs[c] <= 0 && g.r > 0.5) { g.r *= 0.6; g.trav = (g.r - 0.28) / 0.045; g.skipC = c; g.skipT = T + 1; return; }
+        killGnome(G, g, 'rb'); return;
+      } }
+  }
+  function gnomeTick(G, dt) {
+    const st = G.st, T = G.time;
+    for (const g of G.gn.slice()) {
+      if (!G.gn.includes(g)) continue;
+      const o = 1 - g.s, oc = charOf(G, o), Q = posOf(G, oc);
+      if (T - g.t0 > GN_LIFE && g.st !== 2) g.st = 3;
+      if (g.st === 3) {   // torna a casa e sparisce
+        const ig = st.p[g.s].ig || [START[g.s][0], START[g.s][1]];
+        if (!g.path.length && !g.home) { g.home = 1; if (!gGo(g, ig[0] - homeDir(g.s) * 0.9, ig[1])) { killGnome(G, g, 'gh'); continue; } }
+        gStep(g, dt, GN[g.ty].sp); if (!g.path.length || T - g.t0 > GN_LIFE + 12) killGnome(G, g, 'gh'); continue;
+      }
+      if (g.ty === 'p') {
+        if (g.tg < 0 || !live(G, g.tg)) { g.tg = pickDig(G, g); g.path = []; g.st = 0; if (g.tg < 0) { g.st = 3; continue; } }
+        const [sx, sy] = digSpot(G, g, g.tg);
+        if (Math.hypot(sx - g.x, sy - g.y) > 0.25) { g.st = 0; if (!g.path.length && !gGo(g, sx, sy)) { g.tx = null; g.tg = -1; g.fail = (g.fail || 0) + 1; if (g.fail > 4) g.st = 3; continue; } gStep(g, dt, GN.p.sp); continue; }
+        const b = G.S.bl[g.tg]; g.st = 1; g.a = Math.atan2(b.y - g.y, b.x - g.x); g.wt -= dt;
+        if (g.wt <= 0) { g.wt = DIG_T; hitWall(G, g.tg, b.x, b.y, 1); ev(G, 'gd', b.x, b.y, g.s); }
+        continue;
+      }
+      if (g.ty === 'c') {
+        if (g.nb <= 0 || st.p[o].d) { g.st = 3; continue; }
+        const d = Math.hypot(Q.x - g.x, Q.y - g.y); g.wt -= dt;
+        const clear = d < SNIPE_R && !traceWall(G, g.x, g.y, Q.x, Q.y, null) && !hiddenFrom(G, g.s, oc);
+        if (clear) { g.st = 1; g.path = []; g.a = Math.atan2(Q.y - g.y, Q.x - g.x); if (g.wt <= 0) { g.wt = SNIPE_T; g.nb--; const e = 0.25 + d * 0.04; gnomeThrow(G, g, 'd', Q.x + (Math.random() - 0.5) * e * 2, Q.y + (Math.random() - 0.5) * e * 2); } continue; }
+        g.st = 0;
+        if (!g.path.length || T - (g.pt || 0) > 1.4) { g.pt = T; const ok = gGo(g, Q.x, Q.y); if (!ok && d < RMAX_L && g.wt <= 0) { g.wt = SNIPE_T * 1.4; g.nb--; gnomeThrow(G, g, 'l', Q.x + (Math.random() - 0.5) * 1.2, Q.y + (Math.random() - 0.5) * 1.2); } }
+        gStep(g, dt, GN.c.sp); continue;
+      }
+      if (g.ty === 'r') {
+        if (g.st === 2) { rollTick(G, g, dt); continue; }
+        if (!g.plan) { g.plan = launchFor(G, g); if (!g.plan) { killGnome(G, g, 'gh'); continue; } gGo(g, g.plan.L[0], g.plan.L[1]); }
+        if (Math.hypot(g.plan.L[0] - g.x, g.plan.L[1] - g.y) > 0.2 && g.path.length) { gStep(g, dt, GN.r.sp); continue; }
+        if (Math.hypot(g.plan.L[0] - g.x, g.plan.L[1] - g.y) > 0.6) { if (!gGo(g, g.plan.L[0], g.plan.L[1])) { g.plan = null; g.fail = (g.fail || 0) + 1; if (g.fail > 3) killGnome(G, g, 'gh'); } continue; }
+        const dx = g.plan.T[0] - g.x, dy = g.plan.T[1] - g.y, l = Math.hypot(dx, dy) || 1; g.dx = dx / l; g.dy = dy / l; g.st = 2; g.trav = 0; g.r = 0.28; g.bx = g.x + g.dx * 0.5; g.by = g.y + g.dy * 0.5; ev(G, 'gr', g.x, g.y, g.s);
+      }
+    }
+    st.gn = G.gn.map(g => [g.id, g.s, g.ty, r2(g.st === 2 ? g.bx : g.x), r2(g.st === 2 ? g.by : g.y), g.st, r2(g.r || 0), r2(g.a || 0)]);
+  }
+  // una palla (o un rotolone) contro gli gnomi dell'altro
+  function ballOnGnome(G, s, x, y, rad) {
+    for (const g of G.gn) { if (g.s === s) continue;
+      if (g.ty === 'r' && g.st === 2) { if (Math.hypot(g.bx - x, g.by - y) < g.r + rad) { g.r -= 0.22; g.trav = Math.max(0, (g.r - 0.28) / 0.045); if (g.r < 0.3) killGnome(G, g); else ev(G, 'rh', g.bx, g.by, g.s); return true; } }
+      else if (Math.hypot(g.x - x, g.y - y) < 0.3 + rad) { killGnome(G, g); return true; } }
+    return false;
+  }
+
   function roundEnd(G, win, why) {
     const st = G.st; st.sc = st.sc || {}; if (win >= 0) st.sc[win] = (st.sc[win] || 0) + 1;
-    st.ph = 'mres'; st.t0 = r2(G.time); st.win = win; st.B = [];
+    st.ph = 'mres'; st.t0 = r2(G.time); st.win = win; st.B = []; st.gn = []; G.gn = [];
     const a = G.chars[0], b = G.chars[1], s = i => st.sc[i] || 0;
     st.msg = (win >= 0 ? '🏆 Manche a ' + G.chars[win].name + '!' : '🤝 Manche pari!') + '\n' + why + '\n' + a.name + ' ' + s(0) + ' – ' + s(1) + ' ' + b.name;
     st.fin = s(0) >= WINS || s(1) >= WINS || st.n >= MAXR || G.tut ? 1 : 0;
@@ -611,17 +795,19 @@
   const arc = (cx, cy, rx, ry, a0, a1, n) => { const L = []; for (let i = 0; i <= n; i++) { const a = a0 + (a1 - a0) * i / n; L.push([cx + Math.cos(a) * rx, cy + Math.sin(a) * ry]); } return L; };
   const FORTS = [
     { n: 'dritto', st: [['w', [[8.7, 5.4], [8.7, 12.6]]], ['w', [[8.7, 5.4], [8.7, 12.6]]], ['a', [[8.7, 7.4], [7.9, 7.4]]], ['a', [[8.7, 10.6], [7.9, 10.6]]]] },
-    { n: 'zigzag', st: [['w', [[8.1, 5.0], [9.3, 6.4], [8.1, 7.8], [9.3, 9.2], [8.1, 10.6], [9.3, 12.0], [8.1, 13.4]]], ['w', [[5.2, 7.6], [5.2, 10.4]]]] },
-    { n: 'ferro', st: [['w', arc(6.2, 9, 3.4, 4.2, -1.25, 1.25, 12)], ['w', arc(6.2, 9, 3.4, 4.2, -0.4, 0.4, 4)], ['a', [[9.6, 9], [8.8, 9]]]] },
-    { n: 'torri', st: [['w', [[9.1, 5.3], [9.1, 7.6]]], ['w', [[9.1, 5.3], [9.1, 7.6]]], ['w', [[9.1, 10.4], [9.1, 12.7]]], ['w', [[9.1, 10.4], [9.1, 12.7]]], ['w', [[6.5, 8.1], [7.5, 9], [6.5, 9.9]]], ['a', [[9.1, 6.4], [8.3, 6.4]]], ['a', [[9.1, 11.6], [8.3, 11.6]]]] }
+    { n: 'zigzag', st: [['i', [[4.6, 11.6]]], ['w', [[8.1, 5.0], [9.3, 6.4], [8.1, 7.8], [9.3, 9.2], [8.1, 10.6], [9.3, 12.0], [8.1, 13.4]]], ['w', [[5.2, 7.0], [5.2, 9.6]]]] },
+    { n: 'ferro', st: [['i', [[4.4, 9]]], ['w', arc(6.2, 9, 3.4, 4.2, -1.25, 1.25, 12)], ['w', arc(6.2, 9, 3.4, 4.2, -0.4, 0.4, 4)], ['a', [[9.6, 9], [8.8, 9]]]] },
+    { n: 'torri', st: [['i', [[6.2, 11.4]]], ['w', [[9.1, 5.3], [9.1, 7.6]]], ['w', [[9.1, 5.3], [9.1, 7.6]]], ['w', [[9.1, 10.4], [9.1, 12.7]]], ['w', [[9.1, 10.4], [9.1, 12.7]]], ['w', [[6.5, 6.6], [7.5, 7.5], [6.5, 8.4]]], ['a', [[9.1, 6.4], [8.3, 6.4]]], ['a', [[9.1, 11.6], [8.3, 11.6]]]] }
   ];
   function botBuild(G, c) {
     const s = sideOf(G, c), p = PSd(G, s), first = G.st.n === 1;
     if (first || !G.botFort) G.botFort = FORTS[Math.floor(Math.random() * FORTS.length)];
     // prima manche: il suo fortino; dopo: prima riempie i buchi (senza ripassare), poi con la neve che resta ripassa (muri doppi)
-    for (const pass of first ? [0] : [1, 0]) for (const [k, pts] of G.botFort.st) { if (p.nv <= 0) break; const P = mx(s, pts); if (k === 'w') addStroke(G, s, P, { noThick: !!pass }); else if (!pass) addAsse(G, s, P); }
+    for (const pass of first ? [0] : [1, 0]) for (const [k, pts] of G.botFort.st) { if (p.nv <= 0) break; const P = mx(s, pts); if (k === 'w') addStroke(G, s, P, { noThick: !!pass }); else if (k === 'i') { if (!p.ig && pass === 0) placeIgloo(G, s, P[0][0], P[0][1]); } else if (!pass) addAsse(G, s, P); }
     p.rd = 1;
   }
+  // un punto libero accanto a un mucchio (la casella del mucchio e' un oggetto: i percorsi non ci finiscono dentro)
+  function besideObj(G, x, y, c) { let best = null, bd = 1e9; for (const [a, b] of [[-0.9, 0], [0.9, 0], [0, 0.9], [0, -0.9], [-0.75, 0.75], [0.75, 0.75], [-0.75, -0.75], [0.75, -0.75]]) { const px = x + a, py = y + b; if (!cqCellFree(Math.floor(px), Math.floor(py)) || !freeAt(G, px, py)) continue; const d = Math.hypot(px - c.x, py - c.y); if (d < bd) { bd = d; best = [px, py]; } } return best || [x, y]; }
   function botGo(G, c, x, y) { const p = cqPath(c.x, c.y, x, y); if (p.length) { p[p.length - 1] = [x, y]; c.path = p; } else c.path = [[x, y]]; c.goal = [x, y]; }
   const freeAt = (G, x, y) => cqFree(x, y) && !blkAt(G, x, y);
   // un posto dietro un mio muro, dalla parte di casa (verso l'altro c'e' il muro)
@@ -639,6 +825,24 @@
       if (freeAt(G, x, y)) { botGo(G, c, x, y); return true; } }
     return false;
   }
+  function threatGnome(G, c, s, skip) {
+    let best = null, bd = 1e9;
+    for (const e of G.gn) { if (e.s === s) continue; const roll = e.ty === 'r' && e.st === 2, x = roll ? e.bx : e.x, y = roll ? e.by : e.y, d = Math.hypot(x - c.x, y - c.y);
+      if (d > RMAX_D - 1) continue; const danger = roll ? 3 : e.ty === 'p' && e.st === 1 ? 2.5 : e.ty === 'c' && d < 7 ? 2 : e.ty === 'p' && d < 5 ? 1 : 0; if (!danger) continue;
+      const lead = roll ? d / V_D : 0, ex = x + (roll ? e.dx * ROLL_V * lead : 0), ey = y + (roll ? e.dy * ROLL_V * lead : 0); if (traceWall(G, c.x, c.y, ex, ey, skip)) continue;
+      const sc = d - danger * 3; if (sc < bd) { bd = sc; best = [ex, ey]; } }
+    return best;
+  }
+  // quale gnomo mandare: rotolone contro un muro lungo e dritto (di petto), cecchino se ti nascondi tanto, picconatore sul muro che ti copre
+  function chooseGnome(G, c, s, hid) {
+    const S = G.S, so = 1 - s, Q = c.mem || posOf(G, charOf(G, so)), p = G.st.p[s]; let long = null, ln = 0;
+    for (const cp of S.camp) { if (cp.o !== so || cp.p || cp.b.length < 7 || salOf(G, cp.b[0]) <= 0) continue; if (cp.b.length > ln) { ln = cp.b.length; long = cp; } }
+    const R = Math.random();
+    if (long && R < 0.55) { const b = S.bl[long.b[long.b.length >> 1]]; return ['r', b.x, b.y]; }
+    if ((hid || (c.hidN || 0) > 12) && p.b >= 3 && R < 0.7) return ['c', null, null];
+    const wb = traceWall(G, c.x, c.y, Q.x, Q.y, n => Math.hypot(S.bl[n].x - c.x, S.bl[n].y - c.y) < LEAN); if (wb && S.bl[wb.n].o === so) return ['p', wb.x, wb.y];
+    return R < 0.3 ? ['r', null, null] : R < 0.5 ? ['p', null, null] : null;
+  }
   function botTick(G, c, dt) {
     const st = G.st, s = sideOf(G, c), p = st.p[s], o = oppOf(G, c), so = 1 - s, Q = posOf(G, o), T = G.time;
     if (st.ph !== 'fight' || frozenS(G, s, T)) { c.path = []; c.walk = 0; return; }
@@ -649,20 +853,39 @@
     c.think = (c.think || 0) - dt;
     if (c.think <= 0) {
       c.think = 0.35 + Math.random() * 0.4;
-      const d = Math.hypot(Q.x - c.x, Q.y - c.y);
-      if (p.b > 0 && T - p.lt > CD + 0.7 + Math.random() * 0.9 && !st.p[so].d) {
-        const vx = o.vx || 0, vy = o.vy || 0, skip = n => Math.hypot(G.S.bl[n].x - c.x, G.S.bl[n].y - c.y) < LEAN;
+      const skip0 = n => Math.hypot(G.S.bl[n].x - c.x, G.S.bl[n].y - c.y) < LEAN;
+      // se sei nascosto non sa dove sei: si ricorda dove ti ha visto l'ultima volta
+      const hid = hiddenFrom(G, s, o); if (!hid) c.mem = { x: Q.x, y: Q.y, t: T }; else c.hidN = (c.hidN || 0) + 1;
+      // prima gli gnomi nemici che arrivano (il rotolone che rotola, il picconatore che scava, il cecchino vicino)
+      if (p.b > 0 && T - p.lt > CD + 0.3) { const th = threatGnome(G, c, s, skip0); if (th) { throwFrom(G, s, 'd', th[0], th[1]); return; } }
+      // i suoi gnomi
+      // i suoi gnomi: decide quale vuole, mette da parte le palle che servono, poi lo manda
+      if (iglooOf(G, s) && T > (c.gnT || 0) && gnAlive(G, s) < 2) {
+        if (!c.want) { c.want = chooseGnome(G, c, s, hid); c.wantT = T; if (!c.want) c.gnT = T + 5; }
+        if (c.want && (T - c.wantT > 20 || gnAlive(G, s) >= GN_MAX)) { c.want = null; c.gnT = T + 6; }
+        else if (c.want && p.b >= GN[c.want[0]].cost && spawnGnome(G, s, c.want[0], c.want[1], c.want[2])) { c.want = null; c.gnT = T + 13 + Math.random() * 10; return; }
+      }
+      if (hid) {   // nascosto: pallonetto dove l'ha visto (a caso intorno) oppure butta giu' il muro che lo copre
+        const M = c.mem || Q, dm = Math.hypot(M.x - c.x, M.y - c.y);
+        if (p.b > 1 && T - p.lt > CD + 1.2 + Math.random() * 1.5 && T - (c.mem ? c.mem.t : 0) < 9) {
+          const wb = traceWall(G, c.x, c.y, M.x, M.y, skip0); if (wb && G.S.bl[wb.n].o === so && dm <= RMAX_D && Math.random() < 0.55) { throwFrom(G, s, 'd', wb.x, wb.y); return; }
+          if (dm <= RMAX_L && dm >= 3) { throwFrom(G, s, 'l', M.x + (Math.random() - 0.5) * 1.6, M.y + (Math.random() - 0.5) * 1.6); return; }
+        }
+      }
+      const d = Math.hypot(Q.x - c.x, Q.y - c.y), saving = !!(c.want && iglooOf(G, s) && p.b < GN[c.want[0]].cost);   // mette da parte le palle per lo gnomo che vuole
+      if (!hid && p.b > 0 && !(saving && d > 6) && T - p.lt > CD + 0.7 + Math.random() * 0.9 && !st.p[so].d) {
+        const vx = o.vx || 0, vy = o.vy || 0, skip = skip0;
         const lead = d / V_D * 0.8, ex = Q.x + vx * lead, ey = Q.y + vy * lead, block = traceWall(G, c.x, c.y, ex, ey, skip);
         if (!block && d <= RMAX_D) { const e = 0.18 + d * 0.025; throwFrom(G, s, 'd', ex + (Math.random() - 0.5) * e * 2, ey + (Math.random() - 0.5) * e * 2); return; }
         if (d <= RMAX_L && d >= 3) { const dur = Math.max(0.75, d / V_L), still = Math.hypot(vx, vy) < 0.3, e = still ? 0.3 : 0.7; throwFrom(G, s, 'l', Q.x + vx * dur * 0.7 + (Math.random() - 0.5) * e * 2, Q.y + vy * dur * 0.7 + (Math.random() - 0.5) * e * 2); return; }
         if (block && d <= RMAX_D && block.n >= 0 && G.S.bl[block.n].o === so && Math.random() < 0.45) { throwFrom(G, s, 'd', block.x, block.y); return; }   // gli butta giu' il muro
       }
       // a secco: va a fare le palle (prima le scorte, poi la neve fresca, poi gratta il suo muro)
-      if (p.b === 0 || (p.b < 2 && d > RMAX_L)) {
+      if (p.b === 0 || saving || (p.b < 2 && d > RMAX_L)) {
         { const src = srcFor(G, s); if (src && (src[0] !== 'w' || (p.sk === 0 && Math.random() < 0.3)) && startMake(G, s)) { c.path = []; return; } }
         let tgt = null;
-        if (p.sk > 0) tgt = [p.sx + (s ? -0.4 : 0.4), p.sy];
-        else { let bd = 1e9; PILES.forEach(([x, y], i) => { if (st.pl[i] <= 0) return; const dd = Math.hypot(x - c.x, y - c.y) + Math.hypot(x - Q.x, y - Q.y) < 5 ? 6 : 0; const sc = Math.hypot(x - c.x, y - c.y) + dd; if (sc < bd) { bd = sc; tgt = [x + (x < MID ? -0.8 : 0.8), y]; } }); }
+        if (p.sk > 0) tgt = besideObj(G, p.sx, p.sy, c);
+        else { let bd = 1e9; PILES.forEach(([x, y], i) => { if (st.pl[i] <= 0) return; const dd = Math.hypot(x - c.x, y - c.y) + Math.hypot(x - Q.x, y - Q.y) < 5 ? 6 : 0; const sc = Math.hypot(x - c.x, y - c.y) + dd; if (sc < bd) { bd = sc; tgt = besideObj(G, x, y, c); } }); }
         if (tgt && (!c.goal || Math.hypot(c.goal[0] - tgt[0], c.goal[1] - tgt[1]) > 0.5)) botGo(G, c, tgt[0], tgt[1]);
         return;
       }
@@ -683,12 +906,16 @@
 .nvPad{position:absolute;bottom:150px;width:84px;height:84px;border-radius:50%;border:3px solid rgba(255,255,255,.4);padding:0;background:radial-gradient(circle at 40% 35%,#4a6aa8,#1a2848);box-shadow:0 5px 16px rgba(0,0,0,.45);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;z-index:5;color:#fff;font-family:system-ui}
 .nvPad b{position:absolute;left:0;right:0;top:12px;font-size:28px;pointer-events:none;transition:transform .05s}.nvPad i{position:absolute;left:0;right:0;bottom:12px;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.02em;pointer-events:none}
 #nvD{right:max(14px,4%)}#nvL{right:calc(max(14px,4%) + 94px);background:radial-gradient(circle at 40% 35%,#6a5aa8,#2a1a48)}.nvPad.off{opacity:.4}.nvPad.aim{border-color:#ffd24a;box-shadow:0 0 0 4px rgba(255,210,74,.3),0 5px 16px rgba(0,0,0,.45)}
-#nvHand{position:absolute;right:max(14px,4%);bottom:242px;z-index:5;background:rgba(16,24,44,.75);color:#fff;border-radius:12px;padding:4px 9px;font:800 13px system-ui;pointer-events:none}`;
+#nvHand{position:absolute;right:max(14px,4%);bottom:242px;z-index:5;background:rgba(16,24,44,.75);color:#fff;border-radius:12px;padding:4px 9px;font:800 13px system-ui;pointer-events:none}
+#nvG{position:absolute;left:max(10px,3%);bottom:150px;z-index:5;display:flex;flex-direction:column;gap:6px;user-select:none;-webkit-user-select:none}#nvG .t{font:800 10px system-ui;color:#fff;text-align:center;text-shadow:0 1px 2px #000}
+#nvG button{width:62px;height:54px;border-radius:14px;border:2px solid rgba(255,255,255,.35);background:linear-gradient(#3a5a3a,#1e3a22);color:#fff;font:800 10px system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;touch-action:manipulation}
+#nvG button i{font-style:normal;font-size:21px;line-height:1}#nvG button.off{opacity:.38}#nvG button.sel{border-color:#ffd24a;box-shadow:0 0 0 3px rgba(255,210,74,.45);background:linear-gradient(#5a8a4a,#2e5a2a)}`;
     document.head.appendChild(s);
   }
   const ROOT = () => document.getElementById('ciack');
-  const TOOLS = [['w', '✏️', 'Muro'], ['a', '🪵', 'Asse'], ['s', '📦', 'Scorte'], ['e', '🧽', 'Togli'], ['u', '↩️', 'Annulla'], ['r', '✔', 'Pronto']];
+  const TOOLS = [['w', '✏️', 'Muro'], ['a', '🪵', 'Asse'], ['i', '🛖', 'Igloo'], ['s', '📦', 'Scorte'], ['e', '🧽', 'Togli'], ['u', '↩️', 'Annulla'], ['r', '✔', 'Pronto']];
   const TIPS = {
+    i: 'Tocca dove mettere l\'<b>igloo</b> (8 neve): in battaglia ne escono gli <b>gnomi</b> ⛏️ 🎯 ☃️ (costano palle). Proteggilo: l\'altro può distruggerlo.',
     w: 'Disegna col dito i <b>muri</b>. Ogni pezzo costa neve. <b>Ripassa</b> un muro per farlo <b>doppio</b>. Gli <b>angoli</b> diventano pilastri 🚩.',
     a: 'Trascina dal muro verso casa: un\'<b>asse di legno</b> diagonale fa da <b>pilastro</b> e rinforza.',
     s: 'Tocca dove vuoi il <b>mucchio delle scorte</b>: la neve che <b>non usi</b> diventa palle già pronte (una ogni 2 neve).',
@@ -766,6 +993,33 @@
     const tx = '⚪'.repeat(Math.max(0, p.b || 0)) + '<span style="opacity:.35">' + '⚪'.repeat(Math.max(0, HAND - (p.b || 0))) + '</span> in mano'; if (h.innerHTML !== tx) h.innerHTML = tx;
     const off = !(p.b > 0) || !!p.d || making(G, mySide(G), T); for (const id of ['nvD', 'nvL']) { const e = document.getElementById(id); if (e && e.classList.contains('off') !== off) e.classList.toggle('off', off); }
   }
+  // ---- GLI GNOMI: tre pulsanti (solo con l'igloo in piedi). Tocchi lo gnomo, poi tocchi il punto da attaccare (se non tocchi, sceglie lui) ----
+  function gnSmooth(G, dt) {   // le posizioni degli gnomi arrivano a scatti: qui si lisciano
+    const st = G.st, seen = new Set(), k = 1 - Math.exp(-Math.max(0, dt) * 14);
+    for (const e of (st && st.gn) || []) { const id = e[0]; seen.add(String(id)); let P = U.gp[id]; if (!P || Math.hypot(P.x - e[3], P.y - e[4]) > 3) P = U.gp[id] = { x: e[3], y: e[4], rot: 0 }; else { P.x += (e[3] - P.x) * k; P.y += (e[4] - P.y) * k; } if (e[5] === 2) P.rot += dt * ROLL_V / Math.max(0.2, e[6]); P.e = e; }
+    for (const id in U.gp) if (!seen.has(id)) delete U.gp[id];
+  }
+  function sendGnome(G, ty, x, y) {
+    U.gsel = null; const s = mySide(G);
+    if (G.guest) cqNetSend(x != null ? { k: 'gn', ty, x: r2(x), y: r2(y) } : { k: 'gn', ty }); else spawnGnome(G, s, ty, x, y);
+    SFX.gnome(); if (G.tut) G.tutGn = 1;
+  }
+  function gnUI(G) {
+    const st = G.st, s = mySide(G), on = st && st.ph === 'fight' && !!iglooOf(G, s) && !st.p[s].d; let el = document.getElementById('nvG');
+    if (!on) { if (el) el.remove(); U.gsel = null; return; }
+    css();
+    if (!el) {
+      el = document.createElement('div'); el.id = 'nvG'; el.innerHTML = '<div class="t">🛖 GNOMI</div>' + Object.entries(GN).map(([k, D]) => `<button type="button" data-k="${k}"><i>${D.ico}</i>${D.cost}⚪</button>`).join(''); ROOT().appendChild(el);
+      el.addEventListener('pointerdown', e => e.stopPropagation());
+      el.querySelectorAll('button').forEach(b => b.addEventListener('click', e => { e.stopPropagation(); const G2 = cq.g; if (!G2 || G2.mode !== 'neve') return; const k = b.dataset.k, p = PS(G2, G2.me);
+        if (U.gsel && U.gsel.ty === k) { sendGnome(G2, k); return; }   // secondo tocco sullo stesso: parte subito e sceglie lui
+        if (b.classList.contains('off')) { SFX.no(); cqToast(p.b < GN[k].cost ? '⚪ Servono <b>' + GN[k].cost + ' palle in mano</b> per il ' + GN[k].n + '.' : '🛖 Al massimo <b>3 gnomi</b> in campo.'); return; }
+        U.gsel = { ty: k, t: now() }; SFX.tick(); }));
+    }
+    const p = st.p[s], n = (st.gn || []).filter(g => g[1] === s).length, key = p.b + ',' + n + ',' + (U.gsel ? U.gsel.ty : '');
+    if (el.dataset.k !== key) { el.dataset.k = key; el.querySelectorAll('button').forEach(b => { const k = b.dataset.k; b.classList.toggle('off', p.b < GN[k].cost || n >= GN_MAX); b.classList.toggle('sel', !!U.gsel && U.gsel.ty === k); }); }
+    if (U.gsel && now() - U.gsel.t > 3.5) sendGnome(G, U.gsel.ty);   // non ha scelto: sceglie lo gnomo
+  }
   // ---- passaggi di fase sul mio telefono ----
   function stage(G) {
     const st = G.st, key = st ? st.ph + st.n : ''; if (key === U.ph) return; const was = U.ph; U.ph = key; const p = st ? st.ph : '';
@@ -787,6 +1041,16 @@
       else if (k === 'h') { SFX.hit(); U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); U.fx.push({ k: 'txt', x, y, t: T, s: me ? '❄️ PRESO!' : '❄️ PLOF!', c: me ? '#ff9a8a' : '#ffffff' }); if (me) U.shake = T; }
       else if (k === 'bu') { SFX.buried(); U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); U.bur = { s: a, t: T }; U.fx.push({ k: 'txt', x, y, t: T, s: '☃️ SEPOLTO!', c: '#ffffff' }); }
       else if (k === 'mk' && me) SFX.crunch();
+      else if (k === 'gs') { SFX.gnome(); U.fx.push({ k: 'txt', x, y, t: T, s: GN[b] ? GN[b].ico + ' ' + GN[b].n + '!' : '', c: me ? '#c8ffb0' : '#ffd0a0' }); }
+      else if (k === 'gk') { SFX.squeak(); U.fx.push({ k: 'puff', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '😵 gnomo a terra!', c: '#ffffff' }); }
+      else if (k === 'gh') U.fx.push({ k: 'puff', x, y, t: T });
+      else if (k === 'gd') { SFX.dig(); U.fx.push({ k: 'chunk', x, y, t: T }); }
+      else if (k === 'gr') { SFX.roll(); U.fx.push({ k: 'txt', x, y, t: T, s: '☃️ ROTOLAAA!', c: '#ffffff' }); }
+      else if (k === 'rs') { SFX.slide(); U.fx.push({ k: 'txt', x, y, t: T, s: '↗ di striscio: scivola!', c: '#bfe0ff' }); }
+      else if (k === 'rh') { SFX.plof(); U.fx.push({ k: 'puff', x, y, t: T }); }
+      else if (k === 'rb') { SFX.crash(); U.fx.push({ k: 'big', x, y, t: T }); }
+      else if (k === 'ih') { SFX.igloo(); U.fx.push({ k: 'chunk', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '🛖 igloo colpito', c: '#bfe0ff' }); }
+      else if (k === 'ix') { SFX.crash(); U.fx.push({ k: 'big', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '🛖 IGLOO DISTRUTTO!', c: '#ffd0a0' }); }
     }
     U.fx = U.fx.filter(f => T - f.t < 2);
   }
@@ -794,7 +1058,7 @@
     try { if (localStorage.getItem('neveHelp')) return; localStorage.setItem('neveHelp', '1'); } catch { return; }
     setTimeout(() => cqToast('☃️ <b>Costruisci il fortino!</b> Disegna i muri col dito: gli <b>angoli</b> e le <b>assi</b> fanno da pilastri 🚩, un muro lungo e dritto crolla tutto insieme. La neve che avanzi diventa <b>palle</b> nel mucchio 📦.'), 1500);
   }
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nel <b>giardino innevato</b> dell\'hotel. Vince chi prende per primo <b>2 manche</b>.</p><p><b>1. Il fortino</b> (in segreto, sotto la nevicata): disegna col dito i muri nella tua zona. Hai poca neve, e <b>la stessa neve serve per le palle</b>: quella che avanzi finisce nel mucchio delle scorte 📦 (una palla ogni 2 neve).</p><p><b>2. La tenuta</b>: ogni <b>angolo</b> del muro, ogni <b>asse di legno</b> 🪵 e ogni <b>attacco</b> a un altro muro è un <b>pilastro</b> 🚩. Il pezzo fra due pilastri è una <b>campata</b>: i colpi la crepano e quando cede <b>cade tutta insieme</b>. Un muro lungo e dritto crolla in un colpo solo; uno a zig-zag perde un pezzo alla volta (ma costa più neve). <b>Ripassa</b> un muro per farlo <b>doppio</b>: regge il doppio.</p><p><b>3. La battaglia</b>: ➡️ <b>tiro dritto</b> = veloce, ma <b>il muro lo ferma</b>; 🌙 <b>pallonetto</b> = lento, <b>passa sopra i muri</b>, e la sua <b>ombra</b> avvisa dove cade. Trascini il pulsante all\'indietro come una fionda: più tiri, più va lontano.</p><p><b>4. Le palle</b>: al massimo 3 in mano. Per farne altre ti chini (fermo!) sul tuo mucchio 📦, sui <b>mucchi di neve fresca</b> al centro, o <b>grattando il tuo muro</b> (che si indebolisce).</p><p><b>5.</b> Quando tiri dritto ti <b>sporgi</b>: per un attimo il tuo muro non ti copre. <b>3 colpi</b> e diventi un pupazzo di neve ☃️.</p><p>Tra una manche e l\'altra il fortino <b>resta</b>: i pezzi crollati restano a terra, le crepe si richiudono, e hai un po\' di neve nuova per ripararlo.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nel <b>giardino innevato</b> dell\'hotel. Vince chi prende per primo <b>2 manche</b>.</p><p><b>1. Il fortino</b> (in segreto, sotto la nevicata): disegna col dito i muri nella tua zona. Hai poca neve, e <b>la stessa neve serve per le palle</b>: quella che avanzi finisce nel mucchio delle scorte 📦 (una palla ogni 2 neve).</p><p><b>2. La tenuta</b>: ogni <b>angolo</b> del muro, ogni <b>asse di legno</b> 🪵 e ogni <b>attacco</b> a un altro muro è un <b>pilastro</b> 🚩. Il pezzo fra due pilastri è una <b>campata</b>: i colpi la crepano e quando cede <b>cade tutta insieme</b>. Un muro lungo e dritto crolla in un colpo solo; uno a zig-zag perde un pezzo alla volta (ma costa più neve). <b>Ripassa</b> un muro per farlo <b>doppio</b>: regge il doppio.</p><p><b>3. La battaglia</b>: ➡️ <b>tiro dritto</b> = veloce, ma <b>il muro lo ferma</b>; 🌙 <b>pallonetto</b> = lento, <b>passa sopra i muri</b>, e la sua <b>ombra</b> avvisa dove cade. Trascini il pulsante all\'indietro come una fionda: più tiri, più va lontano.</p><p><b>4. Le palle</b>: al massimo 3 in mano. Per farne altre ti chini (fermo!) sul tuo mucchio 📦, sui <b>mucchi di neve fresca</b> al centro, o <b>grattando il tuo muro</b> (che si indebolisce).</p><p><b>5.</b> Quando tiri dritto ti <b>sporgi</b>: per un attimo il tuo muro non ti copre. <b>3 colpi</b> e diventi un pupazzo di neve ☃️.</p><p><b>6. Nascosto</b>: se stai <b>fermo</b> (o cammini piano) subito dietro un muro, l\'altro <b>non ti vede</b>: vede solo un ❓ dove eri. Correre o tirare dritto ti scopre. Buttare giù i suoi muri serve anche a <b>scoprirlo</b>.</p><p><b>7. Gli gnomi</b> 🛖: costruisci un <b>igloo</b> (8 neve) e in battaglia ne escono gli gnomi, che <b>costano palle</b> (al massimo 3 in campo; un colpo e sono a terra). Tocchi lo gnomo e poi il punto da attaccare (o lasci scegliere lui). ⛏️ <b>Picconatore</b> (2): scava un muro (quello doppio gli costa il doppio). 🎯 <b>Cecchino</b> (3): entra dai varchi e ti tira da vicino. ☃️ <b>Rotolone</b> (2): spinge una palla che <b>cresce rotolando</b>: se prende un muro <b>di petto</b> lo sfonda, se lo prende <b>di striscio</b> (muro inclinato, a V) <b>scivola via</b>.</p><p>Tra una manche e l\'altra il fortino <b>resta</b>: i pezzi crollati restano a terra, le crepe si richiudono, e hai un po\' di neve nuova per ripararlo.</p></details>';
 
   CQ_MODES.neve = {
     n: 'Battaglia di palle di neve',
@@ -808,12 +1072,13 @@
       G.opp = G.chars.find(c => c !== G.me) || null;
       G.tut = false; G.wb = []; G.wsN = 0; G.wv = 0; G.bu = new Map(); G.undo = {}; G.wdAck = {};
       for (const c of G.chars) if (c.bot && !c.remote) c.name = 'Pierino';
-      clearProps(); G.S = null; G.propSig = null; G.softX = null;
-      Object.assign(U, { ph: '', tool: 'w', str: null, evSeen: 0, fx: [], aim: null, bur: null, pend: null, wdAsk: 0, tPrev: null });
+      clearProps(); G.S = null; G.propSig = null; G.softX = null; G.gn = []; G.gnN = 0;
+      Object.assign(U, U0());
       newRound(G, 1, {});
       cq.bg = null;
     },
-    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; G.S = null; G.propSig = null; G.softX = null; G.wdV = -1; clearProps(); cq.bg = null; Object.assign(U, { ph: '', tool: 'w', str: null, evSeen: 0, fx: [], aim: null, bur: null, pend: null, wdAsk: 0, tPrev: null }); },
+    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; G.S = null; G.propSig = null; G.softX = null; G.wdV = -1; clearProps(); cq.bg = null; G.gn = []; Object.assign(U, U0()); },
+    hide: c => { const G = cq.g; return !!(G && G.st && c !== G.me && hiddenFrom(G, mySide(G), c)); },
     intro: () => '☃️ Giardino innevato…',
     voice: () => 1,
     speed: c => { const G = cq.g; return G && G.st && c === G.me && frozenS(G, mySide(G), lt(G)) ? 0 : 1; },
@@ -822,8 +1087,13 @@
     extras(G) {
       const L = [], st = G.st; if (!st) return L;
       G.__xd = G.__xd || {};
-      PILES.forEach(([x, y], i) => { let d = G.__xd['p' + i]; if (!d) { d = G.__xd['p' + i] = (g, X, Y, TW) => { const s2 = cq.g.st; pileDraw(g, X, Y, TW, s2 ? s2.pl[i] : 0, 0); }; d.box = [0.8, 0.8, 0.4]; d.top = 0.6; } L.push({ x, y, L: null, w: 0, f: 1, name: null, all: true, dr: d }); });
-      for (let s = 0; s < 2; s++) { const p = st.p[s]; if (!vis(G, { o: s })) continue; let d = G.__xd['s' + s]; if (!d) { d = G.__xd['s' + s] = (g, X, Y, TW) => { const s2 = cq.g.st; pileDraw(g, X, Y, TW, s2 && s2.ph !== 'build' ? s2.p[s].sk : Math.min(STOCK_MAX, Math.floor(Math.max(0, s2 ? s2.p[s].nv : 0) / 2)), s + 1); }; d.box = [0.9, 0.9, 0.4]; d.top = 0.7; } L.push({ x: p.sx, y: p.sy, L: null, w: 0, f: 1, name: null, all: true, dr: d }); }
+      // (mucchi, scorte e igloo stanno nella mappa pronta: wallCell / objList)
+      // gnomi (posizione lisciata su questo telefono) e palle dei rotoloni
+      for (const id in U.gp) { const P = U.gp[id], E = P.e; if (!E) continue;
+        let d = G.__xd['g' + id]; if (!d) { d = G.__xd['g' + id] = (g, X, Y, TW) => { const q = U.gp[id]; if (q && q.e) gnomeDraw(g, X, Y, TW, q.e[1], q.e[2], q.e[5] === 2 ? 0 : q.e[5], q.e[7], now()); }; d.box = [0.6, 1.2, 0.3]; d.top = 1.0; }
+        if (E[5] === 2) { const dx = Math.cos(E[7]), dy = Math.sin(E[7]); let db = G.__xd['b' + id]; if (!db) { db = G.__xd['b' + id] = (g, X, Y, TW) => { const q = U.gp[id]; if (q && q.e) rollBallDraw(g, X, Y, TW, q.e[6], q.rot || 0); }; db.box = [1.1, 1.9, 0.5]; db.top = 1.6; }
+          L.push({ x: P.x, y: P.y, L: null, w: 0, f: 1, name: null, all: true, dr: db }); L.push({ x: P.x - dx * (E[6] + 0.22), y: P.y - dy * (E[6] + 0.22), L: null, w: 0, f: 1, name: null, all: true, dr: d }); }
+        else L.push({ x: P.x, y: P.y, L: null, w: 0, f: 1, name: null, all: true, dr: d }); }
       return L;
     },
     hud(G) {
@@ -867,9 +1137,9 @@
         if ([0, 1].every(s => st.p[s].rd) || left < -0.5) startFight(G);
         return;
       }
-      if (st.ph === 'reveal') { if (G.time - st.t0 > REVEAL) { st.ph = 'fight'; st.t0 = r2(G.time); const b = G.chars.find(c => c.bot && !c.remote); if (b && !G.tut) say(G, b, 'start'); } return; }
+      if (st.ph === 'reveal') { if (G.time - st.t0 > REVEAL) { st.ph = 'fight'; st.t0 = r2(G.time); const b = G.chars.find(c => c.bot && !c.remote); if (b) { b.gnT = G.time + 6 + Math.random() * 6; b.want = null; b.mem = null; b.hidN = 0; if (!G.tut) say(G, b, 'start'); } } return; }
       if (st.ph === 'fight') {
-        ballTick(G); makeTick(G);
+        ballTick(G); makeTick(G); if (st.ph === 'fight') gnomeTick(G, dt);
         if (st.ph === 'fight' && G.time - st.t0 > FIGHT && !G.tut) { const h0 = st.p[0].h, h1 = st.p[1].h; roundEnd(G, h0 < h1 ? 0 : h1 < h0 ? 1 : -1, '⏱ Tempo scaduto: vince chi ha preso meno colpi'); }
         return;
       }
@@ -882,17 +1152,18 @@
       if (G.guest && G.wdS != null && G.wdV !== (G.S && G.S.v)) setGeo(G, G.wdV, decode(G.wdS));
       if (G.guest && G.st.wv && (!G.S || G.S.v !== G.st.wv) && now() - U.wdAsk > 1.2) { U.wdAsk = now(); cqNetSend({ k: 'wd?', v: G.S ? G.S.v : -1 }); }
       if (G.guest && G.S && G.S.v === G.st.wv && G.ackV !== G.S.v) { G.ackV = G.S.v; cqNetSend({ k: 'wda', v: G.S.v }); }
-      syncProps(G); stage(G); fxEvents(G);
+      syncProps(G); stage(G); fxEvents(G); velTick(G, dt); gnUI(G); gnSmooth(G, dt);
       if (G.st.ph === 'build') uiTickBuild(G); if (G.st.ph === 'fight') uiTickFight(G);
       if (U.pend && (now() - U.pend.at > 1.5 || (G.S && G.S.v === G.st.wv && G.S.v !== U.pend.v0))) U.pend = null;
     },
     ev(G, c, o) {
       const st = G.st; if (!st) return; const s = sideOf(G, c);
-      if (o.k === 'wl' && st.ph === 'build') { const pts = String(o.p || '').split(' ').slice(0, 120).map(t => t.split(',').map(v => +v / 20)).filter(p => p.length === 2 && isFinite(p[0]) && isFinite(p[1])); if (pts.length && ['w', 'a', 'e', 's'].includes(o.t)) buildAct(G, s, o.t, pts); }
+      if (o.k === 'wl' && st.ph === 'build') { const pts = String(o.p || '').split(' ').slice(0, 120).map(t => t.split(',').map(v => +v / 20)).filter(p => p.length === 2 && isFinite(p[0]) && isFinite(p[1])); if (pts.length && ['w', 'a', 'e', 's', 'i'].includes(o.t)) buildAct(G, s, o.t, pts); }
       else if (o.k === 'un' && st.ph === 'build') undo(G, s);
       else if (o.k === 'rdy' && st.ph === 'build') st.p[s].rd = o.on ? 1 : 0;
       else if (o.k === 'th' && st.ph === 'fight' && (o.ty === 'd' || o.ty === 'l')) throwFrom(G, s, o.ty, +o.x || 0, +o.y || 0);
       else if (o.k === 'mk' && st.ph === 'fight') startMake(G, s);
+      else if (o.k === 'gn' && st.ph === 'fight' && GN[o.ty]) spawnGnome(G, s, o.ty, o.x != null ? +o.x : null, o.y != null ? +o.y : null);
       else if (o.k === 'wd?') { G.wdAck[c.id] = -1; }
       else if (o.k === 'wda') { G.wdAck[c.id] = +o.v; }
     },
@@ -987,6 +1258,14 @@
         g.globalAlpha = k; const cx = (x0 + x1) / 2, [X, Y] = P3(cx, 9, 2); g.font = '800 ' + Math.round(Math.max(13, TW * 0.26)) + 'px system-ui'; g.textAlign = 'center'; g.fillStyle = '#4a6a98'; g.fillText('🌨️ nevicata fitta: non si vede cosa costruisce', X, Y);
         g.restore();
       }
+      // chi e' NASCOSTO dietro un muro: si vede solo dove l'hai visto l'ultima volta (❓ che sbiadisce)
+      if (st.ph === 'fight') for (const c of G.chars) { if (c === G.me) continue; const v = U.seen[c.id]; if (!v || !v.h) continue; const a = now() - v.t; if (a > 7) continue;
+        const [X, Y] = P3(v.x, v.y, 1.2); g.save(); g.globalAlpha = Math.max(0.25, 1 - a / 7); g.fillStyle = 'rgba(14,22,48,.75)'; g.beginPath(); g.arc(X, Y, Math.max(11, TW * 0.24), 0, 7); g.fill(); g.font = '800 ' + Math.round(Math.max(13, TW * 0.28)) + 'px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillStyle = '#fff'; g.fillText('❓', X, Y + 1);
+        g.font = '700 ' + Math.round(Math.max(10, TW * 0.17)) + 'px system-ui'; g.fillStyle = '#dfe8ff'; g.fillText('nascosto', X, Y + Math.max(20, TW * 0.42)); g.restore(); }
+      // gnomo scelto: aspetta il tocco sul bersaglio
+      if (U.gsel) { const D = GN[U.gsel.ty], k = Math.max(0, 1 - (now() - U.gsel.t) / 3.5); g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); const w = Math.min(cq.w - 24, 340), x0 = (cq.w - w) / 2, y0 = 118;
+        g.fillStyle = 'rgba(20,40,24,.88)'; cqRR(g, x0, y0, w, 44, 14); g.fill(); g.fillStyle = '#ffd24a'; g.fillRect(x0 + 10, y0 + 37, (w - 20) * k, 3);
+        g.fillStyle = '#fff'; g.font = '800 13.5px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('👆 Tocca dove mandare il ' + D.ico + ' ' + D.n, cq.w / 2, y0 + 14); g.font = '600 11.5px system-ui'; g.fillStyle = '#cfe8c8'; g.fillText('(se non tocchi, sceglie lui il punto più debole)', cq.w / 2, y0 + 28); g.restore(); }
       // scossa dello schermo
       if (U.shake && t - U.shake < 0.3) { const k = 1 - (t - U.shake) / 0.3; g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.fillStyle = 'rgba(255,255,255,' + 0.18 * k + ')'; g.fillRect(0, 0, cq.w, cq.h); g.restore(); }
     }
@@ -994,7 +1273,7 @@
   // mucchio di neve fresca (i 6 al centro) o delle scorte (o = 1 rosso, 2 blu: col paletto colorato)
   function pileDraw(g, X, Y, TW, n, o) {
     const K = iso(g, X, Y, TW), k = Math.max(0, Math.min(1, n / (o ? STOCK_MAX : PILE_MAX)));
-    g.fillStyle = 'rgba(40,60,100,.2)'; g.beginPath(); g.ellipse(X, Y, TW * 0.5, TW * 0.22, 0, 0, 7); g.fill();
+    g.fillStyle = '#cbd7e5'; g.beginPath(); g.ellipse(X, Y, TW * 0.5, TW * 0.22, 0, 0, 7); g.fill();
     if (n <= 0) { g.fillStyle = '#d4dfeb'; g.beginPath(); g.ellipse(X, Y, TW * 0.36, TW * 0.15, 0, 0, 7); g.fill(); }
     else { const h = 0.15 + 0.45 * k, r = 0.28 + 0.2 * k; K.cyl(0, 0, r, 0, h * 0.6, '#e8eff7'); g.fillStyle = '#f6f9fd'; const [Xa, Ya] = K.S(0, 0, h * 0.6); g.beginPath(); g.ellipse(Xa, Ya, r * TW * 0.707, r * TW * 0.3535 + h * TW * 0.25, 0, Math.PI, 0); g.fill(); g.beginPath(); g.ellipse(Xa, Ya, r * TW * 0.707, r * TW * 0.3535, 0, 0, 7); g.fill(); }
     if (o) { const c = SIDE[o - 1].c; K.bx(0.28, -0.05, 0.33, 0, 0, 0.75, '#4a3424'); const [Xf, Yf] = K.S(0.3, -0.03, 0.75); g.fillStyle = c; g.beginPath(); g.moveTo(Xf, Yf); g.lineTo(Xf + TW * 0.18, Yf + TW * 0.06); g.lineTo(Xf, Yf + TW * 0.12); g.fill();
@@ -1002,6 +1281,60 @@
     else if (n > 0) { for (let i = 0; i < Math.min(3, n); i++) { const [Xb, Yb] = K.S(-0.15 + i * 0.15, 0.2, 0.08); g.fillStyle = '#ffffff'; g.beginPath(); g.arc(Xb, Yb, TW * 0.055, 0, 7); g.fill(); } }
   }
 
+  // IGLOO: cupola di blocchi di neve con l'entrata verso l'altro (s = lato), crepe secondo la salute
+  function iglooDraw(g, X, Y, TW, s, hp) {
+    const R = IG_R * TW * 0.74, Hh = TW * 0.62, f = s ? -1 : 1;
+    g.fillStyle = '#c6d2e2'; g.beginPath(); g.ellipse(X, Y + 2, R * 1.1, R * 0.5, 0, 0, 7); g.fill();
+    const dome = () => { g.beginPath(); g.ellipse(X, Y, R, R * 0.48, 0, 0, Math.PI); g.lineTo(X - R, Y); g.ellipse(X, Y, R, Hh + R * 0.1, 0, Math.PI, 0); g.closePath(); };
+    g.fillStyle = '#d2deeb'; dome(); g.fill();
+    g.fillStyle = '#b8c8dc'; g.beginPath(); g.ellipse(X, Y, R, Hh + R * 0.1, 0, -Math.PI / 2, 0); g.lineTo(X + R, Y); g.ellipse(X, Y, R, R * 0.48, 0, 0, Math.PI / 2); g.lineTo(X, Y - Hh); g.fill();   // lato in ombra
+    g.strokeStyle = '#7f96b4'; g.lineWidth = Math.max(1.5, TW / 26); dome(); g.stroke();
+    g.fillStyle = '#f4f8fc'; g.beginPath(); g.ellipse(X - R * 0.2, Y - Hh * 0.45, R * 0.62, Hh * 0.62, -0.2, Math.PI * 1.05, Math.PI * 1.9); g.lineTo(X - R * 0.2, Y - Hh * 0.2); g.fill();
+    g.strokeStyle = '#b4c4d8'; g.lineWidth = Math.max(1, TW / 45); g.beginPath();
+    for (const k of [0.3, 0.58, 0.82]) { const ry = Hh * k, rx = R * Math.sqrt(1 - k * k * 0.9); g.moveTo(X - rx, Y - ry); g.quadraticCurveTo(X, Y - ry + Hh * 0.08, X + rx, Y - ry); }
+    for (const [k, u] of [[0.15, -0.5], [0.15, 0.1], [0.15, 0.65], [0.44, -0.25], [0.44, 0.38], [0.7, 0.05]]) { const y0 = Y - Hh * k, x0 = X + u * R * Math.sqrt(1 - k * k); g.moveTo(x0, y0); g.lineTo(x0, y0 - Hh * 0.22); }
+    g.stroke();
+    // l'entrata (tunnel) verso l'altro
+    const ex = X + f * R * 0.62, ey = Y + R * 0.22; g.fillStyle = '#e8eff7'; g.beginPath(); g.ellipse(ex, ey - Hh * 0.18, R * 0.38, Hh * 0.36, 0, Math.PI, 0); g.lineTo(ex + R * 0.38, ey); g.lineTo(ex - R * 0.38, ey); g.fill();
+    g.fillStyle = '#1e2a40'; g.beginPath(); g.ellipse(ex + f * R * 0.04, ey - Hh * 0.08, R * 0.22, Hh * 0.26, 0, Math.PI, 0); g.lineTo(ex + f * R * 0.04 + R * 0.22, ey); g.lineTo(ex + f * R * 0.04 - R * 0.22, ey); g.fill();
+    g.fillStyle = '#8a7a5a'; g.beginPath(); g.ellipse(ex + f * R * 0.04, ey - Hh * 0.02, R * 0.12, Hh * 0.08, 0, 0, 7); g.fill();
+    // bandierina del lato
+    g.strokeStyle = '#4a3424'; g.lineWidth = Math.max(1.5, TW / 30); g.beginPath(); g.moveTo(X, Y - Hh - R * 0.08); g.lineTo(X, Y - Hh - TW * 0.42); g.stroke();
+    g.fillStyle = SIDE[s].c; g.beginPath(); g.moveTo(X, Y - Hh - TW * 0.42); g.lineTo(X + TW * 0.22, Y - Hh - TW * 0.35); g.lineTo(X, Y - Hh - TW * 0.27); g.fill();
+    if (hp < IG_HP) { g.strokeStyle = '#3a5a8a'; g.lineWidth = 1.8; g.beginPath(); for (let i = 0; i < IG_HP - hp; i++) { const x0 = X + (i - 1) * R * 0.45, y0 = Y - Hh * 0.85; g.moveTo(x0, y0); g.lineTo(x0 + 4, y0 + Hh * 0.25); g.lineTo(x0 - 2, y0 + Hh * 0.45); g.lineTo(x0 + 3, y0 + Hh * 0.65); } g.stroke(); }
+  }
+  // GNOMO (piccolo, col cappello a punta del colore del lato e la barba bianca); st 1 = lavora (picchia, mira), a = direzione
+  function gnomeDraw(g, X, Y, TW, s, ty, st, a, t) {
+    const u = TW / 34 * 0.62, f = Math.cos(a) - Math.sin(a) >= 0 ? 1 : -1, bob = st === 0 ? Math.abs(Math.sin(t * 12)) * 2 : 0, S2 = SIDE[s];
+    g.save(); g.translate(X, Y); g.scale(u, u);
+    g.fillStyle = 'rgba(40,60,100,.28)'; g.beginPath(); g.ellipse(0, 0, 13, 5, 0, 0, 7); g.fill();
+    g.translate(0, -bob);
+    g.fillStyle = '#3a2a20'; for (const x of [-5, 4]) { g.beginPath(); g.ellipse(x * f, -2, 5, 3.2, 0, 0, 7); g.fill(); }
+    g.fillStyle = ty === 'p' ? '#6a4a2a' : ty === 'c' ? '#3a6a4a' : '#5a5a8a'; g.beginPath(); g.ellipse(0, -13, 10, 11, 0, 0, 7); g.fill();
+    g.fillStyle = '#2a1a10'; g.fillRect(-10, -12, 20, 3);
+    g.fillStyle = '#f2c8a0'; g.beginPath(); g.arc(f * 1.5, -27, 7, 0, 7); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.moveTo(f * 1.5 - 7, -26); g.quadraticCurveTo(f * 1.5, -8, f * 1.5 + 7, -26); g.quadraticCurveTo(f * 1.5, -21, f * 1.5 - 7, -26); g.fill();
+    g.fillStyle = '#e8786a'; g.beginPath(); g.arc(f * 5.5, -26, 2.6, 0, 7); g.fill();
+    g.fillStyle = '#1a1a22'; g.beginPath(); g.arc(f * 4.2, -29.5, 1.1, 0, 7); g.fill();
+    g.fillStyle = S2.c; g.beginPath(); g.moveTo(f * 1.5 - 8.5, -31); g.lineTo(f * 1.5 + 8.5, -31); g.quadraticCurveTo(f * 6, -44, -f * 3, -52); g.closePath(); g.fill();
+    g.fillStyle = S2.c2; g.fillRect(f * 1.5 - 8.5, -32.5, 17, 2.5);
+    if (ty === 'p') {   // piccone (picchia quando lavora)
+      g.save(); g.translate(f * 8, -16); g.rotate(f * (st === 1 ? -0.9 + Math.abs(Math.sin(t * 7)) * 1.6 : 0.4)); g.fillStyle = '#7a5a3a'; g.fillRect(-1.2, -16, 2.4, 18); g.fillStyle = '#9aa4ae'; g.beginPath(); g.moveTo(-9 * f, -15); g.quadraticCurveTo(0, -20, 9 * f, -13); g.lineTo(0, -16); g.closePath(); g.fill(); g.restore();
+    } else if (ty === 'c') {   // fionda con la palla
+      g.strokeStyle = '#6a4a2a'; g.lineWidth = 2; g.beginPath(); g.moveTo(f * 8, -12); g.lineTo(f * 10, -22); g.moveTo(f * 10, -22); g.lineTo(f * 7, -27); g.moveTo(f * 10, -22); g.lineTo(f * 13, -27); g.stroke();
+      if (st === 1) { g.fillStyle = '#ffffff'; g.beginPath(); g.arc(f * 10, -27, 3, 0, 7); g.fill(); }
+    } else { g.fillStyle = '#f2c8a0'; for (const y of [-17, -11]) { g.beginPath(); g.arc(f * 10, y, 2.6, 0, 7); g.fill(); } }   // braccia avanti (spinge)
+    g.restore();
+  }
+  // la palla del rotolone: tonda, gira rotolando (r in caselle)
+  function rollBallDraw(g, X, Y, TW, r, rot) {
+    const R = r * TW * 0.78, cy = Y - R * 0.95;
+    g.fillStyle = 'rgba(40,60,100,.28)'; g.beginPath(); g.ellipse(X, Y, R * 1.05, R * 0.42, 0, 0, 7); g.fill();
+    g.fillStyle = '#eef3f9'; g.beginPath(); g.arc(X, cy, R, 0, 7); g.fill();
+    g.fillStyle = 'rgba(150,175,210,.45)'; g.beginPath(); g.arc(X + R * 0.2, cy + R * 0.2, R * 0.82, -0.4, 2.2); g.fill();
+    g.fillStyle = '#ffffff'; g.beginPath(); g.arc(X - R * 0.35, cy - R * 0.35, R * 0.28, 0, 7); g.fill();
+    g.strokeStyle = 'rgba(120,150,190,.5)'; g.lineWidth = Math.max(1.2, R / 10); g.beginPath(); for (let i = 0; i < 3; i++) { const a = rot + i * 2.1; g.moveTo(X + Math.cos(a) * R * 0.3, cy + Math.sin(a) * R * 0.3); g.lineTo(X + Math.cos(a) * R * 0.85, cy + Math.sin(a) * R * 0.85); } g.stroke();
+  }
   // ---- disegnare col dito: nella fase del fortino il tocco sulla mappa costruisce (niente camminata) ----
   { const root = document.getElementById('ciack');
     if (root && !root.__nvPtr) { root.__nvPtr = 1; let dr = null;
@@ -1018,8 +1351,12 @@
       }, true);
       const up = e => { if (!dr || dr.id !== e.pointerId) return; e.stopPropagation(); const d = dr; dr = null; U.str = null; const G = cq.g; if (e.type === 'pointerup' && can(G)) myBuild(G, U.tool, d.pts); };
       root.addEventListener('pointerup', up, true); root.addEventListener('pointercancel', up, true);
+      // gnomo scelto: il prossimo tocco sulla mappa e' il bersaglio (niente camminata)
+      let gt = null;
+      root.addEventListener('pointerdown', e => { const G = cq.g; if (!U.gsel || !G || G.mode !== 'neve' || !G.st || G.st.ph !== 'fight' || !e.target || e.target.id !== 'cqCanvas') return; e.stopPropagation(); e.preventDefault(); gt = { id: e.pointerId, x: e.clientX, y: e.clientY }; }, true);
+      root.addEventListener('pointerup', e => { if (!gt || gt.id !== e.pointerId) return; e.stopPropagation(); gt = null; const G = cq.g; if (!U.gsel || !G || !G.st) return; const p = toMap(G, e.clientX, e.clientY); if (p) sendGnome(G, U.gsel.ty, p[0], p[1]); }, true);
     } }
   // esce dalla partita: via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'neve' || G.phase !== 'play') && (document.getElementById('nvBuild') || document.getElementById('nvD'))) { buildUI(G || {}, false); fightUI(G || {}, false); U.ph = ''; } });
-  window.__neve = { U, ZONE, START, PILES, FORTS, mapNeve, structure, resample, addStroke, addAsse, eraseAt, undo, placeStock, buildAct, startFight, throwFrom, startMake, srcFor, ballTick, hitWall, blockAt, blkAt, traceWall, encode, decode, botBuild, botTick, newRound, live, salOf, mySide, SFX, PS, lt, myThrow, myBuild, myReady, aimFrom, toMap };
+  window.__neve = { spawnGnome, gnomeTick, hiddenFrom, coveredFrom, placeIgloo, iglooOf, launchFor, pickDig, chooseGnome, threatGnome, GN, U, ZONE, START, PILES, FORTS, mapNeve, structure, resample, addStroke, addAsse, eraseAt, undo, placeStock, buildAct, startFight, throwFrom, startMake, srcFor, ballTick, hitWall, blockAt, blkAt, traceWall, encode, decode, botBuild, botTick, newRound, live, salOf, mySide, SFX, PS, lt, myThrow, myBuild, myReady, aimFrom, toMap };
 })();

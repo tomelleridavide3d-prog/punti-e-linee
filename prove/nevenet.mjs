@@ -19,7 +19,7 @@ export default [
   [0, `(async () => { cqNewMatch(); ${wait(4500)} cqCloseTask(); const G = cq.g; return 'host: partita ' + G.mode + ', personaggi ' + G.chars.map(c => c.name + (c.remote ? ' (amico)' : c.bot ? ' (computer)' : '')).join(', '); })()`, 0],
   [1, `(() => { cqCloseTask(); return 'amico: partita ' + (cq.g && cq.g.mode) + ', pannello del fortino ' + !!document.getElementById('nvBuild'); })()`, 0],
   // l'amico (lato 1) disegna un muro, lo ripassa e mette un'asse; l'host disegna il suo
-  [1, `(async () => { const N = window.__neve, G = cq.g; N.myBuild(G, 'w', [[21, 5.5], [21, 12.5]]); ${wait(900)} N.myBuild(G, 'w', [[21, 5.5], [21, 9]]); ${wait(900)} N.U.tool = 'a'; N.myBuild(G, 'a', [[21, 7], [21.8, 7]]); N.U.tool = 'w'; ${wait(1500)} return 'amico: disegnato'; })()`, 0],
+  [1, `(async () => { const N = window.__neve, G = cq.g; N.myBuild(G, 'w', [[21, 5.5], [21, 12.5]]); ${wait(900)} N.myBuild(G, 'w', [[21, 5.5], [21, 9]]); ${wait(900)} N.U.tool = 'a'; N.myBuild(G, 'a', [[21, 7], [21.8, 7]]); N.U.tool = 'w'; ${wait(900)} N.myBuild(G, 'i', [[25.5, 12]]); ${wait(1500)} return 'amico: disegnato, igloo ' + JSON.stringify(N.PS(G, G.me).ig); })()`, 0],
   [0, `(async () => { const N = window.__neve, G = cq.g; N.buildAct(G, 0, 'w', [[9, 5], [9.6, 6.5], [9, 8], [9.6, 9.5], [9, 11]]); ${wait(1500)} const a = G.wb.filter(b => b.o === 1); return 'host: blocchi dell\\'amico ' + a.length + ', doppi ' + a.filter(b => b.k === 2).length + ', assi ' + a.filter(b => b.as).length + ', neve amico ' + G.st.p[1].nv; })()`, 0],
   [1, look('amico (costruzione)'), 0], [0, look('host (costruzione)'), 0],
   // tutti e due pronti: si dirada la nevicata e si vedono i fortini
@@ -34,6 +34,12 @@ export default [
   [1, look('amico (colpito?)'), 0],
   // l'amico torna alle scorte e fa una palla
   [1, `(async () => { const N = window.__neve, G = cq.g, p = N.PS(G, G.me); cq.x = p.sx - 0.6; cq.y = p.sy; ${wait(700)} const b0 = p.b; G.M.act(G); ${wait(1800)} const p2 = N.PS(G, G.me); return 'amico: palle ' + b0 + ' -> ' + p2.b + ', scorte ' + p2.sk; })()`, 0],
+  // l'amico manda un picconatore dall'igloo (tocca il pulsante due volte: sceglie lui il bersaglio)
+  [1, `(async () => { const N = window.__neve, G = cq.g, p = N.PS(G, G.me); ${wait(300)} const b = document.querySelector('#nvG [data-k=p]'); if (!b) return 'amico: NIENTE PULSANTI DEGLI GNOMI (palle ' + p.b + ')'; b.click(); ${wait(200)} b.click(); ${wait(2500)} return 'amico: gnomi visti ' + JSON.stringify(G.st.gn.map(g => g.slice(0, 6))) + ', disegnati ' + Object.keys(N.U.gp).length; })()`, 0],
+  [0, `(() => { const G = cq.g; return 'host: gnomi in campo ' + G.gn.map(g => g.ty + ' lato ' + g.s + ' stato ' + g.st + ' bersaglio ' + g.tg).join(' | '); })()`, 0],
+  // l'host si ferma dietro il suo muro: l'amico non lo vede piu'
+  [0, `(async () => { cq.x = 8.2; cq.y = 8; ${wait(2500)} return 'host fermo dietro il muro'; })()`, 0],
+  [1, `(() => { const G = cq.g, h = G.chars.find(c => c !== G.me); return 'amico: host nascosto ' + G.M.hide(h) + ' (io in ' + cq.x.toFixed(1) + ',' + cq.y.toFixed(1) + ')'; })()`, 0],
   [1, `(() => { cqNetLeave(); return 'amico uscito; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 300],
   [0, `(() => { cqNetLeave(); return 'set chiuso; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 500],
 ];
