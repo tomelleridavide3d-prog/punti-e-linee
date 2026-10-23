@@ -916,7 +916,7 @@
 #alStage{position:relative;flex:1 1 0!important;min-height:70px;width:100%;max-width:480px}#alCv{position:absolute;inset:0;width:100%;height:100%;display:block}#alNmP{position:absolute;left:0;right:0;bottom:0;text-align:center;font:800 15px system-ui,sans-serif;text-shadow:0 1px 4px #000,0 0 2px #000;pointer-events:none}#alMsg{position:absolute;left:0;right:0;top:0;pointer-events:none}
 #alPv{width:100%;max-width:480px;height:112px}#alPv .pvc{height:100%}#alPv .cd{overflow:hidden}
 #alPot{display:flex;gap:5px;height:32px;align-items:center;justify-content:center;flex-wrap:nowrap;width:100%;max-width:480px;overflow:hidden}#alPot .ch{white-space:nowrap;padding:4px 8px!important;font-size:13px}#alPot .ch{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);padding:5px 9px;font-weight:600}#alPot .ch i{font-style:normal;opacity:.6;margin-left:4px}#alPot .h{opacity:.7;font-size:13px}
-#alAct{display:flex;gap:8px;width:100%;max-width:480px}#alAct button{flex:1;padding:12px 6px}#alBot{background:#8a4ad0;font-size:16px!important}#alBot:disabled,#alEmp:disabled{opacity:.35}#alEmp{background:rgba(255,255,255,.14)}
+#alAct{display:flex;gap:6px;width:100%;max-width:480px}#alAct button{flex:1;padding:11px 4px;font-size:13.5px!important}#alFill{background:#2a7a8a}#alFill:disabled{opacity:.35}#alBot{background:#8a4ad0;font-size:16px!important}#alBot:disabled,#alEmp:disabled{opacity:.35}#alEmp{background:rgba(255,255,255,.14)}
 #alJars{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;width:100%;max-width:480px}
 #alJars button{position:relative;min-height:64px;background:linear-gradient(180deg,rgba(255,255,255,.16),rgba(255,255,255,.05));border:1px solid rgba(255,255,255,.22);border-radius:14px 14px 10px 10px;overflow:hidden;padding:4px 2px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-weight:600;font-size:11px;line-height:1.1}
 #alJars button .lq{position:absolute;left:0;right:0;bottom:0;height:38%;opacity:.55}#alJars button .e{font-size:22px;position:relative;margin-top:1px}#alJars button .n{position:relative;margin-top:2px}#alJars button .d{position:relative;font-weight:600;font-size:10.5px;color:#ffe6b0;margin-top:2px}#alJars button:active{transform:scale(.94)}#alJars button.off{opacity:.4}
@@ -945,13 +945,13 @@
     el.innerHTML = `<div class="top"><span class="tm" id="alTm">${mmss((G.st && G.st.n > 1) ? PREP2 : PREP)}</span><b>⚗️ Prepara</b>${ADV() ? '<button id="alBk" type="button">📖</button>' : ''}<button id="alRdy" type="button">✔ Pronto</button></div>
       <div id="alFl"><span>${FL.e} <b>Piano ${G.st ? G.st.n : 1}/${FLOORS.length}</b> ${FL.n}</span>${ADV() ? '<span id="alCol">' + colShort() + '</span>' : '<span id="alCol" class="nv">🎓 Partita ' + (LV() + 1) + ' di ' + ADV_AT + ' da apprendista</span>'}</div>
       <div id="alStage"><canvas id="alCv"></canvas><div id="alNmP"></div><div id="alMsg"></div></div><div id="alPot"></div><div id="alPv"></div>
-      <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
+      <div id="alAct"><button id="alEmp" type="button">🗑️ Svuota</button><button id="alFill" type="button">⚡ Riempi per me</button><button id="alBot" type="button">🧪 Imbottiglia</button></div>
       <div id="alJars">${ING.map(g => `<button type="button" data-i="${g.id}"><span class="lq" style="background:${g.c}"></span><span class="e">${ingOk(g) ? g.e : '🔒'}</span><span class="n">${esc(g.n)}</span><span class="d">${ingOk(g) ? esc(g.d) : 'tra ' + ((g.lv || 0) - LV()) + ' partit' + ((g.lv || 0) - LV() === 1 ? 'a' : 'e')}</span></button>`).join('')}</div>
       <div id="alBelt"><span class="lb">Cintura</span>${Array.from({ length: BELT_N }, (_, i) => `<button type="button" data-b="${i}"><span class="vi">${FLASK}</span><span class="ig"></span></button>`).join('')}</div>`;
     $('#ciack').appendChild(el);
     el.querySelectorAll('[data-i]').forEach(b => { b.onclick = () => addIng(G, b.dataset.i); });
     el.querySelectorAll('[data-b]').forEach(b => { b.onclick = () => unbottle(G, +b.dataset.b); });
-    $('#alBot').onclick = () => bottle(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); spell('Ops… 🙈', 'oops'); prepRender(G); };
+    $('#alBot').onclick = () => bottle(G); $('#alFill').onclick = () => quickFill(G); $('#alEmp').onclick = () => { if (!U2.pot.length) return; U2.pot = []; U2.drain = now(); SFX.pour(); spell('Ops… 🙈', 'oops'); prepRender(G); };
     $('#alRdy').onclick = () => setReady(G, !ready(G)); if (ADV()) { $('#alBk').onclick = () => bookOpen(G); $('#alCol').onclick = () => bookOpen(G); }
     helpOnce('prep');
     U2.pot = []; U2.fx = []; U2.msg = '';
@@ -973,6 +973,13 @@
     b[i] = potKey(U2.pot); U2.pot = []; U2.drain = now(); SFX.bottle(); spell('Tadà! ✨', 'spin'); sendBelt(G);
     say(b.every(Boolean) ? 'Cintura piena! Premi ✔ Pronto (o cambia qualcosa).' : ''); prepRender(G);
   }
+  // RIEMPI PER ME: le ampolle vuote si riempiono con pozioni equilibrate (le stesse scelte del computer), solo con gli ingredienti sbloccati
+  function quickFill(G) {
+    const b = G.me.belt; if (b.every(Boolean)) return;
+    const pool = ING.filter(ingOk).map(g => g.id), pick = cpuBelt(G, pool, maxI()).filter(k => !b.includes(k));
+    for (let i = 0; i < BELT_N; i++) if (!b[i]) b[i] = pick.shift() || cqPickOne(pool);
+    SFX.bottle(); sendBelt(G); spell('Ecco fatto! ⚡', 'spin'); say('Cintura pronta! Premi ✔ Pronto (o cambia qualcosa).'); prepRender(G);
+  }
   function unbottle(G, i) { if (!G.me.belt[i]) return; G.me.belt[i] = ''; SFX.pour(); sendBelt(G); if (ready(G)) setReady(G, false); prepRender(G); }
   function sendBelt(G) { if (G.guest) cqNetSend({ k: 'belt', b: G.me.belt.join(',') }); }
   function setReady(G, on) {
@@ -993,7 +1000,7 @@
     const pv = document.getElementById('alPv'); if (pv) pv.innerHTML = pvHtml(P0);
     p.querySelectorAll('[data-p]').forEach(b => { b.onclick = () => { U2.pot.splice(+b.dataset.p, 1); SFX.pour(); prepRender(G); }; });
     const full = G.me.belt.every(Boolean);
-    $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length;
+    $('#alBot').disabled = !U2.pot.length || full; $('#alEmp').disabled = !U2.pot.length; $('#alFill').disabled = full;
     el.querySelectorAll('[data-i]').forEach(b => b.classList.toggle('off', U2.pot.length >= maxI() || !ingOk(ING_BY[b.dataset.i])));
     el.querySelectorAll('[data-b]').forEach(b => { const k = G.me.belt[+b.dataset.b], P = k && brew(k); setFlask(b.querySelector('.vi'), P && P.c); b.querySelector('.ig').textContent = P ? P.ings.map(g => g.e).join('') : '—'; });
     const r = $('#alRdy'), on = ready(G); r.classList.toggle('on', on); r.textContent = on ? '⏳ Aspetto…' : '✔ Pronto';
@@ -1173,11 +1180,12 @@
   // IL COMPUTER PREPARA LA CINTURA: prova tante miscele e le VALUTA con le stesse tabelle del gioco (potScore: danno, stati, spinte, pozze),
   // scarta quelle che non arrivano lontano o che scoppiano in mano, tiene varieta' (al massimo 2 dello stesso elemento) e, dalla seconda manche,
   // si prepara contro quello che l'altro ha lanciato (G.seen: elementi lanciati dalle persone): porta gli elementi che reagiscono con i suoi e uno specchio se l'altro brucia molto
-  function cpuBelt(G) {
+  function cpuBelt(G, pool, maxN) {   // pool/maxN: ingredienti e quanti al massimo (Riempi per me usa quelli sbloccati)
+    pool = pool || CPU_ING; maxN = maxN || 3;
     const seen = (G && G.seen) || {}, tot = Object.values(seen).reduce((a, b) => a + b, 0) || 1, cand = [];
     for (let k = 0; k < 160; k++) {
-      const n = Math.random() < 0.35 ? 1 : Math.random() < 0.75 ? 2 : 3, ids = [];
-      for (let i = 0; i < n; i++) ids.push(cqPickOne(CPU_ING));
+      const n = Math.min(maxN, Math.random() < 0.35 ? 1 : Math.random() < 0.75 ? 2 : 3), ids = [];
+      for (let i = 0; i < n; i++) ids.push(cqPickOne(pool));
       const P = brew(potKey(ids)); if (cand.some(c => c.P.k === P.k) || P.spd * Math.min(P.fuse, 9) < 6.5 || P.main === 'pop' || P.leg) continue;
       let sc = potScore(G, P, { x: C, y: C, pit: false, vol: false }) + Math.random() * 1.2;
       for (const [el, v] of Object.entries(seen)) {   // contro le sue pozze: elementi che reagiscono con quelli che usa
@@ -2267,5 +2275,5 @@
   };
   // esce dalla partita (fine, abbandono): via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'alchimisti' || G.phase !== 'play') && (document.getElementById('alPrep') || document.getElementById('alTh'))) { prepClose(); for (const id of ['alTh', 'alSel', 'alNm', 'alDr', 'alAsc']) { const e = document.getElementById(id); if (e) e.remove(); } $('#ciack').classList.remove('alDuel'); U2.ph = ''; } });
-  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk };   // per le prove (prove/alc*.js)
+  window.__alc = { FLOORS, useFloor, plantsInit, PLANTS, GEARS, pendPos, hazardAt, book, bookOpen, bookNote, describe, TOTAL, helpOnce, potScore, randPot, volatile, pendTick, mapTorre, isPit, SPAWN, KETTLE, C, RAD, wizard, ING, EL, REACT, FX, ZONE, brew, potKey, cpuBelt, U2, addIng, bottle, setReady, prepOpen, burst, throwFrom, myThrow, aimFrom, slideStart, blocked, fillDone, duelArm, regen, canFill, secret, flight, hurts, stops, RESERVE, RES_T, COMBO, drinkFrom, myDrink, drinkOf, drinkTxt, DRINK, botDrink, pvHtml, throwLines, drinkLines, airHits, flPos, EVENTS, evPh, evOn, EV_AT, ascOpen, LEGEND, PRIZES, myCos, colLine, legendCheck, LV, ADV, maxI, ingOk, quickFill };   // per le prove (prove/alc*.js)
 })();
