@@ -8,8 +8,16 @@
 // Da solo: "Lo Sceriffo", che impara come carichi il tamburo (i tamburi si svelano a fine manche) e te lo dice.
 (() => {
   const N = 26, NH = 16, MX = 13, MY = 8;   // strada: x 1-24, y 5-10; marciapiedi di legno y 4 e 11; simmetria (x, y) <-> (25 - x, 15 - y)
-  const LOAD = 15, LOAD2 = 11, WALK = 3.1, FIRST = 2.4, BELL = 3.0, WIN = 0.95, LAT = 0.25, MAXB = 12, DEAD = 2.3, MRES = 7, WINS = 3, MAXR = 7;
-  const X0 = [12.6, 13.4], Y0 = 8, STEP = 1.5, MISS_RUN = 0.45, RUN_V = 1.1;
+  // SECONDO GIRO (23-10-2026, scelte dell'utente): campana che suona A CASO (BMIN-BMAX s) con FALSI ALLARMI in mezzo (nitrito, porta che sbatte,
+  // corvo, latta); chi spara prima del vero DONG e' DISONORATO (il colpo va in aria, fermo e senza sparare fino alla fine del rintocco dopo).
+  // MIRINO CHE OSCILLA: dopo il DONG il mirino trema sull'avversario e si stringe in AIM_T s (piu' largo se lui corre): tocchi presto = veloce
+  // ma puoi mancare, aspetti = preciso ma rischi di arrivare secondo. Dopo ogni sparo resti fermo nel fumo SMOKE s. GIRA IL TAMBURO: salti
+  // il colpo in canna ma resti fermo fino al prossimo rintocco. Tolte la finta e la ricarica.
+  const LOAD = 15, LOAD2 = 11, WALK = 3.1, WIN = 1.6, LAT = 0.25, MAXB = 12, DEAD = 2.3, MRES = 7, WINS = 3, MAXR = 7;
+  const BMIN = 1.6, BMAX = 6.5, F0 = 2.6, F1 = 4.6, AIM_T = 0.75, AIM0 = 1.35, BODY = 0.4, SMOKE = 1.1, RUN_V = 1.1, BIG = 1e9;
+  const X0 = [12.6, 13.4], Y0 = 8, STEP = 1.5;
+  // falsi allarmi: [x, y dove compare la scritta (null = corvo che passa in cielo), scritta]
+  const ALARM = { horse: [3, 4.5, '🐴 IIIIH!'], door: [8, 4.3, '🚪 SBAM!'], crow: [null, null, '🐦 CRA! CRA!'], clang: [21, 4.4, '🥫 TANG!'] };
   const SIDE = [{ hat: '#2e2622', hat2: '#40342c', band: '#b8402a', sc: '#e05a3a' }, { hat: '#b48c5a', hat2: '#caa272', band: '#5a3a22', sc: '#e8c060' }];
   const now = () => performance.now() / 1000;
   const r2 = v => Math.round(v * 100) / 100;
@@ -207,7 +215,7 @@
   }
   // la campana sul tetto della banca: oscilla a ogni rintocco
   function bellDraw(g, X, Y, TW) {
-    const K = iso(g, X, Y, TW), { bx, S } = K, z = 3.25, G = cq.g, t = G ? lt(G) : 0, b0 = G && G.st && G.st.b0, sw = b0 != null && t >= b0 ? Math.exp(-((t - b0) % BELL) * 2.2) * Math.sin(((t - b0) % BELL) * 14) * 0.5 : 0;
+    const K = iso(g, X, Y, TW), { bx, S } = K, z = 3.25, G = cq.g, t = G ? lt(G) : 0, b0 = G && G.st && G.st.ph === 'duel' ? G.st.bt : null, sw = b0 != null && t >= b0 ? Math.exp(-(t - b0) * 2.2) * Math.sin((t - b0) * 14) * 0.5 : 0;
     for (const a of [-0.45, 0.35]) bx(a, -0.05, a + 0.1, 0.05, z, z + 1.0, '#6a4424');
     bx(-0.55, -0.12, 0.55, 0.12, z + 1.0, z + 1.12, '#5a3418'); K.poly([S(-0.65, 0, z + 1.12), S(0.65, 0, z + 1.12), S(0, 0, z + 1.5)], '#7a3020');
     const [hx, hy] = S(0, 0, z + 0.98); g.save(); g.translate(hx, hy); g.rotate(sw); const s = TW * 0.2;
@@ -234,29 +242,63 @@
     const mesa = (x, wd, ht, col, lit) => { g.fillStyle = col; g.beginPath(); g.moveTo(x - wd * 0.62, hy + 1); g.lineTo(x - wd * 0.5, hy - ht * 0.75); g.lineTo(x - wd * 0.45, hy - ht); g.lineTo(x + wd * 0.42, hy - ht); g.lineTo(x + wd * 0.5, hy - ht * 0.7); g.lineTo(x + wd * 0.64, hy + 1); g.closePath(); g.fill(); g.fillStyle = lit; g.fillRect(x - wd * 0.45, hy - ht, wd * 0.87, Math.max(1.5, ht * 0.06)); };
     for (let i = 0; i < 7; i++) mesa(rnd() * W, m * (0.18 + rnd() * 0.3), h * (0.04 + rnd() * 0.05), '#8a4a5e', 'rgba(255,190,140,.6)');
     for (let i = 0; i < 4; i++) mesa(W * (0.35 + rnd() * 0.65), m * (0.25 + rnd() * 0.3), h * (0.07 + rnd() * 0.06), '#6a3448', 'rgba(255,170,120,.55)');
-    // deserto
-    gr = g.createLinearGradient(0, hy, 0, H); gr.addColorStop(0, '#d89a64'); gr.addColorStop(0.25, '#c98a58'); gr.addColorStop(1, '#a8683e'); g.fillStyle = gr; g.fillRect(0, hy, W, H - hy);
-    gr = g.createLinearGradient(0, hy - 4, 0, hy + h * 0.06); gr.addColorStop(0, 'rgba(255,200,150,.55)'); gr.addColorStop(1, 'rgba(255,200,150,0)'); g.fillStyle = gr; g.fillRect(0, hy - 4, W, h * 0.06 + 4);   // foschia sull'orizzonte
-    for (let i = 0; i < 70; i++) { const y = hy + Math.pow(rnd(), 1.4) * (H - hy), s = 0.3 + (y - hy) / (H - hy) * 1.6, x = rnd() * W; g.fillStyle = rnd() < 0.5 ? 'rgba(150,80,40,.18)' : 'rgba(255,220,170,.14)'; g.beginPath(); g.ellipse(x, y, m * 0.08 * s, m * 0.008 * s, 0, 0, 7); g.fill(); }
-    for (let i = 0; i < 40; i++) {   // cactus e cespugli (piu' grandi vicino)
-      const y = hy + Math.pow(rnd(), 1.2) * (H - hy) * 0.95, s = 0.15 + (y - hy) / (H - hy) * 1.2, x = rnd() * W, k = rnd();
-      g.fillStyle = 'rgba(90,40,40,.25)'; g.beginPath(); g.ellipse(x + m * 0.03 * s, y, m * 0.03 * s, m * 0.006 * s, 0, 0, 7); g.fill();
-      if (k < 0.35) { g.fillStyle = '#4a6a3a'; const ch = m * 0.06 * s, cw = m * 0.012 * s; g.fillRect(x - cw / 2, y - ch, cw, ch); g.fillRect(x - cw * 2, y - ch * 0.7, cw * 0.8, ch * 0.35); g.fillRect(x - cw * 2, y - ch * 0.45, cw * 1.6, cw * 0.7); g.fillRect(x + cw * 1.2, y - ch * 0.8, cw * 0.8, ch * 0.4); g.fillRect(x + cw * 0.4, y - ch * 0.5, cw * 1.2, cw * 0.7); }
-      else { g.fillStyle = k < 0.7 ? '#7a7a4a' : '#8a6a4a'; g.beginPath(); g.ellipse(x, y - m * 0.006 * s, m * 0.018 * s, m * 0.01 * s, 0, 0, 7); g.fill(); }
-    }
+    // sotto l'orizzonte: la foschia del deserto lontano (il terreno vero e' quello della mappa, vedi groundDraw)
+    gr = g.createLinearGradient(0, hy - 4, 0, H); gr.addColorStop(0, '#f2b47c'); gr.addColorStop(0.15, '#dc9c66'); gr.addColorStop(1, '#c88a58'); g.fillStyle = gr; g.fillRect(0, hy - 2, W, H - hy + 2);
     return { cv, w, h, dpr, W, H, hy };
+  }
+  // ---- IL DESERTO INTORNO ALLA CITTA': il terreno della mappa che continua (stessa vista, stessi attrezzi): la strada esce dal paese,
+  // baracche, mulino a vento, cimitero sulla collinetta, carro rotto, cactus, rocce. Disegnato dietro la mappa a ogni fotogramma (poche forme) ----
+  const GX0 = -13, GX1 = 39, GY0 = -9, GY1 = 25;
+  const GDECO = (() => {   // oggetti sparsi fissi (mai dentro la citta' ne' davanti alla staccionata, per non coprirla)
+    let sd = 31; const rnd = () => { sd = (sd * 16807) % 2147483647; return sd / 2147483647; }, L = [];
+    const free = (x, y) => !(x > -1.5 && x < 27.5 && y > 1.5 && y < 14.5) && !(y > 4.5 && y < 11.5);
+    L.push(['mill', -5, 0.5], ['shack', -7, 13.5], ['shack', 31, 2], ['tower', 30, 13.8], ['wagon', -3.5, 15.8], ['outh', 28.5, -0.5], ['shack', 33.5, 15.5]);
+    for (let i = 0; i < 6; i++) L.push(['cross', 15 + i * 0.9 + (i % 2) * 0.3, 17.2 + (i % 3) * 0.7]);
+    L.push(['fence', 13.5, 16.5], ['fence', 20, 16.5]);
+    for (let i = 0; i < 60 && L.length < 46; i++) { const x = GX0 + 2 + rnd() * (GX1 - GX0 - 4), y = GY0 + 2 + rnd() * (GY1 - GY0 - 4); if (!free(x, y) || L.some(o => Math.hypot(o[1] - x, o[2] - y) < 2.2)) continue; L.push([rnd() < 0.45 ? 'cactus' : rnd() < 0.6 ? 'rock' : 'bush', x, y, 0.7 + rnd() * 0.7]); }
+    return L.sort((a, b) => a[1] + a[2] - b[1] - b[2]);
+  })();
+  function groundDraw(g, tx, ty, TW) {
+    const U = TW * 0.575, S = (x, y, z = 0) => [tx + (x - y) * TW / 2, ty + (x + y) * TW / 4 - z * U];
+    const poly = (pts, col) => { g.beginPath(); pts.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fillStyle = col; g.fill(); };
+    const rect = (x0, y0, x1, y1, col) => poly([S(x0, y0), S(x1, y0), S(x1, y1), S(x0, y1)], col);
+    // il terreno sfuma verso il bordo nella foschia del cielo
+    for (const [m, col] of [[5, 'rgba(232,160,110,.28)'], [3, 'rgba(220,150,100,.5)'], [1.5, 'rgba(208,146,96,.8)'], [0, '#cd9160']]) rect(GX0 - m, GY0 - m, GX1 + m, GY1 + m, col);
+    // chiazze di terra piu' scura e piu' chiara
+    for (let i = 0; i < 40; i++) { const x = GX0 + ((i * 7.31) % (GX1 - GX0)), y = GY0 + ((i * 3.77) % (GY1 - GY0)), r = 0.8 + (i % 4) * 0.5; poly([S(x - r, y), S(x, y - r * 0.6), S(x + r, y), S(x, y + r * 0.6)], i % 2 ? 'rgba(150,80,40,.12)' : 'rgba(255,220,170,.10)'); }
+    // la strada che esce dalla citta' da tutte e due le parti, coi solchi dei carri
+    rect(GX0 - 1, 5.2, 1, 10.8, '#c58f58'); rect(25, 5.2, GX1 + 1, 10.8, '#c58f58');
+    g.strokeStyle = 'rgba(90,55,25,.28)'; g.lineWidth = Math.max(1.5, TW / 22); g.beginPath(); for (const y of [6.25, 6.62, 9.25, 9.62]) { g.moveTo(...S(GX0, y)); g.lineTo(...S(1, y)); g.moveTo(...S(25, y)); g.lineTo(...S(GX1, y)); } g.stroke();
+    // sentiero verso il cimitero
+    g.strokeStyle = 'rgba(160,100,60,.45)'; g.lineWidth = Math.max(3, TW / 6); g.beginPath(); g.moveTo(...S(11, 13)); g.quadraticCurveTo(...S(13, 15.5), ...S(17, 17.4)); g.stroke();
+    for (const [t, x, y, s] of GDECO) {
+      const [X, Y] = S(x, y), K = iso(g, X, Y, TW), { bx, cyl } = K;
+      longShadow(g, X, Y, TW, t === 'mill' ? 4 : t === 'shack' || t === 'tower' ? 3 : 1.2 * (s || 1), 0.15);
+      if (t === 'cactus') { cyl(0, 0, 0.11 * s, 0, 1.2 * s, '#4a7a3a'); cyl(-0.22 * s, 0.03, 0.07 * s, 0.4 * s, 0.85 * s, '#4a7a3a'); bx(-0.22 * s, -0.03, 0, 0.05, 0.38 * s, 0.46 * s, '#4a7a3a'); cyl(0.2 * s, 0, 0.07 * s, 0.55 * s, 0.95 * s, '#4a7a3a'); bx(0, -0.03, 0.2 * s, 0.05, 0.52 * s, 0.6 * s, '#4a7a3a'); }
+      else if (t === 'rock') { bx(-0.35 * s, -0.25 * s, 0.3 * s, 0.3 * s, 0, 0.3 * s, '#9a7a62'); bx(-0.1 * s, -0.1 * s, 0.2 * s, 0.15 * s, 0.3 * s, 0.45 * s, '#a8886e'); }
+      else if (t === 'bush') { g.fillStyle = '#8a8a52'; for (const [a, b, r] of [[-0.12, 0, 0.18], [0.1, 0.03, 0.16], [0, -0.1, 0.14]]) { const [p, q] = K.S(a * s, b * s, 0.14 * s); g.beginPath(); g.arc(p, q, r * s * TW * 0.6, 0, 7); g.fill(); } }
+      else if (t === 'cross') { bx(-0.03, -0.03, 0.03, 0.03, 0, 0.7, '#7a5a3a'); bx(-0.2, -0.03, 0.2, 0.03, 0.48, 0.55, '#7a5a3a'); K.poly([K.S(-0.25, 0.1, 0), K.S(0.25, 0.1, 0), K.S(0.25, 0.6, 0), K.S(-0.25, 0.6, 0)], 'rgba(120,70,40,.35)'); }
+      else if (t === 'fence') { for (let i = 0; i < 6; i++) bx(i * 0.5, -0.04, i * 0.5 + 0.08, 0.04, 0, 0.6, '#6a4424'); bx(0, -0.03, 2.6, 0.03, 0.42, 0.48, '#7e5432'); }
+      else if (t === 'shack') { bx(-0.9, -0.7, 0.9, 0.7, 0, 1.3, '#8a6a48'); K.poly([K.S(-0.95, 0.75, 1.3), K.S(0.95, 0.75, 1.3), K.S(0.95, 0, 1.8), K.S(-0.95, 0, 1.8)], '#6a4a30'); K.poly([K.S(0.95, 0.75, 1.3), K.S(0.95, -0.75, 1.3), K.S(0.95, 0, 1.8)], '#5a3a24'); K.poly([K.S(-0.2, 0.7, 0), K.S(0.25, 0.7, 0), K.S(0.25, 0.7, 0.9), K.S(-0.2, 0.7, 0.9)], '#3a2414'); }
+      else if (t === 'outh') { bx(-0.35, -0.35, 0.35, 0.35, 0, 1.3, '#8a6a48'); bx(-0.42, -0.42, 0.42, 0.42, 1.3, 1.4, '#6a4a30'); const [p, q] = K.S(0, 0.35, 1.0); g.fillStyle = '#3a2414'; g.beginPath(); g.arc(p, q, TW * 0.05, 0, 7); g.fill(); }
+      else if (t === 'tower') { for (const [a, b] of [[-0.5, -0.5], [0.4, -0.5], [-0.5, 0.4], [0.4, 0.4]]) bx(a, b, a + 0.1, b + 0.1, 0, 2.2, '#6a4424'); cyl(0, 0, 0.75, 2.2, 3.3, '#8a5a36'); K.poly([K.S(-0.8, 0, 3.3), K.S(0.8, 0, 3.3), K.S(0, 0, 3.8)], '#5a3a24'); }
+      else if (t === 'wagon') { bx(-0.9, -0.4, 0.9, 0.4, 0.35, 0.75, '#8a6038'); g.strokeStyle = '#4a2a14'; g.lineWidth = Math.max(2, TW / 16); for (const a of [-0.6, 0.6]) { const [p, q] = K.S(a, 0.42, 0.3); g.beginPath(); g.ellipse(p, q, TW * 0.13, TW * 0.24, 0, 0, 7); g.stroke(); } K.poly([K.S(-0.8, 0.4, 0.75), K.S(0.6, 0.4, 0.75), K.S(0.4, 0.4, 1.6), K.S(-0.6, 0.4, 1.5)], '#e8dcc0'); }
+      else if (t === 'mill') { for (const [a, b] of [[-0.6, -0.6], [0.5, -0.6], [-0.6, 0.5], [0.5, 0.5]]) bx(a, b, a + 0.1, b + 0.1, 0, 3.4, '#7a5a3a'); bx(-0.3, -0.3, 0.3, 0.3, 3.4, 3.8, '#6a4424');
+        const [p, q] = K.S(0, 0.32, 3.6), a0 = performance.now() / 1000 * 0.8; g.strokeStyle = '#8a7a6a'; g.lineWidth = Math.max(2, TW / 18); g.beginPath(); for (let i = 0; i < 8; i++) { const a = a0 + i * Math.PI / 4; g.moveTo(p, q); g.lineTo(p + Math.cos(a) * TW * 0.7, q + Math.sin(a) * TW * 0.7); } g.stroke(); g.fillStyle = '#5a3a24'; g.beginPath(); g.arc(p, q, TW * 0.08, 0, 7); g.fill(); }
+    }
   }
   function skyDraw(g, CX, CY, tx, ty, TW) {
     const w = cq.w, h = cq.h, dpr = Math.min(2, cq.dpr);
     if (!SKY || SKY.w !== w || SKY.h !== h || SKY.dpr !== dpr) SKY = skyBuild(w, h, dpr);
     const S = SKY, t = performance.now() / 1000;
-    const hz = tx == null ? h * 0.45 : Math.max(h * 0.06, Math.min(h * 0.92, ty + (13 + 3) * TW / 4 - 2.2 * TW * 0.575)), ox = -w * 0.05 - Math.max(-1, Math.min(1, (CX - CY - 5) / 20)) * w * 0.04;
+    const m0 = g.getTransform(), hz = tx == null ? h * 0.45 : Math.max(h * 0.06, Math.min(h * 0.92, (m0.d * (ty + (13 + GY0 - 2) * TW / 4) + m0.f) / cq.dpr)), ox = -w * 0.05 - Math.max(-1, Math.min(1, (CX - CY - 5) / 20)) * w * 0.04;
     g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); g.drawImage(S.cv, ox, hz - S.hy, S.W, S.H);
     for (let i = 0; i < 3; i++) {   // avvoltoi che girano in cielo
       const a = t * (0.25 + i * 0.07) + i * 2.1, x = w * (0.55 + 0.18 * i) + Math.cos(a) * w * 0.08, y = hz - h * (0.28 + 0.06 * i) + Math.sin(a) * h * 0.03, s = 5 + i, fl = Math.sin(t * 3 + i) * 0.4;
       g.strokeStyle = '#2a1a2a'; g.lineWidth = 1.6; g.beginPath(); g.moveTo(x - s * 1.6, y - s * (0.3 + fl)); g.quadraticCurveTo(x - s * 0.6, y - s * 0.6, x, y); g.quadraticCurveTo(x + s * 0.6, y - s * 0.6, x + s * 1.6, y - s * (0.3 + fl)); g.stroke();
     }
     g.restore();
+    if (tx != null) groundDraw(g, tx, ty, TW);
   }
 
   // ======================= I PISTOLERI =======================
@@ -294,12 +336,21 @@
   const oppOf = (G, c) => G.chars.find(o => o !== c);
   const sideIdx = (G, c) => G.chars.indexOf(c) === 1 ? 1 : 0;
   const PS = (G, c) => (G.st && G.st.p && G.st.p[c.id]) || {};
-  const tb = (G, k) => G.st.b0 + k * BELL;
-  const bellK = (G, t) => G.st && G.st.ph === 'duel' && G.st.b0 != null && t >= G.st.b0 ? Math.floor((t - G.st.b0) / BELL) : -1;
-  const winOpen = (G, t) => { const k = bellK(G, t); return k >= 0 && k < MAXB && t - tb(G, k) < WIN ? k : -1; };
+  // la campana: st.bk = numero del rintocco (gia' suonato o in arrivo), st.bt = quando suona (deciso dall'host, a caso)
+  const tb = G => G.st.bt;
+  const bellK = (G, t) => { const st = G.st; if (!st || st.ph !== 'duel' || st.bt == null) return -1; return t >= st.bt ? st.bk : st.bk - 1; };   // l'ultimo rintocco suonato
+  const winOpen = (G, t) => { const st = G.st; return st && st.ph === 'duel' && st.bt != null && t >= st.bt && t - st.bt < WIN ? st.bk : -1; };
   const stunned = (G, c, t) => (PS(G, c).su || 0) > t;
-  const reloading = (G, c) => PS(G, c).rl >= 0 && PS(G, c).rl != null;
-  const frozen = (G, c) => { const st = G.st; if (!st) return true; if (st.ph !== 'duel') return true; const p = PS(G, c); return !!p.d || stunned(G, c, lt(G)) || reloading(G, c); };
+  const smoking = (G, c, t) => (PS(G, c).sm || 0) > t;
+  const frozen = (G, c) => { const st = G.st; if (!st) return true; if (st.ph !== 'duel') return true; const p = PS(G, c), T = lt(G); return !!p.d || stunned(G, c, T) || smoking(G, c, T); };
+  const canFire = (G, c, k, T) => { const p = PS(G, c); return !p.d && p.nf !== k && (!stunned(G, c, T) || p.sk === k); };
+  // IL MIRINO: tremolio deciso dalla manche, dal rintocco e da chi spara (uguale su ogni telefono); si stringe in AIM_T, piu' largo se il bersaglio corre
+  function wob(n, k, id, t, mv) {
+    const s = (n * 7919 + k * 104729 + id * 15485863) % 1000, a = s * 0.0123, b = s * 0.0371, c = s * 0.0517, d = s * 0.0731;
+    const A = AIM0 * Math.max(0.08, 1 - t / AIM_T) * (mv ? 1.5 : 1);
+    return [A * (Math.sin(5.3 * t + a) * 0.75 + Math.sin(9.7 * t + b) * 0.35), A * (Math.cos(6.1 * t + c) * 0.75 + Math.sin(11.3 * t + d) * 0.3)];
+  }
+  const onTarget = (n, k, id, t, mv) => { const [dx, dy] = wob(n, k, id, t, mv); return Math.hypot(dx, dy) < BODY; };
   const fired = (G, c) => (PS(G, c).f || []).length;
   const randDrum = () => { const a = [1, 1, 1, 0, 0, 0]; for (let i = 5; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
   const toMask = d => d.reduce((m, v, i) => m | (v ? 1 << i : 0), 0);
@@ -351,7 +402,15 @@
     win: () => { [523, 659, 784, 1046].forEach((f, i) => swp(f, f, 0.25, 0.04, i * 0.12, 'triangle')); },
     lose: () => { [392, 330, 262].forEach((f, i) => swp(f, f * 0.97, 0.35, 0.04, i * 0.2, 'triangle')); },
     tick: () => swp(1200, 1100, 0.04, 0.02, 0, 'square'),
-    drum: () => { swp(900, 700, 0.05, 0.03, 0, 'square'); swp(300, 200, 0.06, 0.03, 0.03); }
+    drum: () => { swp(900, 700, 0.05, 0.03, 0, 'square'); swp(300, 200, 0.06, 0.03, 0.03); },
+    // i falsi allarmi
+    horse: () => { for (let i = 0; i < 6; i++) swp(900 + (i % 2) * 300, 1100 + (i % 2) * 250, 0.09, 0.035, i * 0.08, 'sawtooth'); swp(800, 300, 0.4, 0.03, 0.48, 'sawtooth'); },
+    door: () => { noise(0.22, 0.2, 260); swp(120, 50, 0.2, 0.09, 0, 'square'); noise(0.1, 0.08, 900, 0.18); },
+    crow: () => { for (const d of [0, 0.32]) { swp(760, 520, 0.18, 0.05, d, 'sawtooth'); noise(0.16, 0.04, 1200, d, 'bandpass', 3); } },
+    clang: () => { swp(1240, 1230, 0.5, 0.04, 0, 'triangle'); swp(1870, 1850, 0.35, 0.025, 0, 'sine'); swp(620, 610, 0.3, 0.03); },
+    boo: () => { swp(220, 160, 0.6, 0.04, 0, 'sawtooth'); swp(180, 130, 0.6, 0.03, 0.15, 'sawtooth'); },
+    spin: () => { for (let i = 0; i < 6; i++) swp(2600 - i * 150, 2300 - i * 150, 0.03, 0.025, i * 0.05, 'square'); swp(1500, 1300, 0.05, 0.04, 0.33, 'square'); },
+    miss: () => { swp(2600, 500, 0.35, 0.035, 0.05, 'triangle'); noise(0.12, 0.05, 2500, 0.15, 'highpass'); }
   };
 
   // ======================= LO SCERIFFO (computer) =======================
@@ -363,7 +422,9 @@
     miss: ['Corri, corri…', 'Sei veloce, eh?'],
     win: ['*si tocca il cappello*', 'Lo sceriffo resta in città.', 'Torna quando avrai la barba.'],
     lose: ['Bel colpo… stavolta.', 'Mmh. Non male, forestiero.', 'Fortuna del principiante.'],
-    hatme: ['Il mio cappello! Questa me la paghi.', 'Salve? Mi hai solo fatto il solletico.']
+    hatme: ['Il mio cappello! Questa me la paghi.', 'Salve? Mi hai solo fatto il solletico.'],
+    early: ['Ah ah! Era solo un cavallo, forestiero!', 'Nervosetto, eh?', 'Disonore! Qui si aspetta la campana.'],
+    oops: ['…non dite niente a nessuno.', 'Dannato corvo!', 'Mi è scivolato il dito.']
   };
   const shMem = () => { const S = store.settings; if (!S.bariSh || !Array.isArray(S.bariSh.pos)) S.bariSh = { n: 0, pos: [0, 0, 0, 0, 0, 0] }; return S.bariSh; };
   function shLearn(d) { const M = shMem(); M.n++; d.forEach((v, i) => { M.pos[i] += v ? 1 : 0; }); saveStore(); }
@@ -402,32 +463,31 @@
   function botTick(G, c, dt) {
     const st = G.st, o = oppOf(G, c), T = G.time, p = PS(G, c); if (!o || p.d) return;
     if (st.ph !== 'duel' || frozen(G, c)) { c.path = []; c.walk = 0; return; }
-    const dg = (PS(G, o).d || reloading(G, o) || stunned(G, o, T + 0.4)) ? 0 : dangerOf(G, o, !o.bot), k = bellK(G, T), next = st.b0 + (k + 1) * BELL, toBell = next - T;
-    const mine = G.drum[c.id] || [], nxt = mine[fired(G, c)];
+    const dg = (PS(G, o).d || stunned(G, o, T + 0.4) || PS(G, o).nf === st.bk) ? 0 : dangerOf(G, o, !o.bot);
+    const mine = G.drum[c.id] || [], n = fired(G, c), nxt = mine[n];
     c.think = (c.think || 0) - dt;
     if (c.think <= 0) {
       c.think = 0.45 + Math.random() * 0.4; const A = posOf(G, o), d = Math.hypot(A.x - c.x, A.y - c.y), cov = coverHit(G, A, c);
-      if (c.hold || dg >= 0.42 || (nxt === 0 && dg > 0.2)) { if (!cov || Math.random() < 0.15) { const b = bestCover(G, c, o); if (b) botGo(G, c, b[0], b[1]); } c.mode = 'hide'; }
+      if (c.hold || dg >= 0.42 || (nxt === 0 && dg > 0.2) || n >= 6) { if (!cov || Math.random() < 0.15) { const b = bestCover(G, c, o); if (b) botGo(G, c, b[0], b[1]); } c.mode = 'hide'; }
       else {   // l'altro (secondo lui) ha una salve in canna: esce e si avvicina
         c.mode = 'push'; if (d > 7 || Math.random() < 0.3) { const a = Math.atan2(c.y - A.y, c.x - A.x) + (Math.random() - 0.5) * 1.2, r = 4.5 + Math.random() * 2, x = Math.max(1.6, Math.min(23.4, A.x + Math.cos(a) * r)), y = Math.max(5.5, Math.min(10.5, A.y + Math.sin(a) * r)); if (cqFree(x, y) && !blkAt(G, x, y)) botGo(G, c, x, y); }
       }
-      if (fired(G, c) >= 6 && !p.ru && cov) botReload(G, c);
-      else if (!p.ru && cov && fired(G, c) >= 3 && mine.slice(fired(G, c)).every(v => !v) && Math.random() < 0.6) botReload(G, c);
+      // salve in canna e al riparo: a volte GIRA IL TAMBURO per arrivare prima al colpo vero
+      if (!c.hold && cov && nxt === 0 && n < 5 && mine.slice(n + 1).some(Boolean) && winOpen(G, T) < 0 && Math.random() < 0.3) spin(G, c);
     }
-    // al rintocco, se e' allo scoperto e rischia, corre (chi corre puo' essere mancato)
-    if (toBell < 0.7 && dg > 0.3 && !coverHit(G, posOf(G, o), c) && (!c.path || !c.path.length)) { const a = Math.random() * 6.28, x = c.x + Math.cos(a) * 1.6, y = c.y + Math.sin(a) * 1.6; if (cqFree(x, y) && !blkAt(G, x, y)) c.path = [[x, y]]; }
+    // allo scoperto e in pericolo: si muove (chi corre ha il mirino addosso che trema di piu')
+    if (dg > 0.3 && !coverHit(G, posOf(G, o), c) && (!c.path || !c.path.length) && Math.random() < 0.08) { const a = Math.random() * 6.28, x = c.x + Math.cos(a) * 1.6, y = c.y + Math.sin(a) * 1.6; if (cqFree(x, y) && !blkAt(G, x, y)) c.path = [[x, y]]; }
     if (c.path && c.path.length) { const q = c.path[0]; if (blkAt(G, q[0], q[1])) c.path = []; else cqModeStep(c, dt, 0.96); } else c.walk = 0;
   }
-  function botReload(G, c) { const p = PS(G, c); if (p.ru || reloading(G, c)) return; startReload(G, c); G.nd[c.id] = botLoad(); }
-  function botAct(G, c, k) {   // decide al rintocco: { a: 's' spara | 'f' finta | 'n' niente, rt }
-    const o = oppOf(G, c), p = PS(G, c); if (!o || p.d || stunned(G, c, tb(G, k) + 0.01) || reloading(G, c) || c.hold) return { a: 'n', rt: 99 };
-    const n = fired(G, c), nxt = n < 6 ? G.drum[c.id][n] : -1, exposed = !coverHit(G, c, posOf(G, o)), cv = coverHit(G, c, posOf(G, o)), R = Math.random();
-    const rt = 0.3 + Math.random() * 0.28 + (G.tut ? 0.25 : 0); let a = 'n';
-    if (nxt < 0) a = R < 0.3 ? 'f' : 'n';
-    else if (exposed) a = nxt ? (R < 0.92 ? 's' : 'f') : (R < 0.68 ? 's' : R < 0.9 ? 'f' : 'n');
-    else if (nxt) a = (cv && !cv.st && G.st.cv[cv.i][3] <= 1 && R < 0.55) || R < 0.15 ? 's' : R < 0.3 ? 'f' : 'n';
-    else a = R < 0.18 ? 's' : R < 0.33 ? 'f' : 'n';
-    return { a, rt };
+  function botAct(G, c, k) {   // decide al rintocco: { a: 's' spara | 'n' niente, rt = quando tocca (presto = mira peggiore) }
+    const o = oppOf(G, c); if (!o || c.hold || !canFire(G, c, k, G.st.bt + 0.01)) return { a: 'n', rt: 99 };
+    const n = fired(G, c), nxt = n < 6 ? G.drum[c.id][n] : -1, cv = coverHit(G, c, posOf(G, o)), R = Math.random(); let a = 'n';
+    if (nxt < 0) a = 'n';
+    else if (!cv) a = nxt ? 's' : (R < 0.7 ? 's' : 'n');
+    else if (nxt) a = (!cv.st && G.st.cv[cv.i][3] <= 1 && R < 0.55) || R < 0.12 ? 's' : 'n';
+    else a = R < 0.1 ? 's' : 'n';
+    const R2 = Math.random(), rt = R2 < 0.22 ? 0.22 + Math.random() * 0.2 : 0.42 + Math.random() * 0.5 + (G.tut ? 0.4 : 0);   // a volte di fretta, di solito aspetta che il mirino si stringa
+    return { a, rt: r2(rt) };
   }
 
   // ======================= LA MANCHE (host) =======================
@@ -449,33 +509,48 @@
     G.soft = []; for (const c of G.st.cv || []) if (c[3] > 0 && !cqSolid[c[2]][c[1]]) { cqSolid[c[2]][c[1]] = { prop: 'bsoft', soft: true }; G.soft.push([c[1], c[2]]); }
   }
   function newRound(G, n, sc) {
-    G.st = { n, ph: 'load', t0: r2(G.time), rd: {}, sc: sc || {}, cv: genCovers(), p: {}, b0: null, sh: [], shN: (G.st && G.st.shN) || 0, say: null, ad: {} };
-    G.drum = {}; G.nd = {}; G.acts = null; G.wk = -1;
-    for (const c of G.chars) { G.st.p[c.id] = { f: [], h: 0, su: 0, rl: -1, ru: 0, d: 0 }; c.path = []; if (c.bot && !c.remote) { G.drum[c.id] = botLoad(); G.st.rd[c.id] = 1; } }
+    G.st = { n, ph: 'load', t0: r2(G.time), rd: {}, sc: sc || {}, cv: genCovers(), p: {}, bt: null, bk: -1, fa: [], sh: [], shN: (G.st && G.st.shN) || 0, say: null, ad: {} };
+    G.drum = {}; G.acts = null; G.wk = -1; G.faS = new Set();
+    for (const c of G.chars) { G.st.p[c.id] = { f: [], h: 0, su: 0, d: 0 }; c.path = []; if (c.bot && !c.remote) { G.drum[c.id] = botLoad(); G.st.rd[c.id] = 1; } }
     softCovers(G);
     const sh = G.chars.find(c => c.bot && !c.remote && c.sheriff); if (sh && !G.tut) { const r = n > 1 ? shRead() : null; shSay(G, sh, 'start', r && Math.random() < 0.75 ? r : null); }
   }
-  function startReload(G, c) {
-    const p = PS(G, c), k = bellK(G, G.time); if (p.ru || p.d || reloading(G, c)) return;
-    const k1 = Math.max(0, winOpen(G, G.time) >= 0 ? k + 1 : k + 1); p.rl = k1 + 1; p.ru = 1;   // fermo per i 2 rintocchi che vengono
-    G.st.sh.push(mkSh(G, c, 'r', 'reload', posOf(G, c).x, posOf(G, c).y));
+  // il prossimo rintocco: dopo un tempo A CASO, con 0-2 falsi allarmi in mezzo. Chi aspettava "il rintocco dopo" ora sa quando finisce
+  function schedBell(G, first) {
+    const st = G.st, T = G.time, gap = first ? F0 + Math.random() * (F1 - F0) : BMIN + Math.random() * (BMAX - BMIN);
+    st.bk = first ? 0 : st.bk + 1; st.bt = r2(T + gap);
+    const K = Object.keys(ALARM), nA = Math.random() < (first ? 0.5 : 0.75) ? (gap > 3.5 && Math.random() < 0.45 ? 2 : 1) : 0;
+    st.fa = []; for (let i = 0; i < nA; i++) { const t = T + 0.7 + Math.random() * Math.max(0.2, gap - 1.3); if (st.fa.every(f => Math.abs(f[0] - t) > 0.8)) st.fa.push([r2(t), K[Math.floor(Math.random() * K.length)]]); }
+    for (const c of G.chars) { const p = PS(G, c); if (p.su === BIG) { p.su = r2(st.bt + (p.sw ? WIN : 0.02)); p.sw = 0; } }
+  }
+  // GIRA IL TAMBURO: salti il colpo in canna (non spara), ma resti fermo fino al prossimo rintocco. Lo vedono tutti (non cosa hai saltato)
+  function spin(G, c) {
+    const st = G.st, p = PS(G, c), T = G.time; if (st.ph !== 'duel' || p.d || p.f.length >= 5 || stunned(G, c, T) || winOpen(G, T) >= 0) return;
+    p.f.push('g'); if (T < st.bt) p.su = st.bt; else { p.su = BIG; p.sw = 0; }
+    st.sh.push(mkSh(G, c, 'g', 'spin', posOf(G, c).x, posOf(G, c).y));
+  }
+  // DISONORATO: ha sparato prima della campana. Il colpo va in aria, resta fermo e al prossimo rintocco non puo' sparare
+  function dishonor(G, c) {
+    const st = G.st, p = PS(G, c), T = G.time; if (st.ph !== 'duel' || p.d || winOpen(G, T) >= 0 || stunned(G, c, T) || T - st.t0 < 0.8) return;
+    if (T < st.bt) { p.nf = st.bk; p.su = r2(st.bt + WIN); } else { p.nf = st.bk + 1; p.su = BIG; p.sw = 1; }
+    if (p.f.length < 6) p.f.push('u');
+    st.sh.push(mkSh(G, c, 's', 'early', posOf(G, c).x, posOf(G, c).y));
+    const sh = G.chars.find(o => o.bot && !o.remote && o.sheriff); if (sh && !G.tut) shSay(G, sh, sh === c ? 'oops' : 'early');
   }
   function mkSh(G, c, a, res, x, y) { G.st.shN = (G.st.shN || 0) + 1; if (G.st.sh.length > 10) G.st.sh.shift(); return [G.st.shN, c.id, a, res, r2(x), r2(y), r2(G.time)]; }
   function resolve(G, c, A, k) {
     const st = G.st, p = PS(G, c), o = oppOf(G, c), po = PS(G, o), P = posOf(G, c), Q = posOf(G, o);
     if (p.d || st.ph !== 'duel') return;
-    if (A.a === 'f') { p.fe = k; p.feRt = A.rt; st.sh.push(mkSh(G, c, 'f', 'feint', P.x, P.y)); return; }
     const n = p.f.length; if (n >= 6) { st.sh.push(mkSh(G, c, 's', 'click', P.x, P.y)); return; }
     const real = !!G.drum[c.id][n], cov = coverHit(G, P, Q), d = Math.hypot(Q.x - P.x, Q.y - P.y);
+    // la mira: per le persone la decide il loro telefono (A.h: il mirino era sul bersaglio quando hanno toccato), per il computer lo stesso calcolo qui
+    const hit = (o.remote && cqLagging(o)) ? false : A.h != null ? !!A.h : onTarget(st.n, k, c.id, A.rt, (o.mv || 0) > RUN_V);
     let res, info, x = Q.x, y = Q.y;
-    if (po.fe === k && po.feRt < A.rt) { res = 'scared'; info = 'u'; }
+    p.sm = r2(G.time + SMOKE);   // dopo lo sparo resti fermo nel fumo
+    if (!hit) { res = 'miss'; info = 'u'; const a = Math.random() * 6.28; x = Q.x + Math.cos(a) * 0.9; y = Q.y + Math.sin(a) * 0.9; }
     else if (cov) { x = cov.x; y = cov.y; if (real) { res = 'cover'; info = 'r'; if (!cov.st) { st.cv[cov.i][3]--; if (st.cv[cov.i][3] <= 0) { res = 'broke'; softCovers(G); } } } else { res = 'puff'; info = 'b'; } }
-    else {
-      const miss = (o.remote && cqLagging(o)) ? 1 : ((o.mv || 0) > RUN_V ? MISS_RUN : 0) + (d > 12 ? 0.15 : 0);
-      if (Math.random() < miss) { res = 'miss'; info = 'u'; }
-      else if (real) { res = 'kill'; info = 'r'; po.d = 1; }
-      else { res = 'hat'; info = 'b'; const l = d || 1; po.h = 1; po.hx = r2(Q.x + (Q.x - P.x) / l * 1.3); po.hy = r2(Q.y + (Q.y - P.y) / l * 1.3); po.su = r2(tb(G, k + 1) + 0.05); po.sk = k; }
-    }
+    else if (real) { res = 'kill'; info = 'r'; po.d = 1; }
+    else { res = 'hat'; info = 'b'; const l = d || 1; po.h = 1; po.hx = r2(Q.x + (Q.x - P.x) / l * 1.3); po.hy = r2(Q.y + (Q.y - P.y) / l * 1.3); po.su = BIG; po.sw = 0; po.sk = k; }
     p.f.push(info); st.sh.push(mkSh(G, c, 's', res, x, y).concat([o.id]));
     const sh = c.bot && !c.remote && c.sheriff ? c : o.bot && !o.remote && o.sheriff ? o : null;
     if (sh && !G.tut && Math.random() < 0.6) { if (sh === c && (res === 'hat' || res === 'cover' || res === 'miss')) shSay(G, sh, res); else if (sh === o && res === 'hat') shSay(G, sh, 'hatme'); }
@@ -498,17 +573,18 @@
     cqModeEnd({ t: w ? '🏆 Vince ' + esc(w.name) + '!' : '🤝 Pari!', why: 'Manche ' + s(a) + ' – ' + s(b), rank: (w === b ? [b, a] : [a, b]).map(c => [c.name, s(c) + ' manche']), win: w ? [w.id] : [] });
   }
   function hostDuel(G) {
-    const st = G.st, T = G.time, k = bellK(G, T);
-    // velocita' di ognuno (chi corre al rintocco puo' essere mancato)
+    const st = G.st, T = G.time;
+    // velocita' di ognuno (chi corre ha addosso un mirino che trema di piu')
     for (const c of G.chars) { const P = posOf(G, c); if (c.lx != null && G.dt > 0) { const v = Math.hypot(P.x - c.lx, P.y - c.ly) / G.dt; c.mv = (c.mv || 0) * 0.7 + v * 0.3; } c.lx = P.x; c.ly = P.y; }
-    // ricariche finite: nuovo tamburo, pallini da capo
-    for (const c of G.chars) { const p = PS(G, c); if (p.rl >= 0 && p.rl != null && (k > p.rl || (k === p.rl && T - tb(G, k) > WIN + LAT))) { p.rl = -1; G.drum[c.id] = okDrum(G.nd[c.id]) ? G.nd[c.id] : randDrum(); if (G.drum0) G.drum0[c.id] = G.drum0[c.id] || G.drum[c.id]; p.f = []; delete G.nd[c.id]; if (c.remote) st.ad[c.id] = [toMask(G.drum[c.id]), ++G.adv]; st.sh.push(mkSh(G, c, 'r', 'reloaded', posOf(G, c).x, posOf(G, c).y)); } }
-    if (k >= MAXB) { if (T - tb(G, MAXB - 1) > WIN + LAT + 0.8) roundEnd(G, null, '☀️ Il sole è alto: nessuno a terra'); return; }
-    if (G.chars.every(c => fired(G, c) >= 6 && PS(G, c).ru && !reloading(G, c))) { roundEnd(G, null, '🔫 Tamburi vuoti per tutti e due'); return; }
-    if (k < 0) return;
+    if (st.bt == null) schedBell(G, true);
+    // falsi allarmi: lo Sceriffo ogni tanto ci casca
+    for (const [t, ty] of st.fa || []) { const key = st.bk + ':' + t; if (T >= t && !G.faS.has(key)) { G.faS.add(key); for (const c of G.chars) if (c.bot && !c.remote && !c.hold && Math.random() < 0.08) dishonor(G, c); } }
+    if (G.chars.every(c => fired(G, c) >= 6)) { roundEnd(G, null, '🔫 Tamburi vuoti per tutti e due'); return; }
+    if (T < st.bt) return;
+    const k = st.bk, t = T - st.bt;
     if (k !== G.wk) { G.wk = k; G.acts = {}; G.res = {}; for (const c of G.chars) if (c.bot && !c.remote) G.acts[c.id] = botAct(G, c, k); }
-    const t = T - tb(G, k); if (t > WIN + LAT * 3) return;
-    const able = G.chars.filter(c => !PS(G, c).d && !reloading(G, c) && (!stunned(G, c, tb(G, k) + 0.01) || PS(G, c).sk === k));
+    if (t > WIN + LAT * 2) { if (k + 1 >= MAXB) roundEnd(G, null, '☀️ Il sole è alto: nessuno a terra'); else schedBell(G, false); return; }
+    const able = G.chars.filter(c => canFire(G, c, k, st.bt + 0.01));
     for (let guard = 0; guard < 4; guard++) {
       const pend = able.filter(c => G.acts[c.id] && !G.res[c.id] && G.acts[c.id].a !== 'n').sort((a, b) => G.acts[a.id].rt - G.acts[b.id].rt);
       if (!pend.length) break;
@@ -534,7 +610,7 @@
 #baLoad .bt{display:flex;gap:8px;justify-content:center;margin-top:6px}#baLoad button.b2{border:0;border-radius:12px;padding:9px 14px;font:800 14px system-ui;background:#7a5a3a;color:#fff}#baLoad button.ok{background:#3a8a4a}#baLoad button.ok:disabled{opacity:.45}#baLoad .ord{font-size:11.5px;opacity:.85}
 #baShoot{position:absolute;right:max(18px,6%);bottom:140px;width:104px;height:104px;border-radius:50%;border:4px solid rgba(255,230,180,.35);background:radial-gradient(circle at 40% 35%,#6a4a2a,#2a1a10);color:#ffe2b0;font:800 13px system-ui;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 5px 16px rgba(0,0,0,.45);opacity:.55}
 #baShoot b{font-size:34px;line-height:1}#baShoot.on{opacity:1;border-color:#ffd24a;background:radial-gradient(circle at 40% 35%,#d8642a,#7a2a10);box-shadow:0 0 0 6px rgba(255,210,74,.35),0 5px 16px rgba(0,0,0,.45);animation:baPulse .3s ease-in-out infinite alternate}
-#baFeint{position:absolute;right:calc(max(18px,6%) + 114px);bottom:150px;width:72px;height:72px;border-radius:50%;border:3px solid rgba(255,230,180,.3);background:radial-gradient(circle at 40% 35%,#5a4a3a,#241a12);color:#ffe2b0;font:800 11px system-ui;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation;opacity:.5}#baFeint b{font-size:24px;line-height:1}#baFeint.on{opacity:1;border-color:#ffd24a}
+#baShoot.on.lock{border-color:#fff;background:radial-gradient(circle at 40% 35%,#ff4a2a,#a81808);box-shadow:0 0 0 8px rgba(255,80,40,.5),0 5px 16px rgba(0,0,0,.45)}#baBell.dis{background:#5a2a6a;border-color:#c89aff}
 @keyframes baPulse{from{transform:scale(1)}to{transform:scale(1.07)}}
 #baBell{position:absolute;left:50%;top:104px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;background:rgba(40,22,14,.82);border:1px solid rgba(240,190,110,.5);color:#ffe2b0;font:800 14px system-ui;padding:4px 12px 4px 6px;border-radius:18px;pointer-events:none;white-space:nowrap}
 #baBell.on{background:#c8402a;color:#fff;border-color:#ffd24a;animation:baPulse .18s ease-in-out infinite alternate}#baBell canvas{width:30px;height:30px}
@@ -570,52 +646,60 @@
     const ok = el.querySelector('.ok'); if (ok) { ok.disabled = n !== 3; ok.textContent = U2.rdy ? '⏳ Aspetto l\'altro…' : '✔ Pronto'; }
   }
   function loadClose() { const el = document.getElementById('baLoad'); if (el) el.remove(); }
-  function sendDrum(G, rl) { if (!okDrum(U2.d)) return; if (G.guest) cqNetSend({ k: 'drum', m: toMask(U2.d), rl: rl ? 1 : 0 }); else if (rl) G.nd[G.me.id] = U2.d.slice(); else G.drum[G.me.id] = U2.d.slice(); }
+  function sendDrum(G) { if (!okDrum(U2.d)) return; if (G.guest) cqNetSend({ k: 'drum', m: toMask(U2.d) }); else G.drum[G.me.id] = U2.d.slice(); }
   function setReady(G, on) { if (U2.rdy === on) return; U2.rdy = on; if (on) { sendDrum(G, false); SFX.reload(); if (G.guest) cqNetSend({ k: 'rdy', on: 1 }); else G.st.rd[G.me.id] = 1; } else { if (G.guest) cqNetSend({ k: 'rdy', on: 0 }); else if (G.st) delete G.st.rd[G.me.id]; } loadRender(G); }
   // ---- pulsanti del duello ----
   function duelUI(G, on) {
     css(); ROOT().classList.toggle('baDuel', !!on);
-    if (!on) { for (const id of ['baShoot', 'baFeint', 'baBell', 'baMini']) { const e = document.getElementById(id); if (e) e.remove(); } return; }
+    if (!on) { for (const id of ['baShoot', 'baBell', 'baMini']) { const e = document.getElementById(id); if (e) e.remove(); } return; }
     const mk = (id, html, fn) => { if (document.getElementById(id)) return; const b = document.createElement(id === 'baBell' || id === 'baMini' ? 'div' : 'button'); b.id = id; if (b.type !== undefined) b.type = 'button'; b.innerHTML = html; ROOT().appendChild(b); if (fn) { b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); const G2 = cq.g; if (G2 && G2.mode === 'bari') fn(G2); }); b.addEventListener('pointerup', e => e.stopPropagation()); b.oncontextmenu = e => e.preventDefault(); } };
-    mk('baShoot', '<b>🔫</b>SPARA', G2 => myAct(G2, 's'));
-    mk('baFeint', '<b>🤠</b>FINTA', G2 => myAct(G2, 'f'));
+    mk('baShoot', '<b>🔫</b><span>SPARA</span>', G2 => myAct(G2, false));
     mk('baBell', '<canvas width="60" height="60"></canvas><span></span>');
     mk('baMini', '<canvas width="128" height="128"></canvas><span></span>');
   }
-  function myAct(G, a) {
-    const T = lt(G), k = winOpen(G, T);
-    if (k < 0) { if (G.st && G.st.ph === 'duel') { SFX.click(); say('🔔 Aspetta il rintocco della campana!'); } return; }
-    if (U2.acted === k || (frozen(G, G.me) && !(stunned(G, G.me, T) && PS(G, G.me).sk === k))) return;
+  // SPARA: dopo il DONG parte il colpo (il mirino decide se prende); PRIMA del DONG col pulsante = disonorato (toccando la mappa no: si cammina)
+  function myAct(G, tap) {
+    const T = lt(G), st = G.st; if (!st || st.ph !== 'duel') return; const k = winOpen(G, T), p = PS(G, G.me);
+    if (p.d) return;
+    if (k < 0) {
+      if (tap || frozen(G, G.me) || T - st.t0 < 0.8 || now() - (U2.early || 0) < 1) return; U2.early = now();
+      if (G.guest) cqNetSend({ k: 'early' }); else dishonor(G, G.me);
+      return;
+    }
+    if (U2.acted === k || !canFire(G, G.me, k, T)) return;
     if (!G.guest && G.wk !== k) return;
-    if (PS(G, G.me).d || reloading(G, G.me)) return;
-    U2.acted = k; const rt = r2(T - tb(G, k)); U2.myAim = now(); if (a === 'f') SFX.feint();
-    if (G.guest) cqNetSend({ k: 'act', a, rt, b: k }); else if (G.acts) G.acts[G.me.id] = { a, rt };
-    if (G.tut && a === 's') G.tutShot = 1;
+    U2.acted = k; const rt = r2(T - st.bt), h = onTarget(st.n, k, G.me.id, rt, (U2.omv || 0) > RUN_V) ? 1 : 0; U2.myAim = now();
+    if (G.guest) cqNetSend({ k: 'act', a: 's', rt, h, b: k }); else if (G.acts) G.acts[G.me.id] = { a: 's', rt, h };
+    if (G.tut) G.tutShot = 1;
   }
+  function mySpin(G) { const st = G.st, p = PS(G, G.me), T = lt(G); if (!st || st.ph !== 'duel' || p.d || p.f.length >= 5 || stunned(G, G.me, T) || winOpen(G, T) >= 0) return; if (G.guest) cqNetSend({ k: 'spin' }); else spin(G, G.me); SFX.spin(); }
   let sayT = 0; function say(t) { if (now() - sayT < 1.2) return; sayT = now(); cqToast(t); }
   function uiTick(G) {
     const st = G.st, T = lt(G), sh = document.getElementById('baShoot'); if (!sh || !st) return;
-    const k = winOpen(G, T), can = k >= 0 && U2.acted !== k && !PS(G, G.me).d && !reloading(G, G.me) && (!stunned(G, G.me, T) || PS(G, G.me).sk === k);
-    sh.classList.toggle('on', can); const fe = document.getElementById('baFeint'); if (fe) fe.classList.toggle('on', can);
+    const k = winOpen(G, T), can = k >= 0 && U2.acted !== k && canFire(G, G.me, k, T) && fired(G, G.me) < 6;
+    const lock = can && onTarget(st.n, k, G.me.id, T - st.bt, (U2.omv || 0) > RUN_V);   // il mirino e' sul bersaglio adesso
+    sh.classList.toggle('on', can); sh.classList.toggle('lock', !!lock);
+    { const s = sh.querySelector('span'), tx = lock ? '🎯 ORA!' : can ? 'MIRA…' : 'SPARA'; if (s.textContent !== tx) s.textContent = tx; }
     const bl = document.getElementById('baBell'); if (bl) {
-      const kb = bellK(G, T), pre = st.b0 != null && T < st.b0, left = pre ? st.b0 - T : kb >= 0 && kb < MAXB - 1 ? tb(G, kb + 1) - T : 0, prog = pre ? 1 - left / FIRST : 1 - left / BELL;
-      bl.classList.toggle('on', k >= 0);
-      const txt = k >= 0 ? '🔔 FUOCO!' : kb >= MAXB - 1 && !pre ? '☀️ ultimo rintocco' : '🔔 ' + Math.max(0, kb + 1) + '/' + MAXB + ' · ' + left.toFixed(1) + ' s';
+      const kb = bellK(G, T), dis = PS(G, G.me).nf === st.bk && T < st.bt + WIN;
+      bl.classList.toggle('on', k >= 0); bl.classList.toggle('dis', !!dis && k < 0);
+      const txt = k >= 0 ? '🔔 FUOCO!' : dis ? '😳 disonorato: salti un rintocco' : '🤫 aspetta la campana… ' + Math.max(1, kb + 2) + '/' + MAXB;
       const sp = bl.querySelector('span'); if (sp.textContent !== txt) sp.textContent = txt;
       const g = bl.querySelector('canvas').getContext('2d'); g.clearRect(0, 0, 60, 60); g.lineWidth = 6; g.strokeStyle = 'rgba(255,255,255,.18)'; g.beginPath(); g.arc(30, 30, 24, 0, 7); g.stroke();
-      g.strokeStyle = k >= 0 ? '#fff' : '#ffd24a'; g.beginPath(); g.arc(30, 30, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, Math.min(1, k >= 0 ? 1 - (T - tb(G, k)) / WIN : prog))); g.stroke();
+      if (k >= 0) { g.strokeStyle = '#fff'; g.beginPath(); g.arc(30, 30, 24, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * Math.max(0, 1 - (T - st.bt) / WIN)); g.stroke(); }
+      else { const a = now() * 2.2; g.strokeStyle = '#ffd24a'; g.beginPath(); g.arc(30, 30, 24, a, a + 0.9); g.stroke(); }   // non si sa quando suona: gira e basta
       g.font = '26px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🔔', 30, 32);
     }
     const mi = document.getElementById('baMini'); if (mi) {
-      const d = U2.myD || [0, 0, 0, 0, 0, 0], n = fired(G, G.me), key = d.join('') + n + reloading(G, G.me) + PS(G, G.me).ru; if (mi.dataset.k !== key) {
+      const f = PS(G, G.me).f || [], d = U2.myD || [0, 0, 0, 0, 0, 0], n = fired(G, G.me), key = d.join('') + f.join(''); if (mi.dataset.k !== key) {
         mi.dataset.k = key; const g = mi.querySelector('canvas').getContext('2d'); g.clearRect(0, 0, 128, 128);
         g.fillStyle = '#6a707a'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.fillStyle = '#4a4e56'; g.beginPath(); g.arc(64, 64, 24, 0, 7); g.fill();
         for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3, x = 64 + Math.cos(a) * 40, y = 64 + Math.sin(a) * 40, used = i < n;
           g.fillStyle = used ? '#141418' : d[i] ? '#d8a038' : '#e8e2d0'; g.beginPath(); g.arc(x, y, 16, 0, 7); g.fill();
           if (!used && d[i]) { g.fillStyle = '#c82a1a'; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); }
           if (i === n && n < 6) { g.strokeStyle = '#ffd24a'; g.lineWidth = 5; g.beginPath(); g.arc(x, y, 19, 0, 7); g.stroke(); }
-          g.fillStyle = used ? '#666' : '#2a1a10'; g.font = '800 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; if (used) g.fillText('✕', x, y); }
-        mi.querySelector('span').innerHTML = reloading(G, G.me) ? '🔄 ricarico…' : n >= 6 ? 'vuoto!' + (PS(G, G.me).ru ? '' : '<br>🔄 ricarica') : 'il prossimo:<br>' + (d[n] ? '🔴 <b>VERO</b>' : '⚪ <b>salve</b>');
+          g.fillStyle = used ? '#888' : '#2a1a10'; g.font = '800 15px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; if (used) g.fillText(f[i] === 'g' ? '↻' : '✕', x, y); }
+        mi.querySelector('span').innerHTML = n >= 6 ? 'tamburo<br>vuoto!' : 'in canna:<br>' + (d[n] ? '🔴 <b>VERO</b>' : '⚪ <b>salve</b>');
       }
     }
   }
@@ -631,26 +715,28 @@
   function stage(G) {
     const st = G.st, key = st ? st.ph + st.n : ''; if (key === U2.ph) return; const was = U2.ph; U2.ph = key; const p = st ? st.ph : '';
     if (p !== 'load') loadClose(); if (p !== 'mres') resClose();
-    if (p === 'load') { U2.rdy = false; U2.d = [0, 0, 0, 0, 0, 0]; U2.myD = null; U2.acted = -1; U2.rlOpen = false; duelUI(G, false); loadOpen(G, false); if (st.n === 1 && !G.tut) helpOnce(); }
-    if (p === 'walk') { if (!U2.myD) { if (!okDrum(U2.d)) { U2.d = randDrum(); sendDrum(G, false); } U2.myD = U2.d.slice(); } SFX.whistle(); }
+    if (p === 'load') { U2.rdy = false; U2.d = [0, 0, 0, 0, 0, 0]; U2.myD = null; U2.acted = -1; U2.faS = new Set(); duelUI(G, false); loadOpen(G, false); if (st.n === 1 && !G.tut) helpOnce(); }
+    if (p === 'walk') { if (!U2.myD) { if (!okDrum(U2.d)) { U2.d = randDrum(); sendDrum(G); } U2.myD = U2.d.slice(); } SFX.whistle(); }
     if (p === 'duel') { duelUI(G, true); SFX.turn(); }
     if (p === 'dead' || p === 'mres') { if (was.startsWith('duel')) duelUI(G, false); }
     if (p === 'mres') { resOpen(G); const w = st.win === G.me.id; if (st.win >= 0) SFX[w ? 'win' : 'lose'](); }
   }
   // il mio personaggio: fermo durante il caricamento, i tre passi da solo, il tamburo nuovo dopo la ricarica
-  function meTick(G) {
+  function meTick(G, dt) {
     const st = G.st, i = sideIdx(G, G.me), T = lt(G);
+    if (G.opp && dt > 0) { const P = posOf(G, G.opp); if (U2.ox != null) U2.omv = (U2.omv || 0) * 0.7 + Math.hypot(P.x - U2.ox, P.y - U2.oy) / dt * 0.3; U2.ox = P.x; U2.oy = P.y; }   // l'altro corre? (il mirino trema di piu')
     if (st.ph === 'load') { cq.x = X0[i]; cq.y = Y0; cq.face = i ? 1 : -1; cq.walk = 0; }
     if (st.ph === 'walk') { const t = T - st.t0, s = Math.max(0, Math.min(3, (t - 0.55) / 0.8)), fr = s - Math.floor(s), stp = Math.floor(s) + Math.min(1, fr / 0.5); cq.x = X0[i] + (i ? 1 : -1) * STEP * stp; cq.y = Y0; cq.face = i ? 1 : -1; cq.walk = fr < 0.5 && s < 3 ? t * 10 : 0;
       const kk = Math.floor(s); if (kk !== U2.stp && kk >= 1) { U2.stp = kk; SFX.step(); } if (s < 1) U2.stp = 0; }
     if (st.ph === 'duel' && U2.facing !== st.n) { U2.facing = st.n; cq.face = i ? -1 : 1; }
     if (st.ph === 'load' && G.guest && !U2.rdy && T - st.t0 > (st.n > 1 ? LOAD2 : LOAD) - 0.6) { if (!okDrum(U2.d)) U2.d = randDrum(); setReady(G, true); loadRender(G); }
-    // ricarica: il pannello si apre e il tamburo nuovo vale quando la ricarica finisce
-    const rl = reloading(G, G.me);
-    if (rl && !U2.rlOpen) { U2.rlOpen = true; U2.d = (U2.myD || randDrum()).slice(); loadOpen(G, true); sendDrum(G, true); SFX.reload(); }
-    if (!rl && U2.rlOpen) { U2.rlOpen = false; loadClose(); if (okDrum(U2.d)) U2.myD = U2.d.slice(); }
-    { const a = st.ad && st.ad[G.me.id]; if (a && a[1] !== U2.adSeen && !rl && st.ph !== 'load') { U2.adSeen = a[1]; U2.d = fromMask(a[0]); U2.myD = U2.d.slice(); } }   // il tamburo che usa davvero l'host (se il mio non fosse arrivato in tempo)
-    const el = document.getElementById('baLoad'); if (el) { const tm = el.querySelector('.tm'), left = st.ph === 'load' ? (st.n > 1 ? LOAD2 : LOAD) - (T - st.t0) : rl ? tb(G, PS(G, G.me).rl) + WIN - T : 0, tx = left > 0 ? Math.ceil(left) + ' s' : ''; if (tm.textContent !== tx) tm.textContent = tx; }
+    { const a = st.ad && st.ad[G.me.id]; if (a && a[1] !== U2.adSeen && st.ph !== 'load') { U2.adSeen = a[1]; U2.d = fromMask(a[0]); U2.myD = U2.d.slice(); } }   // il tamburo che usa davvero l'host (se il mio non fosse arrivato in tempo)
+    const el = document.getElementById('baLoad'); if (el) { const tm = el.querySelector('.tm'), left = st.ph === 'load' ? (st.n > 1 ? LOAD2 : LOAD) - (T - st.t0) : 0, tx = left > 0 ? Math.ceil(left) + ' s' : ''; if (tm.textContent !== tx) tm.textContent = tx; }
+  }
+  // falsi allarmi: suono e scritta su ogni telefono quando il suo orologio ci arriva
+  function alarmTick(G) {
+    const st = G.st, T = lt(G); if (!st || st.ph !== 'duel') return; U2.faS = U2.faS || new Set();
+    for (const [t, ty] of st.fa || []) { const key = st.bk + ':' + t; if (T >= t && !U2.faS.has(key)) { U2.faS.add(key); if (T - t < 0.8 && ALARM[ty]) { SFX[ty](); U2.fx.push({ k: 'alarm', ty, t: now() }); } } }
   }
   // ---- scritte e suoni degli spari (arrivano dall'host): su ogni telefono ----
   function fxEvents(G) {
@@ -658,18 +744,17 @@
     for (const e of st.sh) {
       if (e[0] <= U2.shSeen) continue; U2.shSeen = e[0]; if (lt(G) - e[6] > 2) continue;
       const [, id, a, res, x, y] = e, c = G.chars.find(o => o.id === id), mine = c === G.me, T = now();
-      if (a === 's') { U2.fx.push({ k: 'shot', id, t: T }); if (res !== 'click') { SFX.bang(); U2.shake = T; } }
-      if (a === 'f') U2.fx.push({ k: 'feint', id, t: T });
-      const txt = { kill: '🔴 VERO!', hat: '⚪ SALVE! 🎩', cover: '💥 VERO nel riparo', broke: '💥 VERO: riparo rotto!', puff: '⚪ salve: nessun buco', miss: 'fiuuu… ❓', scared: '😱 spaventato dalla finta!', click: 'clic… vuoto', feint: '🤠 finta!', reload: '🔄 ricarica!', reloaded: '🔄 tamburo nuovo' }[res];
-      const tx = res === 'scared' || res === 'click' || res === 'feint' || res === 'reload' || res === 'reloaded' ? posOf(G, c || G.me) : { x, y };
-      U2.fx.push({ k: 'txt', x: tx.x, y: tx.y, t: T + (a === 's' ? 0.12 : 0), s: txt, c: res === 'kill' || res === 'cover' || res === 'broke' ? '#ff6a4a' : res === 'hat' || res === 'puff' ? '#ffffff' : '#ffe2b0' });
+      if (a === 's') { U2.fx.push({ k: 'shot', id, t: T, up: res === 'early' }); if (res !== 'click') { SFX.bang(); U2.shake = T; } }
+      const txt = { kill: '🔴 VERO!', hat: '⚪ SALVE! 🎩', cover: '💥 VERO nel riparo', broke: '💥 VERO: riparo rotto!', puff: '⚪ salve: nessun buco', miss: 'fiuuu… mancato! ❓', click: 'clic… vuoto', early: '😳 DISONORATO!', spin: '↻ gira il tamburo' }[res];
+      const tx = res === 'click' || res === 'early' || res === 'spin' ? posOf(G, c || G.me) : { x, y };
+      U2.fx.push({ k: 'txt', x: tx.x, y: tx.y, t: T + (a === 's' ? 0.12 : 0), s: txt, c: res === 'kill' || res === 'cover' || res === 'broke' || res === 'early' ? '#ff6a4a' : res === 'hat' || res === 'puff' ? '#ffffff' : '#ffe2b0' });
       if (res === 'cover' || res === 'broke') { SFX.wood(); U2.fx.push({ k: 'spl', x, y, t: T }); }
       if (res === 'hat') { SFX.ping(); U2.fx.push({ k: 'hat', id: e[7], x, y, t: T }); }
-      if (res === 'miss') SFX.whiz();
+      if (res === 'miss') { SFX.miss(); U2.fx.push({ k: 'dust', x, y, t: T }); }
       if (res === 'click') SFX.click();
+      if (res === 'early') { SFX.boo(); if (mine) say('😳 <b>Disonorato!</b> Hai sparato prima della campana: il colpo è finito in aria e al prossimo rintocco <b>non puoi sparare</b>.'); }
+      if (res === 'spin' && !mine) SFX.spin();
       if (res === 'kill') { SFX.fall(); U2.slow = { t: T, id: e[7] }; }
-      if (res === 'reload' || res === 'reloaded') SFX.reload();
-      if (mine && res === 'puff' && !G.guest) {}
     }
     U2.fx = U2.fx.filter(f => now() - f.t < 2);
   }
@@ -679,7 +764,7 @@
   }
   function helpOnce() {
     try { if (localStorage.getItem('bariHelp')) return; localStorage.setItem('bariHelp', '1'); } catch { return; }
-    setTimeout(() => cqToast('🤠 <b>Come si vince</b>: si spara <b>solo quando suona la campana</b> 🔔. Il colpo <b>vero</b> 🔴 ti butta giù, la <b>salve</b> ⚪ ti fa volare il cappello e ti blocca. Sopra la testa dell\'altro vedi quanti colpi ha già sparato: <b>indovina</b> quando arriva quello vero!'), 2500);
+    setTimeout(() => cqToast('🤠 <b>Nervi saldi!</b> La campana 🔔 suona <b>quando vuole</b>, e prima ci sono falsi allarmi: chi spara prima del DONG è <b>disonorato</b>. Dopo il DONG il mirino trema: spara quando diventa <b>🎯 rosso</b>. Il colpo <b>vero</b> 🔴 ti butta giù, la <b>salve</b> ⚪ ti fa volare il cappello.'), 2500);
   }
 
   // ======================= TUTORIAL (la prima volta da solo: un dito ti mostra cosa toccare) =======================
@@ -689,8 +774,9 @@
     { t: 'Gli altri 3 sono a <b>salve</b> ⚪: fanno BANG ma non uccidono. Si spara in ordine 1, 2, 3… Ora tocca <b>✔ Pronto</b>.', ph: 'load', at: () => qs('#baLoad .ok'), ok: () => U2.rdy },
     { t: 'Schiena contro schiena… tre passi… e poi <b>GIRATI!</b> 👀', ph: 'walk', at: () => null, ok: G => G.st.ph === 'duel' },
     { t: 'Corri dietro un <b>riparo</b>! Trascina il dito sullo schermo per muoverti.', ph: 'duel', at: G => { const c = (G.st.cv || []).filter(v => v[3] > 0).sort((a, b) => Math.hypot(a[1] - cq.x, a[2] - cq.y) - Math.hypot(b[1] - cq.x, b[2] - cq.y))[0]; return c ? { x: c[1] + 0.5, y: c[2] + 0.5 } : null; }, ok: G => { const o = oppOf(G, G.me); return !!coverHit(G, posOf(G, o), cq) || G.time - (G.tutT || 0) > 8; } },
-    { t: 'Si spara <b>solo quando suona la campana</b> 🔔. Al DONG tocca <b>🔫 SPARA</b> più in fretta che puoi!', ph: 'duel', at: () => qs('#baShoot'), ok: G => !!G.tutShot },
-    { t: 'Sopra la testa dello Sceriffo vedi i suoi colpi: 🔴 vero, ⚪ salve, ❓ non si sa. Ne ha <b>3 veri</b>: indovina quando arrivano e stai al riparo!', ph: 'duel', at: G => { const o = oppOf(G, G.me); return o ? { x: o.x, y: o.y } : null; }, ok: G => G.time - (G.tutT || 0) > 6 }];
+    { t: 'Ora <b>nervi saldi</b> 🤫 La campana suona <b>quando vuole</b>, e prima arrivano rumori finti (nitriti, porte, corvi…). Se spari prima del vero DONG sei <b>disonorato</b>! Aspetta…', ph: 'duel', at: () => qs('#baBell'), ok: G => winOpen(G, G.time) >= 0 },
+    { t: 'DONG! 🔔 Il mirino trema sullo Sceriffo e si stringe. Tocca <b>🔫 SPARA</b> quando diventa <b>🎯 rosso</b>: troppo presto sbagli, troppo tardi spara lui!', ph: 'duel', at: () => qs('#baShoot'), ok: G => !!G.tutShot },
+    { t: 'In basso c\'è il tuo tamburo: il colpo <b>in canna</b> lo sai solo tu. Se è una salve puoi <b>↻ girare il tamburo</b> per saltarla (resti fermo fino al rintocco). Sopra lo Sceriffo: 🔴 vero, ⚪ salve, ❓ non si sa.', ph: 'duel', at: () => qs('#baMini'), ok: G => G.time - (G.tutT || 0) > 8 }];
   window.bariTutorial = () => {
     if (cq.net) { cqToast('🎓 Il tutorial si fa <b>da soli</b>: esci dal set e riprova.'); return; }
     U2.tut = 1; const go = document.getElementById('lbGo'); if (go) go.click();
@@ -712,7 +798,7 @@
   }
   cqEachFrame(() => tutTick(cq.g));
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nella strada di <b>Polvere Rossa</b>, all\'alba. Vince chi prende per primo <b>3 manche</b>.</p><p><b>1. Il tamburo segreto</b>: prima di ogni manche metti nella pistola <b>3 colpi veri</b> 🔴 e <b>3 a salve</b> ⚪, nell\'ordine che vuoi. Si spara in ordine: 1, 2, 3…</p><p><b>2. Tre passi</b>: schiena contro schiena, tre passi e… <b>GIRATI!</b></p><p><b>3. La campana</b> 🔔: ci si muove liberi, ma si spara <b>solo quando suona</b> (ogni 3 secondi). Dopo il DONG hai un attimo: tocca <b>🔫 SPARA</b>. Se sparate tutti e due, parte prima il colpo di chi è più veloce.</p><p>🔴 <b>Colpo vero</b> che ti prende: manche persa. ⚪ <b>Salve</b> che ti prende: ti vola il cappello e resti fermo fino al rintocco dopo (e lì l\'altro può finirti). 🛢️ Dietro un <b>riparo</b> il colpo prende il riparo: un colpo vero lo crepa (al secondo si rompe), una salve non lascia buchi. <b>Chi corre</b> quando suona la campana può essere mancato.</p><p><b>Da lontano veri e salve fanno lo stesso BANG</b>. Sopra la testa di ognuno vedi i colpi che ha già sparato: 🔴 vero, ⚪ salve, ❓ non si sa. Il gioco è <b>indovinare</b> quando arriva il suo colpo vero.</p><p>🤠 <b>Finta</b>: alzi la pistola senza sparare. Se l\'altro spara <b>dopo</b> di te nello stesso rintocco si spaventa e manca. 🔄 <b>Ricarica</b> (una volta per manche): rifai l\'ordine del tamburo, ma resti fermo per 2 rintocchi.</p><p>Da solo sfidi <b>lo Sceriffo</b>: alla fine di ogni manche i tamburi si svelano… e lui si ricorda come carichi il tuo.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nella strada di <b>Polvere Rossa</b>, all\'alba. Vince chi prende per primo <b>3 manche</b>.</p><p><b>1. Il tamburo segreto</b>: prima di ogni manche metti nella pistola <b>3 colpi veri</b> 🔴 e <b>3 a salve</b> ⚪, nell\'ordine che vuoi. Si spara in ordine: 1, 2, 3…</p><p><b>2. Tre passi</b>: schiena contro schiena, tre passi e… <b>GIRATI!</b></p><p><b>3. La campana</b> 🔔: ci si muove liberi, ma si spara <b>solo quando suona</b>, e suona <b>quando vuole</b>. Prima arrivano <b>falsi allarmi</b> (un nitrito, una porta che sbatte, un corvo, una latta): chi spara prima del vero DONG è <b>😳 disonorato</b>: il colpo finisce in aria e al rintocco dopo resta fermo senza poter sparare.</p><p><b>4. Il mirino</b> 🎯: dopo il DONG il mirino trema sull\'altro e piano piano si stringe. Tocca <b>🔫 SPARA</b> quando è <b>rosso</b>: se tocchi troppo presto sbagli, se aspetti troppo spara prima lui. Se l\'altro corre, il mirino trema di più. Dopo ogni sparo resti un attimo <b>fermo nel fumo</b>.</p><p>🔴 <b>Colpo vero</b> che ti prende: manche persa. ⚪ <b>Salve</b> che ti prende: ti vola il cappello e resti fermo fino al rintocco dopo (e lì l\'altro può finirti). 🛢️ Dietro un <b>riparo</b> il colpo prende il riparo: un colpo vero lo crepa (al secondo si rompe), una salve non lascia buchi.</p><p><b>Da lontano veri e salve fanno lo stesso BANG</b>. Sopra la testa di ognuno vedi i colpi che ha già sparato: 🔴 vero, ⚪ salve, ❓ non si sa (mancato), ↻ saltato. In basso vedi il <b>tuo</b> colpo in canna: se è una salve puoi <b>↻ girare il tamburo</b> per saltarla, ma resti fermo fino al prossimo rintocco.</p><p>Da solo sfidi <b>lo Sceriffo</b>: alla fine di ogni manche i tamburi si svelano… e lui si ricorda come carichi il tuo.</p></details>';
 
   CQ_MODES.bari = {
     n: 'Duello all\'alba dei bari',
@@ -727,11 +813,11 @@
       G.tut = !!U2.tut; U2.tut = null; G.soft = [];
       G.chars.forEach((c, i) => { c.x = X0[i % 2]; c.y = Y0; c.face = i ? 1 : -1; c.path = []; });
       for (const c of G.chars) if (c.bot && !c.remote) { c.name = 'Lo Sceriffo'; c.sheriff = 1; if (G.tut) c.hold = 1; }
-      Object.assign(U2, { ph: '', shSeen: 0, bell: -1, fx: [], d: null, myD: null, rdy: false, acted: -1, rlOpen: false, slow: null, facing: 0 });
+      Object.assign(U2, { ph: '', shSeen: 0, bell: -1, fx: [], d: null, myD: null, rdy: false, acted: -1, slow: null, facing: 0, faS: new Set(), omv: 0, ox: null });
       G.dt = 0; G.adv = 0; newRound(G, 1, {}); G.drum0 = {};
       if (G.tut) { G.tutS = 0; G.tutT = 0; G.st.say = null; }
     },
-    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; Object.assign(U2, { ph: '', shSeen: 0, bell: -1, fx: [], d: null, myD: null, rdy: false, acted: -1, rlOpen: false, slow: null, facing: 0, tPrev: null }); },
+    gstart(G) { G.opp = G.chars.find(c => c !== G.me) || null; G.st = null; Object.assign(U2, { ph: '', shSeen: 0, bell: -1, fx: [], d: null, myD: null, rdy: false, acted: -1, slow: null, facing: 0, tPrev: null, faS: new Set(), omv: 0, ox: null }); },
     intro: () => '🤠 Polvere Rossa, all\'alba…',
     voice: () => 1,
     speed: c => { const G = cq.g; return G && G.st && c === G.me && frozen(G, G.me) ? 0 : 1; },
@@ -750,23 +836,22 @@
     big(G) {
       const st = G.st; if (!st) return '⏳ Un attimo…'; const T = lt(G);
       if (st.ph === 'walk') { const t = T - st.t0; return t < 0.55 ? 'Schiena contro schiena…' : t < 1.35 ? 'UNO…' : t < 2.15 ? 'DUE…' : t < 2.9 ? 'TRE…' : '👀 GIRATI!'; }
-      if (st.ph === 'duel') { if (T - st.t0 < 1.0) return '👀 GIRATI!'; if (PS(G, G.me).d) return ''; if (stunned(G, G.me, T)) return '🎩 Il cappello! Sei fermo fino al rintocco…'; if (st.b0 != null && T < st.b0) return 'Al riparo!'; return ''; }
+      if (st.ph === 'duel') { if (T - st.t0 < 1.0) return '👀 GIRATI!'; if (PS(G, G.me).d) return ''; const p = PS(G, G.me); if (p.nf === st.bk && T < st.bt + WIN) return '😳 Disonorato! Fermo fino al prossimo rintocco'; if (stunned(G, G.me, T)) return fired(G, G.me) && (p.f || []).slice(-1)[0] === 'g' && !p.h ? '↻ Giri il tamburo… fermo fino al rintocco' : '🎩 Il cappello! Sei fermo fino al rintocco…'; if (smoking(G, G.me, T)) return '💨 Fumo: fermo un attimo…'; if (st.bk === 0 && T < st.bt) return 'Al riparo! Aspetta la campana…'; return ''; }
       if (st.ph === 'dead') { const v = G.chars.find(c => c.id === st.kill); return v === G.me ? '💀 Ti hanno preso!' : '🎯 ' + (v ? v.name : '') + ' è a terra!'; }
       if (st.ph === 'mres') return st.msg + (st.fin ? '' : '\nProssima manche tra ' + Math.max(1, Math.ceil(MRES - (T - st.t0))) + '…');
       return '';
     },
     btn(G) {
       if (!G.st || G.st.ph !== 'duel') return null; const p = PS(G, G.me); if (p.d) return null;
-      if (reloading(G, G.me)) return { t: '🔄 Ricarico…', on: false };
-      if (p.ru || stunned(G, G.me, lt(G))) return null;
-      return { t: fired(G, G.me) >= 6 ? '🔄 Ricarica!' : '🔄 Ricarica', on: fired(G, G.me) >= 3 };
+      const T = lt(G); if (fired(G, G.me) >= 5 || stunned(G, G.me, T) || winOpen(G, T) >= 0) return null;
+      const d = U2.myD || [], n = fired(G, G.me); return { t: '↻ Gira il tamburo', on: !d[n] && d.slice(n + 1).some(Boolean) };   // acceso quando hai una salve in canna
     },
-    act(G) { const p = PS(G, G.me); if (!G.st || G.st.ph !== 'duel' || p.ru || p.d || reloading(G, G.me)) return; if (G.guest) cqNetSend({ k: 'rl' }); else startReload(G, G.me); },
+    act(G) { mySpin(G); },
     view(G) {   // nei tre passi la telecamera sta in mezzo ai due; quando uno cade si avvicina
       const V = G.vw || (G.vw = { z: 0.92, x: 0, y: 0 }), st = G.st; let tx = 0, ty = 0, tz = 0.92, k = 0.08;
       if (st && (st.ph === 'load' || st.ph === 'walk')) { tx = MX - cq.x; ty = Y0 - cq.y; tz = st.ph === 'load' ? 1.15 : 1.0; }
       else if (st && st.ph === 'dead') { const v = G.chars.find(c => c.id === st.kill), P = v && posOf(G, v); if (P) { tx = P.x - cq.x; ty = P.y - cq.y; tz = 1.3; k = 0.05; } }
-      else if (st && st.ph === 'duel' && G.opp) { const P = posOf(G, G.opp); tx = (P.x - cq.x) * 0.3; ty = (P.y - cq.y) * 0.3; tz = Math.hypot(P.x - cq.x, P.y - cq.y) > 10 ? 0.8 : 0.9; }
+      else if (st && st.ph === 'duel' && G.opp) { const P = posOf(G, G.opp), d = Math.hypot(P.x - cq.x, P.y - cq.y); tx = (P.x - cq.x) * 0.5; ty = (P.y - cq.y) * 0.5; tz = Math.max(0.62, Math.min(0.95, 1.2 - d * 0.055)); }   // tutti e due nell'inquadratura
       V.x += (tx - V.x) * k; V.y += (ty - V.y) * k; V.z += (tz - V.z) * k; return V;
     },
     tick(G, dt) {
@@ -785,20 +870,26 @@
         }
         return;
       }
-      if (st.ph === 'walk') { if (G.time - st.t0 > WALK) { st.ph = 'duel'; st.t0 = r2(G.time); st.b0 = r2(G.time + FIRST); G.wk = -1; for (const c of G.chars) if (c.bot && !c.remote) c.face = sideIdx(G, c) ? -1 : 1; } return; }
-      if (st.ph === 'duel') { if (G.tut && G.tutS < 4) st.b0 = r2(Math.max(st.b0, G.time + 0.6)); hostDuel(G); return; }
+      if (st.ph === 'walk') { if (G.time - st.t0 > WALK) { st.ph = 'duel'; st.t0 = r2(G.time); st.bt = null; st.bk = -1; G.wk = -1; for (const c of G.chars) if (c.bot && !c.remote) c.face = sideIdx(G, c) ? -1 : 1; } return; }
+      if (st.ph === 'duel') {
+        if (G.tut && st.bt != null && st.bk === 0 && G.time < st.bt) {   // tutorial: la campana aspetta che ti ripari, poi un falso allarme di prova
+          if (G.tutS < 4) { st.bt = r2(Math.max(st.bt, G.time + 2)); st.fa = []; } else if (!G.tutFa) { G.tutFa = 1; st.fa = [[r2(G.time + 1.3), 'horse']]; st.bt = r2(G.time + 3.6); }
+        }
+        hostDuel(G); return;
+      }
       if (st.ph === 'dead') { if (G.time - st.t0 > DEAD) { const w = G.chars.find(c => c.id === st.win), v = G.chars.find(c => c.id === st.kill); st.ph = 'duel'; roundEnd(G, w, '🎯 ' + (w ? w.name : '') + ' ha colpito ' + (v ? v.name : '') + ' con un colpo vero'); } return; }
       if (st.ph === 'mres') { if (G.time - st.t0 > MRES) { if (st.fin) finalEnd(G); else newRound(G, st.n + 1, st.sc); } }
     },
     local(G, dt) {
-      if (!G.st) return; stage(G); meTick(G); fxEvents(G); bellTick(G); if (G.st.ph === 'duel') uiTick(G);
+      if (!G.st) return; stage(G); meTick(G, dt); fxEvents(G); bellTick(G); alarmTick(G); if (G.st.ph === 'duel') uiTick(G);
     },
     ev(G, c, o) {
       const st = G.st; if (!st) return;
-      if (o.k === 'drum') { const d = fromMask(+o.m || 0); if (!okDrum(d)) return; if (o.rl) { if (reloading(G, c)) G.nd[c.id] = d; } else if (st.ph === 'load') G.drum[c.id] = d; }
+      if (o.k === 'drum') { const d = fromMask(+o.m || 0); if (okDrum(d) && st.ph === 'load') G.drum[c.id] = d; }
       else if (o.k === 'rdy' && st.ph === 'load') { if (o.on && okDrum(G.drum[c.id])) st.rd[c.id] = 1; else delete st.rd[c.id]; }
-      else if (o.k === 'act' && st.ph === 'duel' && G.acts && (o.a === 's' || o.a === 'f')) { const k = +o.b; if (k === G.wk && !G.acts[c.id] && !G.res[c.id]) G.acts[c.id] = { a: o.a, rt: Math.max(0, Math.min(WIN, +o.rt || 0)) }; }
-      else if (o.k === 'rl' && st.ph === 'duel') startReload(G, c);
+      else if (o.k === 'act' && st.ph === 'duel' && G.acts && o.a === 's') { const k = +o.b; if (k === G.wk && !G.acts[c.id] && !G.res[c.id]) G.acts[c.id] = { a: 's', rt: Math.max(0, Math.min(WIN, +o.rt || 0)), h: o.h ? 1 : 0 }; }
+      else if (o.k === 'early' && st.ph === 'duel') { if (winOpen(G, G.time) < 0) dishonor(G, c); }
+      else if (o.k === 'spin' && st.ph === 'duel') spin(G, c);
     },
     snap: G => ({ st: G.st }),
     apply(G, x) { if (x.st) G.st = x.st; },
@@ -809,7 +900,8 @@
         c.__dr = (g, X, Y, TW, L2, w, f) => {
           const G2 = cq.g, st = G2 && G2.st, p = st && st.p ? st.p[c.id] || {} : {}, me = c === G2.me, P = posOf(G2, c);
           let ff = f; const o = G2 && oppOf(G2, c); if (o && st && (st.ph === 'duel' || st.ph === 'dead' || st.ph === 'mres') && !w) { const Q = posOf(G2, o), v = (Q.x - P.x) - (Q.y - P.y); if (Math.abs(v) > 0.05) ff = v > 0 ? 1 : -1; }
-          const shot = U2.fx.filter(e => (e.k === 'shot' || e.k === 'feint') && e.id === c.id).pop(), ag = shot ? now() - shot.t : 9, aim = ag < 0.6 ? 1 : ag < 0.9 ? 1 - (ag - 0.6) / 0.3 : (me && U2.myAim && now() - U2.myAim < 0.3 ? 1 : 0);
+          const shot = U2.fx.filter(e => e.k === 'shot' && e.id === c.id).pop(), ag = shot ? now() - shot.t : 9, mira = me && st && winOpen(G2, lt(G2)) >= 0 && U2.acted !== st.bk && !p.d;
+          const aim = ag < 0.6 ? 1 : ag < 0.9 ? 1 - (ag - 0.6) / 0.3 : (me && U2.myAim && now() - U2.myAim < 0.3) || mira ? 1 : 0;
           const opt = { sheriff: !!c.sheriff || c.name === 'Lo Sceriffo' && c.bot, noHat: !!p.h, aim, flash: shot && shot.k === 'shot' && ag < 0.12 ? 1 - ag / 0.12 : 0 };
           if (p.d) {   // a terra: cade all'indietro piano (rallentatore)
             const kf = U2.slow && U2.slow.id === c.id ? Math.min(1, (now() - U2.slow.t) / 0.9) : 1;
@@ -830,11 +922,11 @@
       if (st.ph !== 'load') { const f = p.f || [], r = 4.2, gap = 11, x0 = X - gap * 2.5; g.save();
         g.fillStyle = 'rgba(20,12,8,.6)'; cqRR(g, x0 - 8, top - 8, gap * 5 + 16, 16, 8); g.fill();
         for (let i = 0; i < 6; i++) { const x = x0 + i * gap, v = f[i]; g.beginPath(); g.arc(x, top, r, 0, 7);
-          if (v === 'r') { g.fillStyle = '#e8402a'; g.fill(); } else if (v === 'b') { g.fillStyle = '#f4f0e4'; g.fill(); } else if (v === 'u') { g.fillStyle = '#8a8a90'; g.fill(); g.fillStyle = '#fff'; g.font = '800 8px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('?', x, top + 0.5); }
+          if (v === 'r') { g.fillStyle = '#e8402a'; g.fill(); } else if (v === 'b') { g.fillStyle = '#f4f0e4'; g.fill(); } else if (v === 'u' || v === 'g') { g.fillStyle = v === 'g' ? '#5a6a8a' : '#8a8a90'; g.fill(); g.fillStyle = '#fff'; g.font = '800 8px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText(v === 'g' ? '↻' : '?', x, top + 0.5); }
           else { g.strokeStyle = 'rgba(255,230,200,.55)'; g.lineWidth = 1.4; g.stroke(); } }
         g.restore(); }
       if (stunned(G, c, T)) { g.save(); g.font = '14px system-ui'; g.textAlign = 'center'; for (let i = 0; i < 3; i++) { const a = T * 5 + i * 2.1; g.fillText('⭐', X + Math.cos(a) * TW * 0.35, Y - H * 0.85 + Math.sin(a) * TW * 0.1); } g.restore(); }
-      if (reloading(G, c)) { g.save(); g.font = '700 13px system-ui'; g.textAlign = 'center'; g.fillStyle = '#ffe2b0'; g.fillText('🔄 ricarica…', X, top - 14); g.restore(); }
+      if (p.nf === st.bk && T < st.bt + WIN) { g.save(); g.font = '700 13px system-ui'; g.textAlign = 'center'; g.fillStyle = '#ffb0a0'; g.fillText('😳 disonorato', X, top - 14); g.restore(); }
       if (st.say && st.say.id === c.id && T - st.say.t < 4 && T >= st.say.t) {   // fumetto dello Sceriffo
         const t = st.say.x; g.save(); g.font = '600 12.5px system-ui'; const w = Math.min(230, g.measureText(t).width + 18), bx = X - w / 2, by = top - 44;
         g.fillStyle = 'rgba(255,248,232,.96)'; cqRR(g, bx, by, w, 24, 10); g.fill(); g.beginPath(); g.moveTo(X - 6, by + 24); g.lineTo(X + 2, by + 32); g.lineTo(X + 6, by + 24); g.fill();
@@ -858,8 +950,27 @@
         if (f.k === 'spl' && a < 0.8) for (let i = 0; i < 8; i++) { const an = i * 0.8, d = a * 2.2, X = sx(f.x, f.y) + Math.cos(an) * d * TW * 0.5, Y = sy(f.x, f.y) - (0.6 + d * 0.6 - d * d * 1.4) * U; g.fillStyle = i % 2 ? '#8a5a30' : '#c8945a'; g.save(); g.translate(X, Y); g.rotate(an + a * 9); g.fillRect(-3, -1, 6, 2.4); g.restore(); }
         if (f.k === 'hat' && a < 0.75) { const c = G.chars.find(o => o.id === f.id); if (!c) continue; const P = posOf(G, c), p = st && st.p && st.p[c.id], hx = p && p.hx != null ? p.hx : P.x + 1, hy = p && p.hy != null ? p.hy : P.y, u = a / 0.75, x = P.x + (hx - P.x) * u, y = P.y + (hy - P.y) * u, z = 2.0 + 1.6 * Math.sin(u * Math.PI) - 2.0 * u;
           g.save(); g.translate(sx(x, y), sy(x, y) - z * U); g.rotate(u * 9); const s2 = TW / 34; g.scale(s2, s2); hatShape(g, 0, 0, SIDE[sideIdx(G, c)], !!c.sheriff || c.name === 'Lo Sceriffo' && c.bot); g.restore(); }
+        if (f.k === 'dust' && a < 0.7) { for (let i = 0; i < 5; i++) { const an = i * 1.25, d = a * 1.4; g.globalAlpha = 0.6 * (1 - a / 0.7); g.fillStyle = '#c89a6a'; g.beginPath(); g.arc(sx(f.x + Math.cos(an) * d * 0.3, f.y + Math.sin(an) * d * 0.3), sy(f.x, f.y) - (0.1 + d * 0.4) * U, TW * (0.08 + a * 0.2), 0, 7); g.fill(); } g.globalAlpha = 1; }
+        if (f.k === 'alarm' && a < 1.4) {   // falso allarme: la scritta trema dove nasce il rumore (il corvo passa in cielo)
+          const A = ALARM[f.ty]; let x, y, z = 2.6;
+          if (A[0] == null) { const u = a / 1.4, cx = MX + (cq.x - MX) * 0.3; x = cx - 9 + u * 18; y = 2.5 - u * 2; z = 4.2 + Math.sin(u * 6) * 0.3; const X = sx(x, y), Y = sy(x, y) - z * U, fl = Math.sin(a * 22) * 0.7; g.strokeStyle = '#1a1018'; g.lineWidth = Math.max(2, TW / 18); g.beginPath(); g.moveTo(X - TW * 0.35, Y - TW * 0.12 * fl); g.quadraticCurveTo(X - TW * 0.12, Y - TW * 0.12, X, Y); g.quadraticCurveTo(X + TW * 0.12, Y - TW * 0.12, X + TW * 0.35, Y - TW * 0.12 * fl); g.stroke(); z += 0.6; }
+          else { x = A[0]; y = A[1]; }
+          g.save(); g.globalAlpha = Math.min(1, (1.4 - a) * 2.5); g.font = '900 ' + Math.round(Math.max(15, TW * 0.32)) + 'px system-ui'; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = 'rgba(30,12,6,.9)';
+          const X = sx(x, y) + Math.sin(a * 60) * 3 * (1 - a / 1.4), Y = sy(x, y) - (z + a * 0.4) * U; g.strokeText(A[2], X, Y); g.fillStyle = '#ffe9b8'; g.fillText(A[2], X, Y); g.restore();
+        }
         if (f.k === 'txt' && a < 1.6) { g.save(); g.globalAlpha = Math.min(1, (1.6 - a) * 2); g.font = '800 ' + Math.round(Math.max(13, TW * 0.26)) + 'px system-ui'; g.textAlign = 'center'; g.lineWidth = 4; g.strokeStyle = 'rgba(30,12,6,.85)'; const X = sx(f.x, f.y), Y = sy(f.x, f.y) - (2.4 + a * 0.6) * U; g.strokeText(f.s, X, Y); g.fillStyle = f.c; g.fillText(f.s, X, Y); g.restore(); }
       }
+      // IL MIRINO (solo il mio): dopo il DONG trema sull'avversario e si stringe; rosso = se tocchi adesso lo prendi
+      if (st && st.ph === 'duel' && G.opp) { const k = winOpen(G, T); if (k >= 0 && U2.acted !== k && canFire(G, G.me, k, T) && fired(G, G.me) < 6 && !PS(G, G.opp).d) {
+        const a = T - st.bt, mv = (U2.omv || 0) > RUN_V, [dx, dy] = wob(st.n, k, G.me.id, a, mv), on = Math.hypot(dx, dy) < BODY, P = posOf(G, G.opp), z = 0.75;
+        const A = AIM0 * Math.max(0.08, 1 - a / AIM_T) * (mv ? 1.5 : 1) + BODY, CX = sx(P.x, P.y), CY = sy(P.x, P.y) - z * U;
+        g.save(); g.strokeStyle = 'rgba(255,240,200,.35)'; g.lineWidth = 1.5; g.setLineDash([4, 5]); g.beginPath(); g.ellipse(CX, CY, A * TW * 0.7, A * TW * 0.42, 0, 0, 7); g.stroke(); g.setLineDash([]);
+        const X = sx(P.x + dx, P.y + dy), Y = sy(P.x + dx, P.y + dy) - z * U, r = TW * 0.26, col = on ? '#ff3a2a' : '#ffffff';
+        g.lineWidth = on ? 3.5 : 2.5; g.strokeStyle = 'rgba(0,0,0,.6)'; g.beginPath(); g.arc(X, Y, r + 1.5, 0, 7); g.stroke(); g.strokeStyle = col; g.beginPath(); g.arc(X, Y, r, 0, 7); g.stroke();
+        g.beginPath(); for (const [u, v] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { g.moveTo(X + u * r * 0.45, Y + v * r * 0.45); g.lineTo(X + u * r * 1.45, Y + v * r * 1.45); } g.stroke();
+        if (on) { g.fillStyle = col; g.beginPath(); g.arc(X, Y, 3, 0, 7); g.fill(); }
+        g.restore();
+      } }
       // rallentatore: bordi scuri quando qualcuno cade
       if (U2.slow && t - U2.slow.t < 2.2) { const k = Math.min(1, (t - U2.slow.t) * 3) * Math.min(1, (2.2 - (t - U2.slow.t)) * 2), W2 = cq.w, H2 = cq.h; g.save(); g.setTransform(cq.dpr, 0, 0, cq.dpr, 0, 0); const gr = g.createRadialGradient(W2 / 2, H2 / 2, Math.min(W2, H2) * 0.3, W2 / 2, H2 / 2, Math.max(W2, H2) * 0.7); gr.addColorStop(0, 'rgba(40,10,10,0)'); gr.addColorStop(1, 'rgba(40,10,10,' + 0.6 * k + ')'); g.fillStyle = gr; g.fillRect(0, 0, W2, H2); g.restore(); }
       // campana: lampo dorato sullo schermo al DONG
@@ -876,10 +987,10 @@
         if (performance.now() - T0.t > 320 || Math.hypot(e.clientX - T0.x, e.clientY - T0.y) > 12) return;
         const cv = document.getElementById('cqCanvas'), rc = cv.getBoundingClientRect(), vz = cq.vz || 1, V = G.camv, lx = (e.clientX - rc.left) / vz, ly = (e.clientY - rc.top) / vz;
         const a = 2 * (lx - V.tx) / V.TW, b = 4 * (ly - V.ty) / V.TW, x = (a + b) / 2, y = (b - a) / 2, P = posOf(G, G.opp);
-        if (Math.hypot(x - P.x, y - P.y) < 1.3 || Math.hypot(x - P.x + 0.8, y - P.y + 0.8) < 1.1) myAct(G, 's');   // anche toccando il corpo (sopra i piedi)
+        if (Math.hypot(x - P.x, y - P.y) < 1.3 || Math.hypot(x - P.x + 0.8, y - P.y + 0.8) < 1.1) myAct(G, true);   // anche toccando il corpo (sopra i piedi)
       }, true);
     } }
   // esce dalla partita: via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'bari' || G.phase !== 'play') && (document.getElementById('baLoad') || document.getElementById('baShoot') || document.getElementById('baRes'))) { loadClose(); resClose(); duelUI(G || {}, false); U2.ph = ''; } });
-  window.__bari = { U2, BLD, FIXED, genCovers, coverHit, dangerOf, shMem, shRead, botAct, newRound, resolve, hostDuel, startReload, mapBari, fromMask, toMask, okDrum, randDrum, cowboy, X0, Y0, BELL, WIN, MAXB, tb, bellK, winOpen, PS, fired, stunned, reloading, myAct, setReady, lt, SFX };
+  window.__bari = { U2, BLD, FIXED, genCovers, coverHit, dangerOf, shMem, shRead, botAct, newRound, resolve, hostDuel, spin, dishonor, schedBell, wob, onTarget, mapBari, fromMask, toMask, okDrum, randDrum, cowboy, X0, Y0, WIN, AIM_T, MAXB, tb, bellK, winOpen, PS, fired, stunned, myAct, mySpin, setReady, lt, SFX };
 })();

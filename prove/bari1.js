@@ -35,8 +35,11 @@
     if (st.ph === 'load' && !B.U2.rdy && G.time - st.t0 > 1) { B.U2.d = B.randDrum(); B.setReady(G, true); }
     if (st.ph === 'duel') {
       const k = B.winOpen(G, G.time);
-      if (k >= 0 && myPlan !== k) { myPlan = k; G.__shootAt = G.time + 0.2 + Math.random() * 0.4; }
-      if (k >= 0 && G.__shootAt && G.time >= G.__shootAt) { G.__shootAt = 0; B.myAct(G, Math.random() < 0.85 ? 's' : 'f'); }
+      if (k >= 0 && myPlan !== k) { myPlan = k; G.__shootAt = G.time + 0.15 + Math.random() * 1.0; }
+      if (k >= 0 && G.__shootAt && G.time >= G.__shootAt) { G.__shootAt = 0; B.myAct(G, false); }
+      if (k < 0 && Math.random() < 0.002) { B.myAct(G, false); cnt('io: sparo prima della campana'); }   // a volte ci casco
+      if (k < 0 && Math.random() < 0.003) { const f0 = B.fired(G, G.me); B.mySpin(G); if (B.fired(G, G.me) > f0) cnt('io: giro il tamburo'); }
+      for (const [t] of st.fa || []) if (Math.abs(G.time - t) < 0.026) cnt('falso allarme');
       if (Math.random() < 0.01) { cq.x = 3 + Math.random() * 6; cq.y = 5.5 + Math.random() * 5; if (!cqFree(cq.x, cq.y) || G.M.blk(G, cq.x, cq.y)) { cq.x = 8; cq.y = 8; } }
     }
     for (const e of st.sh) if (e[0] > seen2) { seen2 = e[0]; cnt(e[2] + ':' + e[3]); }
@@ -46,6 +49,10 @@
   out.push('fine: ' + G.phase + ' ' + (G.endInfo ? G.endInfo.t + ' ' + G.endInfo.why : ''));
   out.push('azioni: ' + Object.entries(log).map(([k, v]) => k + ' ' + v).join(', '));
   out.push('lo Sceriffo ha detto: ' + [...says].slice(0, 8).join(' | '));
+  { // il mirino: quanti colpi prendono a seconda di quando tocchi (fermo / corre)
+    const hit = (t, mv) => { let n = 0; for (let k = 0; k < 400; k++) if (B.onTarget(1 + k % 7, k, k % 3, t, mv)) n++; return Math.round(n / 4) + '%'; };
+    out.push('mirino (fermo): ' + [0.1, 0.25, 0.4, 0.55, 0.7, 0.9].map(t => t + ' s ' + hit(t, false)).join(', ') + ' | (corre): ' + [0.25, 0.55, 0.9].map(t => t + ' s ' + hit(t, true)).join(', '));
+  }
   out.push('memoria dello Sceriffo: ' + JSON.stringify(B.shMem()) + ' -> ' + B.shRead());
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 600));
   return out.join('\n');

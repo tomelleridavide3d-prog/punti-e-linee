@@ -17,9 +17,12 @@
   const cv = G.st.cv.filter(c => c[1] < 13).sort((a, b) => Math.hypot(a[1] - 8, a[2] - 8) - Math.hypot(b[1] - 8, b[2] - 8))[0];
   cq.x = cv[1] + 0.5 - 0.9; cq.y = cv[2] + 0.5; if (!cqFree(cq.x, cq.y)) { cq.x = cv[1] - 0.4; cq.y = cv[2] - 0.4; }
   for (let i = 0; i < 60; i++) step(0.05);
-  bot.hold = 0; B.PS(G, G.me).f = ['b']; B.PS(G, bot).f = ['r', 'u'];
-  B.startReload(G, G.me); for (let i = 0; i < 8; i++) step(0.05);
+  B.PS(G, G.me).f = ['b']; B.PS(G, bot).f = ['r', 'u', 'g'];
+  bot.x = 16.5; bot.y = 7.5; bot.path = [];
+  for (let i = 0; i < 400 && B.winOpen(G, G.time) < 0; i++) step(0.05);
+  for (let i = 0; i < 5; i++) step(0.05);
+  B.U2.fx.push({ k: 'alarm', ty: 'door', t: performance.now() / 1000 - 0.3 });
   G.st.sh.push([999, bot.id, 's', 'cover', cv[1] + 0.5, cv[2] + 0.5, G.time, G.me.id]); G.st.shN = 999; step(0.02);
   cq.on = true; for (let i = 0; i < 5; i++) { step(0.01); cqModeHud(); cqDraw(); await w(60); }
-  return 'fase ' + G.st.ph + ' · pannello ' + (document.getElementById('baLoad') ? 'aperto' : 'NO') + ' · campana ' + (document.getElementById('baBell') ? 'si' : 'no') + ' · errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300);
+  return 'fase ' + G.st.ph + ' · finestra ' + B.winOpen(G, G.time) + ' · pulsante ' + document.getElementById('baShoot').className + ' · campana ' + (document.getElementById('baBell') ? 'si' : 'no') + ' · errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300);
 })()

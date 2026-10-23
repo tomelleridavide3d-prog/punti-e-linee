@@ -25,19 +25,18 @@ export default [
   [1, look('amico (tre passi)'), 0], [0, look('host (tre passi)'), 3200],
   [0, look('host (duello)'), 0], [1, look('amico (duello)'), 0],
   // primo rintocco: l'amico spara dopo 150 ms (vero), l'host dopo 450 ms (salve): vince l'amico se l'host e' allo scoperto
-  [1, auto(150, 's'), 0], [0, auto(450, 's'), 4500],
+  [1, auto(700, 's'), 0], [0, auto(1100, 's'), 9000],
   [0, look('host'), 0], [1, look('amico'), 0], [0, stop, 0], [1, stop, 0],
   [0, `(async () => { await new Promise(r => setTimeout(r, 9000)); const G = cq.g; return 'host: fase ' + G.st.ph + ' manche ' + G.st.n + ' punti ' + JSON.stringify(G.st.sc) + ' | ' + (G.st.msg || '').split(String.fromCharCode(10)).join(' / '); })()`, 0],
   [1, `(() => { const G = cq.g; return 'amico: fase ' + G.st.ph + ', tamburi svelati ' + (document.getElementById('baRes') ? document.getElementById('baRes').textContent.slice(0, 80) : 'NO') + ' | ' + $('#cqCount').textContent.slice(0, 80); })()`, 0],
-  // manche 2: l'amico non sceglie (tamburo a caso allo scadere), l'host si'; poi nel duello l'amico ricarica
+  // manche 2: l'amico non sceglie (tamburo a caso allo scadere); nel duello l'host spara prima della campana (disonorato) e l'amico gira il tamburo
   [0, `(async () => { const G = cq.g; for (let i = 0; i < 60 && G.st.ph !== 'load'; i++) await new Promise(r => setTimeout(r, 200)); document.querySelector('#baLoad .rnd').click(); document.querySelector('#baLoad .ok').click(); return 'host: manche ' + G.st.n + ' ' + G.st.ph; })()`, 0],
   [0, `(async () => { const G = cq.g; for (let i = 0; i < 120 && G.st.ph !== 'duel'; i++) await new Promise(r => setTimeout(r, 200)); const o = G.chars.find(c => c.remote); return 'host: duello; tamburo amico ' + (G.drum[o.id] || []).join('') + ' dato ' + JSON.stringify(G.st.ad); })()`, 0],
-  [1, `(() => { const B = window.__bari; return 'amico: mio tamburo ' + (B.U2.myD || []).join(''); })()`, 300],
-  [1, `(() => { const G = cq.g; G.M.act(G); return 'amico: ricarica chiesta'; })()`, 900],
-  [0, `(() => { const B = window.__bari, G = cq.g, o = G.chars.find(c => c.remote); return 'host: amico in ricarica ' + B.reloading(G, o) + ' fino al rintocco ' + B.PS(G, o).rl; })()`, 0],
-  [1, `(() => { const B = window.__bari; document.querySelector('#baLoad .rnd').click(); return 'amico: pannello ricarica ' + !!document.getElementById('baLoad') + ', nuovo ordine ' + B.U2.d.join('') + ', fermo ' + (cq.g.M.speed(cq.g.me) === 0); })()`, 8500],
-  [1, `(() => { const B = window.__bari, G = cq.g; return 'amico: ricarica finita ' + !B.reloading(G, G.me) + ', tamburo ' + (B.U2.myD || []).join('') + ', pannello ' + !!document.getElementById('baLoad'); })()`, 0],
-  [0, `(() => { const B = window.__bari, G = cq.g, o = G.chars.find(c => c.remote); return 'host: tamburo amico dopo la ricarica ' + (G.drum[o.id] || []).join('') + ', spari ' + G.st.sh.map(e => e[2] + ':' + e[3]).join(','); })()`, 0],
+  [1, `(() => { const B = window.__bari; return 'amico: mio tamburo ' + (B.U2.myD || []).join(''); })()`, 1200],
+  [0, `(() => { const B = window.__bari, G = cq.g; B.myAct(G, false); const p = B.PS(G, G.me); return 'host: sparo prima della campana -> pallini ' + p.f.join('') + ', non spara al rintocco ' + p.nf + ' (prossimo ' + G.st.bk + '), fermo ' + (G.M.speed(G.me) === 0); })()`, 500],
+  [1, `(() => { const B = window.__bari, G = cq.g, h = G.chars.find(c => c !== G.me); const f0 = B.fired(G, G.me); B.mySpin(G); return 'amico: vede host ' + B.PS(G, h).f.join('') + ' spari ' + G.st.sh.map(e => e[3]).join(',') + ' | giro il tamburo (prima ' + f0 + ')'; })()`, 700],
+  [0, `(() => { const B = window.__bari, G = cq.g, o = G.chars.find(c => c.remote); return 'host: pallini amico ' + B.PS(G, o).f.join('') + ', amico fermo ' + B.stunned(G, o, G.time) + ' fino a ' + B.PS(G, o).su + ' (campana ' + G.st.bt + ')'; })()`, 0],
+  [1, `(async () => { const B = window.__bari, G = cq.g; for (let i = 0; i < 80 && B.winOpen(G, B.lt(G)) < 0; i++) await new Promise(r => setTimeout(r, 100)); await new Promise(r => setTimeout(r, 650)); B.myAct(G, true); await new Promise(r => setTimeout(r, 900)); return 'amico: sparato dopo 0,65 s, spari ' + G.st.sh.map(e => e[3]).join(',') + ' | fase ' + G.st.ph; })()`, 0],
   [1, `(() => { cqNetLeave(); return 'amico uscito; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 300],
   [0, `(() => { cqNetLeave(); return 'set chiuso; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 500],
 ];
