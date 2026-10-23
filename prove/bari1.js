@@ -36,7 +36,7 @@
     if (st.ph === 'duel') {
       const k = B.winOpen(G, G.time);
       if (k >= 0 && myPlan !== k) { myPlan = k; G.__shootAt = G.time + 0.15 + Math.random() * 1.0; }
-      if (k >= 0 && G.__shootAt && G.time >= G.__shootAt) { G.__shootAt = 0; B.myAct(G, false); }
+      if (k >= 0 && G.__shootAt && G.time >= G.__shootAt) { G.__shootAt = 0; if (Math.random() < 0.3) { B.myDive(G); cnt('io: tuffo'); } else B.myAct(G, false); }
       if (k < 0 && Math.random() < 0.002) { B.myAct(G, false); cnt('io: sparo prima della campana'); }   // a volte ci casco
       if (k < 0 && Math.random() < 0.003) { const f0 = B.fired(G, G.me); B.mySpin(G); if (B.fired(G, G.me) > f0) cnt('io: giro il tamburo'); }
       for (const [t] of st.fa || []) if (Math.abs(G.time - t) < 0.026) cnt('falso allarme');

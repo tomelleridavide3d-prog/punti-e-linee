@@ -17,7 +17,7 @@
   const cv = G.st.cv.filter(c => c[1] < 13).sort((a, b) => Math.hypot(a[1] - 8, a[2] - 8) - Math.hypot(b[1] - 8, b[2] - 8))[0];
   cq.x = cv[1] + 0.5 - 0.9; cq.y = cv[2] + 0.5; if (!cqFree(cq.x, cq.y)) { cq.x = cv[1] - 0.4; cq.y = cv[2] - 0.4; }
   for (let i = 0; i < 60; i++) step(0.05);
-  B.PS(G, G.me).f = ['b']; B.PS(G, bot).f = ['r', 'u', 'g'];
+  B.PS(G, G.me).f = ['b']; B.PS(G, bot).f = ['r', 'u']; B.PS(G, bot).dv = 1;
   bot.x = 16.5; bot.y = 7.5; bot.path = [];
   for (let i = 0; i < 400 && B.winOpen(G, G.time) < 0; i++) step(0.05);
   for (let i = 0; i < 5; i++) step(0.05);

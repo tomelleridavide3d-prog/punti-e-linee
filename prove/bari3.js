@@ -26,7 +26,7 @@
   await w(9000); out.push('al riparo: passo ' + G.tutS + ', rintocco ' + B.bellK(G, G.time));
   for (let i = 0; i < 80 && !G.tutShot; i++) { if (B.winOpen(G, G.time) >= 0) document.getElementById('baShoot').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await w(100); }
   await w(500); out.push('sparato: passo ' + G.tutS + ', spari ' + G.st.sh.map(e => e[2] + ':' + e[3]).join(','));
-  for (let i = 0; i < 100 && G.tutS < 7; i++) await w(100); out.push('fine tutorial: passo ' + G.tutS + ', salvato ' + store.settings.bariTut + ', fumetto ' + !!el() + ', Sceriffo libero ' + !o.hold);
+  for (let i = 0; i < 320 && G.tutS < 9; i++) { if (G.tutS === 7 && B.winOpen(G, G.time) >= 0) document.getElementById('baDive').dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); await w(100); } out.push('fine tutorial: passo ' + G.tutS + ', salvato ' + store.settings.bariTut + ', fumetto ' + !!el() + ', Sceriffo libero ' + !o.hold);
   out.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 400));
   return out.join('\n');
 })()

@@ -16,6 +16,10 @@
   const LOAD = 15, LOAD2 = 11, WALK = 3.1, WIN = 1.6, LAT = 0.25, MAXB = 12, DEAD = 2.3, MRES = 7, WINS = 3, MAXR = 7;
   const BMIN = 1.6, BMAX = 6.5, F0 = 2.6, F1 = 4.6, AIM_T = 0.75, AIM0 = 1.35, BODY = 0.4, SMOKE = 1.1, RUN_V = 1.1, BIG = 1e9;
   const X0 = [12.6, 13.4], Y0 = 8, STEP = 1.5;
+  // TERZO GIRO (scelte dell'utente): 2 TUFFI per manche. Dentro la finestra della campana, un tuffo fatto PRIMA dello sparo dell'altro ti salva
+  // fino alla fine di quel rintocco (a terra: niente sparo); si vede subito. Fuori dalla campana il tuffo e' sprecato. Non si recuperano.
+  // Le salve servono a stordire (chi e' stordito non spara e non si tuffa al rintocco dopo): salve + vero = combo. Tolto "gira il tamburo".
+  const DIVES = 2;
   // falsi allarmi: [x, y dove compare la scritta (null = corvo che passa in cielo), scritta]
   const ALARM = { horse: [3, 4.5, '🐴 IIIIH!'], door: [8, 4.3, '🚪 SBAM!'], crow: [null, null, '🐦 CRA! CRA!'], clang: [21, 4.4, '🥫 TANG!'] };
   const SIDE = [{ hat: '#2e2622', hat2: '#40342c', band: '#b8402a', sc: '#e05a3a' }, { hat: '#b48c5a', hat2: '#caa272', band: '#5a3a22', sc: '#e8c060' }];
@@ -409,6 +413,7 @@
     crow: () => { for (const d of [0, 0.32]) { swp(760, 520, 0.18, 0.05, d, 'sawtooth'); noise(0.16, 0.04, 1200, d, 'bandpass', 3); } },
     clang: () => { swp(1240, 1230, 0.5, 0.04, 0, 'triangle'); swp(1870, 1850, 0.35, 0.025, 0, 'sine'); swp(620, 610, 0.3, 0.03); },
     boo: () => { swp(220, 160, 0.6, 0.04, 0, 'sawtooth'); swp(180, 130, 0.6, 0.03, 0.15, 'sawtooth'); },
+    dive: () => { noise(0.25, 0.08, 1500, 0, 'bandpass', 1); swp(500, 150, 0.2, 0.04); noise(0.35, 0.1, 350, 0.2); },
     spin: () => { for (let i = 0; i < 6; i++) swp(2600 - i * 150, 2300 - i * 150, 0.03, 0.025, i * 0.05, 'square'); swp(1500, 1300, 0.05, 0.04, 0.33, 'square'); },
     miss: () => { swp(2600, 500, 0.35, 0.035, 0.05, 'triangle'); noise(0.12, 0.05, 2500, 0.15, 'highpass'); }
   };
@@ -424,7 +429,9 @@
     lose: ['Bel colpo… stavolta.', 'Mmh. Non male, forestiero.', 'Fortuna del principiante.'],
     hatme: ['Il mio cappello! Questa me la paghi.', 'Salve? Mi hai solo fatto il solletico.'],
     early: ['Ah ah! Era solo un cavallo, forestiero!', 'Nervosetto, eh?', 'Disonore! Qui si aspetta la campana.'],
-    oops: ['…non dite niente a nessuno.', 'Dannato corvo!', 'Mi è scivolato il dito.']
+    oops: ['…non dite niente a nessuno.', 'Dannato corvo!', 'Mi è scivolato il dito.'],
+    divew: ['Ti butti a terra per un cavallo?', 'Comodo lì nella polvere?', 'Un tuffo in meno, forestiero.'],
+    dodge: ['Sei un\'anguilla, ragazzo.', 'Rialzati, se hai coraggio.']
   };
   const shMem = () => { const S = store.settings; if (!S.bariSh || !Array.isArray(S.bariSh.pos)) S.bariSh = { n: 0, pos: [0, 0, 0, 0, 0, 0] }; return S.bariSh; };
   function shLearn(d) { const M = shMem(); M.n++; d.forEach((v, i) => { M.pos[i] += v ? 1 : 0; }); saveStore(); }
@@ -473,15 +480,17 @@
         c.mode = 'push'; if (d > 7 || Math.random() < 0.3) { const a = Math.atan2(c.y - A.y, c.x - A.x) + (Math.random() - 0.5) * 1.2, r = 4.5 + Math.random() * 2, x = Math.max(1.6, Math.min(23.4, A.x + Math.cos(a) * r)), y = Math.max(5.5, Math.min(10.5, A.y + Math.sin(a) * r)); if (cqFree(x, y) && !blkAt(G, x, y)) botGo(G, c, x, y); }
       }
       // salve in canna e al riparo: a volte GIRA IL TAMBURO per arrivare prima al colpo vero
-      if (!c.hold && cov && nxt === 0 && n < 5 && mine.slice(n + 1).some(Boolean) && winOpen(G, T) < 0 && Math.random() < 0.3) spin(G, c);
     }
     // allo scoperto e in pericolo: si muove (chi corre ha il mirino addosso che trema di piu')
     if (dg > 0.3 && !coverHit(G, posOf(G, o), c) && (!c.path || !c.path.length) && Math.random() < 0.08) { const a = Math.random() * 6.28, x = c.x + Math.cos(a) * 1.6, y = c.y + Math.sin(a) * 1.6; if (cqFree(x, y) && !blkAt(G, x, y)) c.path = [[x, y]]; }
     if (c.path && c.path.length) { const q = c.path[0]; if (blkAt(G, q[0], q[1])) c.path = []; else cqModeStep(c, dt, 0.96); } else c.walk = 0;
   }
-  function botAct(G, c, k) {   // decide al rintocco: { a: 's' spara | 'n' niente, rt = quando tocca (presto = mira peggiore) }
+  function botAct(G, c, k) {   // decide al rintocco: { a: 's' spara | 'd' tuffo | 'n' niente, rt = quando tocca (presto = mira peggiore) }
     const o = oppOf(G, c); if (!o || c.hold || !canFire(G, c, k, G.st.bt + 0.01)) return { a: 'n', rt: 99 };
     const n = fired(G, c), nxt = n < 6 ? G.drum[c.id][n] : -1, cv = coverHit(G, c, posOf(G, o)), R = Math.random(); let a = 'n';
+    // TUFFO: se l'altro puo' sparare, io sono allo scoperto e (secondo lui) ha un colpo vero in canna; meno spesso se io ho un vero e lui e' scoperto
+    { const po = PS(G, o), dv = PS(G, c).dv || 0, oc = canFire(G, o, k, G.st.bt + 0.01) && fired(G, o) < 6, me2 = !coverHit(G, posOf(G, o), c);
+      if (dv > 0 && oc && me2) { const dg = dangerOf(G, o, !o.bot), w = dg * (nxt === 1 && !cv ? 0.55 : 1.15) * (dv === 1 ? 0.75 : 1); if (Math.random() < w) return { a: 'd', rt: r2(0.12 + Math.random() * 0.3 + (G.tut ? 0.3 : 0)) }; } }
     if (nxt < 0) a = 'n';
     else if (!cv) a = nxt ? 's' : (R < 0.7 ? 's' : 'n');
     else if (nxt) a = (!cv.st && G.st.cv[cv.i][3] <= 1 && R < 0.55) || R < 0.12 ? 's' : 'n';
@@ -511,7 +520,7 @@
   function newRound(G, n, sc) {
     G.st = { n, ph: 'load', t0: r2(G.time), rd: {}, sc: sc || {}, cv: genCovers(), p: {}, bt: null, bk: -1, fa: [], sh: [], shN: (G.st && G.st.shN) || 0, say: null, ad: {} };
     G.drum = {}; G.acts = null; G.wk = -1; G.faS = new Set();
-    for (const c of G.chars) { G.st.p[c.id] = { f: [], h: 0, su: 0, d: 0 }; c.path = []; if (c.bot && !c.remote) { G.drum[c.id] = botLoad(); G.st.rd[c.id] = 1; } }
+    for (const c of G.chars) { G.st.p[c.id] = { f: [], h: 0, su: 0, d: 0, dv: DIVES }; c.path = []; if (c.bot && !c.remote) { G.drum[c.id] = botLoad(); G.st.rd[c.id] = 1; } }
     softCovers(G);
     const sh = G.chars.find(c => c.bot && !c.remote && c.sheriff); if (sh && !G.tut) { const r = n > 1 ? shRead() : null; shSay(G, sh, 'start', r && Math.random() < 0.75 ? r : null); }
   }
@@ -537,23 +546,32 @@
     st.sh.push(mkSh(G, c, 's', 'early', posOf(G, c).x, posOf(G, c).y));
     const sh = G.chars.find(o => o.bot && !o.remote && o.sheriff); if (sh && !G.tut) shSay(G, sh, sh === c ? 'oops' : 'early');
   }
+  // TUFFO fuori dalla campana: sprecato (ti butti a terra per un nitrito), fermo un attimo nella polvere
+  function diveWaste(G, c) {
+    const st = G.st, p = PS(G, c), T = G.time; if (st.ph !== 'duel' || p.d || !(p.dv > 0) || stunned(G, c, T) || smoking(G, c, T) || winOpen(G, T) >= 0 || T - st.t0 < 0.8) return;
+    p.dv--; p.dw = r2(T); p.sm = r2(T + 0.9); st.sh.push(mkSh(G, c, 'd', 'divew', posOf(G, c).x, posOf(G, c).y));
+    const sh = G.chars.find(o => o.bot && !o.remote && o.sheriff); if (sh && sh !== c && !G.tut && Math.random() < 0.7) shSay(G, sh, 'divew');
+  }
   function mkSh(G, c, a, res, x, y) { G.st.shN = (G.st.shN || 0) + 1; if (G.st.sh.length > 10) G.st.sh.shift(); return [G.st.shN, c.id, a, res, r2(x), r2(y), r2(G.time)]; }
   function resolve(G, c, A, k) {
     const st = G.st, p = PS(G, c), o = oppOf(G, c), po = PS(G, o), P = posOf(G, c), Q = posOf(G, o);
     if (p.d || st.ph !== 'duel') return;
+    // TUFFO dentro la campana: salvo fino alla fine di questo rintocco, a terra (niente sparo)
+    if (A.a === 'd') { if (!(p.dv > 0)) return; p.dv--; p.dk = k; p.dt = r2(G.time); p.sm = r2(st.bt + WIN); st.sh.push(mkSh(G, c, 'd', 'dive', P.x, P.y)); return; }
     const n = p.f.length; if (n >= 6) { st.sh.push(mkSh(G, c, 's', 'click', P.x, P.y)); return; }
     const real = !!G.drum[c.id][n], cov = coverHit(G, P, Q), d = Math.hypot(Q.x - P.x, Q.y - P.y);
     // la mira: per le persone la decide il loro telefono (A.h: il mirino era sul bersaglio quando hanno toccato), per il computer lo stesso calcolo qui
     const hit = (o.remote && cqLagging(o)) ? false : A.h != null ? !!A.h : onTarget(st.n, k, c.id, A.rt, (o.mv || 0) > RUN_V);
     let res, info, x = Q.x, y = Q.y;
     p.sm = r2(G.time + SMOKE);   // dopo lo sparo resti fermo nel fumo
-    if (!hit) { res = 'miss'; info = 'u'; const a = Math.random() * 6.28; x = Q.x + Math.cos(a) * 0.9; y = Q.y + Math.sin(a) * 0.9; }
+    if (po.dk === k) { res = 'dodge'; info = 'u'; }   // si e' tuffato prima: salvo, e nessuno sa se era vero
+    else if (!hit) { res = 'miss'; info = 'u'; const a = Math.random() * 6.28; x = Q.x + Math.cos(a) * 0.9; y = Q.y + Math.sin(a) * 0.9; }
     else if (cov) { x = cov.x; y = cov.y; if (real) { res = 'cover'; info = 'r'; if (!cov.st) { st.cv[cov.i][3]--; if (st.cv[cov.i][3] <= 0) { res = 'broke'; softCovers(G); } } } else { res = 'puff'; info = 'b'; } }
     else if (real) { res = 'kill'; info = 'r'; po.d = 1; }
     else { res = 'hat'; info = 'b'; const l = d || 1; po.h = 1; po.hx = r2(Q.x + (Q.x - P.x) / l * 1.3); po.hy = r2(Q.y + (Q.y - P.y) / l * 1.3); po.su = BIG; po.sw = 0; po.sk = k; }
     p.f.push(info); st.sh.push(mkSh(G, c, 's', res, x, y).concat([o.id]));
     const sh = c.bot && !c.remote && c.sheriff ? c : o.bot && !o.remote && o.sheriff ? o : null;
-    if (sh && !G.tut && Math.random() < 0.6) { if (sh === c && (res === 'hat' || res === 'cover' || res === 'miss')) shSay(G, sh, res); else if (sh === o && res === 'hat') shSay(G, sh, 'hatme'); }
+    if (sh && !G.tut && Math.random() < 0.6) { if (sh === c && (res === 'hat' || res === 'cover' || res === 'miss' || res === 'dodge')) shSay(G, sh, res); else if (sh === o && res === 'hat') shSay(G, sh, 'hatme'); }
     if (res === 'kill') { st.ph = 'dead'; st.t0 = r2(G.time); st.win = c.id; st.kill = o.id; }
   }
   function roundEnd(G, win, why) {
@@ -591,6 +609,7 @@
       const f = pend[0], A = G.acts[f.id]; if (A.rt > t) break;
       const late = t > WIN + LAT;
       if (!late && !able.every(c => G.acts[c.id] || (t - (c.remote ? LAT : 0)) >= A.rt)) break;
+      if (f.bot && !f.remote && A.a === 's' && PS(G, oppOf(G, f)).dk === k) { G.res[f.id] = 1; continue; }   // il computer vede il tuffo e tiene il colpo
       G.res[f.id] = 1; resolve(G, f, A, k); if (st.ph !== 'duel') return;
     }
   }
@@ -614,7 +633,8 @@
 @keyframes baPulse{from{transform:scale(1)}to{transform:scale(1.07)}}
 #baBell{position:absolute;left:50%;top:104px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:8px;background:rgba(40,22,14,.82);border:1px solid rgba(240,190,110,.5);color:#ffe2b0;font:800 14px system-ui;padding:4px 12px 4px 6px;border-radius:18px;pointer-events:none;white-space:nowrap}
 #baBell.on{background:#c8402a;color:#fff;border-color:#ffd24a;animation:baPulse .18s ease-in-out infinite alternate}#baBell canvas{width:30px;height:30px}
-#baMini{position:absolute;left:50%;bottom:30px;transform:translateX(-50%);z-index:5;display:flex;align-items:center;gap:6px;background:rgba(30,18,10,.78);border:1px solid rgba(240,190,110,.4);border-radius:14px;padding:4px 10px 4px 4px;color:#ffe2b0;font:700 11.5px system-ui;pointer-events:none}#baMini canvas{width:64px;height:64px}
+#baMini{position:absolute;left:8px;top:150px;z-index:5;display:flex;align-items:center;gap:6px;background:rgba(30,18,10,.8);border:1px solid rgba(240,190,110,.45);border-radius:14px;padding:4px 10px 4px 4px;color:#ffe2b0;font:700 11.5px system-ui;pointer-events:none;line-height:1.25}#baMini canvas{width:56px;height:56px}
+#baDive{position:absolute;right:calc(max(18px,6%) + 116px);bottom:146px;width:84px;height:84px;border-radius:50%;border:3px solid rgba(180,220,255,.35);background:radial-gradient(circle at 40% 35%,#3a5a7a,#142030);color:#d8ecff;font:800 11.5px system-ui;z-index:5;display:flex;flex-direction:column;align-items:center;justify-content:center;touch-action:manipulation;-webkit-tap-highlight-color:transparent;box-shadow:0 5px 16px rgba(0,0,0,.45);line-height:1.1}#baDive b{font-size:28px;line-height:1}#baDive.on{border-color:#9ad0ff;box-shadow:0 0 0 5px rgba(120,190,255,.35),0 5px 16px rgba(0,0,0,.45)}#baDive.off{opacity:.35}
 #ciack.baDuel #cqKill{right:calc(max(18px,6%) + 10px);bottom:258px;width:84px;height:84px;font-size:13px;line-height:1.15;padding:0 6px}
 #baRes{position:absolute;left:50%;top:92px;transform:translateX(-50%);z-index:6;width:min(92vw,360px);background:rgba(40,24,14,.92);border:2px solid #c89a5a;border-radius:14px;padding:8px 12px;color:#fbe8c8;font:600 13px system-ui;text-align:center}
 #baRes .rw{display:flex;align-items:center;justify-content:space-between;margin:5px 0;gap:6px}#baRes .rw b{max-width:110px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#baRes .cs{display:flex;gap:4px}#baRes .cs span{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;border:2px solid #24262c}#baRes .cs .r{background:#d8a038;color:#7a1a08}#baRes .cs .b{background:#e8e2d0;color:#6a6250}#baRes .cs .x{opacity:.45}#baRes small{display:block;opacity:.8;margin-top:4px}
@@ -651,9 +671,10 @@
   // ---- pulsanti del duello ----
   function duelUI(G, on) {
     css(); ROOT().classList.toggle('baDuel', !!on);
-    if (!on) { for (const id of ['baShoot', 'baBell', 'baMini']) { const e = document.getElementById(id); if (e) e.remove(); } return; }
+    if (!on) { for (const id of ['baShoot', 'baDive', 'baBell', 'baMini']) { const e = document.getElementById(id); if (e) e.remove(); } return; }
     const mk = (id, html, fn) => { if (document.getElementById(id)) return; const b = document.createElement(id === 'baBell' || id === 'baMini' ? 'div' : 'button'); b.id = id; if (b.type !== undefined) b.type = 'button'; b.innerHTML = html; ROOT().appendChild(b); if (fn) { b.addEventListener('pointerdown', e => { e.stopPropagation(); e.preventDefault(); const G2 = cq.g; if (G2 && G2.mode === 'bari') fn(G2); }); b.addEventListener('pointerup', e => e.stopPropagation()); b.oncontextmenu = e => e.preventDefault(); } };
     mk('baShoot', '<b>🔫</b><span>SPARA</span>', G2 => myAct(G2, false));
+    mk('baDive', '<b>🤸</b><span>TUFFATI</span><i style="font-style:normal"></i>', G2 => myDive(G2));
     mk('baBell', '<canvas width="60" height="60"></canvas><span></span>');
     mk('baMini', '<canvas width="128" height="128"></canvas><span></span>');
   }
@@ -672,6 +693,17 @@
     if (G.guest) cqNetSend({ k: 'act', a: 's', rt, h, b: k }); else if (G.acts) G.acts[G.me.id] = { a: 's', rt, h };
     if (G.tut) G.tutShot = 1;
   }
+  // TUFFATI: dentro la campana ti salva da uno sparo che arriva DOPO; fuori dalla campana e' sprecato
+  function myDive(G) {
+    const T = lt(G), st = G.st; if (!st || st.ph !== 'duel') return; const k = winOpen(G, T), p = PS(G, G.me);
+    if (p.d || !(p.dv > 0) || now() - (U2.dvT || 0) < 0.5) return;
+    if (k < 0) { if (frozen(G, G.me) || T - st.t0 < 0.8) return; U2.dvT = now(); if (G.guest) cqNetSend({ k: 'divew' }); else diveWaste(G, G.me); return; }
+    if (U2.acted === k || !canFire(G, G.me, k, T)) return;
+    if (!G.guest && G.wk !== k) return;
+    U2.acted = k; U2.dvT = now(); const rt = r2(T - st.bt); U2.myDive = { k, t: now() }; SFX.dive();
+    if (G.guest) cqNetSend({ k: 'act', a: 'd', rt, b: k }); else if (G.acts) G.acts[G.me.id] = { a: 'd', rt };
+    if (G.tut) G.tutDive = 1;
+  }
   function mySpin(G) { const st = G.st, p = PS(G, G.me), T = lt(G); if (!st || st.ph !== 'duel' || p.d || p.f.length >= 5 || stunned(G, G.me, T) || winOpen(G, T) >= 0) return; if (G.guest) cqNetSend({ k: 'spin' }); else spin(G, G.me); SFX.spin(); }
   let sayT = 0; function say(t) { if (now() - sayT < 1.2) return; sayT = now(); cqToast(t); }
   function uiTick(G) {
@@ -680,6 +712,7 @@
     const lock = can && onTarget(st.n, k, G.me.id, T - st.bt, (U2.omv || 0) > RUN_V);   // il mirino e' sul bersaglio adesso
     sh.classList.toggle('on', can); sh.classList.toggle('lock', !!lock);
     { const s = sh.querySelector('span'), tx = lock ? '🎯 ORA!' : can ? 'MIRA…' : 'SPARA'; if (s.textContent !== tx) s.textContent = tx; }
+    { const dv = document.getElementById('baDive'), p = PS(G, G.me), n = p.dv || 0; if (dv) { dv.classList.toggle('on', k >= 0 && U2.acted !== k && canFire(G, G.me, k, T) && n > 0); dv.classList.toggle('off', !n || !!p.d || stunned(G, G.me, T)); const i = dv.querySelector('i'), tx = n ? '●'.repeat(n) + '○'.repeat(DIVES - n) : 'finiti'; if (i.textContent !== tx) i.textContent = tx; } }
     const bl = document.getElementById('baBell'); if (bl) {
       const kb = bellK(G, T), dis = PS(G, G.me).nf === st.bk && T < st.bt + WIN;
       bl.classList.toggle('on', k >= 0); bl.classList.toggle('dis', !!dis && k < 0);
@@ -691,7 +724,7 @@
       g.font = '26px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('🔔', 30, 32);
     }
     const mi = document.getElementById('baMini'); if (mi) {
-      const f = PS(G, G.me).f || [], d = U2.myD || [0, 0, 0, 0, 0, 0], n = fired(G, G.me), key = d.join('') + f.join(''); if (mi.dataset.k !== key) {
+      const f = PS(G, G.me).f || [], d = U2.myD || [0, 0, 0, 0, 0, 0], n = fired(G, G.me), dvn = PS(G, G.me).dv || 0, key = d.join('') + f.join('') + dvn; if (mi.dataset.k !== key) {
         mi.dataset.k = key; const g = mi.querySelector('canvas').getContext('2d'); g.clearRect(0, 0, 128, 128);
         g.fillStyle = '#6a707a'; g.beginPath(); g.arc(64, 64, 60, 0, 7); g.fill(); g.fillStyle = '#4a4e56'; g.beginPath(); g.arc(64, 64, 24, 0, 7); g.fill();
         for (let i = 0; i < 6; i++) { const a = -Math.PI / 2 + i * Math.PI / 3, x = 64 + Math.cos(a) * 40, y = 64 + Math.sin(a) * 40, used = i < n;
@@ -699,7 +732,7 @@
           if (!used && d[i]) { g.fillStyle = '#c82a1a'; g.beginPath(); g.arc(x, y, 6, 0, 7); g.fill(); }
           if (i === n && n < 6) { g.strokeStyle = '#ffd24a'; g.lineWidth = 5; g.beginPath(); g.arc(x, y, 19, 0, 7); g.stroke(); }
           g.fillStyle = used ? '#888' : '#2a1a10'; g.font = '800 15px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; if (used) g.fillText(f[i] === 'g' ? '↻' : '✕', x, y); }
-        mi.querySelector('span').innerHTML = n >= 6 ? 'tamburo<br>vuoto!' : 'in canna:<br>' + (d[n] ? '🔴 <b>VERO</b>' : '⚪ <b>salve</b>');
+        mi.querySelector('span').innerHTML = (n >= 6 ? 'tamburo<br>vuoto!' : 'in canna:<br>' + (d[n] ? '🔴 <b>VERO</b>' : '⚪ <b>salve</b>')) + '<br>🤸 ' + (dvn ? '●'.repeat(dvn) + '○'.repeat(DIVES - dvn) : 'finiti');
       }
     }
   }
@@ -745,8 +778,10 @@
       if (e[0] <= U2.shSeen) continue; U2.shSeen = e[0]; if (lt(G) - e[6] > 2) continue;
       const [, id, a, res, x, y] = e, c = G.chars.find(o => o.id === id), mine = c === G.me, T = now();
       if (a === 's') { U2.fx.push({ k: 'shot', id, t: T, up: res === 'early' }); if (res !== 'click') { SFX.bang(); U2.shake = T; } }
-      const txt = { kill: '🔴 VERO!', hat: '⚪ SALVE! 🎩', cover: '💥 VERO nel riparo', broke: '💥 VERO: riparo rotto!', puff: '⚪ salve: nessun buco', miss: 'fiuuu… mancato! ❓', click: 'clic… vuoto', early: '😳 DISONORATO!', spin: '↻ gira il tamburo' }[res];
-      const tx = res === 'click' || res === 'early' || res === 'spin' ? posOf(G, c || G.me) : { x, y };
+      const txt = { kill: '🔴 VERO!', hat: '⚪ SALVE! 🎩', cover: '💥 VERO nel riparo', broke: '💥 VERO: riparo rotto!', puff: '⚪ salve: nessun buco', miss: 'fiuuu… mancato! ❓', click: 'clic… vuoto', early: '😳 DISONORATO!', spin: '↻ gira il tamburo', dodge: '🤸 schivato! ❓', dive: '🤸 TUFFO!', divew: '🤸 tuffo sprecato!' }[res];
+      const tx = res === 'click' || res === 'early' || res === 'spin' || res === 'dive' || res === 'divew' ? posOf(G, c || G.me) : res === 'dodge' ? posOf(G, G.chars.find(o => o.id === e[7]) || G.me) : { x, y };
+      if ((res === 'dive' || res === 'divew') && !(mine && res === 'dive')) SFX.dive();
+      if (res === 'dodge') SFX.miss();
       U2.fx.push({ k: 'txt', x: tx.x, y: tx.y, t: T + (a === 's' ? 0.12 : 0), s: txt, c: res === 'kill' || res === 'cover' || res === 'broke' || res === 'early' ? '#ff6a4a' : res === 'hat' || res === 'puff' ? '#ffffff' : '#ffe2b0' });
       if (res === 'cover' || res === 'broke') { SFX.wood(); U2.fx.push({ k: 'spl', x, y, t: T }); }
       if (res === 'hat') { SFX.ping(); U2.fx.push({ k: 'hat', id: e[7], x, y, t: T }); }
@@ -764,7 +799,7 @@
   }
   function helpOnce() {
     try { if (localStorage.getItem('bariHelp')) return; localStorage.setItem('bariHelp', '1'); } catch { return; }
-    setTimeout(() => cqToast('🤠 <b>Nervi saldi!</b> La campana 🔔 suona <b>quando vuole</b>, e prima ci sono falsi allarmi: chi spara prima del DONG è <b>disonorato</b>. Dopo il DONG il mirino trema: spara quando diventa <b>🎯 rosso</b>. Il colpo <b>vero</b> 🔴 ti butta giù, la <b>salve</b> ⚪ ti fa volare il cappello.'), 2500);
+    setTimeout(() => cqToast('🤠 <b>Nervi saldi!</b> La campana 🔔 suona <b>quando vuole</b>, e prima ci sono falsi allarmi: chi spara prima del DONG è <b>disonorato</b>. Dopo il DONG il mirino trema: spara quando diventa <b>🎯 rosso</b>. Il colpo <b>vero</b> 🔴 ti butta giù, la <b>salve</b> ⚪ ti stordisce. Hai <b>2 tuffi</b> 🤸 per schivare: usali bene!'), 2500);
   }
 
   // ======================= TUTORIAL (la prima volta da solo: un dito ti mostra cosa toccare) =======================
@@ -776,7 +811,9 @@
     { t: 'Corri dietro un <b>riparo</b>! Trascina il dito sullo schermo per muoverti.', ph: 'duel', at: G => { const c = (G.st.cv || []).filter(v => v[3] > 0).sort((a, b) => Math.hypot(a[1] - cq.x, a[2] - cq.y) - Math.hypot(b[1] - cq.x, b[2] - cq.y))[0]; return c ? { x: c[1] + 0.5, y: c[2] + 0.5 } : null; }, ok: G => { const o = oppOf(G, G.me); return !!coverHit(G, posOf(G, o), cq) || G.time - (G.tutT || 0) > 8; } },
     { t: 'Ora <b>nervi saldi</b> 🤫 La campana suona <b>quando vuole</b>, e prima arrivano rumori finti (nitriti, porte, corvi…). Se spari prima del vero DONG sei <b>disonorato</b>! Aspetta…', ph: 'duel', at: () => qs('#baBell'), ok: G => winOpen(G, G.time) >= 0 },
     { t: 'DONG! 🔔 Il mirino trema sullo Sceriffo e si stringe. Tocca <b>🔫 SPARA</b> quando diventa <b>🎯 rosso</b>: troppo presto sbagli, troppo tardi spara lui!', ph: 'duel', at: () => qs('#baShoot'), ok: G => !!G.tutShot },
-    { t: 'In basso c\'è il tuo tamburo: il colpo <b>in canna</b> lo sai solo tu. Se è una salve puoi <b>↻ girare il tamburo</b> per saltarla (resti fermo fino al rintocco). Sopra lo Sceriffo: 🔴 vero, ⚪ salve, ❓ non si sa.', ph: 'duel', at: () => qs('#baMini'), ok: G => G.time - (G.tutT || 0) > 8 }];
+    { t: 'In alto a sinistra c\'è il tuo tamburo: il colpo <b>in canna</b> lo sai solo tu. Sopra lo Sceriffo: 🔴 vero, ⚪ salve, ❓ non si sa, e i suoi 🤸 tuffi rimasti.', ph: 'duel', at: () => qs('#baMini'), ok: G => G.time - (G.tutT || 0) > 6 },
+    { t: 'Hai <b>2 tuffi</b> 🤸. Se al DONG ti tuffi <b>prima</b> che lui spari, sei salvo per tutto il rintocco (ma non spari). Prima della campana il tuffo è sprecato! Prova al prossimo DONG.', ph: 'duel', at: () => qs('#baDive'), ok: G => !!G.tutDive || G.time - (G.tutT || 0) > 14 },
+    { t: '💡 Il trucco: una <b>salve</b> che lo prende lo stordisce, e al rintocco dopo non può né sparare né tuffarsi. <b>Salve + vero = combo!</b> Buon duello, pistolero.', ph: 'duel', at: () => null, ok: G => G.time - (G.tutT || 0) > 6 }];
   window.bariTutorial = () => {
     if (cq.net) { cqToast('🎓 Il tutorial si fa <b>da soli</b>: esci dal set e riprova.'); return; }
     U2.tut = 1; const go = document.getElementById('lbGo'); if (go) go.click();
@@ -798,7 +835,7 @@
   }
   cqEachFrame(() => tutTick(cq.g));
 
-  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nella strada di <b>Polvere Rossa</b>, all\'alba. Vince chi prende per primo <b>3 manche</b>.</p><p><b>1. Il tamburo segreto</b>: prima di ogni manche metti nella pistola <b>3 colpi veri</b> 🔴 e <b>3 a salve</b> ⚪, nell\'ordine che vuoi. Si spara in ordine: 1, 2, 3…</p><p><b>2. Tre passi</b>: schiena contro schiena, tre passi e… <b>GIRATI!</b></p><p><b>3. La campana</b> 🔔: ci si muove liberi, ma si spara <b>solo quando suona</b>, e suona <b>quando vuole</b>. Prima arrivano <b>falsi allarmi</b> (un nitrito, una porta che sbatte, un corvo, una latta): chi spara prima del vero DONG è <b>😳 disonorato</b>: il colpo finisce in aria e al rintocco dopo resta fermo senza poter sparare.</p><p><b>4. Il mirino</b> 🎯: dopo il DONG il mirino trema sull\'altro e piano piano si stringe. Tocca <b>🔫 SPARA</b> quando è <b>rosso</b>: se tocchi troppo presto sbagli, se aspetti troppo spara prima lui. Se l\'altro corre, il mirino trema di più. Dopo ogni sparo resti un attimo <b>fermo nel fumo</b>.</p><p>🔴 <b>Colpo vero</b> che ti prende: manche persa. ⚪ <b>Salve</b> che ti prende: ti vola il cappello e resti fermo fino al rintocco dopo (e lì l\'altro può finirti). 🛢️ Dietro un <b>riparo</b> il colpo prende il riparo: un colpo vero lo crepa (al secondo si rompe), una salve non lascia buchi.</p><p><b>Da lontano veri e salve fanno lo stesso BANG</b>. Sopra la testa di ognuno vedi i colpi che ha già sparato: 🔴 vero, ⚪ salve, ❓ non si sa (mancato), ↻ saltato. In basso vedi il <b>tuo</b> colpo in canna: se è una salve puoi <b>↻ girare il tamburo</b> per saltarla, ma resti fermo fino al prossimo rintocco.</p><p>Da solo sfidi <b>lo Sceriffo</b>: alla fine di ogni manche i tamburi si svelano… e lui si ricorda come carichi il tuo.</p></details>';
+  const RULES = '<details style="margin-top:10px"><summary style="cursor:pointer;font-weight:700">📖 Come si gioca</summary><p>Uno contro uno nella strada di <b>Polvere Rossa</b>, all\'alba. Vince chi prende per primo <b>3 manche</b>.</p><p><b>1. Il tamburo segreto</b>: prima di ogni manche metti nella pistola <b>3 colpi veri</b> 🔴 e <b>3 a salve</b> ⚪, nell\'ordine che vuoi. Si spara in ordine: 1, 2, 3…</p><p><b>2. Tre passi</b>: schiena contro schiena, tre passi e… <b>GIRATI!</b></p><p><b>3. La campana</b> 🔔: ci si muove liberi, ma si spara <b>solo quando suona</b>, e suona <b>quando vuole</b>. Prima arrivano <b>falsi allarmi</b> (un nitrito, una porta che sbatte, un corvo, una latta): chi spara prima del vero DONG è <b>😳 disonorato</b>: il colpo finisce in aria e al rintocco dopo resta fermo senza poter sparare.</p><p><b>4. Il mirino</b> 🎯: dopo il DONG il mirino trema sull\'altro e piano piano si stringe. Tocca <b>🔫 SPARA</b> quando è <b>rosso</b>: se tocchi troppo presto sbagli, se aspetti troppo spara prima lui. Se l\'altro corre, il mirino trema di più. Dopo ogni sparo resti un attimo <b>fermo nel fumo</b>.</p><p>🔴 <b>Colpo vero</b> che ti prende: manche persa. ⚪ <b>Salve</b> che ti prende: ti vola il cappello e resti fermo fino al rintocco dopo (e lì l\'altro può finirti). 🛢️ Dietro un <b>riparo</b> il colpo prende il riparo: un colpo vero lo crepa (al secondo si rompe), una salve non lascia buchi.</p><p><b>Da lontano veri e salve fanno lo stesso BANG</b>. Sopra la testa di ognuno vedi i colpi che ha già sparato: 🔴 vero, ⚪ salve, ❓ non si sa (mancato), ↻ saltato. In alto a sinistra vedi il <b>tuo</b> colpo in canna.</p><p>🤸 <b>Tuffi</b> (2 per manche): dopo il DONG, se ti tuffi <b>prima</b> che l\'altro spari sei salvo per tutto il rintocco, ma a terra non spari. L\'altro vede il tuffo e può tenersi il colpo. Prima della campana il tuffo è sprecato.</p><p>💡 <b>Combo</b>: una <b>salve</b> che prende l\'altro lo stordisce: al rintocco dopo non può né sparare né tuffarsi. Salve + vero = colpo sicuro… se lui non sta al riparo.</p><p>Da solo sfidi <b>lo Sceriffo</b>: alla fine di ogni manche i tamburi si svelano… e lui si ricorda come carichi il tuo.</p></details>';
 
   CQ_MODES.bari = {
     n: 'Duello all\'alba dei bari',
@@ -843,10 +880,9 @@
     },
     btn(G) {
       if (!G.st || G.st.ph !== 'duel') return null; const p = PS(G, G.me); if (p.d) return null;
-      const T = lt(G); if (fired(G, G.me) >= 5 || stunned(G, G.me, T) || winOpen(G, T) >= 0) return null;
-      const d = U2.myD || [], n = fired(G, G.me); return { t: '↻ Gira il tamburo', on: !d[n] && d.slice(n + 1).some(Boolean) };   // acceso quando hai una salve in canna
+      return null;   // (gira il tamburo tolto: ora ci sono i tuffi)
     },
-    act(G) { mySpin(G); },
+    act() {},
     view(G) {   // nei tre passi la telecamera sta in mezzo ai due; quando uno cade si avvicina
       const V = G.vw || (G.vw = { z: 0.92, x: 0, y: 0 }), st = G.st; let tx = 0, ty = 0, tz = 0.92, k = 0.08;
       if (st && (st.ph === 'load' || st.ph === 'walk')) { tx = MX - cq.x; ty = Y0 - cq.y; tz = st.ph === 'load' ? 1.15 : 1.0; }
@@ -887,7 +923,8 @@
       const st = G.st; if (!st) return;
       if (o.k === 'drum') { const d = fromMask(+o.m || 0); if (okDrum(d) && st.ph === 'load') G.drum[c.id] = d; }
       else if (o.k === 'rdy' && st.ph === 'load') { if (o.on && okDrum(G.drum[c.id])) st.rd[c.id] = 1; else delete st.rd[c.id]; }
-      else if (o.k === 'act' && st.ph === 'duel' && G.acts && o.a === 's') { const k = +o.b; if (k === G.wk && !G.acts[c.id] && !G.res[c.id]) G.acts[c.id] = { a: 's', rt: Math.max(0, Math.min(WIN, +o.rt || 0)), h: o.h ? 1 : 0 }; }
+      else if (o.k === 'act' && st.ph === 'duel' && G.acts && (o.a === 's' || o.a === 'd')) { const k = +o.b; if (k === G.wk && !G.acts[c.id] && !G.res[c.id]) G.acts[c.id] = { a: o.a, rt: Math.max(0, Math.min(WIN, +o.rt || 0)), h: o.h ? 1 : 0 }; }
+      else if (o.k === 'divew' && st.ph === 'duel') { if (winOpen(G, G.time) < 0) diveWaste(G, c); }
       else if (o.k === 'early' && st.ph === 'duel') { if (winOpen(G, G.time) < 0) dishonor(G, c); }
       else if (o.k === 'spin' && st.ph === 'duel') spin(G, c);
     },
@@ -907,6 +944,12 @@
             const kf = U2.slow && U2.slow.id === c.id ? Math.min(1, (now() - U2.slow.t) / 0.9) : 1;
             longShadow(g, X, Y, TW, 1.2, 0.18); g.save(); g.translate(X, Y); g.rotate(-ff * 1.45 * kf); g.translate(-X, -Y); cowboy(g, X, Y, TW, L2, 0, ff, s, Object.assign(opt, { aim: 0, noHat: true })); g.restore(); return;
           }
+          { const T2 = lt(G2), dv = st && st.ph === 'duel' && ((p.dk === st.bk && T2 >= st.bt && T2 < st.bt + WIN + 0.25) || (p.dw && T2 - p.dw >= 0 && T2 - p.dw < 0.9) || (me && U2.myDive && U2.myDive.k === st.bk && now() - U2.myDive.t < 1.8 && T2 < st.bt + WIN + 0.25));
+            if (dv) {   // TUFFO: disteso nella polvere, di lato, con un po' di polvere che si alza
+              const k2 = Math.min(1, ((p.dt != null && p.dk === st.bk ? T2 - p.dt : p.dw ? T2 - p.dw : me && U2.myDive ? now() - U2.myDive.t : 1)) / 0.18);
+              longShadow(g, X, Y, TW, 1.3, 0.18); g.fillStyle = 'rgba(200,154,106,.5)'; for (let i = 0; i < 4; i++) { g.beginPath(); g.arc(X + (i - 1.5) * TW * 0.2, Y - TW * 0.05, TW * (0.1 + 0.05 * (i % 2)), 0, 7); g.fill(); }
+              g.save(); g.translate(X, Y); g.rotate(ff * 1.35 * k2); g.translate(-X, -Y + TW * 0.08 * k2); cowboy(g, X, Y, TW, L2, 0, ff, s, Object.assign(opt, { aim: 0 })); g.restore(); return;
+            } }
           longShadow(g, X, Y, TW, 2.3, 0.16);
           const sh2 = U2.fx.some(e => e.k === 'hat' && e.id === c.id && now() - e.t < 0.35) ? Math.sin(now() * 70) * 3 : 0;
           cowboy(g, X + sh2, Y, TW, L2, w, ff, s, opt);
@@ -926,6 +969,7 @@
           else { g.strokeStyle = 'rgba(255,230,200,.55)'; g.lineWidth = 1.4; g.stroke(); } }
         g.restore(); }
       if (stunned(G, c, T)) { g.save(); g.font = '14px system-ui'; g.textAlign = 'center'; for (let i = 0; i < 3; i++) { const a = T * 5 + i * 2.1; g.fillText('⭐', X + Math.cos(a) * TW * 0.35, Y - H * 0.85 + Math.sin(a) * TW * 0.1); } g.restore(); }
+      if (st.ph !== 'load') { g.save(); g.font = '12px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; const dv = p.dv || 0; g.globalAlpha = 0.95; g.fillText(dv ? '🤸'.repeat(dv) : '🚫🤸', X + 11 * 2.5 + 22, top); g.restore(); }   // i tuffi rimasti, accanto ai colpi
       if (p.nf === st.bk && T < st.bt + WIN) { g.save(); g.font = '700 13px system-ui'; g.textAlign = 'center'; g.fillStyle = '#ffb0a0'; g.fillText('😳 disonorato', X, top - 14); g.restore(); }
       if (st.say && st.say.id === c.id && T - st.say.t < 4 && T >= st.say.t) {   // fumetto dello Sceriffo
         const t = st.say.x; g.save(); g.font = '600 12.5px system-ui'; const w = Math.min(230, g.measureText(t).width + 18), bx = X - w / 2, by = top - 44;
@@ -992,5 +1036,5 @@
     } }
   // esce dalla partita: via i pannelli e i pulsanti
   cqEachFrame(() => { const G = cq.g; if ((!G || G.mode !== 'bari' || G.phase !== 'play') && (document.getElementById('baLoad') || document.getElementById('baShoot') || document.getElementById('baRes'))) { loadClose(); resClose(); duelUI(G || {}, false); U2.ph = ''; } });
-  window.__bari = { U2, BLD, FIXED, genCovers, coverHit, dangerOf, shMem, shRead, botAct, newRound, resolve, hostDuel, spin, dishonor, schedBell, wob, onTarget, mapBari, fromMask, toMask, okDrum, randDrum, cowboy, X0, Y0, WIN, AIM_T, MAXB, tb, bellK, winOpen, PS, fired, stunned, myAct, mySpin, setReady, lt, SFX };
+  window.__bari = { U2, BLD, FIXED, genCovers, coverHit, dangerOf, shMem, shRead, botAct, newRound, resolve, hostDuel, spin, dishonor, schedBell, wob, onTarget, mapBari, fromMask, toMask, okDrum, randDrum, cowboy, X0, Y0, WIN, AIM_T, MAXB, tb, bellK, winOpen, PS, fired, stunned, myAct, myDive, mySpin, setReady, lt, SFX };
 })();
