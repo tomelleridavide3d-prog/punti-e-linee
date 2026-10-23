@@ -112,6 +112,7 @@
       if (t === 'tv') LIGHTS.push({ x: x + 1.2, y: y + 0.5, r: 2, c: [0.04, 0.1, 0.2] });
       if (t === 'pool' && o === '1,0,4,2') LIGHTS.push({ x: x + 1, y: y + 1, r: 3.2, c: [0.34, 0.27, 0.12] });   // lampada sopra il biliardo
       if (t === 'hockey' && o === '0,1,2,3') LIGHTS.push({ x: x + 1, y: y + 0.5, r: 2.6, c: [0.06, 0.12, 0.26] });   // luce fredda dell'air hockey
+      if (t === 'claw') LIGHTS.push({ x: x + 0.5, y: y + 1, r: 2.4, c: [0.24, 0.08, 0.2] });   // luci rosa della gru
       if (t === 'candy') LIGHTS.push({ x: x + 0.5, y: y + 0.9, r: 2.2, c: [0.22, 0.08, 0.18] });   // il vetro delle caramelle fa una luce rosata
     }
     LIGHTS.push({ x: R - 2.5, y: 1.6, r: 2.4, c: [0.26, 0.2, 0.08] });   // faretto sul bersaglio delle freccette
@@ -153,7 +154,7 @@
     const k = x + ',' + y; if (FL.has(k)) return FL.get(k);
     const S = spr(32, 17, 16, 0), solid = cqSolid[y] && cqSolid[y][x] && cqSolid[y][x].prop && cqSolid[y][x].prop !== 'gdoor';
     const var0 = 0.96 + 0.07 * h2(x, y), tint = (h2(y, x) - 0.5) * 0.06;
-    const SHL = { pool: 0.25, hockey: 0.25, candy: 0.36, counter: 0.42, monitor: 0.42, plant: 0.4, lamp: 0.22, sofa: 0.34, table: 0.28, tv: 0.3, coffee: 0.4, rack: 0.45, crate: 0.32, crate2: 0.45, bell: 0.3 };
+    const SHL = { claw: 0.4, pool: 0.25, hockey: 0.25, candy: 0.36, counter: 0.42, monitor: 0.42, plant: 0.4, lamp: 0.22, sofa: 0.34, table: 0.28, tv: 0.3, coffee: 0.4, rack: 0.45, crate: 0.32, crate2: 0.45, bell: 0.3 };
     const ln = cqSolid[y] && cqSolid[y][x - 1], shLen = ln && ln.prop ? SHL[ln.prop] || 0 : 0, up = cqSolid[y - 1] && cqSolid[y - 1][x], shUp = up && up.prop ? (SHL[up.prop] || 0) * 0.5 : 0;
     S.top(0, 0, 1, 1, 0, (u, v, X, Y) => {
       const wx = x + u, wy = y + v, Xg = (x - y) * 16 + X, Yg = (x + y) * 8 + Y;
@@ -374,6 +375,19 @@
           ballAt(w * 0.27, h / 2, hx('#f4f0e6'));
         } else { ballAt(w / 2, h * 0.5, hx('#1a1a1a')); ballAt(w / 2, h * 0.2, hx('#2a5ad8')); ballAt(w / 2, h * 0.8, hx('#d8342a')); }
         skip = () => true;
+        break;
+      }
+      case 'claw': {   // gru dei peluche: mobile rosa, vetro con i peluche colorati, insegna con le lampadine, buca dei premi
+        const pk = hx('#c8508e'), pk2 = hx('#e87ab0'), t2 = Math.floor(performance.now() / 400);
+        S.box(0.1, 0.12, 0.9, 0.88, 0, 0.95, pk, { l: (s, tt) => { if (s > 0.14 && s < 0.44 && tt > 0.28 && tt < 0.72) return tt < 0.34 || s < 0.18 || s > 0.4 ? C.gold : hx('#1a0a14'); if (s > 0.62 && s < 0.8 && tt > 0.45 && tt < 0.7) return s < 0.66 || s > 0.76 || tt < 0.5 || tt > 0.65 ? C.gold : hx('#2a1a20'); return tt > 0.9 ? C.gold : sh(pk, 0.9); }, r: sh(pk, 0.65), t: pk2 });
+        S.emit = 1;
+        S.faceY(0.14, 0.86, 0.84, 0.95, 2.15, (s, tt, X, Y) => { const b = Math.floor(s * 6 + Math.floor(tt * 4) * 0.5), h = (b * 37 + Math.floor(tt * 4) * 11) % 7; if (tt < 0.42) return hx(['#f4a8c8', '#a8e0c8', '#f8c8a0', '#c8b8f0', '#4a9ae8', '#f2c230', '#f4f0e6'][h]); if (s > 0.42 && s < 0.5 && tt > 0.55) return hx('#d8dce4'); if (s > 0.36 && s < 0.56 && tt > 0.5 && tt < 0.58) return hx('#c8ccd4'); return mix(hx('#5a3a6a'), hx('#c8e0f8'), (s + tt) % 0.35 < 0.04 ? 0.6 : 0.12); });
+        S.faceX(0.86, 0.16, 0.84, 0.95, 2.15, (s, tt) => tt < 0.42 ? hx(['#f8c8a0', '#c8b8f0', '#f4a8c8'][Math.floor(s * 3) % 3]) : mix(hx('#4a2a5a'), hx('#c8e0f8'), 0.1));
+        S.emit = 0;
+        S.box(0.08, 0.1, 0.92, 0.9, 2.15, 2.35, pk);
+        S.emit = 1; S.faceY(0.08, 0.92, 0.9, 2.35, 2.75, (s, tt) => { const bulb = Math.abs(fr(s * 7) - 0.5) < 0.18 && (tt < 0.22 || tt > 0.78); if (bulb) return (Math.floor(s * 7) + t2) % 2 ? hx('#fff3a0') : hx('#c89a40'); return tt > 0.35 && tt < 0.65 && fr(s * 5) < 0.6 ? hx('#fff3c4') : pk2; }); S.emit = 0;
+        S.box(0.08, 0.1, 0.92, 0.9, 2.75, 2.82, sh(pk, 0.8));
+        glow.push([0.5, 0.9, 2.5, 1.8, 'rgba(255,120,200,.25)']);
         break;
       }
       case 'candy': {   // distributore delle caramelle pazze: mobiletto rosso con la feritoia delle monete e lo sportellino, boccia di vetro piena di caramelle, cappello rosso

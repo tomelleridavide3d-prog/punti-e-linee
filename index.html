@@ -400,6 +400,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
     <div class="pkSkins" id="pkSkins"></div>
     <div id="pkOmino"><div class="lbl">Colore</div><div class="pkCols" id="pkCols"></div><div class="lbl">Cappello</div><div class="pkHats" id="pkHats"></div></div>
     <p class="hint" id="pkRac" style="text-align:center"></p>
+    <div id="pkAcc"><div class="lbl">🎒 I miei accessori · Testa</div><div class="pkHats" id="pkHt"></div><div class="lbl">Faccia</div><div class="pkHats" id="pkFc"></div></div>
     <button class="btn primary go" id="pkGo" type="button">Entra sul set</button>
   </div></div>
   <div id="cqHud"><div class="cqRole" id="cqRole"></div><div class="cqSab" id="cqSab" hidden></div><div class="cqBar"><span id="cqBarTxt">Riprese</span><div><i id="cqBarFill"></i></div></div><div class="cqSurv" id="cqSurv" hidden></div><div class="cqList" id="cqList"></div></div>
@@ -2330,7 +2331,7 @@ function cqMapHotel() {
   for (let i = 0; i < nd; i++) { const g = CQ_GAMES[i], x = 12 + 2 * i; pp('gdoor', x, 1, { c: g ? g[3] : '#6b6f78', k: g ? g[0] : null }); decals.push([x + 0.12, 2.1, 0.76, 0.7, '#5a3e26']); if (i < nd - 1) pp('plant', x + 1, 1); }
   // angolo giochi (disposizione approvata il 23-10-2026): lampada R-4,1; bersaglio e lavagna dei record dipinti sul muro (R-3 e R-2..R-1, giochi/lib/pixel.js);
   // R,1 riservata alla gru; corsia di tiro x R-4..R-2, y 2-4 libera; linea di tiro a y 5. Liberi per il biliardo x R-12..R-9, y 7-8 e l'air hockey x R-6..R-5, y 8-9
-  pp('lamp', R - 4, 1);
+  pp('lamp', R - 4, 1); pp('claw', R, 1);   // claw: la gru dei peluche nell'angolo (giochi/pesca.js)
   // tavolo da biliardo (4 x 2) e air hockey (2 x 3): ogni casella sa quale pezzo e' ('i,j,larghezza,profondita'), il disegno e' in giochi/lib/pixel.js
   for (let i = 0; i < 4; i++) for (let j = 0; j < 2; j++) pp('pool', R - 12 + i, 7 + j, i + ',' + j + ',4,2');
   for (let i = 0; i < 2; i++) for (let j = 0; j < 3; j++) pp('hockey', R - 6 + i, 7 + j, i + ',' + j + ',2,3');
@@ -2425,9 +2426,12 @@ const CQ_SKINS = {
   pane: { n: 'Banana bread', col: '#c8843a', d: 'Una banana tra due fette di pane. Ha qualcosa da nascondere.' },
   lupo: { n: 'Lupo T-rex', col: '#8c8a84', d: 'Un lupo cecoslovacco che cammina come un T-rex: braccini corti, zainetto e fiocco rosa. Ti tiene d\'occhio.' }
 };
+// cqSkinDef: personaggi normali (CQ_SKINS) ed esclusivi della gru (CQX.SKINS, giochi/lib/guardaroba.js)
+const cqSkinDef = k => CQ_SKINS[k] || (window.CQX && CQX.SKINS[k]) || null;
 function cqLook() {
-  const L = store.settings.cqLook || {}, skin = CQ_SKINS[L.skin] ? L.skin : 'omino';
-  return { skin, col: skin !== 'omino' ? CQ_SKINS[skin].col : CQ_COLORS.includes(L.col) ? L.col : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'borsalino' };
+  const L = store.settings.cqLook || {}, X = window.CQX, skin = CQ_SKINS[L.skin] || (X && X.SKINS[L.skin] && X.owned(L.skin)) ? L.skin : 'omino';
+  return { skin, col: skin !== 'omino' ? cqSkinDef(skin).col : CQ_COLORS.includes(L.col) ? L.col : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'borsalino',
+    ht: X && L.ht && X.validHead(L.ht) && X.owned(L.ht) ? L.ht : '', fc: X && L.fc && X.validFace(L.fc) && X.owned(L.fc) ? L.fc : '' };   // ht/fc: accessori Testa e Faccia
 }
 function cqOpenPick() {
   if (cq.ready) cqReadySet(false);
@@ -2435,13 +2439,21 @@ function cqOpenPick() {
   const sync = () => {
     const l = cqLook();
     $('#pkSkins').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.s === l.skin));
-    $('#pkOmino').hidden = l.skin !== 'omino'; $('#pkRac').hidden = l.skin === 'omino'; $('#pkRac').textContent = CQ_SKINS[l.skin].d;
+    $('#pkOmino').hidden = l.skin !== 'omino'; $('#pkRac').hidden = l.skin === 'omino'; $('#pkRac').textContent = cqSkinDef(l.skin).d;
+    if (window.CQX) { $('#pkHt').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.a === l.ht)); $('#pkFc').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.a === l.fc)); }
     $('#pkCols').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.c === l.col));
     $('#pkHats').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.h === l.hat));
   };
   const set = (k, v) => { const o = Object.assign(cqLook(), { [k]: v }); if (k === 'skin' && v === 'omino' && !CQ_COLORS.includes(o.col)) o.col = CQ_COLORS[0]; store.settings.cqLook = o; saveStore(); sync(); };
-  $('#pkSkins').innerHTML = Object.entries(CQ_SKINS).map(([k, v]) => `<button type="button" class="btn" data-s="${k}"><canvas width="88" height="88"></canvas><span>${v.n}</span></button>`).join('');
-  $('#pkSkins').querySelectorAll('button').forEach(b => { const g = b.querySelector('canvas').getContext('2d', CQ_CPU); g.setTransform(2, 0, 0, 2, 0, 0); const k = b.dataset.s; cqPlayer(g, 22, 40, 17, k === 'omino' ? Object.assign(cqLook(), { skin: 'omino' }) : { skin: k, col: CQ_SKINS[k].col, hat: 'nessuno' }, 0, 1); });
+  $('#pkSkins').innerHTML = Object.entries(CQ_SKINS).concat(window.CQX ? CQX.skins().map(k => [k, Object.assign({ ex: 1 }, CQX.SKINS[k])]) : []).map(([k, v]) => `<button type="button" class="btn" data-s="${k}"><canvas width="88" height="88"></canvas><span>${v.ex ? '✨ ' : ''}${v.n}</span></button>`).join('');
+  $('#pkSkins').querySelectorAll('button').forEach(b => { const g = b.querySelector('canvas').getContext('2d', CQ_CPU); g.setTransform(2, 0, 0, 2, 0, 0); const k = b.dataset.s; cqPlayer(g, 22, 40, 17, k === 'omino' ? Object.assign(cqLook(), { skin: 'omino', ht: '', fc: '' }) : { skin: k, col: cqSkinDef(k).col, hat: 'nessuno' }, 0, 1); });
+  // accessori Testa / Faccia (giochi/lib/guardaroba.js): i 6 cappelli di serie per tutti e i premi della gru
+  if (window.CQX) {
+    $('#pkHt').innerHTML = `<button type="button" class="btn" data-a="">Di serie</button>` + CQX.heads().map(h => `<button type="button" class="btn" data-a="${h}">${esc(CQX.nameOf(h))}</button>`).join('');
+    const fs2 = CQX.faces(); $('#pkFc').innerHTML = `<button type="button" class="btn" data-a="">Niente</button>` + fs2.map(h => `<button type="button" class="btn" data-a="${h}">${esc(CQX.nameOf(h))}</button>`).join('') + (fs2.length ? '' : '<span class="hint" style="align-self:center">Pescali con la gru della hall!</span>');
+    $('#pkHt').onclick = e => { const b = e.target.closest('[data-a]'); if (b) set('ht', b.dataset.a); };
+    $('#pkFc').onclick = e => { const b = e.target.closest('[data-a]'); if (b) set('fc', b.dataset.a); };
+  }
   $('#pkCols').innerHTML = CQ_COLORS.map(c => `<button type="button" data-c="${c}" style="background:${c}" aria-label="colore"></button>`).join('');
   $('#pkHats').innerHTML = CQ_HATS.map(([h, n]) => `<button type="button" class="btn" data-h="${h}">${n}</button>`).join('');
   $('#pkCols').onclick = e => { const b = e.target.closest('[data-c]'); if (b) set('col', b.dataset.c); };
@@ -2716,7 +2728,7 @@ function cqShop(back) {
 // regole, riunioni. Gli altri mandano posizione e azioni (cq/<codice>/pos, /ev) e ricevono lo stato ~8 volte al secondo (/st).
 // cqlist/<codice> = set aperti, visibili a tutti nella stanza d'attesa. ----
 const cqNetRef = p => hub.fb.ref(hub.fb.db, p);
-const cqNetLook = L => { L = L || {}; const skin = CQ_SKINS[L.skin] ? L.skin : 'omino'; return { skin, col: typeof L.col === 'string' ? L.col.slice(0, 20) : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'nessuno' }; };
+const cqNetLook = L => { L = L || {}; const X = window.CQX, skin = CQ_SKINS[L.skin] || (X && X.SKINS[L.skin]) ? L.skin : 'omino'; return { ht: X && typeof L.ht === 'string' && X.validHead(L.ht) ? L.ht : '', fc: X && typeof L.fc === 'string' && X.validFace(L.fc) ? L.fc : '', skin, col: typeof L.col === 'string' ? L.col.slice(0, 20) : CQ_COLORS[0], hat: CQ_HATS.some(h => h[0] === L.hat) ? L.hat : 'nessuno' }; };
 function cqNetWatch() {
   if (!WEB || cq.setsUnsub) return;
   hubLoad().then(F => {
@@ -3765,7 +3777,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()));
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()) && !(window.GR && GR.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -4107,7 +4119,7 @@ function cqBubble(g, X, Y, t) {
 // il mio stato per gli altri del set (ogni 0,15 s se cambia, altrimenti ogni 2 s)
 function cqHallPub(now) {
   const N = cq.net, G = cq.g; if (!N || !G || !G.hall) return;
-  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, k: G.me.alive || !G.me.slap ? 0 : 1, s: cq.sit != null ? cq.sit + 1 : 0, dk: cq.dk || 0, sw: cq.sw || 0, cy: window.HL ? HL.pub() : 0, i: 1 }, k = JSON.stringify(o), t = performance.now();
+  const o = { x: Math.round(cq.x * 100) / 100, y: Math.round(cq.y * 100) / 100, f: cq.face, w: cq.walk ? 1 : 0, r: cqHallReady() ? 1 : 0, d: G.me.alive ? 0 : 1, k: G.me.alive || !G.me.slap ? 0 : 1, s: cq.sit != null ? cq.sit + 1 : 0, dk: cq.dk || 0, sw: cq.sw || 0, cy: window.HL ? HL.pub() : 0, pz: window.GR ? GR.pub() : 0, i: 1 }, k = JSON.stringify(o), t = performance.now();
   if (!now && (t - (N.hlT || 0) < 150 || (k === N.hlK && t - N.hlT < 2000))) return;
   N.hlT = t; N.hlK = k; o.t = Math.round(t); cqNetPut(`cq/${N.code}/hl/${N.sid}`, o);
 }
@@ -4158,7 +4170,7 @@ function cqHallNet() {
     c.name = String(p.name || 'Amico').slice(0, 14); c.look = cqNetLook(p.look); c.dname = c.name + (h.r ? ' ✅' : '');
     if (h !== c.lh) { c.lh = h; cqNetGot(c, h.x, h.y, (h.t != null ? h.t : performance.now()) / 1000, h.w); }
     c.face = h.f === -1 ? -1 : 1; c.mv = h.w;
-    c.sit = h.s ? h.s - 1 : null; c.cy = h.cy || 0;   // cy: effetto della caramella (giochi/hall.js)
+    c.sit = h.s ? h.s - 1 : null; c.cy = h.cy || 0; c.pz = h.pz || 0;   // cy: effetto della caramella (giochi/hall.js), pz: ultimo leggendario della gru (giochi/pesca.js)
     if (h.dk !== c.dkN) { if (c.dkN != null) c.dkT = G.time; c.dkN = h.dk; }   // ha cominciato a bere
     if (h.sw !== c.swN) { if (c.swN != null) c.swT = G.time; c.swN = h.sw; }   // ha dato uno schiaffo
     if (h.d && c.alive && !(c.pred > G.time)) cqHallDie(c, '', h.k ? { x0: c.x, y0: c.y, x1: c.tx, y1: c.ty, f: c.tx - c.x - (c.ty - c.y) >= 0 ? 1 : -1 } : null);
@@ -4180,6 +4192,7 @@ function cqHallTick(dt) {
   if (window.DA) DA.tick(G, dt);   // freccette (pulsante sulla linea di tiro, sfide, lavagna dei record)
   if (window.BI) BI.tick(G, dt); if (window.AH) AH.tick(G, dt);   // biliardo e air hockey (giochi/lib/tavolo.js)
   if (window.SC) SC.tick(G, dt);   // scopa al tavolino (sfide e chi guarda)
+  if (window.GR) GR.tick(G, dt);   // gru dei peluche (pulsante, annunci dei leggendari, papera che squittisce)
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
     if (c === G.me) continue;
@@ -6278,7 +6291,7 @@ function cqName(g, X, Y, name, col) {
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
 // altezza del nome sopra la testa (in larghezze di tessera), secondo il personaggio
-const cqTop = L => L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'pinguino' ? 2.2 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' || L.skin === 'lupo' ? 2.0 : L.skin === 'pane' ? 1.8 : 1.9;
+const cqTop = L => window.CQX && (L.ht || CQX.SKINS[L.skin]) && CQX.top(L) ? CQX.top(L) : L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'pinguino' ? 2.2 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' || L.skin === 'lupo' ? 2.0 : L.skin === 'pane' ? 1.8 : 1.9;
 const CQ_EYES = {
   pinguino: [[[3.5, -45], [8.2, -45]], 2.8, '#f4f4f4'], bassotto: [[[12.5, -22], [16.5, -22.2]], 2.3, '#a0582a'], palma: [[[0.3, -27], [5, -27.2]], 2.4, '#9a6a3a'],
   gatto: [[[0, -29], [8, -29]], 2.8, '#e08a3a'], regista: [[[1.5, -32.5], [7, -32.5]], 1.9, '#f0c8a0'], guardia: [[[2, -31], [7.5, -31]], 2, '#f0c8a0'],
@@ -6305,7 +6318,8 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
   const s = L.skin;
   // occhio sospettoso: palpebra mezza chiusa del colore della pelle, pupilla di lato
   const susEye = (x, y, r, lid) => { ell(x, y, r, r * 1.15, '#fff'); ell(x + f * r * 0.5, y + r * 0.3, r * 0.5, r * 0.6, '#111'); ell(x, y - r * 0.62, r * 1.12, r * 0.75, lid); };
-  if (s === 'pinguino') {
+  if (window.CQX && CQX.draw[s]) CQX.draw[s]({ g, f, sw, walk, L, ell, bean, side, feet, tri, line, susEye });   // personaggi esclusivi della gru
+  else if (s === 'pinguino') {
     // pinguino snello con la giacca rossa: testa nera con faccia bianca e becco, corpo stretto, camicia bianca davanti
     ell(-5 + sw, -1.5, 4.6, 2.4, '#f08a24'); ell(5 - sw, -1.5, 4.6, 2.4, '#f08a24');
     ell(-f * 11, -23, 3, 9, '#c0392b', f * 0.25); ell(-f * 12, -14.5, 2.4, 3.2, '#22262d');
@@ -6386,7 +6400,7 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     ell(1.5 * f, -27.5, 4, 1.8, '#1a1a1a', 0.2 * f); ell(7.5 * f, -27.5, 4, 1.8, '#1a1a1a', -0.2 * f); ell(-2.3 * f, -28.8, 1.5, 1.5, '#1a1a1a'); ell(11.3 * f, -28.8, 1.5, 1.5, '#1a1a1a');
     ell(0, -21, 13, 3, '#d0383a'); ell(-f * 7, -16, 3, 5.5, '#d0383a', f * 0.2);
     side();
-    ell(f * 1, -40, 14, 5, '#1d1f24', -f * 0.15); ell(0, -43, 10, 4.5, '#2a2d34', -f * 0.15); g.fillStyle = '#1d1f24'; g.fillRect(-1, -49, 2, 4);
+    if (!L.ht) { ell(f * 1, -40, 14, 5, '#1d1f24', -f * 0.15); ell(0, -43, 10, 4.5, '#2a2d34', -f * 0.15); g.fillStyle = '#1d1f24'; g.fillRect(-1, -49, 2, 4); }   // basco (via se c'e' un cappello della gru)
   } else if (s === 'guardia') {
     // guardia notturna un po' brilla: dondola sempre
     g.rotate(Math.sin(performance.now() / 420) * 0.07 + Math.sin(walk * 0.5) * 0.05);
@@ -6397,7 +6411,7 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     line(0.5 * f, -31, 3.5 * f, -31, '#222', 1.3); line(6 * f, -31, 9 * f, -31, '#222', 1.3);
     ell(8 * f, -27, 3, 2.6, '#e0453a'); line(3 * f, -23.5, 7 * f, -24, '#7a3a2a', 1);
     side();
-    ell(0, -40, 13, 6, '#1d2a4a'); g.fillStyle = '#2a3a6a'; g.fillRect(-12, -41, 24, 4); ell(f * 8, -37.5, 8, 2.5, '#111'); ell(0, -43, 1.8, 1.8, '#f2c230');
+    if (!L.ht) { ell(0, -40, 13, 6, '#1d2a4a'); g.fillStyle = '#2a3a6a'; g.fillRect(-12, -41, 24, 4); ell(f * 8, -37.5, 8, 2.5, '#111'); ell(0, -43, 1.8, 1.8, '#f2c230'); }
     g.save(); g.translate(f * 15, -14); g.rotate(f * 0.45);
     g.fillStyle = '#2f8a3a'; cqRR(g, -3.2, -10, 6.4, 14, 2); g.fill(); g.fillRect(-1.4, -15, 2.8, 6); g.fillStyle = '#c0392b'; g.fillRect(-1.6, -16.5, 3.2, 2); g.fillStyle = '#efe7dd'; g.fillRect(-3.2, -6, 6.4, 4);
     g.restore();
@@ -6477,7 +6491,8 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     for (const dx of [4.5, 11]) { ell(f * dx, -31.5, 3, 3.5, '#fff'); ell(f * (dx + 1.6), -30.6, 1.5, 1.7, '#111'); ell(f * dx, -33.4, 3.4, 2.3, '#4f9a34'); }
     line(f * 2, -36.2, f * 7, -34.8, '#2a4a1a', 1.5); line(f * 8.8, -36.5, f * 13.5, -38, '#2a4a1a', 1.5);
     g.strokeStyle = '#2a4a1a'; g.lineWidth = 1.3; g.lineCap = 'round'; g.beginPath(); g.moveTo(f * 6, -24.8); g.quadraticCurveTo(f * 9, -25.6, f * 12.5, -26.8); g.stroke();
-    // cappello da cowboy
+    // cappello da cowboy (via se c'e' un cappello della gru)
+    if (!L.ht) {
     g.save(); g.translate(f * 7, -1);
     ell(0, -39.5, 19, 5, '#7a4a20');
     ell(-16, -42.5, 4.5, 2.6, '#7a4a20', -0.6); ell(16, -42.5, 4.5, 2.6, '#7a4a20', 0.6);
@@ -6485,6 +6500,7 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     g.fillStyle = '#4a2e18'; g.fillRect(-9.5, -44.5, 19, 3.2);
     ell(f * 5, -43, 1.5, 1.5, '#f2c230');
     g.restore();
+    }
   } else if (s === 'pane') {
     // banana bread: una banana tra due fette di pane in cassetta (crosta dorata, mollica chiara), gambette e braccini, faccia sospettosa sulla fetta davanti
     const slice = (dx, dy, crust, crumb) => {
@@ -6538,7 +6554,7 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     // orecchie a punta
     for (const [x, k] of [[11, -0.12], [16.5, 0.1]]) { tri([[f * (x - 3.2), -44], [f * (x + 0.5 + k * 8), -55], [f * (x + 3.4), -44.5]], fur); tri([[f * (x - 1.4), -45], [f * (x + 0.4 + k * 6), -51.5], [f * (x + 1.8), -45.2]], '#4a4846'); }
     // fiocco rosa tra le orecchie
-    tri([[f * 13.6, -48.6], [f * 9.2, -52.4], [f * 9.6, -45.6]], '#f08ab8'); tri([[f * 13.6, -48.6], [f * 18, -52], [f * 17.4, -45.2]], '#f08ab8'); ell(f * 13.6, -48.6, 1.8, 1.8, '#d86a9c');
+    if (!L.ht) { tri([[f * 13.6, -48.6], [f * 9.2, -52.4], [f * 9.6, -45.6]], '#f08ab8'); tri([[f * 13.6, -48.6], [f * 18, -52], [f * 17.4, -45.2]], '#f08ab8'); ell(f * 13.6, -48.6, 1.8, 1.8, '#d86a9c'); }
     // occhi ambra con la palpebra mezza chiusa e le sopracciglia storte
     for (const x of [15.5, 19.8]) { ell(f * x, -41, 1.9, 2.1, '#e8a83a'); ell(f * (x + 0.8), -40.6, 0.9, 1.4, '#111'); ell(f * x, -42.3, 2.3, 1.5, fur); }
     line(f * 13.4, -44, f * 17, -43.1, '#3a3632', 1.2); line(f * 18.4, -43.4, f * 22, -45, '#3a3632', 1.2);
@@ -6566,8 +6582,9 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
       ell(4 * f, -28, 8.5, 6, '#bfe3f2'); ell(6.5 * f, -30, 3, 1.8, 'rgba(255,255,255,.7)');
     }
     side();
-    cqHat(g, rac ? 'borsalino' : L.hat, f, rac);
+    if (!L.ht) cqHat(g, rac ? 'borsalino' : L.hat, f, rac);
   }
+  if (window.CQX && (L.ht || L.fc)) CQX.acc(g, L, f);   // accessori Testa e Faccia (giochi/lib/guardaroba.js)
   if (dead) cqDeadEyes(g, s, f);
   g.restore();
 }
@@ -6686,11 +6703,13 @@ applyPrefs(); render();
 })();
 </script>
 <script src="giochi/lib/pixel.js"></script>
+<script src="giochi/lib/guardaroba.js"></script>
 <script src="giochi/hall.js"></script>
 <script src="giochi/freccette.js"></script>
 <script src="giochi/lib/tavolo.js"></script>
 <script src="giochi/biliardo.js"></script>
 <script src="giochi/airhockey.js"></script>
 <script src="giochi/scopa.js"></script>
+<script src="giochi/pesca.js"></script>
 </body>
 </html>
