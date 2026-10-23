@@ -3790,6 +3790,9 @@ function cqHallEnter() {
   cqUseMap('hotel');
   const me = { id: 0, name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', bot: false, alive: true, imp: false, sid: cq.net ? cq.net.sid : null, face: 1, walk: 0 };
   const [x, y] = cqPickOne(CQ_RING); me.x = x + 0.5; me.y = y + 0.5;
+  // la hall nuova ha l'orologio da zero: via gli orari vecchi di schiaffo e sorso (con l'orario della hall di prima la mano dello schiaffo
+  // restava disegnata a raffica e Bevi restava bloccato, finche' non si dava un altro schiaffo / si beveva: bug segnalato il 23-10-2026)
+  cq.swT = null; cq.dkT = null;
   cq.g = { hall: true, phase: 'hall', chars: [me], me, bodies: [], time: 0, known: {}, opt: cqOpt(), sab: null, nid: 1, cd: null, song: 3 };
   cq.ready = false;   // dopo ogni partita ognuno dice di nuovo "Sono pronto"
   cq.x = me.x; cq.y = me.y; cq.face = 1; cq.near = null; cq.act = null; cq.actKey = ''; cq.tasks = []; cq.done = new Set();   // niente compiti della partita finita
@@ -3883,7 +3886,7 @@ function cqSitToggle() {
   thud(0.25, 300); cqHallPub(true);
 }
 function cqDrink() {
-  const G = cq.g; if (!G || !G.hall || cq.sit == null || G.time - (cq.dkT ?? -9) < 2.3) return;
+  const G = cq.g; if (!G || !G.hall || cq.sit == null || cq.dkT != null && G.time - cq.dkT >= 0 && G.time - cq.dkT < 2.3) return;
   cq.dkT = G.time; cq.dk = (cq.dk || 0) + 1; cqHallPub(true);
   for (let i = 0; i < 3; i++) beep(520 + i * 40, 0.06, 0.02, 0.85 + i * 0.22, 'sine');   // sorsi
 }
@@ -5954,7 +5957,8 @@ function cqDraw() {
     if (G.hall && cq.map === 'hotel') for (const p of cqSalaSeats()) {   // salotto: poltrone e tazze (chi beve ha la tazza in mano)
       const w = cqSalaWho(p.i), t = w ? (w === G.me ? (cq.dkT != null ? G.time - cq.dkT : null) : w.dkT != null ? G.time - w.dkT : null) : null;
       list.push({ chair: p, x: p.x, y: p.y, d: p.x + p.y });
-      list.push({ cup: p, x: p.cx, y: p.cy, t: t != null && t < 2.3 ? t : null, sitK: 0.29, d: t != null && t < 2.3 ? p.x + p.y + 0.03 : 15.02 });
+      const tt = t != null && t >= 0 && t < 2.3 ? t : null;   // (mai un tempo negativo: vedi cqHallReset)
+      list.push({ cup: p, x: p.cx, y: p.cy, t: tt, sitK: 0.29, d: tt != null ? p.x + p.y + 0.03 : 15.02 });
     }   // nk: senza il coltello (es. preso dalla Cosa)
     for (const ch of G.chars) {
       const n0 = list.length;
@@ -6172,7 +6176,7 @@ function cqRedraw(g, T, r, tx, ty, TW, list, rng = 10, B) {
     else if (c.dr) c.dr(g, X, Y, TW, c.L, c.w, c.f);   // M.draw: personaggio disegnato dal gioco (es. la Cosa)
     else if (c.pr) T.prop(c.pr[0], c.x - 0.5, c.y - 0.5, c.pr[1]);
     else if (c.tint) cqPlayerTint(g, X, Y, TW, c.L, c.w, c.f, c.tint);
-    else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y - (c.sitK || 0) * TW, TW, c.L, c.w, c.f, !!c.sitK); g.globalAlpha = 1; if (c.sw != null && c.sw < 0.45) cqSlapHand(g, X, Y - (c.sitK || 0) * TW, TW, c.f, c.sw); }
+    else { if (c.ghost) g.globalAlpha = 0.45; cqPlayer(g, X, Y - (c.sitK || 0) * TW, TW, c.L, c.w, c.f, !!c.sitK); g.globalAlpha = 1; if (c.sw != null && c.sw >= 0 && c.sw < 0.45) cqSlapHand(g, X, Y - (c.sitK || 0) * TW, TW, c.f, c.sw); }
   }
   g.restore();
 }
