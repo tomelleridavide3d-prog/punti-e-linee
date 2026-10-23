@@ -12,7 +12,7 @@
   const PILES = [[12.4, 5.3], [17.6, 5.3], [12.4, 12.7], [17.6, 12.7], [15, 2.4], [15, 15.6]];
   const FOUNT = [15, 9];
   const B_T0 = 55, B_T1 = 25, REVEAL = 2.8, FIGHT = 120, DOWN = 2.8, MRES = 6.5, WINS = 2, MAXR = 4;
-  const NV0 = 36, NV1 = 14, ASSI = 3, HAND = 3, HITS = 3, STOCK_MAX = 10;
+  const NV0 = 72, NV1 = 20, ASSI = 3, HAND = 3, HITS = 3, STOCK_MAX = 10;
   const SP = 0.5, HLEN = 0.3, TH1 = 0.16, TH2 = 0.28, WH1 = 0.82, WH2 = 0.94;
   const R1 = 0.31, R2 = 0.42, RP = 0.34;   // sagome per camminare (capsule intorno ai blocchi; il personaggio e' un quadrato di 0,3)
   const TURN = 0.7;   // 40 gradi di curva = un pilastro
@@ -549,7 +549,7 @@
     G.gn = []; G.gnN = G.gnN || 0;
     if (G.tut) G.st.bt = 999;
     regeo(G);
-    G.chars.forEach((c, i) => { const P = START[i % 2]; if (c === G.me) { cq.x = P[0]; cq.y = P[1]; } else if (!c.remote) { c.x = P[0]; c.y = P[1]; } c.path = []; c.face = i ? -1 : 1; });
+    G.chars.forEach((c, i) => { const P = START[i % 2]; c.x = P[0]; c.y = P[1]; if (c === G.me) { cq.x = P[0]; cq.y = P[1]; } c.path = []; c.face = i ? -1 : 1; });   // anche G.me: il motore dopo start rimette cq su G.me
     G.botBuildAt = G.time + 2.5 + Math.random() * 3;
   }
   function ev(G, k, a, b, c, d, e) { const st = G.st; st.en++; st.ev.push([st.en, k, r2(a), r2(b), c, d, e]); if (st.ev.length > 16) st.ev.shift(); }
@@ -785,10 +785,16 @@
     if (T - sl.t0 > SLED_T) { const P = posOf(G, charOf(G, sl.s)); st.sl = { ph: 'x' }; ev(G, 'sx', P.x, P.y, sl.s); return; }
     // TRAVOLTO: chi sta davanti allo slittino prende un colpo
     const o = 1 - sl.s, oc = charOf(G, o), P = posOf(G, charOf(G, sl.s)), Q = posOf(G, oc);
-    if (!st.p[o].d && !(oc.remote && cqLagging(oc)) && Math.hypot(P.x - Q.x, P.y - Q.y) < 0.75 && T - (sl.run || -9) > 1.5) { sl.run = r2(T); ev(G, 'run', Q.x, Q.y, sl.s); hitPlayer(G, o, Q.x, Q.y, sl.s); }
+    if (!st.p[o].d && !(oc.remote && cqLagging(oc)) && Math.hypot(P.x - Q.x, P.y - Q.y) < 0.75 && T - (sl.run || -9) > 1.5) {
+      sl.run = r2(T); let dx = Q.x - P.x, dy = Q.y - P.y, l = Math.hypot(dx, dy); if (l < 0.05) { dx = sl.s ? -1 : 1; dy = 0; l = 1; } dx /= l; dy /= l;
+      ev(G, 'run', Q.x, Q.y, sl.s, Math.round(dx * 100), Math.round(dy * 100)); hitPlayer(G, o, Q.x, Q.y, sl.s);
+      if (oc === G.me) knock(G, cq, dx, dy); else if (!oc.remote) { knock(G, oc, dx, dy); oc.path = []; }   // l'amico si sposta da solo quando riceve l'evento
+    }
     for (const g of G.gn.slice()) if (g.s === o && Math.hypot(g.x - P.x, g.y - P.y) < 0.7) killGnome(G, g);
     { const ig = iglooOf(G, o); if (ig && Math.hypot(ig[0] - P.x, ig[1] - P.y) < IG_R + 0.6 && T - (sl.ri || -9) > 0.8) { sl.ri = r2(T); igHit(G, o, ig[0], ig[1], 2); } }
   }
+  // sbalzato via di KNOCK caselle a piccoli passi (si ferma contro i muri)
+  function knock(G, o, dx, dy, dist = 1.4) { for (let k = 0; k < dist; k += 0.1) { const nx = o.x + dx * 0.1, ny = o.y + dy * 0.1; if (!freeAt(G, nx, ny)) break; o.x = nx; o.y = ny; } }
   function mountSled(G, s) {
     const st = G.st, sl = st.sl, p = st.p[s], P = posOf(G, charOf(G, s)); if (st.ph !== 'fight' || !sl || sl.ph !== 'w' || p.d || Math.hypot(P.x - sl.x, P.y - sl.y) > 1.3) return false;
     p.mk = null; st.sl = { ph: 'r', s, t0: r2(G.time), am: SLED_AM }; ev(G, 'sm', P.x, P.y, s);
@@ -878,7 +884,7 @@
     const s = sideOf(G, c), p = PSd(G, s), first = G.st.n === 1;
     if (first || !G.botFort) { const M = piMem(), w = FORTS.map(F => Math.exp((M.fw[F.n] || 0) * 0.55)), tot = w.reduce((a, b) => a + b, 0); let r = Math.random() * tot, i = 0; while (i < FORTS.length - 1 && (r -= w[i]) > 0) i++; G.botFort = G.tut ? FORTS[0] : FORTS[i]; }
     // prima manche: il suo fortino; dopo: prima riempie i buchi (senza ripassare), poi con la neve che resta ripassa (muri doppi)
-    for (const pass of first ? [0] : [1, 0]) for (const [k, pts] of G.botFort.st) { if (p.nv <= 0) break; const P = mx(s, pts); if (k === 'w') addStroke(G, s, P, { noThick: !!pass }); else if (k === 'i') { if (!p.ig && pass === 0) placeIgloo(G, s, P[0][0], P[0][1]); } else if (!pass) addAsse(G, s, P); }
+    for (const pass of first ? [0, 0] : [1, 0]) for (const [k, pts] of G.botFort.st) { if (p.nv <= 0) break; const P = mx(s, pts); if (k === 'w') addStroke(G, s, P, { noThick: !!pass }); else if (k === 'i') { if (!p.ig && pass === 0) placeIgloo(G, s, P[0][0], P[0][1]); } else if (!pass) addAsse(G, s, P); }
     p.rd = 1;
   }
   // un punto libero accanto a un mucchio (la casella del mucchio e' un oggetto: i percorsi non ci finiscono dentro)
@@ -986,6 +992,7 @@
 .nvPad{position:absolute;bottom:150px;width:84px;height:84px;border-radius:50%;border:3px solid rgba(255,255,255,.4);padding:0;background:radial-gradient(circle at 40% 35%,#4a6aa8,#1a2848);box-shadow:0 5px 16px rgba(0,0,0,.45);touch-action:none;user-select:none;-webkit-user-select:none;-webkit-tap-highlight-color:transparent;z-index:5;color:#fff;font-family:system-ui}
 .nvPad b{position:absolute;left:0;right:0;top:12px;font-size:28px;pointer-events:none;transition:transform .05s}.nvPad i{position:absolute;left:0;right:0;bottom:12px;font-style:normal;font-size:9.5px;font-weight:800;letter-spacing:.02em;pointer-events:none}
 #nvD{right:max(14px,4%)}#nvL{right:calc(max(14px,4%) + 94px);background:radial-gradient(circle at 40% 35%,#6a5aa8,#2a1a48)}.nvPad.off{opacity:.4}.nvPad.aim{border-color:#ffd24a;box-shadow:0 0 0 4px rgba(255,210,74,.3),0 5px 16px rgba(0,0,0,.45)}
+#ciack.nvFight #cqKill{bottom:272px;right:max(14px,4%)}
 #nvHand{position:absolute;right:max(14px,4%);bottom:242px;z-index:5;background:rgba(16,24,44,.75);color:#fff;border-radius:12px;padding:4px 9px;font:800 13px system-ui;pointer-events:none}
 #nvG{position:absolute;left:max(10px,3%);bottom:150px;z-index:5;display:flex;flex-direction:column;gap:6px;user-select:none;-webkit-user-select:none}#nvG .t{font:800 10px system-ui;color:#fff;text-align:center;text-shadow:0 1px 2px #000}
 #nvG button{width:62px;height:54px;border-radius:14px;border:2px solid rgba(255,255,255,.35);background:linear-gradient(#3a5a3a,#1e3a22);color:#fff;font:800 10px system-ui;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0;touch-action:manipulation}
@@ -1043,7 +1050,7 @@
   }
   // ---- LA FIONDA: due pulsanti, tiro DRITTO e PALLONETTO (trascini all'indietro, piu' lungo = piu' lontano) ----
   function fightUI(G, on) {
-    css(); for (const id of ['nvD', 'nvL', 'nvHand']) { const e = document.getElementById(id); if (!on && e) e.remove(); }
+    css(); { const r = ROOT(); if (r) r.classList.toggle('nvFight', !!on); } for (const id of ['nvD', 'nvL', 'nvHand']) { const e = document.getElementById(id); if (!on && e) e.remove(); }
     if (!on) { U.aim = null; return; }
     const mk = (id, ico, txt, ty) => {
       if (document.getElementById(id)) return; const b = document.createElement('button'); b.id = id; b.type = 'button'; b.className = 'nvPad'; b.innerHTML = `<b>${ico}</b><i>${txt}</i>`; ROOT().appendChild(b);
@@ -1105,7 +1112,7 @@
   function stage(G) {
     const st = G.st, key = st ? st.ph + st.n : ''; if (key === U.ph) return; const was = U.ph; U.ph = key; const p = st ? st.ph : '';
     buildUI(G, p === 'build'); fightUI(G, p === 'fight');
-    if (p === 'build') { U.tool = 'w'; if (st.n === 1 && !G.tut) helpOnce(); }
+    if (p === 'build') { const P = START[mySide(G)]; cq.x = P[0]; cq.y = P[1]; cq.face = mySide(G) ? -1 : 1; U.tool = 'w'; if (st.n === 1 && !G.tut) helpOnce(); }
     if (p === 'reveal') SFX.reveal();
     if (p === 'mres') { const w = st.win === mySide(G); if (st.win >= 0) SFX[w ? 'win' : 'lose'](); }
     void was;
@@ -1134,7 +1141,7 @@
       else if (k === 'sm') { SFX.jingle(); U.fx.push({ k: 'txt', x, y, t: T, s: me ? '🛷 IN SELLA! Spingi contro i muri!' : '🛷 ' + (G.chars[a] ? G.chars[a].name : '') + ' è sullo slittino!', c: me ? '#c8ffb0' : '#ffb0a0' }); }
       else if (k === 'sx') { SFX.plof(); U.fx.push({ k: 'big', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '🛷 slittino rotto!', c: '#ffffff' }); }
       else if (k === 'ram') { SFX.ram(); U.fx.push({ k: 'big', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '💥 SBAM!', c: '#ffd0a0' }); U.shake = T; }
-      else if (k === 'run') { U.fx.push({ k: 'txt', x, y, t: T + 0.15, s: '🛷 TRAVOLTO!', c: '#ffb0a0' }); }
+      else if (k === 'run') { U.fx.push({ k: 'txt', x, y, t: T + 0.15, s: '🛷 TRAVOLTO!', c: '#ffb0a0' }); U.fx.push({ k: 'puff', x, y, t: T, big: 1 }); if (G.guest && 1 - a === mySide(G)) knock(G, cq, (e[5] || 0) / 100, (e[6] || 0) / 100); }
       else if (k === 'ih') { SFX.igloo(); U.fx.push({ k: 'chunk', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '🛖 igloo colpito', c: '#bfe0ff' }); }
       else if (k === 'ix') { SFX.crash(); U.fx.push({ k: 'big', x, y, t: T }); U.fx.push({ k: 'txt', x, y, t: T, s: '🛖 IGLOO DISTRUTTO!', c: '#ffd0a0' }); }
     }
