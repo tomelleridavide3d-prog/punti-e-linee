@@ -3573,10 +3573,13 @@ function cqReception() {
   $('#tkTitle').textContent = '🏨 Hotel dei Giochi';
   $('#tkBody').innerHTML = `<div class="rcSec">🎮 Minigiochi</div><div id="lbNet"></div><details class="gList"><summary>🎮 Gioca da solo contro il computer</summary>${cqGameCards()}</details>`
     + `<div class="rcSec">🎲 Giochi da tavola <small>contro il computer o sfidando un amico</small></div>`
+    + `<details class="gList" id="tgList"${cq.tgOpen ? ' open' : ''}><summary>🎲 Scegli un gioco da tavola</summary>`
     + `<button class="gcard hg" type="button" id="tgBc"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Briscola</div><div class="gs">Carte napoletane, 1 contro 1: contro il Conte o sfida un amico.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgSc"><span class="gi" style="background:#2f6a8a">🧹</span><span><div class="gt">Scopa</div><div class="gs">Carte napoletane, 1 contro 1: prese, scope e primiera, si vince a 11.</div></span></button>`
-    + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button>`;
+    + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button></details>`;
   $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots;
+  // la tendina dei giochi da tavola resta aperta tornando indietro (Indietro, ← Hotel dei Giochi)
+  $('#tgList').ontoggle = () => { cq.tgOpen = $('#tgList').open; };
   cqGameCardsOn();
   $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
   $('#tkBack').hidden = false; $('#tkBack').onclick = () => { cqCloseTask(); cqOpenPick(); };   // ← Indietro: di nuovo il personaggio
