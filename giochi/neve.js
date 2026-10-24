@@ -986,7 +986,7 @@
       }
       const d = Math.hypot(Q.x - c.x, Q.y - c.y), saving = !!(c.want && iglooOf(G, s) && p.b < GN[c.want[0]].cost);   // mette da parte le palle per lo gnomo che vuole
       if (!hid && p.b > 0 && !(saving && d > 6) && T - p.lt > CD + 0.7 + Math.random() * 0.9 + (1 - L) * (stormOn(G, T) ? 0.5 : 1.6) && !st.p[so].d) {
-        const vx = o.vx || 0, vy = o.vy || 0, skip = skip0;
+        const vx = o.nvx || 0, vy = o.nvy || 0, skip = skip0;
         const lead = d / V_D * 0.8, ex = Q.x + vx * lead, ey = Q.y + vy * lead, block = traceWall(G, c.x, c.y, ex, ey, skip);
         if (!block && d <= RMAX_D) { const e = (0.18 + d * 0.025) * (1.9 - L); throwFrom(G, s, 'd', ex + (Math.random() - 0.5) * e * 2, ey + (Math.random() - 0.5) * e * 2); return; }
         if (d <= RMAX_L && d >= 3) { const dur = Math.max(0.75, d / V_L), still = Math.hypot(vx, vy) < 0.3, e = (still ? 0.3 : 0.7) * (1.9 - L); throwFrom(G, s, 'l', Q.x + vx * dur * 0.7 + (Math.random() - 0.5) * e * 2, Q.y + vy * dur * 0.7 + (Math.random() - 0.5) * e * 2); return; }
@@ -1294,7 +1294,7 @@
     },
     tick(G, dt) {
       const st = G.st; G.dt = dt;
-      for (const c of G.chars) { const P = posOf(G, c); if (c.lx != null && dt > 0) { c.vx = (c.vx || 0) * 0.8 + (P.x - c.lx) / dt * 0.2; c.vy = (c.vy || 0) * 0.8 + (P.y - c.ly) / dt * 0.2; } c.lx = P.x; c.ly = P.y; }
+      for (const c of G.chars) { const P = posOf(G, c); if (c.lx != null && dt > 0) { c.nvx = (c.nvx || 0) * 0.8 + (P.x - c.lx) / dt * 0.2; c.nvy = (c.nvy || 0) * 0.8 + (P.y - c.ly) / dt * 0.2; } c.lx = P.x; c.ly = P.y; }
       for (const c of G.chars) if (c.bot && !c.remote) {
         if (st.ph === 'build') { const i = sideOf(G, c); c.x = START[i][0]; c.y = START[i][1]; c.walk = 0; if (!PSd(G, i).rd && G.time > G.botBuildAt) botBuild(G, c); }
         else if (st.ph === 'fight' && !G.tutHold) botTick(G, c, dt); else { c.walk = 0; c.path = []; } }
