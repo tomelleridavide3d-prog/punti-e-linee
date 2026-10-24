@@ -32,10 +32,10 @@
     for (let i = 0; i < 80 && Math.abs(C.x - tg.x) > 2; i++) { V.kx = Math.sign(tg.x - C.x); await w(30); }
     V.kx = 0; await w(500); V.ky = 1; let last = -1, still = 0;
     for (let i = 0; i < 120 && still < 8; i++) { await w(50); if (Math.abs(C.L - last) < 0.3) still++; else still = 0; last = C.L; }
-    V.ky = 0; GR.prendi(); let maxLo = 0;
-    for (let i = 0; i < 150 && !['prize', 'miss'].includes(V.ph); i++) { await w(60); maxLo = Math.max(maxLo, V.lo); }
-    o.push('pinza fortunata: ' + V.ph + ' (botola aperta fino a ' + maxLo.toFixed(2) + ') ' + ((document.querySelector('.grPrize h2') || {}).textContent || ''));
-    await w(1500); o.push('botola dopo: ' + V.lo.toFixed(2));
+    V.ky = 0; GR.prendi(); let maxLo = 0, openT = 0, shot = 0;
+    for (let i = 0; i < 200 && !['prize', 'miss'].includes(V.ph); i++) { await w(60); maxLo = Math.max(maxLo, V.lo); if (V.lo > 0.5) openT += 60; if (!shot && V.lo > 0.97 && V.pl.some(q => q.taken)) { shot = 1; window.zzImg = V.cv.toDataURL(); } }
+    o.push('pinza fortunata: ' + V.ph + ' (botola aperta fino a ' + maxLo.toFixed(2) + ' per ' + openT + ' ms) ' + ((document.querySelector('.grPrize h2') || {}).textContent || ''));
+    await w(1500); o.push('botola dopo: ' + V.lo.toFixed(2)); if (window.zzImg) { const im = document.createElement('img'); im.src = window.zzImg; im.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;z-index:99'; document.body.appendChild(im); }
   } catch (e) { o.push('ECCEZIONE ' + e.message); }
   o.push('errori: ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300));
   return o.join(' | ');
