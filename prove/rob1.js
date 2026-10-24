@@ -27,6 +27,10 @@
   pick('martello'); tap(2, 1);   // da solo nella casella vuota
   pick('cannone'); tap(3, 5); tap(3, 5); tap(3, 5);   // sopra il telaio dietro, girato indietro
   pick('fiamma'); tap(1, 2);   // sopra una ruota: non si puo'
+  const tapS = (x, y, sx, sy) => { r = cv.getBoundingClientRect(); const P = { clientX: r.left + (x + 0.5 + sx * 0.38) / 7 * r.width, clientY: r.top + (y + 0.5 + sy * 0.38) / 7 * r.height, pointerId: 1, bubbles: true }; cv.dispatchEvent(new PointerEvent('pointerdown', P)); cv.dispatchEvent(new PointerEvent('pointerup', { pointerId: 1, bubbles: true })); };
+  pick('corazza'); tapS(1, 3, -1, 0); tapS(5, 3, 1, 0); tapS(3, 3, 1, 0); const blockedMsg = document.querySelector('#r2Shop .msg').textContent.slice(0, 50); tapS(1, 2, 0, -1);
+  out.push('corazze: 1,3 = ' + cellOf(1, 3) + ' | 5,3 = ' + cellOf(5, 3) + ' | cabina, lato destro che tocca il telaio = ' + cellOf(3, 3) + ' -> ' + blockedMsg + ' | ruota 1,2 davanti = ' + cellOf(1, 2));
+  pick('nos'); tap(3, 4); tap(3, 4); tap(3, 4); out.push('nos sopra il telaio 3,4 girato indietro: ' + cellOf(3, 4));
   out.push('caselle: 2,3 = ' + cellOf(2, 3) + ' | 4,3 = ' + cellOf(4, 3) + ' | 2,1 = ' + cellOf(2, 1) + ' | 3,5 = ' + cellOf(3, 5) + ' | 1,2 (fiamma sulla ruota) = ' + cellOf(1, 2) + ' -> ' + document.querySelector('#r2Shop .msg').textContent.slice(0, 60));
   document.querySelector('#r2Shop [data-k=x]').click(); tap(4, 3); const afterDel = cellOf(4, 3); document.querySelector('#r2Shop [data-k=x]').click();
   pick('sega'); tap(4, 3);
@@ -38,7 +42,7 @@
   document.querySelector('#r2Shop [data-k=go]').click(); await w(200);
   out.push('pulsanti: ' + [...document.querySelectorAll('#r2W button')].map(b => b.dataset.t).join(','));
   cq.on = false; cancelAnimationFrame(cq.raf);
-  const me = G.mine; N.myInput = () => {}; const loc = G.M.local; G.M.local = () => {};
+  const me = G.mine; N.myInput = () => {}; N.U.dumAI = false; const loc = G.M.local; G.M.local = () => {};
   const tick = n => { for (let i = 0; i < n; i++) cqModeTick(0.05); };
   const x0 = me.x, y0 = me.y; for (let i = 0; i < 20; i++) { me.inp.thr = 1; me.inp.steer = 0; cqModeTick(0.05); }
   out.push('1 s di gas: ' + Math.hypot(me.x - x0, me.y - y0).toFixed(2) + ' caselle, velocita ' + Math.hypot(me.vx, me.vy).toFixed(2));
@@ -60,7 +64,13 @@
   out.push(testArm('martello', (T1, D) => { const hp0 = D.bl.reduce((s, q) => s + q.hp, 0); T1.inp.martello = true; for (let i = 0; i < 10; i++) cqModeTick(0.05); return 'martello: salute ' + Math.round(hp0) + ' -> ' + Math.round(D.bl.reduce((s, q) => s + q.hp, 0)); }));
   // ---- rompo il telaio sotto la pala: la pala cade ----
   { const pq = me.bl.find(q => q.t === 'pala'), base = me.bl.find(q => q.t === 'telaio' && q.gx === pq.gx && q.gy === pq.gy); const deb0 = G.rbs.filter(b => b.debris).length; N.hurt(G, me, base, 99, 'prova'); out.push('rotto il telaio sotto la pala: pala ancora sul robot ' + me.bl.includes(pq) + ', pezzi a terra +' + (G.rbs.filter(b => b.debris).length - deb0)); }
-  { N.spawnDummy(G); const D = G.dummy; D.x = N.PIT[0] - 0.4; D.y = N.PIT[1]; D.vx = 1.5; tick(20); out.push('manichino nella fossa: ' + (D.ko || 'NO')); }
+  { const keep = G.rbs; const run = nos => { G.rbs = [me]; me.vx = me.vy = me.w = 0; me.a = 0; me.z = 0; me.x = 5; me.y = 11; me.nosUsed = 0; me.nosT = 0; const x0 = me.x; me.inp.nos = nos; for (let i = 0; i < 20; i++) { me.inp.thr = 1; me.inp.steer = 0; cqModeTick(0.05); } return (me.x - x0).toFixed(2) + ' caselle (' + Math.hypot(me.vx, me.vy).toFixed(2) + '/s)'; };
+    out.push('1 s di gas ad arena libera: senza NOS ' + run(false) + ', col NOS ' + run(true)); G.rbs = keep; }
+  { me.vx = me.vy = me.w = 0; me.a = 0; me.z = 0; me.x = 6; me.y = 11; const x0 = me.x; me.inp.nos = true; for (let i = 0; i < 20; i++) { me.inp.thr = 1; me.inp.steer = 0; cqModeTick(0.05); }
+    const d1 = me.x - x0, v1 = Math.hypot(me.vx, me.vy); me.inp.nos = true; const t1 = me.nosT; cqModeTick(0.05); out.push('NOS: 1 s di gas col turbo = ' + d1.toFixed(2) + ' caselle, velocita ' + v1.toFixed(2) + ' | di nuovo: ' + (me.nosT === t1 ? 'non riparte (una volta sola)' : 'RIPARTITO')); }
+  { G.rbs = G.rbs.filter(b => !b.debris); N.spawnDummy(G); const D = G.dummy; N.U.dumAI = true; me.x = 7; me.y = 11; me.a = 0; me.vx = me.vy = me.w = 0; me.z = 0; me.inp.thr = 0; me.inp.steer = 0; const d0 = Math.hypot(D.x - me.x, D.y - me.y), hp0 = me.bl.reduce((s, q) => s + q.hp, 0); let dmin = 99; const ev0 = G.evs.length;
+    for (let i = 0; i < 200; i++) { me.inp.thr = 0; cqModeTick(0.05); dmin = Math.min(dmin, Math.hypot(D.x - me.x, D.y - me.y)); }
+    const E = G.evs.slice(ev0).map(e => e[0]); out.push('manichino che reagisce (10 s): distanza ' + d0.toFixed(1) + ' -> minima ' + dmin.toFixed(1) + ', la mia salute ' + Math.round(hp0) + ' -> ' + Math.round(me.bl.reduce((s, q) => s + q.hp, 0)) + ', botte ' + E.filter(k => k === 'bang').length + ', sollevato ' + E.filter(k => k === 'lift').length + ', pezzi rotti ' + E.filter(k => k === 'brk').length); }
   G.M.local = loc; cq.on = true; { let t = 0; for (let i = 0; i < 20; i++) { const t0 = performance.now(); cqDraw(); t += performance.now() - t0; } out.push('un fotogramma: ' + (t / 20).toFixed(1) + ' ms'); }
   { let t = 0; for (let i = 0; i < 20; i++) { const t0 = performance.now(); N.physics(G, 0.016); t += performance.now() - t0; } out.push('un giro di fisica: ' + (t / 20).toFixed(2) + ' ms con ' + G.rbs.length + ' corpi'); }
   if (window.__SHOT === 'drive') { N.spawnDummy(G); const D = G.dummy; me.x = cq.x = D.x - 3.4; me.y = cq.y = D.y + 0.6; me.a = -0.2; me.z = 0; me.ro = 0; D.z = 0.9; D.ro = 0.6; G.vw = { z: 0.95, x: 1.2, y: -0.2 }; cqDraw(); }
