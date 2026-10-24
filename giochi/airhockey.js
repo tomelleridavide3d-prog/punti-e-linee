@@ -1,9 +1,14 @@
 // ==== AIR HOCKEY NELLA HALL (23-10-2026, piano in CLAUDE.md "PIANO PASSATEMPI DELLA HALL", sessione 2) ====
 // Tavolo bucherellato nell'angolo giochi (prop 'hockey', x R-6..R-5, y 7-9). Visuale a tutto schermo dall'alto: la mia porta sempre in basso.
 // Muovi la manopola col dito (solo nella tua meta'), il disco scivola, vince chi arriva a 7. Contro il computer o un amico; gli altri guardano.
-// Rete: il disco lo calcola il telefono del giocatore nella cui meta' si trova (chi colpisce lo sente subito, senza ritardo); ognuno manda ogni 50 ms
-// con cqNetPut la sua manopola (e il disco quando e' suo) in cq/<set>/ah/<banco>/r/<posto> {m, p, q, t}. Il gol lo segnala chi ha il disco
-// (azione {k:'goal', s: chi segna, q: numero del disco}); il banco (giochi/lib/tavolo.js) conta i punti e rimette il disco a chi ha subito.
+// Rete: il disco lo calcola UN telefono alla volta, chi lo "comanda" (A.ow), cosi' chi colpisce lo sente subito, senza ritardo. Ognuno manda ogni
+// 50 ms con cqNetPut la sua manopola (e il disco quando e' suo) in cq/<set>/ah/<banco>/r/<posto> {m, p, e, h, q, t}.
+// PASSAGGIO DEL DISCO (24-10-2026, prima ognuno decideva da se' guardando la meta' e con la rete lenta i due se lo strappavano: disco a scatti,
+// 210 salti in 40 s): chi comanda, quando il disco entra nella meta' dell'altro, glielo CEDE: turno e = A.ep + 1 e h = {e, p: disco, t} nei suoi
+// pacchetti finche' l'altro non risponde con lo stesso turno. Chi riceve h prende il disco dove e' adesso (posizione + velocita' per il tempo
+// passato). Chi non comanda fa scivolare il disco da solo (solo le sponde) e lo corregge piano a ogni pacchetto (A.dx, A.dy: scarto che sfuma).
+// Il gol lo segnala chi comanda (azione {k:'goal', s: chi segna, q: numero del disco}); il banco (giochi/lib/tavolo.js) conta i punti e
+// rimette il disco a chi ha subito.
 // Coordinate del tavolo: 50 x 100, il posto 0 difende la porta in basso (y = 100), il posto 1 quella in alto (y = 0).
 window.AH = (() => {
   const W = 50, H = 100, MR = 4.4, PR = 2.7, GW = 8.5, WIN = 7, VP = 175, MSP = 240, DT = 1 / 240;
@@ -19,7 +24,7 @@ window.AH = (() => {
   const home = s => [25, s ? 12 : 88];
   function reset(T) {
     const A = T.ah, S = T.S;
-    A.rid = S.rid; A.px = 25; A.py = S.serve ? 32 : 68; A.vx = 0; A.vy = 0; A.sent = 0; A.wait = 0;
+    A.rid = S.rid; A.px = 25; A.py = S.serve ? 32 : 68; A.vx = 0; A.vy = 0; A.sent = 0; A.wait = 0; A.ep = 0; A.ow = S.serve ? 1 : 0; A.ho = null; A.dx = A.dy = 0;
     A.m = [home(0), home(1)]; A.mv = [[0, 0], [0, 0]]; A.tgt = null;
   }
   function view(T) {
@@ -69,8 +74,9 @@ window.AH = (() => {
     if (rv < 0) { A.vx -= 1.9 * rv * nx; A.vy -= 1.9 * rv * ny; const s2 = Math.sqrt(A.vx * A.vx + A.vy * A.vy); if (s2 > VP) { A.vx *= VP / s2; A.vy *= VP / s2; } return -rv; }
     return false;
   }
-  function physics(T, dt) {   // ritorna chi ha segnato (0/1) o -1
-    const A = T.ah; let n = Math.ceil(dt / DT), hit = 0;
+  function physics(T, dt, mal = true) { const h = phys(T.ah, dt, mal); if (h > 8) { beep(1100 + Math.random() * 200, 0.03, Math.min(0.06, h / 2500), 0, 'square'); thud(Math.min(0.5, h / 250), 500); } return T.ah.g; }
+  function phys(A, dt, mal) {   // A.g = chi ha segnato (0/1) o -1; ritorna la forza del colpo piu' forte (per il suono). mal = false: solo le sponde
+    let n = Math.ceil(dt / DT), hit = 0; A.g = -1;
     const st = dt / n;
     while (n--) {
       const k = Math.max(0, 1 - 0.22 * st); A.vx *= k; A.vy *= k;
@@ -80,12 +86,31 @@ window.AH = (() => {
       const inMouth = Math.abs(A.px - 25) < GW - PR * 0.6;
       if (A.py < PR && !inMouth) { A.py = 2 * PR - A.py; A.vy = -A.vy * 0.92; hit = Math.max(hit, Math.abs(A.vy) * 0.5); }
       if (A.py > H - PR && !inMouth) { A.py = 2 * (H - PR) - A.py; A.vy = -A.vy * 0.92; hit = Math.max(hit, Math.abs(A.vy) * 0.5); }
-      if (A.py < -PR) return 0;   // nella porta in alto: segna il posto 0
-      if (A.py > H + PR) return 1;
-      for (const s of [0, 1]) { const h = collide(A, s); if (h) { hit = Math.max(hit, h); A.hitS = s; } }
+      if (A.py < -PR) { A.g = 0; return hit; }   // nella porta in alto: segna il posto 0
+      if (A.py > H + PR) { A.g = 1; return hit; }
+      if (mal) for (const s of [0, 1]) { const h = collide(A, s); if (h) { hit = Math.max(hit, h); A.hitS = s; } }
     }
-    if (hit > 8) { beep(1100 + Math.random() * 200, 0.03, Math.min(0.06, hit / 2500), 0, 'square'); thud(Math.min(0.5, hit / 250), 500); }
-    return -1;
+    return hit;
+  }
+  // il disco di un pacchetto portato avanti di t secondi (solo le sponde). Se intanto e' entrato in porta resta li': chi lo riceve vede subito il gol
+  function adv(p, t) { const B = { px: p[0], py: p[1], vx: p[2], vy: p[3] }; phys(B, Math.max(0, Math.min(0.6, t)), false); return B; }
+  // metto il disco dove dice la rete: lo scarto non salta, sfuma nel disegno (A.dx, A.dy); se e' troppo grande si salta
+  function setPuck(A, B) {
+    const ex = A.px + A.dx - B.px, ey = A.py + A.dy - B.py;
+    A.dx = ex; A.dy = ey;   // anche gli scarti grandi (colpo dell'altro arrivato tardi) scivolano invece di saltare
+    A.px = B.px; A.py = B.py; A.vx = B.vx; A.vy = B.vy;
+  }
+  const LAT = 0.06;   // tempo di viaggio stimato di un pacchetto (s)
+  // pacchetti nuovi degli altri: disco ceduto a me, correzioni di chi comanda, turno (anche per chi guarda)
+  function netIn(T, now) {
+    const A = T.ah, S = T.S, me = T.me;
+    for (const s of [0, 1]) {
+      const R = A.rep[s]; if (s === me || !R || R.used || R.q !== S.rid) continue; R.used = 1;
+      const e = R.e || 0;
+      if (A.ho && e >= A.ho.e) A.ho = null;   // l'altro ha preso il disco che gli ho ceduto
+      if (R.h && R.h.e > A.ep && me >= 0) { A.ep = R.h.e; A.ow = me; setPuck(A, adv(R.h.p, (R.t - R.h.t) / 1000 + (now - R.at) / 1000 + LAT)); continue; }
+      if (R.p && e >= A.ep && (e > A.ep || A.ow === s)) { A.ep = e; A.ow = s; setPuck(A, adv(R.p, (now - R.at) / 1000 + LAT)); }
+    }
   }
   function moveMallet(A, s, tx, ty, sp, dt) {
     const [mx, my] = A.m[s], [cx, cy] = clampM(s, tx, ty), dx = cx - mx, dy = cy - my, d = Math.sqrt(dx * dx + dy * dy), mv = Math.min(d, sp * dt);
@@ -110,19 +135,18 @@ window.AH = (() => {
         if (me >= 0) { const t = A.tgt || A.m[me]; moveMallet(A, me, t[0], t[1], MSP, dt); }
         if (solo) aiMove(T, dt);
         else for (const s of [0, 1]) if (s !== me) { const R = A.rep[s]; if (R && R.m) { const [mx, my] = A.m[s], k = Math.min(1, dt * 18), nx = mx + (R.m[0] - mx) * k, ny = my + (R.m[1] - my) * k; A.mv[s] = [(nx - mx) / dt, (ny - my) / dt]; A.m[s] = [nx, ny]; } }
-        const owner = A.py > H / 2 ? 0 : 1, simMe = solo || (me >= 0 && owner === me);
+        if (!solo) netIn(T, now);
+        const mine = solo || (me >= 0 && A.ow === me);
         if (A.wait) { /* gol segnalato: aspetto il banco */ }
-        else if (simMe) {
+        else if (mine) {
           const g = physics(T, dt);
-          if (g >= 0) { A.wait = 1; if (solo) BAH.act({ k: 'goal', s: g, q: S.rid }); else BAH.act({ k: 'goal', s: g, q: S.rid }); }
-        } else {
-          const R = A.rep[owner];
-          if (R && R.p && R.q === S.rid) { const age = Math.min(0.3, (now - R.at) / 1000 + 0.05), tx = R.p[0] + R.p[2] * age, ty = R.p[1] + R.p[3] * age, far = Math.hypot(tx - A.px, ty - A.py) > 6; A.px = far ? tx : A.px + (tx - A.px) * 0.5; A.py = far ? ty : A.py + (ty - A.py) * 0.5; A.vx = R.p[2]; A.vy = R.p[3]; }
-          else physics(T, dt);
-        }
+          if (g >= 0) { A.wait = 1; BAH.act({ k: 'goal', s: g, q: S.rid }); }
+          else if (!solo && (me ? A.py > H / 2 + 1 : A.py < H / 2 - 1)) { A.ep++; A.ow = 1 - me; A.ho = { e: A.ep, p: [r2(A.px), r2(A.py), r2(A.vx), r2(A.vy)], t: Date.now() }; A.sent = 0; }   // e' entrato dall'altro: glielo cedo
+        } else if (physics(T, dt, false) >= 0) { A.vx = A.vy = 0; A.py = Math.max(0, Math.min(H, A.py)); }   // aspetto il pacchetto: scivola da solo
+        const kd = Math.max(0, 1 - dt * 9); A.dx *= kd; A.dy *= kd;
         if (!solo && me >= 0 && cq.net && now - A.sent > 50) {
           A.sent = now;
-          cqNetPut(`cq/${cq.net.code}/ah/${T.key}/r/${me}`, { m: [r2(A.m[me][0]), r2(A.m[me][1])], p: owner === me && !A.wait ? [r2(A.px), r2(A.py), r2(A.vx), r2(A.vy)] : 0, q: S.rid, t: Date.now() });
+          cqNetPut(`cq/${cq.net.code}/ah/${T.key}/r/${me}`, { m: [r2(A.m[me][0]), r2(A.m[me][1])], p: mine && !A.wait ? [r2(A.px), r2(A.py), r2(A.vx), r2(A.vy)] : 0, e: A.ep, h: A.ho || 0, q: S.rid, t: Date.now() });
         }
       }
       draw(T);
@@ -144,7 +168,7 @@ window.AH = (() => {
     const [ccx, ccy] = toS(T, 25, 50); g.strokeStyle = 'rgba(42,90,216,.55)'; g.beginPath(); g.arc(ccx, ccy, 9 * k, 0, 7); g.stroke();
     for (const gy of [0, H]) { const [gx0, gyy] = toS(T, 25 - GW, gy), [gx1] = toS(T, 25 + GW, gy); g.fillStyle = '#1a1a22'; g.fillRect(Math.min(gx0, gx1), gyy - 3 * k * (gyy < (y0 + y1) / 2 ? 1 : 0), Math.abs(gx1 - gx0), 3 * k); g.strokeStyle = 'rgba(42,90,216,.45)'; g.beginPath(); g.arc((gx0 + gx1) / 2, gyy, GW * k, gyy < (y0 + y1) / 2 ? 0 : Math.PI, gyy < (y0 + y1) / 2 ? Math.PI : Math.PI * 2); g.stroke(); }
     // disco e manopole
-    const [px, py] = toS(T, A.px, A.py);
+    const [px, py] = toS(T, A.px + (A.dx || 0), A.py + (A.dy || 0));
     g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.arc(px + 2, py + 3, PR * k, 0, 7); g.fill();
     g.fillStyle = '#1a1a1a'; g.beginPath(); g.arc(px, py, PR * k, 0, 7); g.fill(); g.strokeStyle = '#f2c230'; g.lineWidth = 2; g.beginPath(); g.arc(px, py, PR * k * 0.6, 0, 7); g.stroke();
     for (const s of [0, 1]) {

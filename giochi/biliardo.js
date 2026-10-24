@@ -182,7 +182,10 @@ window.BI = (() => {
     T.bc = {};
   }
   const toS = (T, x, y) => [T.ox + x * T.k, T.oy + y * T.k], toT = (T, px, py) => [(px - T.ox) / T.k, (py - T.oy) / T.k];
-  const myTurn = T => T.S.ph === 'play' && T.me >= 0 && T.S.tu === T.me && !T.anim && !T.strike;
+  // T.wait: tiro dell'amico mandato al banco e non ancora tornato (24-10-2026: con la rete lenta la stecca tornava pronta e il secondo tiro
+  // arrivava al banco dopo il primo e veniva scartato: "tiro e non succede niente"). Dopo 6 s senza risposta si puo' ritirare.
+  const waiting = T => !!T.wait && T.wait.sid === T.S.sid && performance.now() - T.wait.t < 6000;
+  const myTurn = T => T.S.ph === 'play' && T.me >= 0 && T.S.tu === T.me && !T.anim && !T.strike && !waiting(T);
   const cueOf = T => { const c = T.S.b.find(b => b[0] === 0); return c ? [c[1], c[2]] : [25, 76]; };
   const angOf = T => Math.atan2(T.aim.dy, T.aim.dx);
   const setAng = (T, a) => { T.aim = { dx: Math.cos(a), dy: Math.sin(a) }; };
@@ -240,7 +243,7 @@ window.BI = (() => {
     // la stecca scatta in avanti, poi parte il tiro
     const [cx, cy] = cueOf(T), sh = { k: 'shot', dx: T.aim.dx, dy: T.aim.dy, p, cb: T.S.bih ? [r3(cx), r3(cy)] : null };
     T.strike = { t: performance.now(), p }; loop(T);
-    setTimeout(() => { T.strike = null; if (BIL.T !== T) return; thud(0.3 + p * 0.6, 900); BIL.act(sh); }, 90);
+    setTimeout(() => { T.strike = null; if (BIL.T !== T) return; thud(0.3 + p * 0.6, 900); if (!T.host) { T.wait = { sid: T.S.sid, t: performance.now() }; clearTimeout(T.wt); T.wt = setTimeout(() => { if (BIL.T === T) render(T); }, 6100); render(T); } BIL.act(sh); }, 90);
   }
   function hint(T, h) { const e = T.root.querySelector('.tvHint'); if (e && e.innerHTML !== h) e.innerHTML = h; }
   function render(T) {
@@ -257,7 +260,7 @@ window.BI = (() => {
     const pl = i => `<div class="pl${S.ph === 'play' && S.tu === i ? ' on' : ''}">${i === T.me ? '⭐ ' : ''}${esc(S.n[i] || '?')}<br><small>${gl(i)}</small></div>`;
     top.innerHTML = pl(0) + `<div class="mid">🎱${S.bet ? '<br>🪙 ' + 2 * S.bet : ''}${T.watch ? '<br>👀 ' + T.watch : ''}</div>` + pl(1);
     const who = esc(S.n[S.tu] || '');
-    const base = S.ph !== 'play' ? '' : T.anim ? '' : myTurn(T) ? (S.bih ? '✋ Palla in mano: trascina la bianca' + (S.kit ? ' (sotto la linea)' : '') + '. ' : '') + 'Gira la stecca trascinando sul panno (rotella sotto = mira fine), poi tira indietro la stecca o la barra a destra.' : T.me < 0 ? '👀 Tira ' + who + '.' : 'Tira ' + who + '…';
+    const base = S.ph !== 'play' ? '' : T.anim ? '' : waiting(T) ? '🎱 Tiro…' : myTurn(T) ? (S.bih ? '✋ Palla in mano: trascina la bianca' + (S.kit ? ' (sotto la linea)' : '') + '. ' : '') + 'Gira la stecca trascinando sul panno (rotella sotto = mira fine), poi tira indietro la stecca o la barra a destra.' : T.me < 0 ? '👀 Tira ' + who + '.' : 'Tira ' + who + '…';
     hint(T, (S.msg && !T.anim ? S.msg + ' ' : '') + base);
     if (!T.anim) BIL.endBox(esc(S.n[0]) + ' contro ' + esc(S.n[1]));
     draw(T);
