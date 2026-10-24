@@ -3184,7 +3184,14 @@ function cqQLog() {
   }
   Object.assign(cqQ, { n: 0, m: 0, fr: 0, ft: 0 });
 }
-async function cqNetJoin(code) {
+// bt: il pulsante premuto ("⏳ Entro…" finche' non si e' dentro); cq.joining: un ingresso alla volta (il secondo tocco non ne fa partire un altro)
+async function cqNetJoin(code, bt) {
+  if (cq.joining) return;
+  if (bt) { bt.disabled = true; bt.textContent = '⏳ Entro…'; }
+  cq.joining = code;
+  try { await cqNetJoin1(code); } finally { cq.joining = null; const box = $('#lbNet'); if (box && bt && bt.isConnected) { box._h = null; cqNetBox(); } }
+}
+async function cqNetJoin1(code) {
   if ((cq.kicked || {})[code]) { cqToast('🚪 Sei stato tolto da questo party.'); return; }
   try {   // tolto da chi l'ha creato (anche da un altro telefono con lo stesso nome): non si rientra
     const F = await hubLoad(); const k = await F.get(cqNetRef(`cq/${code}/kk/${nameKey(store.settings.myName)}`));
@@ -3210,7 +3217,9 @@ function cqNetBox() {
   for (const [k] of sets) if (mine.includes(k)) old.push(k);
   const invs = Object.entries(inv).filter(([k, v]) => cq.sets && cq.sets[k] && !kicked[k] && Date.now() - v.t < 30 * 60000);
   const fr = frList(), on = k => frOnline(k);
-  box.innerHTML = `<div class="netBox">`
+  // si ridisegna SOLO se e' cambiato qualcosa (24-10-2026): prima a ogni "sono qui" di ogni party (ogni 10 s ciascuno) il riquadro si rifaceva
+  // da zero e un tocco su Entra che cadeva in quel momento andava perso ("devo premere due volte"); si perdeva anche il nome che si stava scrivendo
+  const html = `<div class="netBox">`
     + (invs.length ? invs.map(([k, v]) => v.g === 'bc' ? `<div class="invBox netRow"><span>🃏 <b>${esc(v.n)}</b> ti sfida a Briscola</span><button class="btn primary" type="button" data-join="${esc(k)}" data-bc="${esc(v.n)}">Gioca</button></div>` : `<div class="invBox netRow"><span>✉️ <b>${esc(v.n)}</b> ti invita al suo party</span><button class="btn primary" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '')
     + `<b>🎉 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">🎉 Crea un party</button>`
     + `<label class="pvt"><input type="checkbox" id="netPriv"${store.settings.partyPriv ? ' checked' : ''}> 🔒 Solo su invito <span class="hint" style="margin:0">(lo vede solo chi inviti)</span></label>`
@@ -3221,13 +3230,15 @@ function cqNetBox() {
     + `<form class="frAdd" id="frAddF"><input class="field" id="frAddI" maxlength="14" placeholder="Nome dell'amico" autocomplete="off"><button class="btn" type="submit">➕ Aggiungi</button></form></details>`
     + (pushOk() || pushIOS() ? `<button class="btn" id="netBell" type="button" style="font-size:13px;margin-top:10px">${pushOn() ? '🔔 Avvisi accesi (tocca per spegnere)' : '🔕 Avvisami quando un amico apre un party'}</button>` : '')
     + '</div>';
+  if (box._h === html && box.firstChild) return;
+  box._h = html; box.innerHTML = html;
   $('#netNew').onclick = () => cqPartyNew();
   $('#netPriv').onchange = e => { store.settings.partyPriv = !!e.target.checked; saveStore(); };
   if ($('#netBell')) $('#netBell').onclick = pushToggle;
   box.querySelector('details.frList').ontoggle = e => { cq.frOpen = e.target.open; };
   $('#frAddF').onsubmit = e => { e.preventDefault(); const n = $('#frAddI').value.trim(); if (frAdd(n)) cqNetBox(); };
   box.querySelectorAll('[data-unfr]').forEach(b => { b.onclick = () => { frDel(b.dataset.unfr); cqNetBox(); }; });
-  box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => { if (b.dataset.bc) cq.bcAuto = { n: b.dataset.bc, t: Date.now() }; cqNetJoin(b.dataset.join); }; });   // data-bc: sfida a Briscola gia' accettata
+  box.querySelectorAll('[data-join]').forEach(b => { b.onclick = () => { if (cq.joining) return; if (b.dataset.bc) cq.bcAuto = { n: b.dataset.bc, t: Date.now() }; cqNetJoin(b.dataset.join, b); }; });   // data-bc: sfida a Briscola gia' accettata
   box.querySelectorAll('[data-kill]').forEach(b => { b.onclick = () => { cqNetKill(b.dataset.kill); cqToast('🗑️ Party eliminato.'); }; });
 }
 // crea un party (pulsante "🎉 Crea un party" della reception; priv = solo su invito; quiet = senza il messaggio di benvenuto)
