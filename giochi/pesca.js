@@ -2,6 +2,7 @@
 // La gru e' il prop 'claw' in R,1 (disegnato in giochi/lib/pixel.js). Vicino compare "🧸 Pesca": visuale a tutto schermo della macchina.
 // Ogni tentativo costa 3 monete: 20 secondi per muovere la pinza (◀ ▶ ▲ ▼, trascinando sul vetro o con le frecce), poi ✊ PRENDI chiude le griffe.
 // La pinza penzola dal cavo; i peluche sono morbidi e si spostano se urtati (si puo' spingerli per arrivare a quello raro, che sta piu' in fondo).
+// Sopra la buca c'e' una botola inclinata che si apre solo quando la pinza ci porta un peluche: conta solo quello preso.
 // Tiene di piu' se e' ben centrata, scesa bene e se il peluche e' comune (i rari sono piu' piccoli e scivolosi): a volte molla, anche sopra la buca.
 // Colore del peluche = rarita' del premio (bianco comune, blu raro, viola epico, oro leggendario). Premi da giochi/lib/guardaroba.js (CQX.ITEMS):
 // cappelli, accessori per la faccia, personaggi esclusivi. Doppione = monete (1/2/3/6). Premio sicuro: dopo 9 tentativi senza un raro la pinza
@@ -46,7 +47,8 @@ window.GR = (() => {
   function layout() {
     const W = V.W, H = V.H, gw = Math.min(W - 48, 380), gx0 = (W - gw) / 2, gy0 = 136, gh = Math.max(220, Math.min(H - 262 - gy0, gw * 1.02));
     Object.assign(V, { gw, gx0, gx1: gx0 + gw, gy0, gy1: gy0 + gh, floor: gy0 + gh - 8, chW: gw * 0.22, rail: gy0 + 14, PL: gw * 0.09, HR: gw * 0.026, BH: gw * 0.14 });
-    V.BX = gx0 + V.chW; V.home = gx0 + V.chW / 2; V.L0 = 22; V.Lmax = V.floor - V.rail - V.PL * 0.8;
+    V.BX = gx0 + V.chW; V.home = gx0 + V.chW / 2; V.lo = V.lo || 0;
+    V.lhy = V.floor - V.BH - V.chW * 0.75; V.lL = Math.hypot(V.chW, V.chW * 0.75); V.la0 = Math.atan2(V.chW * 0.75, V.chW); V.L0 = 22; V.Lmax = V.floor - V.rail - V.PL * 0.8;
   }
   function spawn(p, y) { const x0 = V.BX + p.s + 14; p.x = p.px = x0 + Math.random() * (V.gx1 - p.s - x0); p.y = p.py = y; V.pl.push(p); }
   function fill() {   // all'apertura: i peluche cadono dall'alto e si assestano subito (i rari per primi: restano piu' in fondo, sotto gli altri)
@@ -68,12 +70,17 @@ window.GR = (() => {
     return out;
   }
   function push(p, cx, cy, cr, k) {
-    if (p === V.cand) return;
+    if (p === V.cand || p.nc > 0) return;
     const dx = p.x - cx, dy = p.y - cy, R = cr + p.s * k, d2 = dx * dx + dy * dy; if (d2 >= R * R) return;
     const d = Math.sqrt(d2) || 0.01, m = (R - d) * 0.35; p.x += dx / d * m; p.y += dy / d * m; p.cmp += (R - d) * 0.5; p.hit = 1;
   }
+  // BOTOLA sopra la buca (richiesta dell'utente 24-10-2026): chiusa e' inclinata, chi ci cade sopra scivola di nuovo nel mucchio;
+  // si apre (gira giu' attorno alla cerniera sulla parete sinistra) solo quando la pinza arriva con un peluche preso
+  const lidTip = () => { const a = V.la0 + (Math.PI / 2 - V.la0) * V.lo; return [V.gx0 + V.lL * Math.cos(a), V.lhy + V.lL * Math.sin(a), a]; };
   function bounds(p, it) {
     const r = p.s * 0.9;
+    { const [tx, ty, a] = lidTip(), hx = V.gx0, hy = V.lhy, vx = tx - hx, vy = ty - hy, t = Math.max(0, Math.min(1, ((p.x - hx) * vx + (p.y - hy) * vy) / (vx * vx + vy * vy))), qx = hx + vx * t, qy = hy + vy * t, dx = p.x - qx, dy = p.y - qy, d = Math.hypot(dx, dy);
+      if (d < r) { if (d < 0.01) { p.x = qx + Math.sin(a) * r; p.y = qy - Math.cos(a) * r; } else { p.x = qx + dx / d * r; p.y = qy + dy / d * r; } } }
     if (p.x < V.gx0 + r) p.x = V.gx0 + r; if (p.x > V.gx1 - r) p.x = V.gx1 - r;
     if (p.x > V.BX && p.y > V.floor - r) { p.y = V.floor - r; p.gnd = 1; if (it === 0) p.x = p.px + (p.x - p.px) * 0.55; }   // pavimento con attrito
     // parete trasparente della buca (segmento verticale da floor-BH a floor): sotto non c'e' pavimento, si cade nel premio
@@ -86,7 +93,7 @@ window.GR = (() => {
       const vx = (p.x - p.px) * 0.985, vy = (p.y - p.py) * 0.995;
       p.px = p.x; p.py = p.y; p.vy0 = vy;
       p.x += Math.max(-8, Math.min(8, vx)); p.y += Math.max(-8, Math.min(12, vy + g));
-      p.cmp = 0; p.gnd = 0; p.hit = 0;
+      p.cmp = 0; p.gnd = 0; p.hit = 0; if (p.nc > 0) p.nc--;
     }
     for (let it = 0; it < 4; it++) {
       // prima la pinza spinge, poi i peluche si sistemano tra loro, per ultimi pavimento e pareti (vincono sempre)
@@ -113,7 +120,7 @@ window.GR = (() => {
       if (p.gnd && p.vy0 > 2.5) p.wb = Math.min(1, Math.max(p.wb, p.vy0 / 8));
       p.sq += (Math.min(0.24, p.cmp / p.s * 0.8) - p.sq) * 0.2; p.wb *= 0.985;
       p.a += (Math.max(-0.35, Math.min(0.35, (p.x - p.px) * 0.1)) - p.a) * 0.08;
-      if (p.y > V.gy1 + 34) { P.splice(i, 1); won(p); }
+      if (p.y > V.gy1 + 34) { P.splice(i, 1); if (p.taken) won(p); else { p.wb = 0; spawn(p, V.gy0 + p.s + 4); } }   // premio solo il peluche portato dalla pinza; gli altri tornano dall'alto
     }
   }
   function open() {
@@ -164,7 +171,7 @@ window.GR = (() => {
     const b = cqBank(); if (b.coins < COST) { cqToast('🧸 Un tentativo costa <b>' + COST + ' 🪙</b> e ne hai ' + b.coins + '. Le monete si vincono nei minigiochi!'); beep(220, 0.14, 0.04); return; }
     cqCoins(-COST); clearTimeout(V.t1); V.luck = pity() >= 9; head();
     beep(1320, 0.05, 0.04); beep(1760, 0.08, 0.035, 0.06); [0, 4, 7].forEach((n, i) => beep(784 * Math.pow(2, n / 12), 0.08, 0.03, 0.15 + i * 0.07, 'square'));
-    V.ph = 'move'; V.t0 = now(); V.slipped = false; V.brush = null; V.cand = null; V.kx = V.ky = 0; V.pq = [];
+    V.ph = 'move'; V.t0 = now(); V.rel = 0; V.slipped = false; V.brush = null; V.cand = null; V.kx = V.ky = 0; V.pq = [];
     const c = ctl(`<div class="grRow"><button type="button" class="grL">◀</button><button type="button" class="grU">▲</button><button type="button" class="grD">▼</button><button type="button" class="grR">▶</button></div><button type="button" class="grGrab">✊ PRENDI</button>`);
     const hold = (el, ax, v) => { el.onpointerdown = e => { e.preventDefault(); V[ax] = v; }; el.onpointerup = el.onpointerleave = el.onpointercancel = () => { if (V && V[ax] === v) V[ax] = 0; }; };
     hold(c.querySelector('.grL'), 'kx', -1); hold(c.querySelector('.grR'), 'kx', 1); hold(c.querySelector('.grU'), 'ky', -1); hold(c.querySelector('.grD'), 'ky', 1);
@@ -188,7 +195,7 @@ window.GR = (() => {
     if (!p || !V.pl.includes(p)) { V.held = null; return; }
     const a = Math.abs(p.x - C.hx) / p.s, f = Math.max(0.6, Math.min(1, 0.6 + (C.hy + V.PL - p.y) / p.s));
     const ch = V.luck ? 1 : HOLD[p.r] * (1 - 0.5 * Math.min(1, a)) * f;
-    V.held = p; V.pl.splice(V.pl.indexOf(p), 1); V.gL = C.L; V.gX = C.x;
+    V.held = p; p.taken = 1; V.pl.splice(V.pl.indexOf(p), 1); V.gL = C.L; V.gX = C.x;
     V.slip = Math.random() < ch ? -1 : (Math.random() < 0.35 ? 0.92 + Math.random() * 0.07 : Math.random() * 0.75);   // quando molla: 0 = appena preso, 1 = sopra la buca
   }
   function won(p) { if (V.filling) return; V.pq.push(p); if (V.ph === 'idle' || V.ph === 'miss') next(); }
@@ -276,7 +283,7 @@ window.GR = (() => {
     else if (ph === 'carry') { kx = -1; if (C.x <= V.home + 1 && Math.abs(C.vx) < 12) { C.x = V.home; C.vx = 0; V.ph = 'open'; V.rt = now(); } }
     else if (ph === 'open') {
       C.cl = Math.max(0, 1 - (now() - V.rt) / 0.35);
-      if (V.held) { const H = V.held; H.px = H.x; H.py = H.y - 1; V.pl.push(H); V.held = null; beep(600, 0.06, 0.03); }
+      if (V.held) { const H = V.held; H.px = H.x; H.py = H.y - 1; H.nc = 90; V.pl.push(H); V.held = null; V.rel = 1; beep(600, 0.06, 0.03); }
       if (C.cl <= 0) { V.ph = 'settle'; V.st = now(); }
     } else if (ph === 'settle') {
       const busyChute = V.pl.some(p => p.x < V.BX + p.s * 0.5 && p.y < V.gy1 + 34), el = now() - V.st;
@@ -288,6 +295,8 @@ window.GR = (() => {
       if (C.L > V.L0 + 0.5) ky = -1; else if (Math.abs(C.x - V.home) > 1) kx = Math.sign(V.home - C.x);
       if (C.cl > 0) C.cl = Math.max(0, C.cl - dt * 3);
     }
+    const lidT = (ph === 'carry' && V.held && C.x < V.home + V.chW) || (ph === 'open' && (V.held || V.rel)) || (ph === 'settle' && V.rel && now() - V.st < 1.2) ? 1 : 0;
+    if (Math.abs(lidT - V.lo) > 0.001) { if (lidT && V.lo < 0.05) { thud(0.3, 300); beep(420, 0.06, 0.02); } V.lo += (lidT - V.lo) * Math.min(1, dt * 9); }
     // carrello e cavo
     let vt = kx * sp; if (ph !== 'move') vt = kx * Math.min(sp, Math.abs(C.x - V.home) * 5);   // verso casa frena dolce
     const ac = 1700 * dt, vx0 = C.vx;
@@ -307,7 +316,7 @@ window.GR = (() => {
       const ly = V.HR * 0.5 + H.s * 0.8, tx = C.hx + Math.sin(C.th) * ly, ty = C.hy + Math.cos(C.th) * ly, k = Math.min(1, dt * 14);
       H.px = H.x; H.py = H.y; H.x += (tx - H.x) * k; H.y += (ty - H.y) * k; H.a = -C.th; H.sq *= 0.9;
       const prog = V.ph === 'up' ? 0.5 * (V.gL - C.L) / Math.max(1, V.gL - V.L0) : V.ph === 'carry' ? 0.5 + 0.5 * (V.gX - C.x) / Math.max(1, V.gX - V.home) : 0;
-      if (V.slip >= 0 && prog >= V.slip) { V.pl.push(H); V.held = null; V.slip = -1; V.slipped = true; C.cl = 0.55; C.w += (Math.random() - 0.5) * 1.2; beep(500, 0.06, 0.04); beep(300, 0.15, 0.04, 0.06, 'triangle'); }
+      if (V.slip >= 0 && prog >= V.slip) { H.taken = 0; H.nc = 60; H.px = H.x; H.py = H.y; V.pl.push(H); V.held = null; V.slip = -1; V.slipped = true; C.cl = 0.55; C.w += (Math.random() - 0.5) * 1.2; beep(500, 0.06, 0.04); beep(300, 0.15, 0.04, 0.06, 'triangle'); }
     }
     // fisica a passi fissi
     V.acc += dt; let n = 0;
@@ -405,7 +414,7 @@ window.GR = (() => {
     }
     const fl = g.createLinearGradient(0, floor - 4, 0, gy1); fl.addColorStop(0, '#8a4a9a'); fl.addColorStop(1, '#5a2a6a'); g.fillStyle = fl; g.fillRect(BX, floor - 2, gx1 - BX, gy1 - floor + 2);
     const ch = g.createLinearGradient(0, floor - V.BH, 0, gy1); ch.addColorStop(0, 'rgba(10,4,16,.25)'); ch.addColorStop(1, '#0a0410'); g.fillStyle = ch; g.fillRect(gx0, floor - V.BH, chW, gy1 - floor + V.BH);
-    g.fillStyle = Math.floor(t * 2) % 2 ? '#ffd84a' : '#c8962a'; g.font = '900 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('▼', gx0 + chW / 2, floor - V.BH - 12);
+    g.fillStyle = Math.floor(t * 2) % 2 ? '#ffd84a' : '#c8962a'; g.font = '900 13px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('▼', gx0 + chW / 2, V.lhy - 14);
     // striscia di luci in alto che cambia colore
     for (let x = gx0, i = 0; x < gx1; x += 12, i++) { g.fillStyle = `hsl(${(i * 24 + t * 140) % 360},90%,66%)`; g.fillRect(x + 2, gy0 + 2, 8, 4); }
     g.restore();
@@ -450,6 +459,8 @@ window.GR = (() => {
     if (V.held) plush(g, V.held, t, 0.06);
     g.save(); g.translate(C.hx, C.hy); g.rotate(-C.th); prongs(g, [0]); g.restore();
     if (V.luck && V.ph !== 'idle') { g.fillStyle = `rgba(255,230,120,${0.22 + 0.18 * Math.sin(t * 6)})`; g.beginPath(); g.arc(C.hx, C.hy + V.PL * 0.4, V.PL * 0.8, 0, 7); g.fill(); }
+    { const [tx, ty] = lidTip(); g.lineCap = 'round'; g.strokeStyle = '#4a4f5a'; g.lineWidth = 7; g.beginPath(); g.moveTo(gx0 + 2, V.lhy); g.lineTo(tx, ty); g.stroke(); g.strokeStyle = chrome(g, gx0, V.lhy, tx, ty); g.lineWidth = 4.5; g.stroke(); g.strokeStyle = '#f08ab8'; g.lineWidth = 1.5; g.stroke();
+      g.fillStyle = '#e8ecf2'; g.beginPath(); g.arc(gx0 + 3, V.lhy, 4, 0, 7); g.fill(); g.fillStyle = '#5a5f6a'; g.beginPath(); g.arc(gx0 + 3, V.lhy, 1.6, 0, 7); g.fill(); }
     // parete trasparente della buca, riflessi del vetro che scorrono, cornice
     g.fillStyle = 'rgba(200,230,255,.22)'; g.fillRect(BX - 2, floor - V.BH, 4, V.BH); g.fillStyle = 'rgba(255,255,255,.55)'; g.fillRect(BX - 2, floor - V.BH, 4, 2);
     g.save(); g.beginPath(); g.rect(gx0, gy0, gw, gy1 - gy0); g.clip();
