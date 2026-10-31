@@ -263,8 +263,8 @@ details.gList.gMini,details.gList.gTav{border:2px solid var(--gc);background:col
 #cqChatP{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;width:min(520px,calc(100% - 20px));box-sizing:border-box;padding:10px;border-radius:16px;background:rgba(18,22,34,.95);box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:20;color:#fff}
 #cqChatLog{font-size:13px;line-height:1.4;margin:0 4px 8px;max-height:132px;overflow:auto}#cqChatLog:empty{display:none}#cqChatLog b{color:#9cc8ff}#cqChatLog .me b{color:#f2c230}
 #cqChatQ{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}#cqChatQ button{border:0;border-radius:18px;padding:8px 12px;font:inherit;font-size:15px;font-weight:700;background:#2e3a52;color:#fff;cursor:pointer}#cqChatQ button:active{background:#4a6aa0}
-#cqStk{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;padding-bottom:2px}#cqStk button{flex:none;border:0;border-radius:12px;cursor:pointer;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
-#cqStk .st{width:58px;height:58px;background:#232b3d center/contain no-repeat;padding:0}#cqStk .stAdd{min-width:46px;height:58px;padding:0 12px;font:inherit;font-size:15px;font-weight:700;background:#3a5a8a;color:#fff}
+#cqStk{display:grid;grid-template-columns:repeat(auto-fill,minmax(58px,1fr));gap:6px;max-height:min(200px,30vh);overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y;margin-bottom:8px;padding-right:2px}#cqStk button{border:0;border-radius:12px;cursor:pointer;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+#cqStk .st{width:100%;aspect-ratio:1;background:#232b3d center/contain no-repeat;padding:0}#cqStk .stAdd.wide{grid-column:1/-1;aspect-ratio:auto;height:52px}#cqStk .stAdd{aspect-ratio:1;padding:0 4px;font:inherit;font-size:15px;font-weight:700;background:#3a5a8a;color:#fff}
 #cqStkM{background:#232b3d;border-radius:12px;padding:8px;margin-bottom:8px;font-size:12px;line-height:1.4}#cqStkM button{display:block;width:100%;border:0;border-radius:10px;padding:9px;font:inherit;font-size:15px;font-weight:700;background:#3a8a5a;color:#fff;cursor:pointer}#cqStkM .hint{margin:4px 2px 8px;opacity:.85}#cqStkM .hint:last-child{margin-bottom:0}
 #cqChatLog img.stkL{height:40px;vertical-align:middle}
 #cqStkLay{position:absolute;inset:0;pointer-events:none;overflow:hidden}#cqStkLay img{position:absolute;left:0;top:0;width:84px;height:84px;object-fit:contain;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35));transform-origin:50% 100%;animation:stkPop .35s cubic-bezier(.3,1.6,.5,1)}
@@ -4241,7 +4241,7 @@ function stkMenu() { const b = $('#cqStkM [data-m="d"]'); if (!b) return; b.hidd
 function stkDel(id) { STK.list = (STK.list || []).filter(s => s.id !== id); stkTx('readwrite', s => s.delete(id)).catch(() => {}); stkBar(); }
 function stkBar() {
   const el = $('#cqStk'); if (!el) return; const L = STK.list || [];
-  el.innerHTML = (STK.dir && STK.need ? '<button type="button" class="stAdd" data-r="1">🔄 Carica i tuoi sticker</button>' : '') + '<button type="button" class="stAdd" data-a="1">' + (L.length || STK.need ? '➕' : '➕ Aggiungi i tuoi sticker') + '</button>' + L.map(s => '<button type="button" class="st" data-k="' + s.id + '"></button>').join('');
+  el.innerHTML = (STK.dir && STK.need ? '<button type="button" class="stAdd wide" data-r="1">🔄 Carica i tuoi sticker</button>' : '') + '<button type="button" class="stAdd' + (L.length || STK.need ? '' : ' wide') + '" data-a="1">' + (L.length || STK.need ? '➕' : '➕ Aggiungi i tuoi sticker') + '</button>' + L.map(s => '<button type="button" class="st" data-k="' + s.id + '"></button>').join('');
   for (const b of el.querySelectorAll('.st')) b.style.backgroundImage = 'url("' + stkUrl(b.dataset.k) + '")';
 }
 async function stkSend(id) {
@@ -4272,7 +4272,8 @@ function stkInit(P) {
 function stkShow(b, X, Y) {
   const u = stkUrl(b.k); if (!u) { stkGet(b.k); return false; }
   let im = STK.lay.get(b); if (!im) { im = new Image(); im.src = u; $('#cqStkLay').appendChild(im); STK.lay.set(b, im); }
-  const z = cq.vz || 1; im._f = STK.fr; im.style.translate = Math.round(X * z - 42) + 'px ' + Math.round(Y * z - 78) + 'px'; return true;
+  const z = cq.vz || 1; im._f = STK.fr; const al = v => Math.round(v * cq.dpr) / cq.dpr;   // come la mappa: allineato ai pixel veri, non al punto intero (prima tremava di mezzo punto camminando)
+  im.style.translate = al(X * z - 42) + 'px ' + al(Y * z - 78) + 'px'; return true;
 }
 function stkFlush() { for (const [b, im] of STK.lay) if (im._f !== STK.fr) { im.remove(); STK.lay.delete(b); } STK.fr++; }
 function cqBubble(g, X, Y, t) {
