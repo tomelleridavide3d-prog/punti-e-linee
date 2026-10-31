@@ -4197,10 +4197,12 @@ async function stkAdd(files, dir) {   // dir: dalla cartella collegata (in ordin
 async function stkDir() { if (STK.dir === undefined) { try { const r = await stkTx('readonly', s => s.get('dir'), 'k'); STK.dir = r && r.h ? { h: r.h, path: r.path || [] } : null; } catch { STK.dir = null; } } return STK.dir; }
 // la cartella scelta puo' essere anche piu' in alto (Android, media, com.whatsapp, WhatsApp, Media): quella degli sticker la cerca il gioco
 const STK_VIA = /^(android|media|com\.whatsapp(\.w4b)?|whatsapp( business)?)$/i;
-async function stkFind(h, d = 0) {   // -> nomi delle cartelle da h fino a "WhatsApp Stickers", o null
+// -> nomi delle cartelle da h fino a quella che CONTIENE le cartelle degli sticker (di solito "Media": dentro ci sono "WhatsApp Stickers",
+// "WhatsApp Sticker Packs"...), [] se h e' gia' una cartella di sticker o le contiene, null se non le trova
+async function stkFind(h, d = 0) {
   if (/sticker/i.test(h.name)) return [];
   if (d > 5) return null;
-  const sub = []; for await (const e of h.values()) if (e.kind === 'directory') { if (/^whatsapp( business)? stickers$/i.test(e.name)) return [e.name]; if (STK_VIA.test(e.name)) sub.push(e); }
+  const sub = []; for await (const e of h.values()) if (e.kind === 'directory') { if (/sticker/i.test(e.name)) return []; if (STK_VIA.test(e.name)) sub.push(e); }
   sub.sort((a, b) => /business|w4b/i.test(a.name) - /business|w4b/i.test(b.name));   // prima WhatsApp normale, poi Business
   for (const e of sub) { const p = await stkFind(e, d + 1); if (p) return [e.name, ...p]; }
   return null;
@@ -4223,11 +4225,15 @@ async function stkSync(gesture, loud) {
       const p = await stkFind(h); if (!p) { say('⚠️ In "' + esc(h.name) + '" non trovo gli sticker di WhatsApp: ricollega la cartella Android › media'); return; }
       D.path = p; stkTx('readwrite', s => s.put({ k: 'dir', h, path: p }), 'k').catch(() => {});
     }
+    if (D.path.length && /sticker/i.test(D.path[D.path.length - 1])) D.path = D.path.slice(0, -1);   // strada vecchia fino a una sola cartella: ora si guardano tutte quelle accanto
     let dir = h; for (const n of D.path) dir = await dir.getDirectoryHandle(n);
-    const r = await stkTx('readonly', s => s.get('seen'), 'k').catch(() => null), seen = new Set((r && r.v) || []), all = [], nu = [];
-    for await (const e of dir.values()) if (e.kind === 'file' && !e.name.startsWith('.')) { const f = await e.getFile(), key = f.name + '|' + f.size; all.push(key); if (!seen.has(key)) nu.push(f); }
+    // tutte le cartelle degli sticker ("WhatsApp Stickers", "WhatsApp Sticker Packs"...), anche dentro le sottocartelle (un pacchetto = una cartella)
+    const roots = []; if (/sticker/i.test(dir.name)) roots.push(dir); else for await (const e of dir.values()) if (e.kind === 'directory' && /sticker/i.test(e.name)) roots.push(e);
+    const r = await stkTx('readonly', s => s.get('seen'), 'k').catch(() => null), seen = new Set((r && r.v) || []), all = [], nu = [], cnt = [];
+    const walk = async (d, k, pre) => { let n = 0; for await (const e of d.values()) { if (e.name.startsWith('.')) continue; if (e.kind === 'file') { const f = await e.getFile(), key = pre + f.name + '|' + f.size; n++; all.push(key); if (!seen.has(key)) nu.push(f); } else if (k < 3) n += await walk(e, k + 1, pre + e.name + '/'); } return n; };
+    for (const d of roots) cnt.push('"' + esc(d.name) + '" ' + await walk(d, 0, d.name + '/'));
     await stkTx('readwrite', s => s.put({ k: 'seen', v: all }), 'k').catch(() => {});
-    if (!nu.length) say(all.length ? '📂 Nessuno sticker nuovo (nella cartella ce ne sono ' + all.length + ')' : '📂 La cartella "' + esc(dir.name) + '" è vuota');
+    if (!nu.length) say(all.length ? '📂 Nessuno sticker nuovo (ce ne sono ' + all.length + ')' : '📂 Ho guardato in ' + (cnt.join(', ') || '"' + esc(dir.name) + '"') + ' file: niente. ' + (D.path.length || !/sticker/i.test(dir.name) ? '' : 'Ricollega scegliendo Android › media, così guardo in tutte le cartelle degli sticker.'));
     nu.sort((a, b) => b.lastModified - a.lastModified); await stkAdd(nu, true);
   } catch (e) { say('⚠️ Non riesco a leggere la cartella: ' + esc(String(e && e.message || e).slice(0, 80))); } finally { STK.sync = 0; }
 }

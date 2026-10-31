@@ -8,15 +8,13 @@ export default [
     const mk = async (col, name, t) => { const c = document.createElement('canvas'); c.width = c.height = 64; const g = c.getContext('2d'); g.fillStyle = col; g.fillRect(0, 0, 64, 64);
       return new File([await new Promise(r => c.toBlob(r, 'image/webp'))], name, { type: 'image/webp', lastModified: t }); };
     const files = [await mk('#f00', 'a.webp', 1000), await mk('#0f0', 'b.webp', 3000), await mk('#00f', 'c.webp', 2000)];
-    const F = f => ({ kind: 'file', name: f.name, getFile: async () => f });
+    const pack = await mk('#f0f', 'p1.webp', 4000); const F = f => ({ kind: 'file', name: f.name, getFile: async () => f });
     const D = (name, kids) => ({ kind: 'directory', name, queryPermission: async () => 'granted', async *values() { for (const k of (typeof kids === 'function' ? kids() : kids)) yield k; },
       async getDirectoryHandle(n) { const k = (typeof kids === 'function' ? kids() : kids).find(k => k.kind === 'directory' && k.name === n); if (!k) throw new Error('manca ' + n); return k; } });
     const stk = D('WhatsApp Stickers', () => [...files.map(F), F(new File([], '.nomedia'))]);
     const media = D('media', [D('com.facebook.katana', []), D('com.whatsapp.w4b', [D('WhatsApp Business', [D('Media', [D('WhatsApp Business Stickers', [])])])]),
-      D('com.whatsapp', [D('WhatsApp', [D('.Shared', []), D('Media', [D('WhatsApp Images', [F(files[0])]), D('WhatsApp Stickers', stk.values.bind(stk)), D('WhatsApp Video', [])])])])]);
-    // la cartella degli sticker vera, con i file che cambiano
-    media.getDirectoryHandle; const realStk = stk; const wa = (await (await (await (await media.getDirectoryHandle('com.whatsapp')).getDirectoryHandle('WhatsApp')).getDirectoryHandle('Media')));
-    wa.getDirectoryHandle = async n => n === 'WhatsApp Stickers' ? realStk : D(n, []);
+      D('com.whatsapp', [D('WhatsApp', [D('.Shared', []), D('Media', [D('WhatsApp Images', [F(files[0])]), stk, D('WhatsApp Sticker Packs', [D('pacchetto1', [F(pack)])]), D('WhatsApp Video', [])])])])]);
+    const realStk = stk;
     await stkLoad(); for (const s of [...STK.list]) stkDel(s.id); await stkTx('readwrite', s => s.put({ k: 'seen', v: [] }), 'k');
     const out = [];
     window.showDirectoryPicker = async () => D('Download', [D('Telegram', [])]); STK.dir = null; await stkLink(); out.push('cartella sbagliata: collegata ' + !!STK.dir);
