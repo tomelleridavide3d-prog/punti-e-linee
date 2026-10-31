@@ -23,9 +23,10 @@ for (let i = 0; i < NP; i++) {
   pages.push(sid);
 }
 await sleep(3000);
-for (const [p, js, wait] of steps) {
+for (const [p, js, wait, shot] of steps) {
   const r = await send('Runtime.evaluate', { expression: js, awaitPromise: true, returnByValue: true }, pages[p]);
   console.log('[' + (p ? 'amico' + (NP > 2 ? p : '') : 'host') + '] ' + (r.result.exceptionDetails ? 'ERRORE: ' + JSON.stringify(r.result.exceptionDetails).slice(0, 600) : JSON.stringify(r.result.result.value)));
+  if (shot) { const sh = await send('Page.captureScreenshot', { format: 'png' }, pages[p]); fs.writeFileSync(shot, Buffer.from(sh.result.data, 'base64')); }   // 4o valore facoltativo: screenshot
   if (wait) await sleep(wait);
 }
 try { const v = await (await fetch(`http://127.0.0.1:${dport}/json/version`)).json(), bw = new WebSocket(v.webSocketDebuggerUrl); await new Promise(r => bw.onopen = r); bw.send(JSON.stringify({ id: 1, method: "Browser.close" })); await sleep(700); } catch { }

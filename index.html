@@ -263,6 +263,12 @@ details.gList.gMini,details.gList.gTav{border:2px solid var(--gc);background:col
 #cqChatP{position:absolute;left:50%;transform:translateX(-50%);bottom:12px;width:min(520px,calc(100% - 20px));box-sizing:border-box;padding:10px;border-radius:16px;background:rgba(18,22,34,.95);box-shadow:0 6px 24px rgba(0,0,0,.5);z-index:20;color:#fff}
 #cqChatLog{font-size:13px;line-height:1.4;margin:0 4px 8px;max-height:132px;overflow:auto}#cqChatLog:empty{display:none}#cqChatLog b{color:#9cc8ff}#cqChatLog .me b{color:#f2c230}
 #cqChatQ{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px}#cqChatQ button{border:0;border-radius:18px;padding:8px 12px;font:inherit;font-size:15px;font-weight:700;background:#2e3a52;color:#fff;cursor:pointer}#cqChatQ button:active{background:#4a6aa0}
+#cqStk{display:flex;gap:6px;overflow-x:auto;margin-bottom:8px;padding-bottom:2px}#cqStk button{flex:none;border:0;border-radius:12px;cursor:pointer;-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
+#cqStk .st{width:58px;height:58px;background:#232b3d center/contain no-repeat;padding:0}#cqStk .stAdd{min-width:46px;height:58px;padding:0 12px;font:inherit;font-size:15px;font-weight:700;background:#3a5a8a;color:#fff}
+#cqStkM{background:#232b3d;border-radius:12px;padding:8px;margin-bottom:8px;font-size:12px;line-height:1.4}#cqStkM button{display:block;width:100%;border:0;border-radius:10px;padding:9px;font:inherit;font-size:15px;font-weight:700;background:#3a8a5a;color:#fff;cursor:pointer}#cqStkM .hint{margin:4px 2px 8px;opacity:.85}#cqStkM .hint:last-child{margin-bottom:0}
+#cqChatLog img.stkL{height:40px;vertical-align:middle}
+#cqStkLay{position:absolute;inset:0;pointer-events:none;overflow:hidden}#cqStkLay img{position:absolute;left:0;top:0;width:84px;height:84px;object-fit:contain;filter:drop-shadow(0 3px 4px rgba(0,0,0,.35));transform-origin:50% 100%;animation:stkPop .35s cubic-bezier(.3,1.6,.5,1)}
+@keyframes stkPop{from{scale:.2;opacity:0}to{scale:1;opacity:1}}
 #cqChatF{display:flex;gap:6px;margin:0}#cqChatI{flex:1;min-width:0;border:0;border-radius:12px;padding:10px 12px;font:inherit;font-size:16px;background:#fff;color:#222}#cqChatF button{border:0;border-radius:12px;width:46px;font-size:20px;background:#3a8a5a;color:#fff;cursor:pointer}#cqChatF #cqChatX{background:#4a4f5c}
 #cqPartyB{background:rgba(20,22,28,.85);color:#fff;font-weight:700;padding:7px 12px;margin-left:6px}
 .pmRow{display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--line)}.pmRow:last-child{border-bottom:0}.pmRow .nm{flex:1;min-width:0;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.pmRow .nm small{font-weight:400;color:var(--muted);margin-left:4px}.pmRow .btn{padding:7px 10px;font-size:13px;flex:none}
@@ -392,7 +398,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <p class="you" id="appVer" style="text-align:center;margin-top:8px;font-size:12px"></p>
 </div></div>
 <div id="ciack" hidden>
-  <canvas id="cqCanvas"></canvas>
+  <canvas id="cqCanvas"></canvas><div id="cqStkLay"></div>
   <div class="ctop"><button class="btn" id="cqBack" type="button">← Giochi</button><b id="cqTitle">🏨 Hotel</b><span class="cqCoin" id="cqCoin"></span><button class="btn" id="cqMusic" type="button" title="Musica">🎵</button><button class="btn" id="cqEco" type="button" title="Risparmio batteria">🔋</button><button class="btn" id="cqLookBtn" type="button">Personaggio</button></div>
   <div class="cqVoice" id="cqVoice" hidden><button class="btn" id="cqMic" type="button" title="Il tuo microfono">🎤</button><button class="btn" id="cqHear" type="button" title="Senti gli amici">🗣️</button><button class="btn" id="cqRadio" type="button" title="Radio dei sabotatori: parla solo con i complici" hidden>📻</button></div>
   <div id="cqPick" hidden><div class="pk">
@@ -418,7 +424,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <div id="cqToast" hidden></div>
   <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button><button id="cqSlap" type="button" hidden>👋<br>Schiaffo</button>
-  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
+  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqStk"></div><div id="cqStkM" hidden><button type="button" data-m="f">📁 Dalla cartella di WhatsApp</button><div class="hint">Android: nel menu ☰ scegli la memoria del telefono, poi <b>Android › media › com.whatsapp › WhatsApp › Media › WhatsApp Stickers</b>. Puoi sceglierne tanti insieme (tieni premuto il primo).</div><button type="button" data-m="g">🖼️ Dalla galleria</button><div class="hint">Sul computer puoi anche incollare (Ctrl+V) o trascinare qui un'immagine. Tieni premuto uno sticker per toglierlo.</div></div><input type="file" id="cqStkF" multiple hidden><input type="file" id="cqStkG" accept="image/*" multiple hidden><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
   <button class="btn" id="cqSit" type="button" hidden>🪑 Siediti</button><button class="btn" id="cqDrink" type="button" hidden>☕ Bevi</button>
   <button id="cqShoot" type="button" hidden>Spara</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
@@ -4105,7 +4111,7 @@ function cqChatInit() {
   const P = $('#cqChatP'), I = $('#cqChatI');
   $('#cqChatQ').innerHTML = CQ_CHAT_Q.map(q => '<button type="button">' + q + '</button>').join('');
   const close = () => { P.hidden = true; I.blur(); cq.keys = {}; if (cq.g && cq.g.hall && cq.net) $('#cqChatB').hidden = false; };
-  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
+  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; $('#cqStkM').hidden = true; stkLoad().then(stkBar); cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
   cq.chatClose = close;
   $('#cqChatB').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (P.hidden) open(); else close(); });
   P.addEventListener('pointerdown', e => e.stopPropagation());
@@ -4113,6 +4119,7 @@ function cqChatInit() {
   $('#cqChatF').onsubmit = e => { e.preventDefault(); cqChatSend(I.value); };
   $('#cqChatX').onclick = close;
   I.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
+  stkInit(P);
 }
 function cqChatSend(t) {
   const N = cq.net; t = String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80); if (cq.chatClose) cq.chatClose();
@@ -4122,14 +4129,103 @@ function cqChatSend(t) {
 function cqChatGot(v) {
   const N = cq.net, G = cq.g; if (!v || !v.t || !N) return;
   const t = String(v.t).slice(0, 80), n = String(v.n || '?').slice(0, 14), mine = v.s === N.sid, fresh = (v.ts || 0) > N.t0 - 1500;
-  cq.hlog.push({ n, t, me: mine }); if (cq.hlog.length > 30) cq.hlog.shift();
-  if ($('#cqChatP') && !$('#cqChatP').hidden) cqChatLog();
+  const k = typeof v.k === 'string' && /^[a-z0-9]{6,24}$/.test(v.k) ? v.k : null;   // sticker
+  cq.hlog.push({ n, t, k, me: mine }); if (cq.hlog.length > 30) cq.hlog.shift();
+  const logUp = () => { if ($('#cqChatP') && !$('#cqChatP').hidden) cqChatLog(); };
+  logUp(); if (k) stkGet(k).then(logUp);
   if (!fresh) return;
-  const bub = { t, u: Date.now() + 6000 };
+  const bub = { t, k, u: Date.now() + 6000 };
   if (mine) cq.myBub = bub; else if (G && G.hall) { const c = G.chars.find(o => o.sid === v.s); if (c) c.bub = bub; }
-  if (!mine) { beep(1046, 0.05, 0.03); beep(1318, 0.07, 0.03, 0.06); if (!(G && G.hall)) cqToast('💬 <b>' + esc(n) + '</b>: ' + esc(t)); }
+  if (!mine) { beep(1046, 0.05, 0.03); beep(1318, 0.07, 0.03, 0.06); if (!(G && G.hall)) { if (k) stkGet(k).then(u => cqToast('💬 <b>' + esc(n) + '</b> ' + (u ? '<img src="' + u + '" style="height:48px;vertical-align:middle">' : esc(t)))); else cqToast('💬 <b>' + esc(n) + '</b>: ' + esc(t)); } }
 }
-function cqChatLog() { const el = $('#cqChatLog'); if (el) { el.innerHTML = (cq.hlog || []).slice(-8).map(e => '<div' + (e.me ? ' class="me"' : '') + '><b>' + esc(e.n) + '</b> ' + esc(e.t) + '</div>').join(''); el.scrollTop = el.scrollHeight; } }
+function cqChatLog() { const el = $('#cqChatLog'); if (el) { el.innerHTML = (cq.hlog || []).slice(-8).map(e => { const u = e.k && stkUrl(e.k); return '<div' + (e.me ? ' class="me"' : '') + '><b>' + esc(e.n) + '</b> ' + (u ? '<img class="stkL" src="' + u + '">' : esc(e.t)) + '</div>'; }).join(''); el.scrollTop = el.scrollHeight; } }
+// ---- STICKER NELLA CHAT DELLA HALL: i tuoi, presi dalla cartella degli sticker di WhatsApp (un sito non la puo' aprire da solo: la si sceglie a mano
+// una volta) o dalla galleria; salvati sul telefono (IndexedDB 'pl-stk'). I dati viaggiano una volta sola in sk/<id> (id = impronta del contenuto,
+// si scrive solo se manca); il messaggio in hm porta k: id (t '🖼️ Sticker' per le versioni vecchie). Sopra la testa come <img> vera (#cqStkLay):
+// gli animati si muovono. Animati fino a STK_ANI byte restano com'erano, gli altri diventano un'immagine ferma di 160 punti.
+const STK = { list: null, mem: new Map(), url: new Map(), ld: new Map(), up: new Set(), lay: new Map(), fr: 0, last: 0 }, STK_ANI = 380000;
+function stkDb() { return STK.db || (STK.db = new Promise((ok, ko) => { const r = indexedDB.open('pl-stk', 1); r.onupgradeneeded = () => r.result.createObjectStore('m', { keyPath: 'id' }); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); })); }
+async function stkTx(mode, fn) { const db = await stkDb(); return new Promise((ok, ko) => { const t = db.transaction('m', mode), r = fn(t.objectStore('m')); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }); }
+async function stkLoad() {
+  if (STK.list) return STK.list;
+  try { STK.list = (await stkTx('readonly', s => s.getAll()) || []).sort((a, b) => b.ts - a.ts); } catch { STK.list = []; }
+  for (const s of STK.list) STK.mem.set(s.id, s.d); return STK.list;
+}
+function stkId(d) { let h = 0x811c9dc5, h2 = 7; for (let i = 0; i < d.length; i++) { const c = d.charCodeAt(i); h = Math.imul(h ^ c, 16777619); h2 = (Math.imul(h2, 31) + c) | 0; } return (h >>> 0).toString(36) + (h2 >>> 0).toString(36) + d.length.toString(36); }
+function stkUrl(id) {   // indirizzo blob per <img> (piu' leggero della stringa data: ripetuta)
+  let u = STK.url.get(id); if (u) return u; const d = STK.mem.get(id); if (!d) return null;
+  const b = atob(d.slice(d.indexOf(',') + 1)), a = new Uint8Array(b.length); for (let j = 0; j < b.length; j++) a[j] = b.charCodeAt(j);
+  u = URL.createObjectURL(new Blob([a], { type: d.slice(5, d.indexOf(';')) })); STK.url.set(id, u); return u;
+}
+function stkGet(id) {   // dati di uno sticker (miei, gia' visti, o dal database): -> indirizzo blob o null
+  if (STK.mem.has(id)) return Promise.resolve(stkUrl(id));
+  if (!STK.ld.has(id)) STK.ld.set(id, (async () => {
+    try { const F = cq.net && cq.net.F; if (!F) throw 0; const sn = await F.get(cqNetRef('sk/' + id)), d = sn.val(); if (typeof d === 'string' && d.startsWith('data:image/')) { STK.mem.set(id, d); return stkUrl(id); } } catch {}
+    STK.ld.delete(id); return null;
+  })());
+  return STK.ld.get(id);
+}
+const stkRead = (f, as) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ko(r.error); r[as](f); });
+async function stkMake(f) {
+  if (!/^image\//.test(f.type || '') && !/\.(webp|png|gif|jpe?g)$/i.test(f.name || '')) return null;
+  const buf = new Uint8Array(await stkRead(f, 'readAsArrayBuffer')), s4 = o => String.fromCharCode(buf[o], buf[o + 1], buf[o + 2], buf[o + 3]);
+  const webp = s4(0) === 'RIFF' && s4(8) === 'WEBP', ani = webp ? s4(12) === 'VP8X' && (buf[20] & 2) : s4(0) === 'GIF8';
+  const type = webp ? 'image/webp' : s4(0) === 'GIF8' ? 'image/gif' : f.type || 'image/png', blob = new Blob([buf], { type });
+  if (ani && buf.length <= STK_ANI) return stkRead(blob, 'readAsDataURL');   // animato e non troppo pesante: com'e'
+  const u = URL.createObjectURL(blob);
+  try {
+    const im = await new Promise((ok, ko) => { const i = new Image(); i.onload = () => ok(i); i.onerror = ko; i.src = u; });
+    const z = Math.min(1, 160 / Math.max(im.naturalWidth, im.naturalHeight, 1)), c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(im.naturalWidth * z)); c.height = Math.max(1, Math.round(im.naturalHeight * z)); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    const d = c.toDataURL('image/webp', 0.82); return d.startsWith('data:image/webp') ? d : c.toDataURL('image/png');   // Safari non fa webp
+  } finally { URL.revokeObjectURL(u); }
+}
+async function stkAdd(files) {
+  await stkLoad(); let n = 0;
+  cqToast('⏳ Aggiungo gli sticker…');
+  for (const f of [...files].slice(0, 60)) {
+    try { const d = await stkMake(f); if (!d) continue; const id = stkId(d); if (STK.list.some(s => s.id === id)) continue; const r = { id, d, ts: Date.now() + n }; await stkTx('readwrite', s => s.put(r)); STK.list.unshift(r); STK.mem.set(id, d); n++; } catch {}
+  }
+  STK.list.sort((a, b) => b.ts - a.ts);
+  while (STK.list.length > 120) { const r = STK.list.pop(); stkTx('readwrite', s => s.delete(r.id)).catch(() => {}); }
+  stkBar(); $('#cqStkM').hidden = true; cqToast(n ? '✅ Aggiunt' + (n > 1 ? 'i ' + n + ' sticker' : 'o 1 sticker') : 'Nessuno sticker nuovo');
+}
+function stkDel(id) { STK.list = (STK.list || []).filter(s => s.id !== id); stkTx('readwrite', s => s.delete(id)).catch(() => {}); stkBar(); }
+function stkBar() {
+  const el = $('#cqStk'); if (!el) return; const L = STK.list || [];
+  el.innerHTML = '<button type="button" class="stAdd" data-a="1">' + (L.length ? '➕' : '➕ Aggiungi i tuoi sticker') + '</button>' + L.map(s => '<button type="button" class="st" data-k="' + s.id + '"></button>').join('');
+  for (const b of el.querySelectorAll('.st')) b.style.backgroundImage = 'url("' + stkUrl(b.dataset.k) + '")';
+}
+async function stkSend(id) {
+  const N = cq.net, d = STK.mem.get(id), now = Date.now(); if (!N || !d || now - STK.last < 1200) return; STK.last = now;
+  if (cq.chatClose) cq.chatClose();
+  const r = STK.list && STK.list.find(s => s.id === id); if (r) { r.ts = now; STK.list.sort((a, b) => b.ts - a.ts); stkTx('readwrite', s => s.put(r)).catch(() => {}); }
+  if (!STK.up.has(id)) {
+    try { const ref = cqNetRef('sk/' + id), sn = await N.F.get(ref); if (!sn.exists()) await N.F.set(ref, d); STK.up.add(id); }
+    catch { cqToast('⚠️ Sticker non inviato: riprova'); return; }
+  }
+  if (cq.net !== N) return;
+  N.F.push(cqNetRef(`cq/${N.code}/hm`), { s: N.sid, n: (store.settings.myName || 'Tu').trim().slice(0, 14) || 'Tu', t: '🖼️ Sticker', k: id, ts: Date.now() }).catch(() => {});
+}
+function stkInit(P) {
+  const el = $('#cqStk'), M = $('#cqStkM');
+  el.onpointerdown = e => { const b = e.target.closest('.st'); clearTimeout(STK.lt); STK.lp = 0; if (b) STK.lt = setTimeout(() => { STK.lp = 1; if (confirm('Togliere questo sticker dai tuoi?')) stkDel(b.dataset.k); }, 650); };
+  el.onpointerup = el.onpointercancel = el.onpointerleave = () => clearTimeout(STK.lt);
+  el.oncontextmenu = e => e.preventDefault();
+  el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (STK.lp) { STK.lp = 0; return; } if (b.dataset.a) M.hidden = !M.hidden; else stkSend(b.dataset.k); };
+  M.onclick = e => { const b = e.target.closest('button'); if (b) $(b.dataset.m === 'f' ? '#cqStkF' : '#cqStkG').click(); };
+  for (const s of ['#cqStkF', '#cqStkG']) $(s).onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) stkAdd(fs); };
+  document.addEventListener('paste', e => { if (P.hidden) return; const fs = [...((e.clipboardData && e.clipboardData.files) || [])].filter(f => /^image\//.test(f.type)); if (fs.length) { e.preventDefault(); stkAdd(fs); } });
+  P.addEventListener('dragover', e => e.preventDefault());
+  P.addEventListener('drop', e => { e.preventDefault(); const fs = e.dataTransfer && e.dataTransfer.files; if (fs && fs.length) stkAdd(fs); });
+}
+// sopra la testa: un <img> per fumetto-sticker, spostato a ogni disegno; quelli non piu' disegnati spariscono (stkFlush)
+function stkShow(b, X, Y) {
+  const u = stkUrl(b.k); if (!u) { stkGet(b.k); return false; }
+  let im = STK.lay.get(b); if (!im) { im = new Image(); im.src = u; $('#cqStkLay').appendChild(im); STK.lay.set(b, im); }
+  const z = cq.vz || 1; im._f = STK.fr; im.style.translate = Math.round(X * z - 42) + 'px ' + Math.round(Y * z - 78) + 'px'; return true;
+}
+function stkFlush() { for (const [b, im] of STK.lay) if (im._f !== STK.fr) { im.remove(); STK.lay.delete(b); } STK.fr++; }
 function cqBubble(g, X, Y, t) {
   g.save(); g.font = '600 13px system-ui,sans-serif';
   const words = t.split(' '), lines = []; let cur = '';
@@ -6123,7 +6219,8 @@ function cqDraw() {
     if (G.M.deco) for (const o of list) if (o.on && o.mo) G.M.deco(g, o.mo, o.sx, o.sy, TW, G, o.L);
   }
   for (const o of list) if (o.xr) { g.globalAlpha = o.ghost ? 0.25 : 0.5; cqPlayer(g, o.sx, o.sy, TW, o.L, o.w, o.f); g.globalAlpha = 1; }   // dietro a un albero (xray): sagoma in trasparenza
-  for (const o of list) if (o.on && o.bub && o.bub.u > Date.now()) cqBubble(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)) - 14, o.bub.t);   // chat della hall: fumetto sopra il nome
+  for (const o of list) if (o.on && o.bub && o.bub.u > Date.now()) { const by = o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)) - 14; if (!o.bub.k || !stkShow(o.bub, o.sx, by)) cqBubble(g, o.sx, by, o.bub.t); }   // chat della hall: fumetto (o sticker) sopra il nome
+  stkFlush();
   if (G && G.hall && window.BC) BC.over(g, list, TW);   // Briscola: carte in mano a chi gioca
   for (const o of list) if (o.on && o.name != null && !o.body) cqName(g, o.sx, o.sy - TW * ((o.dr && o.dr.top ? o.dr.top : cqTop(o.L)) + (o.sitK || 0)), o.talk ? o.name + ' 🔊' : o.name, o.nc || (o.red ? '#ff6a5a' : o.green ? '#7be0a0' : '#fff'));
   // punti sopra gli oggetti: gialli i compiti, rossi i sabotaggi da riparare
