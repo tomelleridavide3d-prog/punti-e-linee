@@ -4111,7 +4111,7 @@ function cqChatInit() {
   const P = $('#cqChatP'), I = $('#cqChatI');
   $('#cqChatQ').innerHTML = CQ_CHAT_Q.map(q => '<button type="button">' + q + '</button>').join('');
   const close = () => { P.hidden = true; I.blur(); cq.keys = {}; if (cq.g && cq.g.hall && cq.net) $('#cqChatB').hidden = false; };
-  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; $('#cqStkM').hidden = true; stkLoad().then(() => { stkBar(); stkSync(true); }); cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
+  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; $('#cqStkM').hidden = true; stkLoad().then(() => { stkBar(); stkSync(false); }); cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
   cq.chatClose = close;
   $('#cqChatB').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (P.hidden) open(); else close(); });
   P.addEventListener('pointerdown', e => e.stopPropagation());
@@ -4167,9 +4167,10 @@ function stkGet(id) {   // dati di uno sticker (miei, gia' visti, o dal database
 }
 const stkRead = (f, as) => new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = () => ko(r.error); r[as](f); });
 async function stkMake(f) {
-  if (!/^image\//.test(f.type || '') && !/\.(webp|png|gif|jpe?g)$/i.test(f.name || '')) return null;
+  if (!f.size || f.size > 8e6) return null;
   const buf = new Uint8Array(await stkRead(f, 'readAsArrayBuffer')), s4 = o => String.fromCharCode(buf[o], buf[o + 1], buf[o + 2], buf[o + 3]);
   const webp = s4(0) === 'RIFF' && s4(8) === 'WEBP', ani = webp ? s4(12) === 'VP8X' && (buf[20] & 2) : s4(0) === 'GIF8';
+  if (!webp && s4(0) !== 'GIF8' && s4(1) !== 'PNG' && !(buf[0] === 0xff && buf[1] === 0xd8) && !/^image\//.test(f.type || '')) return null;   // si guarda il contenuto, non il nome
   const type = webp ? 'image/webp' : s4(0) === 'GIF8' ? 'image/gif' : f.type || 'image/png', blob = new Blob([buf], { type });
   if (ani && buf.length <= STK_ANI) return stkRead(blob, 'readAsDataURL');   // animato e non troppo pesante: com'e'
   const u = URL.createObjectURL(blob);
@@ -4209,25 +4210,32 @@ async function stkLink() {
   try { path = await stkFind(h); } catch {}
   if (!path) { cqToast('⚠️ In "' + esc(h.name) + '" non trovo gli sticker di WhatsApp: scegli la cartella Android › media'); return; }
   STK.dir = { h, path }; await stkTx('readwrite', s => { s.put({ k: 'dir', h, path }); s.put({ k: 'seen', v: [] }); }, 'k').catch(() => {});
-  cqToast('✅ Trovata la cartella degli sticker di WhatsApp'); stkMenu(); stkSync(true);
+  cqToast('✅ Trovata la cartella degli sticker di WhatsApp'); stkMenu(); STK.need = false; stkSync(true, true);
 }
-async function stkSync(gesture) {
-  if (STK.sync) return; STK.sync = 1;
+// gesture: viene da un TOCCO vero (click: sul telefono pointerdown non basta per chiedere il permesso); loud: dice sempre cosa ha trovato
+async function stkSync(gesture, loud) {
+  if (STK.sync) return; STK.sync = 1; const say = t => { if (loud) cqToast(t); };
   try {
     const D = await stkDir(), h = D && D.h; if (!h || !h.queryPermission) return;
-    let ok = await h.queryPermission({ mode: 'read' }); if (ok !== 'granted' && gesture) ok = await h.requestPermission({ mode: 'read' }); if (ok !== 'granted') return;
+    let ok = await h.queryPermission({ mode: 'read' }); if (ok !== 'granted' && gesture) ok = await h.requestPermission({ mode: 'read' });
+    STK.need = ok !== 'granted'; if (STK.need) { stkBar(); say('⚠️ Il telefono non ha dato il permesso di leggere la cartella'); return; }
+    if (!D.path.length && !/sticker/i.test(h.name)) {   // collegata con la versione di prima (cartella piu' in alto): cerco ora la strada
+      const p = await stkFind(h); if (!p) { say('⚠️ In "' + esc(h.name) + '" non trovo gli sticker di WhatsApp: ricollega la cartella Android › media'); return; }
+      D.path = p; stkTx('readwrite', s => s.put({ k: 'dir', h, path: p }), 'k').catch(() => {});
+    }
     let dir = h; for (const n of D.path) dir = await dir.getDirectoryHandle(n);
     const r = await stkTx('readonly', s => s.get('seen'), 'k').catch(() => null), seen = new Set((r && r.v) || []), all = [], nu = [];
-    for await (const e of dir.values()) if (e.kind === 'file' && /\.(webp|png|gif)$/i.test(e.name)) { const f = await e.getFile(), key = f.name + '|' + f.size; all.push(key); if (!seen.has(key)) nu.push(f); }
+    for await (const e of dir.values()) if (e.kind === 'file' && !e.name.startsWith('.')) { const f = await e.getFile(), key = f.name + '|' + f.size; all.push(key); if (!seen.has(key)) nu.push(f); }
     await stkTx('readwrite', s => s.put({ k: 'seen', v: all }), 'k').catch(() => {});
+    if (!nu.length) say(all.length ? '📂 Nessuno sticker nuovo (nella cartella ce ne sono ' + all.length + ')' : '📂 La cartella "' + esc(dir.name) + '" è vuota');
     nu.sort((a, b) => b.lastModified - a.lastModified); await stkAdd(nu, true);
-  } catch {} finally { STK.sync = 0; }
+  } catch (e) { say('⚠️ Non riesco a leggere la cartella: ' + esc(String(e && e.message || e).slice(0, 80))); } finally { STK.sync = 0; }
 }
 function stkMenu() { const b = $('#cqStkM [data-m="d"]'); if (!b) return; b.hidden = !window.showDirectoryPicker; b.textContent = STK.dir ? '📂 Cartella collegata ✓ (tocca per cambiarla)' : '📂 Collega la cartella degli sticker di WhatsApp'; }
 function stkDel(id) { STK.list = (STK.list || []).filter(s => s.id !== id); stkTx('readwrite', s => s.delete(id)).catch(() => {}); stkBar(); }
 function stkBar() {
   const el = $('#cqStk'); if (!el) return; const L = STK.list || [];
-  el.innerHTML = '<button type="button" class="stAdd" data-a="1">' + (L.length ? '➕' : '➕ Aggiungi i tuoi sticker') + '</button>' + L.map(s => '<button type="button" class="st" data-k="' + s.id + '"></button>').join('');
+  el.innerHTML = (STK.dir && STK.need ? '<button type="button" class="stAdd" data-r="1">🔄 Carica i tuoi sticker</button>' : '') + '<button type="button" class="stAdd" data-a="1">' + (L.length || STK.need ? '➕' : '➕ Aggiungi i tuoi sticker') + '</button>' + L.map(s => '<button type="button" class="st" data-k="' + s.id + '"></button>').join('');
   for (const b of el.querySelectorAll('.st')) b.style.backgroundImage = 'url("' + stkUrl(b.dataset.k) + '")';
 }
 async function stkSend(id) {
@@ -4246,7 +4254,7 @@ function stkInit(P) {
   el.onpointerdown = e => { const b = e.target.closest('.st'); clearTimeout(STK.lt); STK.lp = 0; if (b) STK.lt = setTimeout(() => { STK.lp = 1; if (confirm('Togliere questo sticker dai tuoi?')) stkDel(b.dataset.k); }, 650); };
   el.onpointerup = el.onpointercancel = el.onpointerleave = () => clearTimeout(STK.lt);
   el.oncontextmenu = e => e.preventDefault();
-  el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (STK.lp) { STK.lp = 0; return; } if (b.dataset.a) M.hidden = !M.hidden; else stkSend(b.dataset.k); };
+  el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (STK.lp) { STK.lp = 0; return; } if (b.dataset.r) stkSync(true, true); else if (b.dataset.a) M.hidden = !M.hidden; else stkSend(b.dataset.k); };
   M.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.m === 'd') stkLink(); else $(b.dataset.m === 'f' ? '#cqStkF' : '#cqStkG').click(); };
   stkDir().then(stkMenu);
   for (const s of ['#cqStkF', '#cqStkG']) $(s).onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) stkAdd(fs); };

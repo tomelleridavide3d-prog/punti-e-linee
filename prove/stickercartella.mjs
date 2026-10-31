@@ -27,7 +27,14 @@ export default [
     stkDel(STK.list[1].id); await stkSync(); out.push('tolto uno, dopo il giro ' + STK.list.length);
     STK.list = null; await stkLoad(); out.push('dopo riapertura ' + STK.list.length);
     STK.dir = null; window.showDirectoryPicker = async () => realStk; await stkLink(); out.push('scelta proprio la cartella degli sticker: strada "' + STK.dir.path.join(' > ') + '"');
-    stkMenu(); const b = document.querySelector('#cqStkM [data-m="d"]'); out.push('pulsante: "' + b.textContent + '" visibile ' + !b.hidden);
+    // collegamento della versione di prima: cartella "media" senza strada, permesso da chiedere, file senza estensione
+    while (STK.sync) await new Promise(r => setTimeout(r, 50));
+    for (const s of [...STK.list]) stkDel(s.id); await stkTx('readwrite', s => s.put({ k: 'seen', v: [] }), 'k');
+    files.push(await mk('#0ff', 'STK-senza-estensione', 6000)); let perm = 'prompt'; media.queryPermission = async () => perm; media.requestPermission = async () => (perm = 'granted');
+    STK.dir = { h: media, path: [] }; await stkSync(false); out.push('vecchio collegamento, aprendo la chat: serve il tasto ' + STK.need + ', tasto Carica ' + !!document.querySelector('#cqStk [data-r]'));
+    document.querySelector('#cqStk [data-r]').click(); while (STK.sync) await new Promise(r => setTimeout(r, 50));
+    out.push('dopo il tocco su Carica: strada ' + STK.dir.path.join(' > ') + ', sticker ' + STK.list.length + ' (anche senza estensione ' + STK.list.some(s => s.ts === 6000) + '), tasto sparito ' + !document.querySelector('#cqStk [data-r]'));
+    stkMenu(); const b =document.querySelector('#cqStkM [data-m="d"]'); out.push('pulsante: "' + b.textContent + '" visibile ' + !b.hidden);
     for (const s of [...STK.list]) stkDel(s.id);
     return out.join(' | ') + ' | errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 200); })()`, 0],
 ];
