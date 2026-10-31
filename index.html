@@ -424,7 +424,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <div id="cqToast" hidden></div>
   <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button><button id="cqSlap" type="button" hidden>👋<br>Schiaffo</button>
-  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqStk"></div><div id="cqStkM" hidden><button type="button" data-m="d" hidden>📂 Collega la cartella degli sticker di WhatsApp</button><div class="hint">Android: nel menu ☰ scegli la memoria del telefono, poi <b>Android › media › com.whatsapp › WhatsApp › Media › WhatsApp Stickers</b> e tocca "Usa questa cartella". Si fa una volta sola: poi i tuoi sticker entrano da soli, anche quelli nuovi.</div><button type="button" data-m="f">📁 Scegli i file degli sticker</button><div class="hint">Se il collegamento non va: scegli gli sticker a mano dalla stessa cartella (tieni premuto il primo per sceglierne tanti).</div><button type="button" data-m="g">🖼️ Dalla galleria</button><div class="hint">Sul computer puoi anche incollare (Ctrl+V) o trascinare qui un'immagine. Tieni premuto uno sticker per toglierlo.</div></div><input type="file" id="cqStkF" multiple hidden><input type="file" id="cqStkG" accept="image/*" multiple hidden><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
+  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqStk"></div><div id="cqStkM" hidden><button type="button" data-m="d" hidden>📂 Collega la cartella degli sticker di WhatsApp</button><div class="hint">Android: nel menu ☰ scegli la memoria del telefono, apri <b>Android</b>, poi <b>media</b>, e tocca "Usa questa cartella": quella degli sticker la trova il gioco. Si fa una volta sola: poi i tuoi sticker entrano da soli, anche quelli nuovi.</div><button type="button" data-m="f">📁 Scegli i file degli sticker</button><div class="hint">Se il collegamento non va: scegli gli sticker a mano dalla stessa cartella (tieni premuto il primo per sceglierne tanti).</div><button type="button" data-m="g">🖼️ Dalla galleria</button><div class="hint">Sul computer puoi anche incollare (Ctrl+V) o trascinare qui un'immagine. Tieni premuto uno sticker per toglierlo.</div></div><input type="file" id="cqStkF" multiple hidden><input type="file" id="cqStkG" accept="image/*" multiple hidden><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
   <button class="btn" id="cqSit" type="button" hidden>🪑 Siediti</button><button class="btn" id="cqDrink" type="button" hidden>☕ Bevi</button>
   <button id="cqShoot" type="button" hidden>Spara</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
@@ -4193,20 +4193,32 @@ async function stkAdd(files, dir) {   // dir: dalla cartella collegata (in ordin
 // CARTELLA COLLEGATA (Chrome 132+ anche su Android: showDirectoryPicker): la cartella degli sticker di WhatsApp si sceglie UNA volta sola
 // (un sito non puo' aprirla da solo); il permesso si ridomanda col tocco su 💬; a ogni apertura della chat entrano da soli gli sticker nuovi
 // (file mai visti, i piu' recenti per primi; quelli tolti con il dito non tornano perche' il file resta tra i 'seen')
-async function stkDir() { if (STK.dir === undefined) { try { const r = await stkTx('readonly', s => s.get('dir'), 'k'); STK.dir = (r && r.h) || null; } catch { STK.dir = null; } } return STK.dir; }
+async function stkDir() { if (STK.dir === undefined) { try { const r = await stkTx('readonly', s => s.get('dir'), 'k'); STK.dir = r && r.h ? { h: r.h, path: r.path || [] } : null; } catch { STK.dir = null; } } return STK.dir; }
+// la cartella scelta puo' essere anche piu' in alto (Android, media, com.whatsapp, WhatsApp, Media): quella degli sticker la cerca il gioco
+const STK_VIA = /^(android|media|com\.whatsapp(\.w4b)?|whatsapp( business)?)$/i;
+async function stkFind(h, d = 0) {   // -> nomi delle cartelle da h fino a "WhatsApp Stickers", o null
+  if (/sticker/i.test(h.name)) return [];
+  if (d > 5) return null;
+  const sub = []; for await (const e of h.values()) if (e.kind === 'directory') { if (/^whatsapp( business)? stickers$/i.test(e.name)) return [e.name]; if (STK_VIA.test(e.name)) sub.push(e); }
+  sub.sort((a, b) => /business|w4b/i.test(a.name) - /business|w4b/i.test(b.name));   // prima WhatsApp normale, poi Business
+  for (const e of sub) { const p = await stkFind(e, d + 1); if (p) return [e.name, ...p]; }
+  return null;
+}
 async function stkLink() {
-  let h; try { h = await window.showDirectoryPicker({ id: 'wastk', mode: 'read' }); } catch { return; }
-  STK.dir = h; await stkTx('readwrite', s => { s.put({ k: 'dir', h }); s.put({ k: 'seen', v: [] }); }, 'k').catch(() => {});
-  if (!/sticker/i.test(h.name)) cqToast('⚠️ Questa cartella si chiama "' + esc(h.name) + '": quella giusta è WhatsApp Stickers');
-  stkMenu(); stkSync(true);
+  let h, path = null; try { h = await window.showDirectoryPicker({ id: 'wastk', mode: 'read' }); } catch { return; }
+  try { path = await stkFind(h); } catch {}
+  if (!path) { cqToast('⚠️ In "' + esc(h.name) + '" non trovo gli sticker di WhatsApp: scegli la cartella Android › media'); return; }
+  STK.dir = { h, path }; await stkTx('readwrite', s => { s.put({ k: 'dir', h, path }); s.put({ k: 'seen', v: [] }); }, 'k').catch(() => {});
+  cqToast('✅ Trovata la cartella degli sticker di WhatsApp'); stkMenu(); stkSync(true);
 }
 async function stkSync(gesture) {
   if (STK.sync) return; STK.sync = 1;
   try {
-    const h = await stkDir(); if (!h || !h.queryPermission) return;
+    const D = await stkDir(), h = D && D.h; if (!h || !h.queryPermission) return;
     let ok = await h.queryPermission({ mode: 'read' }); if (ok !== 'granted' && gesture) ok = await h.requestPermission({ mode: 'read' }); if (ok !== 'granted') return;
+    let dir = h; for (const n of D.path) dir = await dir.getDirectoryHandle(n);
     const r = await stkTx('readonly', s => s.get('seen'), 'k').catch(() => null), seen = new Set((r && r.v) || []), all = [], nu = [];
-    for await (const e of h.values()) if (e.kind === 'file' && /.(webp|png|gif)$/i.test(e.name)) { const f = await e.getFile(), key = f.name + '|' + f.size; all.push(key); if (!seen.has(key)) nu.push(f); }
+    for await (const e of dir.values()) if (e.kind === 'file' && /\.(webp|png|gif)$/i.test(e.name)) { const f = await e.getFile(), key = f.name + '|' + f.size; all.push(key); if (!seen.has(key)) nu.push(f); }
     await stkTx('readwrite', s => s.put({ k: 'seen', v: all }), 'k').catch(() => {});
     nu.sort((a, b) => b.lastModified - a.lastModified); await stkAdd(nu, true);
   } catch {} finally { STK.sync = 0; }
