@@ -1,6 +1,6 @@
 // ==== BILIARDO (8-ball) NELLA HALL (23-10-2026, piano in CLAUDE.md "PIANO PASSATEMPI DELLA HALL", sessione 2) ====
 // Tavolo nell'angolo giochi (prop 'pool', x R-12..R-9, y 7-8). Partita a tutto schermo vista dall'alto, tavolo in verticale (50 x 100 unita').
-// Mira e forza come 8 Ball Pool (vedi "Comandi" sotto). Si puo' giocare a soldi: posta 10/25/50 monete a testa, chi vince prende tutto (giochi/lib/tavolo.js).
+// Mira e forza come 8 Ball Pool (vedi "Comandi" sotto); online la mira di chi tira si vede in diretta (vedi "MIRA IN DIRETTA"). Si puo' giocare a soldi: posta 10/25/50 monete a testa, chi vince prende tutto (giochi/lib/tavolo.js).
 // Fisica: passi fissi di 1/240 s con solo + - * / e radici (uguale su tutti i telefoni). Il banco (giochi/lib/tavolo.js) riceve il tiro {dx, dy, p, cb},
 // lo simula fino in fondo, applica le regole e pubblica lo stato con le palle di partenza del tiro: ogni telefono rifa' la stessa simulazione per
 // l'animazione e alla fine si mette sulle posizioni del banco. Regole: piene (1-7) / spezzate (9-15) assegnate alla prima palla imbucata dopo
@@ -242,9 +242,29 @@ window.BI = (() => {
     if (p < 0.04) { hint(T, bar ? 'Tira <b>giù</b> la barra a destra e lasciala!' : 'Tira <b>indietro</b> la stecca e lasciala!'); draw(T); return; }
     // la stecca scatta in avanti, poi parte il tiro
     const [cx, cy] = cueOf(T), sh = { k: 'shot', dx: T.aim.dx, dy: T.aim.dy, p, cb: T.S.bih ? [r3(cx), r3(cy)] : null };
-    T.strike = { t: performance.now(), p }; loop(T);
+    T.strike = { t: performance.now(), p }; loop(T); sendAim(T, p);
     setTimeout(() => { T.strike = null; if (BIL.T !== T) return; thud(0.3 + p * 0.6, 900); if (!T.host) { T.wait = { sid: T.S.sid, t: performance.now() }; clearTimeout(T.wt); T.wt = setTimeout(() => { if (BIL.T === T) render(T); }, 6100); render(T); } BIL.act(sh); }, 90);
   }
+  // MIRA IN DIRETTA (31-10-2026): chi tira scrive ogni 80 ms in cq/<set>/bi/<banco>/l {a angolo, p forza, cb bianca in mano, s posto, sid tiro, st colpo};
+  // l'avversario e chi guarda vedono la stecca girare, tirarsi indietro e scattare (movimento ammorbidito in T.ra / T.rp)
+  function sendAim(T, st) {
+    const N = cq.net; if (!N || !T.key || T.S.ai >= 0 || T.me < 0 || BIL.T !== T) return;
+    const [cx, cy] = cueOf(T), v = { a: r3(angOf(T)), p: T.pull ? r3(T.pull.p) : 0, cb: T.S.bih ? [r3(cx), r3(cy)] : 0, s: T.me, sid: T.S.sid };
+    if (st) v.st = r3(st);
+    const key = JSON.stringify(v); if (!st && key === T.lsK) return;
+    const n = performance.now(); clearTimeout(T.lsT);
+    if (!st && n - (T.lsAt || 0) < 80) { T.lsT = setTimeout(() => sendAim(T), 85 - (n - T.lsAt)); return; }
+    T.lsK = key; T.lsAt = n; cqNetPut(`cq/${N.code}/bi/${T.key}/l`, Object.assign(v, { t: Date.now() }));
+  }
+  function raw(T, t) {
+    const l = t && t.l; if (!l || !T.cv || l.t === T.rlT) return; T.rlT = l.t;
+    if (l.s === T.me) return;
+    T.rem = { a: +l.a || 0, p: +l.p || 0, cb: l.cb || null, s: l.s, sid: l.sid };
+    if (T.ra == null || T.rsid !== l.sid) { T.ra = T.rem.a; T.rp = T.rem.p; T.rsid = l.sid; T.rst = null; }
+    if (l.st) T.rst = { t: performance.now(), p: +l.st };
+    loop(T);
+  }
+  const remAim = T => { const S = T.S, R = T.rem; return S.ph === 'play' && !T.anim && R && R.sid === S.sid && R.s === S.tu && S.tu !== T.me ? R : null; };
   function hint(T, h) { const e = T.root.querySelector('.tvHint'); if (e && e.innerHTML !== h) e.innerHTML = h; }
   function render(T) {
     if (!T.root || !T.cv) return;
@@ -275,8 +295,10 @@ window.BI = (() => {
         const sd = A.sim.ev.snd; for (; A.si < sd.length; A.si++) { const [k, v] = sd[A.si]; if (k === 'b' && v > 6) beep(1500 + Math.random() * 300, 0.025, Math.min(0.05, v / 2500), 0, 'square'); else if (k === 'r' && v > 10) thud(Math.min(0.35, v / 300), 220); else if (k === 'p') { thud(0.6, 140); beep(180, 0.08, 0.04, 0.04, 'sine'); } }
         if (A.sim.done) { T.anim = null; render(T); }
       }
+      const R = remAim(T); let rb = false;
+      if (R) { const d = Math.atan2(Math.sin(R.a - T.ra), Math.cos(R.a - T.ra)); T.ra += d * 0.3; T.rp += (R.p - T.rp) * 0.35; rb = Math.abs(d) > 0.002 || Math.abs(R.p - T.rp) > 0.003 || (!!T.rst && now - T.rst.t < 150); }
       draw(T);
-      if (T.anim || T.pull || T.strike) T.raf = requestAnimationFrame(step);
+      if (T.anim || T.pull || T.strike || rb) T.raf = requestAnimationFrame(step);
     };
     T.raf = requestAnimationFrame(step);
   }
@@ -339,8 +361,8 @@ window.BI = (() => {
     }
   }
   // linea guida: fino alla prima palla (palla fantasma + direzione della palla colpita) o alla prima sponda
-  function guide(T) {
-    const [cx, cy] = cueOf(T), { dx, dy } = T.aim; let tb = Infinity, hit = null;
+  function guide(T, cx, cy, dx, dy) {
+    let tb = Infinity, hit = null;
     for (const [id, bx, by] of T.S.b) {
       if (id === 0) continue;
       const fx = cx - bx, fy = cy - by, b = fx * dx + fy * dy, c = fx * fx + fy * fy - 4 * BR * BR, d = b * b - c; if (d < 0) continue;
@@ -365,27 +387,38 @@ window.BI = (() => {
     if (S.kit && S.ph === 'play') { const [l0, ly] = toS(T, 0, KIT), [l1] = toS(T, W, KIT); g.strokeStyle = 'rgba(255,255,255,.25)'; g.lineWidth = 1; g.setLineDash([4, 4]); g.beginPath(); g.moveTo(l0, ly); g.lineTo(l1, ly); g.stroke(); g.setLineDash([]); }
     for (const [px, py, pr] of PK) { const [sx, sy] = toS(T, px, py); g.fillStyle = '#0a0806'; g.beginPath(); g.arc(sx, sy, pr * k * 0.92, 0, 7); g.fill(); g.strokeStyle = '#c8a050'; g.lineWidth = 2; g.stroke(); }
     // palle (durante il tiro quelle della simulazione), che girano mentre corrono
-    const balls = T.anim ? T.anim.sim.B.filter(b => !b.in).map(b => [b.id, b.x, b.y]) : S.b;
+    const R = remAim(T);   // l'altro sta mirando: la sua bianca in mano, la sua guida e la sua stecca
+    let balls = T.anim ? T.anim.sim.B.filter(b => !b.in).map(b => [b.id, b.x, b.y]) : S.b;
+    if (R && R.cb && S.bih) balls = balls.map(b => b[0] === 0 ? [0, R.cb[0], R.cb[1]] : b);
     for (const [id, bx, by] of balls) roll(T, id, bx, by);
     const aiming = myTurn(T) && !T.drag, striking = !!T.strike;
-    if (aiming) {
-      const G = guide(T), [sx, sy] = toS(T, G.cx, G.cy), [ex, ey] = toS(T, G.gx, G.gy);
-      g.strokeStyle = 'rgba(255,255,255,.75)'; g.lineWidth = 1.5; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke(); g.setLineDash([]);
+    const aimLine = (cx, cy, dx, dy, al) => {
+      const G = guide(T, cx, cy, dx, dy), [sx, sy] = toS(T, G.cx, G.cy), [ex, ey] = toS(T, G.gx, G.gy);
+      g.strokeStyle = `rgba(255,255,255,${0.75 * al})`; g.lineWidth = 1.5; g.setLineDash([5, 5]); g.beginPath(); g.moveTo(sx, sy); g.lineTo(ex, ey); g.stroke(); g.setLineDash([]);
       g.beginPath(); g.arc(ex, ey, BR * k, 0, 7); g.stroke();
-      if (G.hit) { const nx = G.hit[0] - G.gx, ny = G.hit[1] - G.gy, nl = Math.hypot(nx, ny) || 1, [hx, hy] = toS(T, G.hit[0], G.hit[1]); g.strokeStyle = 'rgba(255,240,150,.85)'; g.lineWidth = 2; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + nx / nl * 12 * k, hy + ny / nl * 12 * k); g.stroke(); }
-    }
+      if (G.hit) { const nx = G.hit[0] - G.gx, ny = G.hit[1] - G.gy, nl = Math.hypot(nx, ny) || 1, [hx, hy] = toS(T, G.hit[0], G.hit[1]); g.strokeStyle = `rgba(255,240,150,${0.85 * al})`; g.lineWidth = 2; g.beginPath(); g.moveTo(hx, hy); g.lineTo(hx + nx / nl * 12 * k, hy + ny / nl * 12 * k); g.stroke(); }
+    };
+    if (aiming) { const [cx, cy] = cueOf(T); aimLine(cx, cy, T.aim.dx, T.aim.dy, 1); }
+    const rcue = R ? (R.cb && S.bih ? R.cb : cueOf(T)) : null, rdx = R ? Math.cos(T.ra) : 0, rdy = R ? Math.sin(T.ra) : 0;
+    if (R && !(T.rst && performance.now() - T.rst.t > 80)) aimLine(rcue[0], rcue[1], rdx, rdy, 0.6);
     for (const [id, bx, by] of balls) { const [sx, sy] = toS(T, bx, by); ball(T, g, sx, sy, BR * k, id); }
     if (myTurn(T) && S.bih) { const [cx, cy] = cueOf(T), [sx, sy] = toS(T, cx, cy); g.strokeStyle = 'rgba(255,255,255,.8)'; g.lineWidth = 2; g.setLineDash([3, 3]); g.beginPath(); g.arc(sx, sy, BR * k + 5, 0, 7); g.stroke(); g.setLineDash([]); }
-    // stecca dietro la bianca (si allontana quando la tiri indietro, scatta in avanti quando lasci), barra della forza e rotella
+    // stecca dietro la bianca (si allontana quando la tiri indietro, scatta in avanti quando lasci)
+    const stick = (cx, cy, dx, dy, p) => {
+      const [sx, sy] = toS(T, cx, cy), back = (BR + 0.6 + p * PULL) * k, len = 46 * k;
+      const bx = sx - dx * back, by = sy - dy * back, ex = bx - dx * len, ey = by - dy * len;
+      g.lineCap = 'round'; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = Math.max(4, k * 1.2); g.beginPath(); g.moveTo(bx + 4, by + 5); g.lineTo(ex + 4, ey + 5); g.stroke();
+      g.strokeStyle = '#d8b878'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
+      g.strokeStyle = '#3a2010'; g.lineWidth = Math.max(4, k * 1.2); g.beginPath(); g.moveTo(bx - dx * len * 0.55, by - dy * len * 0.55); g.lineTo(ex, ey); g.stroke();
+      g.strokeStyle = '#4a8ad8'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - dx * 1.2, by - dy * 1.2); g.stroke(); g.lineCap = 'butt';
+    };
+    if (R) { let p = T.rp; if (T.rst) p = T.rst.p * Math.max(0, 1 - (performance.now() - T.rst.t) / 80); stick(rcue[0], rcue[1], rdx, rdy, p); }
+    // la mia stecca, la barra della forza e la rotella
     if (aiming || striking) {
       let p = T.pull ? T.pull.p : 0;
       if (striking) p = T.strike.p * Math.max(0, 1 - (performance.now() - T.strike.t) / 80);
-      const [cx, cy] = cueOf(T), [sx, sy] = toS(T, cx, cy), back = (BR + 0.6 + p * PULL) * k, len = 46 * k;
-      const bx = sx - T.aim.dx * back, by = sy - T.aim.dy * back, ex = bx - T.aim.dx * len, ey = by - T.aim.dy * len;
-      g.lineCap = 'round'; g.strokeStyle = 'rgba(0,0,0,.3)'; g.lineWidth = Math.max(4, k * 1.2); g.beginPath(); g.moveTo(bx + 4, by + 5); g.lineTo(ex + 4, ey + 5); g.stroke();
-      g.strokeStyle = '#d8b878'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(ex, ey); g.stroke();
-      g.strokeStyle = '#3a2010'; g.lineWidth = Math.max(4, k * 1.2); g.beginPath(); g.moveTo(bx - T.aim.dx * len * 0.55, by - T.aim.dy * len * 0.55); g.lineTo(ex, ey); g.stroke();
-      g.strokeStyle = '#4a8ad8'; g.lineWidth = Math.max(3, k * 0.9); g.beginPath(); g.moveTo(bx, by); g.lineTo(bx - T.aim.dx * 1.2, by - T.aim.dy * 1.2); g.stroke(); g.lineCap = 'butt';
+      const [cx, cy] = cueOf(T), [sx, sy] = toS(T, cx, cy);
+      stick(cx, cy, T.aim.dx, T.aim.dy, p);
       if (T.pull && !T.pull.bar) { g.strokeStyle = 'rgba(255,255,255,.35)'; g.lineWidth = 1; g.setLineDash([2, 4]); g.beginPath(); g.moveTo(sx - T.aim.dx * (BR + 0.6) * k, sy - T.aim.dy * (BR + 0.6) * k); g.lineTo(sx - T.aim.dx * (BR + 0.6 + PULL) * k, sy - T.aim.dy * (BR + 0.6 + PULL) * k); g.stroke(); g.setLineDash([]); }
       const zx = T.W - 30, zy = T.H * 0.3, zh = T.H * 0.42;
       g.fillStyle = 'rgba(0,0,0,.55)'; cqRR(g, zx - 14, zy - 22, 28, zh + 34, 12); g.fill();
@@ -401,12 +434,13 @@ window.BI = (() => {
       for (let x = wh.x0 + off; x < wh.x1; x += 14) { const f = 1 - Math.abs((x - wh.x0) / ww - 0.5) * 2; g.globalAlpha = 0.25 + f * 0.75; g.beginPath(); g.moveTo(x, wh.y0 + 3); g.lineTo(x, wh.y1 - 3); g.stroke(); }
       g.globalAlpha = 1; g.fillStyle = T.fine ? '#ffe14a' : 'rgba(255,255,255,.7)'; g.font = '700 10px system-ui'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('◀ MIRA FINE ▶', wh.x0 + ww / 2, wy + 0.5);
     }
+    if (myTurn(T)) sendAim(T);
   }
   const BIL = cqTable({
     id: 'bi', title: 'Biliardo', emoji: '🎱', aiName: 'Il Conte', rule: '8-ball: piene o spezzate, la nera per ultima', bets: [0, 10, 25, 50],
     near: () => { const R = CQ_W - 2; return cq.x > R - 13.3 && cq.x < R - 7.7 && cq.y > 5.8 && cq.y < 10.2; },
     newMatch, act, aiTurn, aiDelay: T => (((T.S.shot ? T.S.shot.dur : 0) * 1000) + 1400) / (window.cqFast || 1),
-    view, render, drop: T => { cancelAnimationFrame(T.raf); if (T.ro) window.removeEventListener('resize', T.ro); },
+    view, render, raw, drop: T => { cancelAnimationFrame(T.raf); clearTimeout(T.lsT); if (T.ro) window.removeEventListener('resize', T.ro); },
   });
   return Object.assign(BIL, { makeSim, simAll, rack, aiTurn: T => aiTurn(T) });
 })();
