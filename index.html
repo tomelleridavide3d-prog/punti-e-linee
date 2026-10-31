@@ -424,7 +424,7 @@ details.frList{margin-top:10px}details.frList summary{cursor:pointer;font-weight
   <div id="cqToast" hidden></div>
   <div id="cqClap" hidden><div class="clapB"><div class="clapTop"></div><div class="clapIn"><b>CIACK US</b><span id="clapSc"></span><span id="clapDir"></span></div></div></div>
   <button id="cqKill" type="button" hidden>Elimina</button><button id="cqSlap" type="button" hidden>👋<br>Schiaffo</button>
-  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqStk"></div><div id="cqStkM" hidden><button type="button" data-m="f">📁 Dalla cartella di WhatsApp</button><div class="hint">Android: nel menu ☰ scegli la memoria del telefono, poi <b>Android › media › com.whatsapp › WhatsApp › Media › WhatsApp Stickers</b>. Puoi sceglierne tanti insieme (tieni premuto il primo).</div><button type="button" data-m="g">🖼️ Dalla galleria</button><div class="hint">Sul computer puoi anche incollare (Ctrl+V) o trascinare qui un'immagine. Tieni premuto uno sticker per toglierlo.</div></div><input type="file" id="cqStkF" multiple hidden><input type="file" id="cqStkG" accept="image/*" multiple hidden><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
+  <button id="cqChatB" type="button" hidden>💬</button><div id="cqChatP" hidden><div id="cqChatLog"></div><div id="cqStk"></div><div id="cqStkM" hidden><button type="button" data-m="d" hidden>📂 Collega la cartella degli sticker di WhatsApp</button><div class="hint">Android: nel menu ☰ scegli la memoria del telefono, poi <b>Android › media › com.whatsapp › WhatsApp › Media › WhatsApp Stickers</b> e tocca "Usa questa cartella". Si fa una volta sola: poi i tuoi sticker entrano da soli, anche quelli nuovi.</div><button type="button" data-m="f">📁 Scegli i file degli sticker</button><div class="hint">Se il collegamento non va: scegli gli sticker a mano dalla stessa cartella (tieni premuto il primo per sceglierne tanti).</div><button type="button" data-m="g">🖼️ Dalla galleria</button><div class="hint">Sul computer puoi anche incollare (Ctrl+V) o trascinare qui un'immagine. Tieni premuto uno sticker per toglierlo.</div></div><input type="file" id="cqStkF" multiple hidden><input type="file" id="cqStkG" accept="image/*" multiple hidden><div id="cqChatQ"></div><form id="cqChatF"><input id="cqChatI" maxlength="80" autocomplete="off" enterkeyhint="send" placeholder="Scrivi a tutti nella hall…"><button type="submit">➤</button><button type="button" id="cqChatX">✕</button></form></div>
   <button class="btn" id="cqSit" type="button" hidden>🪑 Siediti</button><button class="btn" id="cqDrink" type="button" hidden>☕ Bevi</button>
   <button id="cqShoot" type="button" hidden>Spara</button>
   <button class="btn" id="cqSabBtn" type="button" hidden>Sabota</button>
@@ -4111,7 +4111,7 @@ function cqChatInit() {
   const P = $('#cqChatP'), I = $('#cqChatI');
   $('#cqChatQ').innerHTML = CQ_CHAT_Q.map(q => '<button type="button">' + q + '</button>').join('');
   const close = () => { P.hidden = true; I.blur(); cq.keys = {}; if (cq.g && cq.g.hall && cq.net) $('#cqChatB').hidden = false; };
-  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; $('#cqStkM').hidden = true; stkLoad().then(stkBar); cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
+  const open = () => { if (!cq.net) return; cq.keys = {}; P.hidden = false; I.value = ''; $('#cqStkM').hidden = true; stkLoad().then(() => { stkBar(); stkSync(true); }); cqChatLog(); if (matchMedia('(pointer:fine)').matches) setTimeout(() => I.focus(), 0); };
   cq.chatClose = close;
   $('#cqChatB').addEventListener('pointerdown', e => { e.preventDefault(); e.stopPropagation(); if (P.hidden) open(); else close(); });
   P.addEventListener('pointerdown', e => e.stopPropagation());
@@ -4143,9 +4143,9 @@ function cqChatLog() { const el = $('#cqChatLog'); if (el) { el.innerHTML = (cq.
 // una volta) o dalla galleria; salvati sul telefono (IndexedDB 'pl-stk'). I dati viaggiano una volta sola in sk/<id> (id = impronta del contenuto,
 // si scrive solo se manca); il messaggio in hm porta k: id (t '🖼️ Sticker' per le versioni vecchie). Sopra la testa come <img> vera (#cqStkLay):
 // gli animati si muovono. Animati fino a STK_ANI byte restano com'erano, gli altri diventano un'immagine ferma di 160 punti.
-const STK = { list: null, mem: new Map(), url: new Map(), ld: new Map(), up: new Set(), lay: new Map(), fr: 0, last: 0 }, STK_ANI = 380000;
-function stkDb() { return STK.db || (STK.db = new Promise((ok, ko) => { const r = indexedDB.open('pl-stk', 1); r.onupgradeneeded = () => r.result.createObjectStore('m', { keyPath: 'id' }); r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); })); }
-async function stkTx(mode, fn) { const db = await stkDb(); return new Promise((ok, ko) => { const t = db.transaction('m', mode), r = fn(t.objectStore('m')); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }); }
+const STK_MAX = 200, STK = { list: null, mem: new Map(), url: new Map(), ld: new Map(), up: new Set(), lay: new Map(), fr: 0, last: 0 }, STK_ANI = 380000;
+function stkDb() { return STK.db || (STK.db = new Promise((ok, ko) => { const r = indexedDB.open('pl-stk', 2); r.onupgradeneeded = () => { const db = r.result; for (const [n, k] of [['m', 'id'], ['k', 'k']]) if (!db.objectStoreNames.contains(n)) db.createObjectStore(n, { keyPath: k }); }; r.onsuccess = () => ok(r.result); r.onerror = () => ko(r.error); })); }
+async function stkTx(mode, fn, st = 'm') { const db = await stkDb(); return new Promise((ok, ko) => { const t = db.transaction(st, mode), r = fn(t.objectStore(st)); t.oncomplete = () => ok(r && r.result); t.onerror = () => ko(t.error); }); }   // st 'k': {k: 'dir', h: cartella collegata}, {k: 'seen', v: [file gia' presi]}
 async function stkLoad() {
   if (STK.list) return STK.list;
   try { STK.list = (await stkTx('readonly', s => s.getAll()) || []).sort((a, b) => b.ts - a.ts); } catch { STK.list = []; }
@@ -4180,16 +4180,38 @@ async function stkMake(f) {
     const d = c.toDataURL('image/webp', 0.82); return d.startsWith('data:image/webp') ? d : c.toDataURL('image/png');   // Safari non fa webp
   } finally { URL.revokeObjectURL(u); }
 }
-async function stkAdd(files) {
-  await stkLoad(); let n = 0;
-  cqToast('⏳ Aggiungo gli sticker…');
-  for (const f of [...files].slice(0, 60)) {
-    try { const d = await stkMake(f); if (!d) continue; const id = stkId(d); if (STK.list.some(s => s.id === id)) continue; const r = { id, d, ts: Date.now() + n }; await stkTx('readwrite', s => s.put(r)); STK.list.unshift(r); STK.mem.set(id, d); n++; } catch {}
+async function stkAdd(files, dir) {   // dir: dalla cartella collegata (in ordine di data del file, senza avvisi se non c'e' niente di nuovo)
+  await stkLoad(); let n = 0; files = [...files].slice(0, dir ? STK_MAX : 60);
+  if (files.length) cqToast('⏳ Aggiungo ' + (files.length > 1 ? files.length + ' sticker' : 'lo sticker') + '…'); else if (dir) return;
+  for (const f of files) {
+    try { const d = await stkMake(f); if (!d) continue; const id = stkId(d); if (STK.list.some(s => s.id === id)) continue; const r = { id, d, ts: dir ? f.lastModified || 0 : Date.now() + n }; await stkTx('readwrite', s => s.put(r)); STK.list.push(r); STK.mem.set(id, d); n++; if (n % 12 === 0) { STK.list.sort((a, b) => b.ts - a.ts); stkBar(); } } catch {}
   }
   STK.list.sort((a, b) => b.ts - a.ts);
-  while (STK.list.length > 120) { const r = STK.list.pop(); stkTx('readwrite', s => s.delete(r.id)).catch(() => {}); }
-  stkBar(); $('#cqStkM').hidden = true; cqToast(n ? '✅ Aggiunt' + (n > 1 ? 'i ' + n + ' sticker' : 'o 1 sticker') : 'Nessuno sticker nuovo');
+  while (STK.list.length > STK_MAX) { const r = STK.list.pop(); stkTx('readwrite', s => s.delete(r.id)).catch(() => {}); }
+  stkBar(); $('#cqStkM').hidden = true; if (n || !dir) cqToast(n ? '✅ Aggiunt' + (n > 1 ? 'i ' + n + ' sticker' : 'o 1 sticker') : 'Nessuno sticker nuovo');
 }
+// CARTELLA COLLEGATA (Chrome 132+ anche su Android: showDirectoryPicker): la cartella degli sticker di WhatsApp si sceglie UNA volta sola
+// (un sito non puo' aprirla da solo); il permesso si ridomanda col tocco su 💬; a ogni apertura della chat entrano da soli gli sticker nuovi
+// (file mai visti, i piu' recenti per primi; quelli tolti con il dito non tornano perche' il file resta tra i 'seen')
+async function stkDir() { if (STK.dir === undefined) { try { const r = await stkTx('readonly', s => s.get('dir'), 'k'); STK.dir = (r && r.h) || null; } catch { STK.dir = null; } } return STK.dir; }
+async function stkLink() {
+  let h; try { h = await window.showDirectoryPicker({ id: 'wastk', mode: 'read' }); } catch { return; }
+  STK.dir = h; await stkTx('readwrite', s => { s.put({ k: 'dir', h }); s.put({ k: 'seen', v: [] }); }, 'k').catch(() => {});
+  if (!/sticker/i.test(h.name)) cqToast('⚠️ Questa cartella si chiama "' + esc(h.name) + '": quella giusta è WhatsApp Stickers');
+  stkMenu(); stkSync(true);
+}
+async function stkSync(gesture) {
+  if (STK.sync) return; STK.sync = 1;
+  try {
+    const h = await stkDir(); if (!h || !h.queryPermission) return;
+    let ok = await h.queryPermission({ mode: 'read' }); if (ok !== 'granted' && gesture) ok = await h.requestPermission({ mode: 'read' }); if (ok !== 'granted') return;
+    const r = await stkTx('readonly', s => s.get('seen'), 'k').catch(() => null), seen = new Set((r && r.v) || []), all = [], nu = [];
+    for await (const e of h.values()) if (e.kind === 'file' && /.(webp|png|gif)$/i.test(e.name)) { const f = await e.getFile(), key = f.name + '|' + f.size; all.push(key); if (!seen.has(key)) nu.push(f); }
+    await stkTx('readwrite', s => s.put({ k: 'seen', v: all }), 'k').catch(() => {});
+    nu.sort((a, b) => b.lastModified - a.lastModified); await stkAdd(nu, true);
+  } catch {} finally { STK.sync = 0; }
+}
+function stkMenu() { const b = $('#cqStkM [data-m="d"]'); if (!b) return; b.hidden = !window.showDirectoryPicker; b.textContent = STK.dir ? '📂 Cartella collegata ✓ (tocca per cambiarla)' : '📂 Collega la cartella degli sticker di WhatsApp'; }
 function stkDel(id) { STK.list = (STK.list || []).filter(s => s.id !== id); stkTx('readwrite', s => s.delete(id)).catch(() => {}); stkBar(); }
 function stkBar() {
   const el = $('#cqStk'); if (!el) return; const L = STK.list || [];
@@ -4213,7 +4235,8 @@ function stkInit(P) {
   el.onpointerup = el.onpointercancel = el.onpointerleave = () => clearTimeout(STK.lt);
   el.oncontextmenu = e => e.preventDefault();
   el.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (STK.lp) { STK.lp = 0; return; } if (b.dataset.a) M.hidden = !M.hidden; else stkSend(b.dataset.k); };
-  M.onclick = e => { const b = e.target.closest('button'); if (b) $(b.dataset.m === 'f' ? '#cqStkF' : '#cqStkG').click(); };
+  M.onclick = e => { const b = e.target.closest('button'); if (!b) return; if (b.dataset.m === 'd') stkLink(); else $(b.dataset.m === 'f' ? '#cqStkF' : '#cqStkG').click(); };
+  stkDir().then(stkMenu);
   for (const s of ['#cqStkF', '#cqStkG']) $(s).onchange = e => { const fs = [...e.target.files]; e.target.value = ''; if (fs.length) stkAdd(fs); };
   document.addEventListener('paste', e => { if (P.hidden) return; const fs = [...((e.clipboardData && e.clipboardData.files) || [])].filter(f => /^image\//.test(f.type)); if (fs.length) { e.preventDefault(); stkAdd(fs); } });
   P.addEventListener('dragover', e => e.preventDefault());
