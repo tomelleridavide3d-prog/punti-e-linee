@@ -38,6 +38,7 @@ export default [
   [0, `(() => 'A: dopo 6 s sticker sparito ' + !$('#cqStkLay img'))()`, 0],
   [0, `(async () => { const f = STK.list.find(s => !s.d.startsWith('data:image/gif')); STK.last = 0; $('#cqStk').querySelector('[data-k="' + f.id + '"]').click(); return 'A manda il cerchio'; })()`, 1500],
   [1, `(() => 'B: foto')()`, 0, process.env.STK_SHOT],
+  [1, `(async () => { let r; try { await cq.net.F.get(cqNetRef('sk')); r = 'ELENCO LEGGIBILE (male)'; } catch (e) { r = 'elenco bloccato (bene): ' + e.message.slice(0, 40); } return 'B: ' + r; })()`, 0],
   [1, `(() => { cqNetLeave(); return 'B esce; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 300],
   [0, `(() => { for (const s of [...STK.list]) stkDel(s.id); cqNetLeave(); return 'A chiude; errori ' + (localStorage.getItem('errLog') || 'nessuno').slice(0, 300); })()`, 500],
 ];

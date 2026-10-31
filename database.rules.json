@@ -92,8 +92,8 @@
       }
     },
     "sk": {
-      ".read": true,
       "$id": {
+        ".read": true,
         ".write": "!data.exists()",
         ".validate": "$id.length <= 24 && newData.isString() && newData.val().beginsWith('data:image/') && newData.val().length < 560000"
       }
