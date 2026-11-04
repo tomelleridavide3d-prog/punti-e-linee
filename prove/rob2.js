@@ -17,7 +17,7 @@
   const loc = G.M.local; G.M.local = () => {};
   const tick = n => { for (let i = 0; i < n; i++) { N.U.stopT = 0; N.U.slowT = -9; cqModeTick(0.05); } };   // (fermo immagine e rallentatore vanno a tempo vero: nella prova si saltano)
   // ---- via dal banco di prova col pulsante ----
-  document.querySelector('#r2Top [data-k=fight]').click(); await w(100); const m = G.mt;
+  document.querySelector('#r2Top [data-k=fight]').click(); await w(50); const pk = [...document.querySelectorAll('#r2Pick button')].map(b => b.dataset.k).join(','); document.querySelector('#r2Pick [data-k=cpu]').click(); await w(100); const m = G.mt; out.push('scelta: ' + pk);
   out.push('sfida: round ' + m.r + ', fase ' + m.ph + ', pulsanti in alto: ' + [...document.querySelectorAll('#r2Top button')].map(b => b.textContent).join(','));
   { const me = G.mine; me.inp.thr = 1; loc(G, 0.05); const lock = me.inp.thr; const x0 = me.x; tick(20); out.push('prima del via: gas bloccato = ' + (lock === 0) + ', spostato ' + Math.abs(me.x - x0).toFixed(2) + ' | conto alla rovescia: ' + N.U.fx.filter(f => f.k === 'big').map(f => f.s).join(' '));
     tick(55); out.push('dopo 3,75 s: fase ' + m.ph + ', tempo ' + m.left.toFixed(1)); }

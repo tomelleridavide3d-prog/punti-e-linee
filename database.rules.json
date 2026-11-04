@@ -339,6 +339,34 @@
         ".write": true,
         ".validate": "$k.length <= 14 && newData.hasChildren(['n', 'p']) && newData.child('n').isString() && newData.child('n').val().length <= 14 && newData.child('p').isNumber() && newData.child('p').val() >= 0 && newData.child('p').val() <= 540"
       }
+    },
+    "rb": {
+      ".read": true,
+      "$k": {
+        ".write": true,
+        ".validate": "$k.length <= 14 && newData.hasChildren(['n', 'd', 'ts'])",
+        "n": {
+          ".validate": "newData.isString() && newData.val().length <= 14"
+        },
+        "d": {
+          ".validate": "newData.isString() && newData.val().length < 4000"
+        },
+        "ts": {
+          ".validate": "newData.isNumber()"
+        },
+        "lk": {
+          ".validate": "newData.isString() && newData.val().length < 4000"
+        },
+        "w": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "l": {
+          ".validate": "newData.isNumber() && newData.val() >= 0"
+        },
+        "$other": {
+          ".validate": false
+        }
+      }
     }
   }
 }
