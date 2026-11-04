@@ -453,7 +453,7 @@
   }
 
   // ======================= I BAMBINI =======================
-  const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49] };
+  const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49], cetriolo: [1, -52], coconut: [1, -36] };
   function beanie(g, x0, hy, S2) {   // berretto di lana col pompon (unita' del personaggio)
     g.fillStyle = S2.c; g.beginPath(); g.arc(x0, hy + 4, 10.5, Math.PI, 0); g.fill();
     g.fillStyle = S2.d; for (let i = -2; i <= 2; i++) g.fillRect(x0 + i * 4 - 0.6, hy - 4 + Math.abs(i) * 1.3, 1.2, 7 - Math.abs(i) * 1.2);
