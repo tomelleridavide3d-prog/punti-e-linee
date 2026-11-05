@@ -263,7 +263,7 @@
     const deck = [], sp = [];
     for (const d of DECK) if (!d.start) for (let k = 0; k < d.n; k++) (d.sp ? sp : deck).push(d.id);
     const n = o.n || 2;
-    const G = { seed: o.seed || 1, deck: sh(deck), sp: sh(sp), at: {}, tiles: [], nd: [], par: [], spar: [], cur: 0, ph: 'tile', hand: null, bon: false, want: false, last: -1, ev: [], turn: 0, R: (R() * 1e9) | 0,
+    const G = { seed: o.seed || 1, amberMan: !!o.amberMan, deck: sh(deck), sp: sh(sp), at: {}, tiles: [], nd: [], par: [], spar: [], cur: 0, ph: 'tile', hand: null, bon: false, want: false, last: -1, ev: [], turn: 0, R: (R() * 1e9) | 0,
       P: Array.from({ length: n }, (_, i) => ({ n: (o.names || [])[i] || 'Giocatore ' + (i + 1), sc: 0, men: MEN, huts: HUTS })) };
     putTile(G, 0, 0, 'start', 0);
     draw(G);
@@ -378,9 +378,9 @@
       const pts = f.k === 'b' ? forestPts(R) : riverPts(G, R), win = winners(R.men);
       for (const p of win) G.P[p].sc += pts;
       G.ev.push({ t: 'score', k: f.k, g: rg, pts, win, men: R.men.slice() });
-      for (const m of R.men) G.P[m.p].men++;
+      const had = R.men.length; for (const m of R.men) G.P[m.p].men++;
       R.men = [];
-      if (f.k === 'b' && R.amber > 0 && !G.bon && G.sp.length) G.want = true;
+      if (f.k === 'b' && R.amber > 0 && !G.bon && G.sp.length && (!G.amberMan || had)) G.want = true;   // amberMan: serve un raccoglitore nel bosco (edizione nuova)
     });
     next(G);
     return true;
