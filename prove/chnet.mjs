@@ -37,7 +37,8 @@ export default [
   [0, auto, 0], [1, auto, 9000],
   [0, st, 0], [1, st, 0], [2, st, 0],
   // B propone la patta, A la vede e la rifiuta
-  [1, `(() => { clearInterval(window.__a); CHS.act({ k: 'dr' }); return 'B propone patta'; })()`, 2500],
+  [0, `(() => { clearInterval(window.__a); return 'A si ferma'; })()`, 0], [1, `(() => { clearInterval(window.__a); return 'B si ferma'; })()`, 1500],
+  [1, `(() => { CHS.act({ k: 'dr' }); return 'B propone patta'; })()`, 2500],
   [0, `(() => { clearInterval(window.__a); const m = document.querySelector('.chMsg'); const t = m ? m.innerText : ''; const n = document.querySelector('.chMsg [data-k=dn]'); if (n) n.click(); return 'A vede: ' + t; })()`, 2500],
   [1, st, 0], [2, `(() => document.querySelector('.chMsg').innerText)()`, 0],
   [0, auto, 0], [1, auto, 60000],
