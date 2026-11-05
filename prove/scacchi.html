@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Scacchi · prova</title>
+<style>
+html,body{margin:0;height:100%;background:#262421;overflow:hidden;font-family:system-ui,sans-serif;color:#eee;touch-action:manipulation}
+#root{position:fixed;inset:0}
+#setup{position:fixed;inset:0;z-index:20;background:rgba(20,18,16,.92);display:flex;align-items:center;justify-content:center}
+#setup .bx{background:#2f2c28;border-radius:14px;padding:16px;width:min(380px,92vw);max-height:92vh;overflow:auto;box-shadow:0 10px 40px rgba(0,0,0,.6)}
+h2{margin:0 0 10px;font-size:20px}h3{margin:12px 0 6px;font-size:13px;color:#b8b2a2;text-transform:uppercase;letter-spacing:.05em}
+.ch{display:flex;flex-wrap:wrap;gap:6px}
+.ch button{border:2px solid #4a4640;background:#3a3732;color:#eee;border-radius:9px;padding:8px 10px;font-weight:700;font-size:14px}
+.ch button.on{border-color:#81b64c;background:#4e6b32}
+.go{display:block;width:100%;margin-top:16px;padding:13px;border:none;border-radius:11px;background:#81b64c;color:#fff;font-weight:800;font-size:18px;box-shadow:0 4px 0 #557a2e}
+#end{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:15;background:#2f2c28;border-radius:14px;padding:18px;width:min(300px,86vw);text-align:center;box-shadow:0 10px 40px rgba(0,0,0,.7)}
+#end h2{font-size:24px}#end p{color:#ccc}
+</style>
+</head>
+<body>
+<div id="root"></div>
+<div id="setup"><div class="bx">
+  <h2>♞ Scacchi · prova</h2>
+  <h3>Avversario</h3><div class="ch" id="opp"></div>
+  <h3>Orologio</h3><div class="ch" id="clk"></div>
+  <h3>Giochi con</h3><div class="ch" id="col"><button data-v="0">♔ Bianco</button><button data-v="1">♚ Nero</button><button data-v="r" class="on">🎲 A caso</button></div>
+  <h3>Scacchiera</h3><div class="ch" id="thm"></div>
+  <button class="go" id="go">Gioca</button>
+</div></div>
+<script src="../giochi/scacchi.js"></script>
+<script>
+const $ = s => document.querySelector(s);
+const pick = (box, items, def) => { box.innerHTML = items.map(([v, n]) => `<button data-v="${v}"${v === def ? ' class="on"' : ''}>${n}</button>`).join(''); };
+pick($('#opp'), CH.LEVELS.filter(l => l.s >= 0).map(l => [l.k, l.e + ' ' + l.n]).concat([['due', '👥 In due qui']]), 'med');
+pick($('#clk'), CH.CADENZE.map(c => [c.k, c.n]), '0');
+pick($('#thm'), Object.entries(CH.THEMES).map(([k, t]) => [k, t.name]), 'verde');
+document.querySelectorAll('.ch').forEach(b => b.onclick = e => { const t = e.target.closest('button'); if (!t) return; b.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === t)); if (b.id === 'thm' && G) G.scr.V.setTheme(t.dataset.v); });
+const val = id => $('#' + id + ' .on').dataset.v;
+let G = null;
+function start() {
+  const opp = val('opp'), lv = CH.LEVELS.find(l => l.k === opp), c = val('col'), my = c === 'r' ? (Math.random() < 0.5 ? 0 : 1) : +c;
+  $('#setup').style.display = 'none'; const e = $('#end'); if (e) e.remove();
+  $('#root').textContent = '';
+  // posto 0 = io, posto 1 = computer (o il secondo giocatore)
+  const S = { mv: [], wc: my === 0 ? 0 : 1, ck: CH.newClock(val('clk')), ph: 'play', win: null };
+  G = { S, two: opp === 'due', lv, my, think: 0 };
+  const scr = CH.screen($('#root'), { theme: val('thm'), side: () => G.S.ph !== 'play' ? -1 : G.two ? G.S.mv.length & 1 : (G.S.mv.length & 1) === G.my ? G.my : -1, onMove: u => move(G.two ? CH.seatOf(G.S, G.S.mv.length & 1) : 0, u) });
+  G.scr = scr;
+  const b1 = document.createElement('button'); b1.textContent = '🏳️ Abbandona'; b1.onclick = () => { if (G.S.ph === 'play' && confirm('Abbandoni la partita?')) { const loser = G.two ? CH.seatOf(G.S, G.S.mv.length & 1) : 0; CH.finish(G.S, 1 - loser, 'resign', 'Abbandono'); show(); } };
+  const b2 = document.createElement('button'); b2.textContent = '⚙️ Nuova'; b2.onclick = () => { $('#setup').style.display = ''; };
+  scr.btns.append(b1, b2);
+  scr.fit(); show(); CH.snd('start');
+  aiMaybe();
+}
+function show() {
+  const S = G.S, bottom = G.two ? 0 : G.my;
+  G.scr.render({ moves: S.mv, bottom, names: CH.colorOf(S, 0) === 0 ? ['Tu', G.two ? 'Amico' : 'Il Conte'] : [G.two ? 'Amico' : 'Il Conte', 'Tu'], subs: G.two ? null : CH.colorOf(S, 0) === 0 ? ['', G.lv.e + ' ' + G.lv.n] : [G.lv.e + ' ' + G.lv.n, ''], over: S.ph !== 'play' });
+  tickClock();
+  if (S.ph === 'end' && !$('#end')) {
+    const me = G.two ? -2 : 0, t = S.win === -1 ? '🤝 Patta' : G.two ? (CH.colorOf(S, S.win) === 0 ? 'Vince il Bianco' : 'Vince il Nero') : S.win === 0 ? '🏆 Hai vinto!' : '😅 Ha vinto il Conte';
+    CH.snd(S.win === -1 ? 'draw' : S.win === 0 || G.two ? 'win' : 'lose');
+    const e = document.createElement('div'); e.id = 'end'; e.innerHTML = `<h2>${t}</h2><p>${S.why}</p><button class="go">🔁 Un'altra</button>`;
+    e.querySelector('button').onclick = () => { G.my = 1 - G.my; start2(); };
+    setTimeout(() => document.body.appendChild(e), 700);
+  }
+}
+function start2() { const c = $('#col .on'); start(); }
+function move(seat, u) { if (CH.apply(G.S, seat, u, Date.now())) { show(); aiMaybe(); } else show(); }
+function aiMaybe() {
+  const S = G.S; if (G.two || S.ph !== 'play' || (S.mv.length & 1) === G.my) return;
+  const tk = G.think = Date.now(), left = S.ck ? CH.left(S, 1 - G.my, Date.now()) : 0;
+  const o = CH.aiOpts(G.lv.s, S.ck ? left / 30 + S.ck.i * 0.7 : 0), t0 = Date.now();
+  CH.think(S.mv.slice(), o, r => {
+    if (G.think !== tk || !r || S.ph !== 'play') return;
+    const wait = Math.max(0, (S.ck ? 150 : 450) - (Date.now() - t0));
+    setTimeout(() => { if (G.think === tk) move(1, r.m); }, wait);
+  });
+}
+// orologio: aggiornato 10 volte al secondo solo quando c'e'
+setInterval(() => { if (G && G.S.ck) tickClock(); }, 100);
+function tickClock() {
+  const S = G.S; if (!S.ck) { G.scr.clock(null); return; }
+  const now = Date.now();
+  if (S.ph === 'play' && CH.flag(S, now)) { show(); return; }
+  G.scr.clock([CH.left(S, 0, now), CH.left(S, 1, now)], S.ph === 'play' && S.ck.at ? S.mv.length & 1 : -1);
+}
+window.addEventListener('resize', () => G && G.scr.fit());
+$('#go').onclick = start;
+if (location.hash === '#aitest') CH.think([], CH.aiOpts(100, 800), r => { document.body.dataset.ai = JSON.stringify(r); });
+// #demo = foto di prova: qualche mossa, un pezzo toccato con le sue mosse
+if (location.hash.startsWith('#demo')) {
+  pick($('#opp'), [['due', 'due']], 'due'); pick($('#clk'), [['3+2', '3+2']], '3+2');
+  const th = location.hash.split(':')[1]; if (th) pick($('#thm'), [[th, th]], th);
+  start();
+  ['e2e4', 'e7e5', 'g1f3', 'b8c6', 'f1c4', 'f8c5', 'c2c3', 'g8f6', 'd2d4', 'e5d4'].forEach(u => move(CH.seatOf(G.S, G.S.mv.length & 1), u));
+  setTimeout(() => G.scr.V.select(CH.idxOf('f3')), 400);
+}
+</script>
+</body>
+</html>
