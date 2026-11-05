@@ -11,7 +11,7 @@
   const sb = [...document.querySelectorAll('#bcModal button')].find(b => b.textContent.includes('Scacchi')); o.push('scelta scacchi ' + !!sb); if (!sb) return o.join(' | ');
   sb.click(); await w(400);
   document.querySelector('#tvModal [data-k=ai]').click(); await w(400);
-  const pk = (n, v) => { const b = document.querySelector(`#tvModal .chC[data-n=${n}] [data-v="${v}"]`); if (b) b.click(); return !!b; };
+  const pk = (n, v) => { const b = document.querySelector(`#tvModal .chD[data-n=${n}] [data-v="${v}"]`); if (b) b.click(); return !!b; };
   o.push('scelte ' + [pk('lv', 'ada'), pk('wc', '0'), pk('ck', '3+2')].join(','));
   document.querySelector('#tvModal [data-k=go]').click(); await w(1500);
   const T = CHS.T; o.push('aperta ' + !!T + ' pezzi ' + document.querySelectorAll('.chRoot .chP').length + ' bianco=' + (T && T.S.wc) + ' orologio ' + (T && T.S.ck && T.S.ck.k) + ' livello ' + (T && T.S.lv));

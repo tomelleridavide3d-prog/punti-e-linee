@@ -807,8 +807,8 @@ window.CH = (() => {
 
   // ==== COMPUTER: livelli (forza 0-100) e calcolo in un Worker (il telefono non si blocca) ====
   const LEVELS = [
-    { k: 'pri', n: 'Principiante', s: 4, e: '🐣' }, { k: 'fac', n: 'Facile', s: 25, e: '🙂' }, { k: 'med', n: 'Medio', s: 50, e: '🤔' },
-    { k: 'dif', n: 'Difficile', s: 75, e: '😤' }, { k: 'cam', n: 'Campione', s: 100, e: '👑' }, { k: 'ada', n: 'Adattivo', s: -1, e: '🧠' }
+    { k: 'pri', n: 'Principiante', s: 4, e: '' }, { k: 'fac', n: 'Facile', s: 25, e: '' }, { k: 'med', n: 'Medio', s: 50, e: '' },
+    { k: 'dif', n: 'Difficile', s: 75, e: '' }, { k: 'cam', n: 'Campione', s: 100, e: '' }, { k: 'ada', n: 'Adattivo', s: -1, e: '' }
   ];
   function aiOpts(s, ms) {   // s = forza, ms = tempo che si puo' prendere (orologio)
     const o = { depth: s < 12 ? 1 : s < 32 ? 2 : s < 55 ? 3 : s < 78 ? 4 : s < 92 ? 6 : 64, ms: 250 + s * 14, noise: s < 92 ? (100 - s) * 2.4 : 0, blunder: s < 62 ? (62 - s) / 62 * 0.24 : 0 };
@@ -895,8 +895,8 @@ window.CHS = (() => {
   const LV = k => CH.LEVELS.find(l => l.k === k) || CH.LEVELS[2];
   const ada = () => Math.max(0, Math.min(100, st().chAda == null ? 30 : st().chAda));
   const force = lv => lv === 'ada' ? ada() : LV(lv).s;
-  const lvTxt = lv => LV(lv).e + ' ' + LV(lv).n + (lv === 'ada' ? ' · forza ' + Math.round(ada()) : '');
-  const ckTxt = k => { const c = CH.CADENZE.find(x => x.k === k); return c && k !== '0' ? '⏱️ ' + c.n : 'senza orologio'; };
+  const lvTxt = lv => LV(lv).n + (lv === 'ada' ? ' · forza ' + Math.round(ada()) : '');
+  const ckTxt = k => { const c = CH.CADENZE.find(x => x.k === k); return c && k !== '0' ? c.n : 'senza orologio'; };
   function newMatch(S0) {
     const pd = pend; pend = null;
     const f = S0.f == null ? 0 : 1 - S0.f, ck0 = S0.ck0 != null ? S0.ck0 : pd ? pd.ck : '0', lv = S0.lv || (pd && pd.lv) || 'med';
@@ -915,8 +915,8 @@ window.CHS = (() => {
       if (S.dro >= 0 && S.dro !== seat) S.dro = -1;   // muovere = rifiutare la patta proposta dall'altro
       done(S); return true;
     }
-    if (a.k === 'rs') { CH.finish(S, 1 - seat, 'resign', '🏳️ ' + esc(S.n[seat]) + ' abbandona'); done(S); return true; }
-    if (a.k === 'dr') { if (S.dro === 1 - seat) CH.finish(S, -1, 'agree', '🤝 Patta d\'accordo'); else if (S.dro < 0) S.dro = seat; else return false; done(S); return true; }
+    if (a.k === 'rs') { CH.finish(S, 1 - seat, 'resign', esc(S.n[seat]) + ' abbandona'); done(S); return true; }
+    if (a.k === 'dr') { if (S.dro === 1 - seat) CH.finish(S, -1, 'agree', 'Patta d\'accordo'); else if (S.dro < 0) S.dro = seat; else return false; done(S); return true; }
     if (a.k === 'dn') { if (S.dro !== 1 - seat) return false; S.dro = -1; S.drn = (S.drn || 0) + 1; done(S); return true; }
     if (a.k === 'tm') { if (!CH.flag(S, now)) return false; done(S); return true; }
     return false;
@@ -968,9 +968,9 @@ window.CHS = (() => {
     T.scr = CH.screen(r, { theme: st().chTh || 'verde', side: () => T.me >= 0 && T.S.ph === 'play' ? CH.colorOf(T.S, T.me) : -1, onMove: u => myMove(T, u) });
     const msg = document.createElement('div'); msg.className = 'chMsg'; T.scr.W.insertBefore(msg, T.scr.btns); T.msg = msg;
     const b = (t, f) => { const e = document.createElement('button'); e.type = 'button'; e.textContent = t; e.onclick = f; T.scr.btns.appendChild(e); return e; };
-    T.bRs = b('🏳️ Abbandona', () => { if (T.S.ph === 'play' && T.me >= 0 && confirm('Abbandoni la partita?')) CHT.act({ k: 'rs' }); });
-    T.bDr = b('½ Patta', () => { const S = T.S; if (S.ph !== 'play' || T.me < 0) return; if (S.dro === 1 - T.me || (S.dro < 0 && confirm('Proponi la patta?'))) CHT.act({ k: 'dr' }); });
-    b('🎨', () => { const k = Object.keys(CH.THEMES), n = k[(k.indexOf(T.scr.V.theme) + 1) % k.length]; st().chTh = n; saveStore(); T.scr.V.setTheme(n); }).className = 'chSm';
+    T.bRs = b('Abbandona', () => { if (T.S.ph === 'play' && T.me >= 0 && confirm('Abbandoni la partita?')) CHT.act({ k: 'rs' }); });
+    T.bDr = b('Patta', () => { const S = T.S; if (S.ph !== 'play' || T.me < 0) return; if (S.dro === 1 - T.me || (S.dro < 0 && confirm('Proponi la patta?'))) CHT.act({ k: 'dr' }); });
+    b('Colori', () => { const k = Object.keys(CH.THEMES), n = k[(k.indexOf(T.scr.V.theme) + 1) % k.length]; st().chTh = n; saveStore(); T.scr.V.setTheme(n); }).className = 'chSm';
     T.ro = () => { if (T.scr) T.scr.fit(); }; window.addEventListener('resize', T.ro);
     T.scr.fit();
     T.iv = setInterval(() => clockTick(T), 100);
@@ -1006,21 +1006,21 @@ window.CHS = (() => {
     const S = T.S; if (!T.scr || !S.mv) return;
     if (T.lastV !== S.v) { T.lastV = S.v; T.rcv = Date.now(); }
     const me = T.me, bottom = me >= 0 ? CH.colorOf(S, me) : 0;
-    const nm = c => { const s = CH.seatOf(S, c); return esc(String(S.n[s] || '?').replace(' 🎩', '')); };
-    const sub = c => { const s = CH.seatOf(S, c); if (s === S.ai) return T.say && T.say.u > Date.now() ? '💬 ' + esc(T.say.t) : T.think ? 'sta pensando…' : lvTxt(S.lv); return s === me ? 'tu' : ''; };
-    T.scr.render({ moves: S.mv, bottom, names: [nm(0), nm(1)], subs: [sub(0), sub(1)], avs: [0, 1].map(c => CH.seatOf(S, c) === S.ai ? '🎩' : c ? '♚' : '♔'), over: S.ph !== 'play' });
+    const nm = c => { const s = CH.seatOf(S, c); return esc(String(S.n[s] || '?').replace(/ 🎩$/, '')); };
+    const sub = c => { const s = CH.seatOf(S, c); if (s === S.ai) return T.say && T.say.u > Date.now() ? '«' + esc(T.say.t) + '»' : T.think ? 'sta pensando…' : lvTxt(S.lv); return s === me ? 'tu' : ''; };
+    T.scr.render({ moves: S.mv, bottom, names: [nm(0), nm(1)], subs: [sub(0), sub(1)], avs: [0, 1].map(c => c ? '♚' : '♔'), over: S.ph !== 'play' });
     clockTick(T);
     // pulsanti e scritte
     const play = S.ph === 'play' && me >= 0;
     T.bRs.hidden = T.bDr.hidden = me < 0;
     T.bRs.disabled = !play; T.bDr.disabled = !play || S.dro === me;
-    T.bDr.textContent = S.dro === me ? '½ Proposta…' : S.dro === 1 - me ? '🤝 Accetta patta' : '½ Patta';
+    T.bDr.textContent = S.dro === me ? 'Patta proposta…' : S.dro === 1 - me ? 'Accetta patta' : 'Patta';
     T.bDr.classList.toggle('chHot', play && S.dro === 1 - me);
     let m = '';
-    if (play && S.dro === 1 - me) m = '🤝 <b>' + esc(S.n[1 - me]) + '</b> propone la patta: accetta o continua a giocare <button type="button" data-k="dn">No, grazie</button>';
-    else if (S.ph === 'play' && S.dro >= 0 && me < 0) m = '🤝 ' + esc(S.n[S.dro]) + ' propone la patta';
-    else if (me < 0) m = '👀 Stai guardando ' + esc(S.n[0]) + ' contro ' + esc(S.n[1]);
-    if (T.watch) m += (m ? ' · ' : '') + '👀 ' + T.watch;
+    if (play && S.dro === 1 - me) m = '<b>' + esc(S.n[1 - me]) + '</b> propone la patta: accetta o continua a giocare <button type="button" data-k="dn">No, grazie</button>';
+    else if (S.ph === 'play' && S.dro >= 0 && me < 0) m = esc(S.n[S.dro]) + ' propone la patta';
+    else if (me < 0) m = 'Stai guardando ' + esc(S.n[0]) + ' contro ' + esc(S.n[1]);
+    if (T.watch) m += (m ? ' · ' : '') + T.watch + (T.watch === 1 ? ' spettatore' : ' spettatori');
     if (T.msg.dataset.m !== m) { T.msg.dataset.m = m; T.msg.innerHTML = m; const n = T.msg.querySelector('[data-k=dn]'); if (n) n.onclick = () => CHT.act({ k: 'dn' }); }
     // fine partita: riquadro comune (titolo, motivo, rivincita) dopo il matto al rallentatore
     if (S.ph === 'end') {
@@ -1036,7 +1036,7 @@ window.CHS = (() => {
   function endTxt(T) {
     const S = T.S, n = Math.ceil(S.mv.length / 2);
     return (n ? n + (n === 1 ? ' mossa' : ' mosse') + ' · ' : '') + 'al tavolo ' + esc(S.n[0]) + ' <b>' + S.sc[0] + '</b> – <b>' + S.sc[1] + '</b> ' + esc(S.n[1])
-      + (S.ai >= 0 && S.lv === 'ada' ? '<br>🧠 Forza del Conte adesso: <b>' + Math.round(ada()) + '</b>' : '');
+      + (S.ai >= 0 && S.lv === 'ada' ? '<br>Forza del Conte adesso: <b>' + Math.round(ada()) + '</b>' : '');
   }
   // contro il computer: risultati per livello e livello adattivo (salvati sul telefono)
   function score(S, me) {
@@ -1045,21 +1045,40 @@ window.CHS = (() => {
     saveStore();
   }
   const CHT = cqTable({
-    id: 'ch', title: 'Scacchi', emoji: '♟️', aiName: 'Il Conte 🎩', rule: S => S && S.ck0 != null ? ckTxt(S.ck0) : '',
+    id: 'ch', title: 'Scacchi', emoji: '', aiName: 'Il Conte', rule: S => S && S.ck0 != null ? ckTxt(S.ck0) : '',
     near: () => false, newMatch, act, aiTurn, aiDelay: 150, view, render,
     inv: S => { S.ck0 = pend && pend.ck ? pend.ck : '0'; pend = null; },
     drop: T => { clearInterval(T.iv); clearTimeout(T.pt); if (T.ro) window.removeEventListener('resize', T.ro); T.scr = null; },
   });
   // ---- scelte: avversario, livello, colore, orologio ----
-  function chips(name, items, def) { return `<div class="chC" data-n="${name}">` + items.map(([v, t]) => `<button type="button" data-v="${v}"${v === def ? ' class="on"' : ''}>${t}</button>`).join('') + '</div>'; }
+  // tendina (05-11-2026, richiesta utente: "le opzioni nelle tendine, cosi' resta piu' ordinato"): titolo + scelta attuale, si apre con un tocco
+  // e si richiude da sola dopo la scelta; items [valore, testo, gruppo?] (i gruppi = righe con il loro nome, es. Bullet / Lampo / Rapida)
+  function chips(name, title, items, def, note) {
+    const it = items.find(x => x[0] === def) || items[0], cur = it[3] || it[1];
+    let body = '', grp = null;
+    for (const [v, t, g, full] of items) {
+      if ((g || '') !== grp) { if (grp !== null) body += '</div>'; grp = g || ''; body += (g ? `<div class="chG">${g}</div>` : '') + '<div class="chC">'; }
+      body += `<button type="button" data-v="${v}"${full ? ` data-t="${full}"` : ''}${v === def ? ' class="on"' : ''}>${t}</button>`;
+    }
+    return `<details class="chD" data-n="${name}"><summary><span>${title}</span><b>${cur}</b></summary>${body}</div>${note || ''}</details>`;
+  }
   function options(box, ai) {
     const sv = st().chOpt || {}, rec = st().chSt || {};
-    const lv = CH.LEVELS.map(l => [l.k, l.e + ' ' + l.n + (rec[l.k] ? ' <small>' + rec[l.k][0] + '-' + rec[l.k][1] + '</small>' : '')]);
-    box.innerHTML = (ai ? '<h4>Livello</h4>' + chips('lv', lv, sv.lv || 'med') + '<p class="chAd">🧠 Adattivo: il Conte diventa più forte quando vinci e più debole quando perdi (adesso forza <b>' + Math.round(ada()) + '</b> su 100).</p><h4>Giochi con</h4>' + chips('wc', [['0', '♔ Bianco'], ['1', '♚ Nero'], ['r', '🎲 A caso']], sv.wc || 'r') : '')
-      + '<h4>Orologio</h4>' + chips('ck', CH.CADENZE.map(c => [c.k, c.n]), (ai ? sv.ckA : sv.ck) || (ai ? '0' : '5+3'));
-    box.querySelectorAll('.chC').forEach(g => g.onclick = e => { const b = e.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+    const lv = CH.LEVELS.map(l => [l.k, l.n + (rec[l.k] ? ' <small>' + rec[l.k][0] + '-' + rec[l.k][1] + '</small>' : '')]);
+    const GN = { bullet: 'Bullet', lampo: 'Lampo', rapida: 'Rapida' };
+    box.innerHTML = (ai ? chips('lv', 'Livello', lv, sv.lv || 'med', '<p class="chAd">Adattivo: il Conte diventa più forte quando vinci e più debole quando perdi (adesso forza <b>' + Math.round(ada()) + '</b> su 100).</p>')
+      + chips('wc', 'Giochi con', [['0', 'Bianco'], ['1', 'Nero'], ['r', 'A caso']], sv.wc || 'r') : '')
+      + chips('ck', 'Orologio', CH.CADENZE.map(c => { const [m, i] = c.k.split('+'); return [c.k, c.g ? (+i ? m + ' | ' + i : m + ' min') : c.n, c.g ? GN[c.g] : '', c.n]; }), (ai ? sv.ckA : sv.ck) || (ai ? '0' : '5+3'));
+    box.querySelectorAll('.chD').forEach(d => {
+      d.onclick = e => {
+        const b = e.target.closest('button'); if (!b) return;
+        d.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+        d.querySelector('summary b').innerHTML = b.dataset.t || b.innerHTML; d.open = false;
+      };
+      d.ontoggle = () => { if (d.open) box.querySelectorAll('.chD').forEach(o => { if (o !== d) o.open = false; }); };   // una tendina aperta alla volta
+    });
     return () => {
-      const v = n => { const b = box.querySelector(`.chC[data-n=${n}] .on`); return b && b.dataset.v; };
+      const v = n => { const b = box.querySelector(`.chD[data-n=${n}] .on`); return b && b.dataset.v; };
       const o = { ck: v('ck') }; if (ai) { o.lv = v('lv'); o.wcK = v('wc'); o.wc = o.wcK === 'r' ? (Math.random() < 0.5 ? 0 : 1) : +o.wcK; }
       const keep = st().chOpt || (st().chOpt = {}); if (ai) { keep.lv = o.lv; keep.wc = o.wcK; keep.ckA = o.ck; } else keep.ck = o.ck; saveStore();
       return o;
@@ -1074,7 +1093,7 @@ window.CHS = (() => {
   function pickSeated() {
     const G = cq.g, N = cq.net, busy = new Set(); CHT.games().forEach(x => x.S.p.forEach(p => p && busy.add(p)));
     const fr = G && N ? G.chars.filter(c => c.remote && c.alive && c.sit != null && !busy.has(c.sid)) : [];
-    const m = modal(`<h2>♟️ Scacchi al tavolino</h2><p>Con chi giochi?</p>${fr.map((c, i) => `<button type="button" data-k="f${i}">⚔️ ${esc(c.name)}</button>`).join('') || '<p style="opacity:.7">Nessun amico seduto al tavolino: invita qualcuno a sedersi!</p>'}<button type="button" data-k="ai">🎩 Il Conte (computer)</button><button type="button" data-k="x">Annulla</button>`);
+    const m = modal(`<h2>Scacchi al tavolino</h2><p>Con chi giochi?</p>${fr.map((c, i) => `<button type="button" data-k="f${i}">${esc(c.name)}</button>`).join('') || '<p style="opacity:.7">Nessun amico seduto al tavolino: invita qualcuno a sedersi!</p>'}<button type="button" data-k="ai">Il Conte (computer)</button><button type="button" data-k="x">Annulla</button>`);
     m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
       const k = b.dataset.k; m.remove();
       if (k === 'ai') setup(true, o => vsAI(o));
@@ -1082,7 +1101,7 @@ window.CHS = (() => {
     });
   }
   function setup(ai, go, who) {
-    const m = modal(`<h2>♟️ ${ai ? 'Contro il Conte' : 'Sfida a ' + esc(who || '')}</h2><div class="chOpts"></div><button type="button" class="pr" data-k="go">${ai ? '▶ Gioca' : '⚔️ Sfida'}</button><button type="button" data-k="x">Annulla</button>`);
+    const m = modal(`<h2>${ai ? 'Contro il Conte' : 'Sfida a ' + esc(who || '')}</h2><div class="chOpts"></div><button type="button" class="pr" data-k="go">${ai ? 'Gioca' : 'Sfida'}</button><button type="button" data-k="x">Annulla</button>`);
     const get = options(m.querySelector('.chOpts'), ai);
     m.querySelector('[data-k=go]').onclick = () => { const o = get(); m.remove(); go(o); };
     m.querySelector('[data-k=x]').onclick = () => m.remove();
@@ -1090,8 +1109,8 @@ window.CHS = (() => {
   // reception (Giochi da tavola): contro il Conte o sfida a un amico (party solo su invito, la sfida parte quando entra)
   let want = null;
   function reception(body) {
-    body.innerHTML = '<p class="lead" style="margin-top:0">Gli scacchi veri, 1 contro 1: tocca un pezzo e vedi dove può andare. Contro il Conte a 6 livelli o contro un amico, con l\'orologio.</p><div class="chOpts chRc"></div><button class="btn primary go" type="button" id="chAI">🎩 Gioca contro il Conte</button>'
-      + '<div class="rcSec">✉️ Sfida un amico</div><div class="chOpts chRc" id="chFrO"></div><div id="chFr"></div><p class="hint">L\'amico riceve la sfida nel gioco (e sul telefono, se ha gli avvisi accesi). Quando entra nel tuo party si apre la scacchiera. Dentro un party potete anche sedervi al tavolino del salotto: <b>🎲 Tavolino</b> → <b>♟️ Scacchi</b>.</p>';
+    body.innerHTML = '<p class="lead" style="margin-top:0">Gli scacchi veri, 1 contro 1: tocca un pezzo e vedi dove può andare. Contro il Conte a 6 livelli o contro un amico, con l\'orologio.</p><div class="chOpts chRc"></div><button class="btn primary go" type="button" id="chAI">Gioca contro il Conte</button>'
+      + '<div class="rcSec">Sfida un amico</div><div class="chOpts chRc" id="chFrO"></div><div id="chFr"></div><p class="hint">L\'amico riceve la sfida nel gioco (e sul telefono, se ha gli avvisi accesi). Quando entra nel tuo party si apre la scacchiera. Dentro un party potete anche sedervi al tavolino del salotto: <b>Tavolino</b> → <b>Scacchi</b>.</p>';
     const get = options(body.querySelector('.chOpts'), true), getF = options(body.querySelector('#chFrO'), false);
     body.querySelector('#chAI').onclick = () => { const o = get(); cqCloseTask(); vsAI(o); };
     frPicker(body.querySelector('#chFr'), async fr => {
@@ -1099,7 +1118,7 @@ window.CHS = (() => {
       if (!cq.net && !(await cqPartyNew(true, true))) return;
       want = { k: fr.k, n: fr.n, ck: o.ck, t: Date.now() };
       invSend(fr, 'ch'); cqCloseTask();
-      cqToast('♟️ Sfida a scacchi mandata a <b>' + esc(fr.n) + '</b>! Appena entra nel tuo party si apre la scacchiera.');
+      cqToast('Sfida a scacchi mandata a <b>' + esc(fr.n) + '</b>! Appena entra nel tuo party si apre la scacchiera.');
     });
   }
   function wantCheck() {
@@ -1132,7 +1151,15 @@ window.CHS = (() => {
 .chBtns button.chSm{flex:0 0 48px}.chBtns button.chHot{background:#81b64c;box-shadow:0 2px 0 #557a2e;animation:chHot 1s infinite}
 @keyframes chHot{50%{filter:brightness(1.2)}}
 .chBtns button:disabled{opacity:.45}
-#tvModal .chBox h4{margin:10px 0 5px;font-size:12px;color:#c9b48a;text-transform:uppercase;letter-spacing:.05em}
+.chD{margin:7px 0;border:2px solid #6a4a2a;border-radius:11px;background:rgba(0,0,0,.18);overflow:hidden}
+.chD[open]{border-color:#c99a44}
+.chD summary{list-style:none;display:flex;align-items:center;gap:8px;padding:10px 12px;cursor:pointer;font-size:14px}
+.chD summary::-webkit-details-marker{display:none}
+.chD summary span{color:#c9b48a;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;flex:none}
+.chD summary b{flex:1;text-align:right;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.chD summary::after{content:'▾';color:#c9b48a;font-size:14px;transition:transform .2s}.chD[open] summary::after{transform:rotate(180deg)}
+.chD > .chC,.chD > .chG,.chD > .chAd{margin-left:10px!important;margin-right:10px!important}.chD > .chC:last-of-type{margin-bottom:10px}
+.chG{font-size:11px;font-weight:800;color:#c9b48a;margin:8px 0 4px;opacity:.85}
 .chC{display:flex;flex-wrap:wrap;gap:5px}
 #tvModal .chC button,.chRc .chC button{display:inline-block;width:auto;margin:0;padding:7px 9px;border-radius:9px;border:2px solid #6a4a2a;background:#4a3020;color:#fff;font-weight:700;font-size:13px}
 #tvModal .chC button.on,.chRc .chC button.on{border-color:#e0b84a;background:#3e8a4a}

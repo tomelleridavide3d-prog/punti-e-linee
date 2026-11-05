@@ -30,7 +30,7 @@ export default [
     [...document.querySelectorAll('#bcModal button')].find(b => b.textContent.includes('Scacchi')).click(); await w(400);
     const b = [...document.querySelectorAll('#tvModal button')].find(b => b.textContent.includes('zzScaB')); if (!b) return 'amico seduto non in lista: ' + document.getElementById('tvModal').innerText.replace(/\\s+/g, ' ');
     b.click(); await w(400);
-    document.querySelector('#tvModal .chC[data-n=ck] [data-v="3+2"]').click(); document.querySelector('#tvModal [data-k=go]').click(); return 'sfidato a scacchi 3+2'; })()`, 3000],
+    document.querySelector('#tvModal .chD[data-n=ck] [data-v="3+2"]').click(); document.querySelector('#tvModal [data-k=go]').click(); return 'sfidato a scacchi 3+2'; })()`, 3000],
   [1, `(() => { const m = document.getElementById('tvModal'); if (!m) return 'NESSUNA SFIDA'; const t = m.innerText.replace(/\\s+/g, ' '); m.querySelector('[data-k=ok]').click(); return t; })()`, 3500],
   [0, st, 0], [1, st, 0],
   [2, `(async () => { const k = CHS.games()[0]; if (!k) return 'nessuna partita da guardare'; CHS.watch(k.key); await new Promise(r => setTimeout(r, 1500)); return 'C guarda: ' + (CHS.T && CHS.T.me) + ' pezzi ' + document.querySelectorAll('.chRoot .chP').length; })()`, 0],
