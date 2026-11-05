@@ -901,7 +901,7 @@ window.CHS = (() => {
     const pd = pend; pend = null;
     const f = S0.f == null ? 0 : 1 - S0.f, ck0 = S0.ck0 != null ? S0.ck0 : pd ? pd.ck : '0', lv = S0.lv || (pd && pd.lv) || 'med';
     const wc = S0.wc != null && S0.mv ? 1 - S0.wc : pd && pd.wc != null ? pd.wc : f;   // rivincita: colori invertiti
-    return { mv: [], wc, ck0, lv, ck: CH.newClock(ck0), win: null, why: '', res: '', dro: -1, sc: S0.sc || [0, 0], pub: Date.now(), cnt: 0 };
+    return { mv: [], wc, ck0, lv, ck: CH.newClock(ck0), win: null, why: '', res: '', dro: -1, tbo: -1, sc: S0.sc || [0, 0], pub: Date.now(), cnt: 0 };
   }
   function done(S) { if (S.ph === 'end' && !S.cnt) { S.cnt = 1; if (S.win >= 0) S.sc[S.win]++; } S.pub = Date.now(); }
   // sul banco: azione del posto seat; true = da pubblicare
@@ -913,13 +913,30 @@ window.CHS = (() => {
       if (!CH.apply(S, seat, a.u, at)) return false;
       if (S.ck && S.ck.at && S.ph === 'play') S.ck.at = now;
       if (S.dro >= 0 && S.dro !== seat) S.dro = -1;   // muovere = rifiutare la patta proposta dall'altro
+      if (S.tbo >= 0) S.tbo = -1;                     // ...e lascia cadere la richiesta di ritiro
       done(S); return true;
     }
     if (a.k === 'rs') { CH.finish(S, 1 - seat, 'resign', esc(S.n[seat]) + ' abbandona'); done(S); return true; }
     if (a.k === 'dr') { if (S.dro === 1 - seat) CH.finish(S, -1, 'agree', 'Patta d\'accordo'); else if (S.dro < 0) S.dro = seat; else return false; done(S); return true; }
     if (a.k === 'dn') { if (S.dro !== 1 - seat) return false; S.dro = -1; S.drn = (S.drn || 0) + 1; done(S); return true; }
     if (a.k === 'tm') { if (!CH.flag(S, now)) return false; done(S); return true; }
+    // ritiro mossa (solo tra giocatori): { k: 'tb' } chiede, l'altro accetta { k: 'ta' } o rifiuta { k: 'tn' }; muovere = rifiutare
+    if (a.k === 'tb') { if (S.ai >= 0 || S.tbo >= 0 || !canTb(S, seat)) return false; S.tbo = seat; S.tbl = S.mv.length; done(S); return true; }
+    if (a.k === 'tn') { if (S.tbo !== 1 - seat) return false; S.tbx = [S.tbo, S.mv.length]; S.tbo = -1; done(S); return true; }
+    if (a.k === 'ta') {
+      if (S.tbo !== 1 - seat || S.tbl !== S.mv.length) return false;
+      const who = S.tbo, c = CH.colorOf(S, who), turn = S.mv.length & 1;
+      if (S.ck && S.ck.at) S.ck.t[turn] -= now - S.ck.at;   // il tempo di chi stava pensando resta speso
+      S.mv.length -= turn === c ? 2 : 1;                     // torna a chi ha chiesto: tolgo la sua ultima mossa (e la risposta, se c'era)
+      if (S.ck) S.ck.at = S.mv.length ? now : 0;
+      S.tbo = -1; S.tbx = null; S.dro = -1; S.tbk = (S.tbk || 0) + 1; done(S); return true;
+    }
     return false;
+  }
+  // posso chiedere il ritiro se ho gia' mosso almeno una volta e l'ultima richiesta rifiutata non e' su questa stessa posizione
+  function canTb(S, seat) {
+    const n = S.mv.length, mine = CH.colorOf(S, seat) ? n >> 1 : (n + 1) >> 1;
+    return mine > 0 && !(S.tbx && S.tbx[0] === seat && S.tbx[1] === n);
   }
   // il Conte: pensa nel Worker; la mossa arriva dopo e si conferma con commit
   const SAY = {
@@ -970,6 +987,7 @@ window.CHS = (() => {
     const b = (t, f) => { const e = document.createElement('button'); e.type = 'button'; e.textContent = t; e.onclick = f; T.scr.btns.appendChild(e); return e; };
     T.bRs = b('Abbandona', () => { if (T.S.ph === 'play' && T.me >= 0 && confirm('Abbandoni la partita?')) CHT.act({ k: 'rs' }); });
     T.bDr = b('Patta', () => { const S = T.S; if (S.ph !== 'play' || T.me < 0) return; if (S.dro === 1 - T.me || (S.dro < 0 && confirm('Proponi la patta?'))) CHT.act({ k: 'dr' }); });
+    T.bTb = b('Ritira', () => { const S = T.S; if (S.ph === 'play' && T.me >= 0 && S.ai < 0 && S.tbo < 0 && canTb(S, T.me)) CHT.act({ k: 'tb' }); });
     b('Colori', () => { const k = Object.keys(CH.THEMES), n = k[(k.indexOf(T.scr.V.theme) + 1) % k.length]; st().chTh = n; saveStore(); T.scr.V.setTheme(n); }).className = 'chSm';
     T.ro = () => { if (T.scr) T.scr.fit(); }; window.addEventListener('resize', T.ro);
     T.scr.fit();
@@ -1016,12 +1034,18 @@ window.CHS = (() => {
     T.bRs.disabled = !play; T.bDr.disabled = !play || S.dro === me;
     T.bDr.textContent = S.dro === me ? 'Patta proposta…' : S.dro === 1 - me ? 'Accetta patta' : 'Patta';
     T.bDr.classList.toggle('chHot', play && S.dro === 1 - me);
+    T.bTb.hidden = me < 0 || S.ai >= 0;
+    T.bTb.disabled = !play || S.tbo >= 0 || !canTb(S, me);
+    T.bTb.textContent = S.tbo === me ? 'Ritiro chiesto…' : 'Ritira';
+    if (T.tbK !== S.tbk) { if (T.tbK != null) CH.snd('move'); T.tbK = S.tbk; }
     let m = '';
-    if (play && S.dro === 1 - me) m = '<b>' + esc(S.n[1 - me]) + '</b> propone la patta: accetta o continua a giocare <button type="button" data-k="dn">No, grazie</button>';
+    if (play && S.tbo === 1 - me) m = '<b>' + esc(S.n[1 - me]) + '</b> chiede di ritirare l\'ultima mossa <button type="button" data-k="ta">Sì</button> <button type="button" data-k="tn">No</button>';
+    else if (S.ph === 'play' && S.tbo >= 0 && me < 0) m = esc(S.n[S.tbo]) + ' chiede di ritirare la mossa';
+    else if (play && S.dro === 1 - me) m = '<b>' + esc(S.n[1 - me]) + '</b> propone la patta: accetta o continua a giocare <button type="button" data-k="dn">No, grazie</button>';
     else if (S.ph === 'play' && S.dro >= 0 && me < 0) m = esc(S.n[S.dro]) + ' propone la patta';
     else if (me < 0) m = 'Stai guardando ' + esc(S.n[0]) + ' contro ' + esc(S.n[1]);
     if (T.watch) m += (m ? ' · ' : '') + T.watch + (T.watch === 1 ? ' spettatore' : ' spettatori');
-    if (T.msg.dataset.m !== m) { T.msg.dataset.m = m; T.msg.innerHTML = m; const n = T.msg.querySelector('[data-k=dn]'); if (n) n.onclick = () => CHT.act({ k: 'dn' }); }
+    if (T.msg.dataset.m !== m) { T.msg.dataset.m = m; T.msg.innerHTML = m; const n = T.msg.querySelector('[data-k=dn]'); if (n) n.onclick = () => CHT.act({ k: 'dn' }); for (const k of ['ta', 'tn']) { const e = T.msg.querySelector('[data-k=' + k + ']'); if (e) e.onclick = () => CHT.act({ k }); } }
     // fine partita: riquadro comune (titolo, motivo, rivincita) dopo il matto al rallentatore
     if (S.ph === 'end') {
       if (T.endK !== S.g) {
