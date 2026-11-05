@@ -579,17 +579,17 @@
   function launchQ(G) {
     if (!G.rq || !G.rq.length) return;
     G.rq = G.rq.filter(L => { if (G.time < L.t) return true; const { b, q } = L; if (b.ko || !b.bl.includes(q)) return false; const tg = G.rbs.find(o => o.uid === L.tg) || enemyOf(G, b); if (!tg) return false;
-      const [x, y] = wpos(b, q), ang = Math.atan2(tg.y - y, tg.x - x) + (L.k ? 0.35 : -0.35), z0 = (b.z || 0) + 0.6, d = Math.hypot(tg.x - x, tg.y - y);
-      G.proj.push({ k: 'rk', x, y, z: z0, z0, ang, dx: Math.cos(ang), dy: Math.sin(ang), v: 7.5, t: G.time, own: b, team: b.team, tg: tg.uid, trav: 0, H: 2.2 + 0.22 * d, sl: 1 }); ev(G, 'rkt', x, y, L.k, b.team); return false; });
+      const [x, y] = wpos(b, q), ang = Math.atan2(tg.y - y, tg.x - x) + (L.k ? 0.6 : -0.6), z0 = (b.z || 0) + 0.6, d = Math.hypot(tg.x - x, tg.y - y);
+      G.proj.push({ k: 'rk', x, y, z: z0, z0, ang, dx: Math.cos(ang), dy: Math.sin(ang), v: 6.5, t: G.time, own: b, team: b.team, tg: tg.uid, trav: 0, H: 2.4 + 0.3 * d, sl: 1 }); ev(G, 'rkt', x, y, L.k, b.team); return false; });
   }
   // razzo a parabola: insegue il bersaglio (o il flare che l'ha ingannato) e gli ricade addosso dall'alto
   function rocketStep(G, p, dt) {
     for (let s = 0; s < 3; s++) { const h = dt / 3, fl = p.dec && (G.flr || []).includes(p.dec) ? p.dec : null; let tx = p.lx, ty = p.ly;
       if (fl) { tx = fl.x; ty = fl.y; } else { const o = G.rbs.find(o => o.uid === p.tg && !o.fall && o.bl.length); if (o) { tx = o.x; ty = o.y; flareCheck(G, p, o); } }
       if (tx == null) { tx = p.x + p.dx; ty = p.y + p.dy; } p.lx = tx; p.ly = ty;
-      p.ang += clamp(angD(Math.atan2(ty - p.y, tx - p.x), p.ang), -2.4 * h, 2.4 * h); p.dx = Math.cos(p.ang); p.dy = Math.sin(p.ang);
+      p.ang += clamp(angD(Math.atan2(ty - p.y, tx - p.x), p.ang), -1.9 * h, 1.9 * h); p.dx = Math.cos(p.ang); p.dy = Math.sin(p.ang);
       const st = p.v * h; p.x += p.dx * st; p.y += p.dy * st; p.trav += st;
-      const rem = Math.hypot(tx - p.x, ty - p.y), pr = p.trav / (p.trav + rem), zt = p.z0 * (1 - pr) + p.H * 4 * pr * (1 - pr), z = p.z + clamp(zt - p.z, -9 * h, 9 * h); p.sl = (z - p.z) / st; p.z = z;
+      const rem = Math.hypot(tx - p.x, ty - p.y), pr = p.trav / (p.trav + rem), zt = p.z0 * (1 - pr) + p.H * 4 * pr * (1 - pr), z = p.z + clamp(zt - p.z, -40 * h, 40 * h); p.sl = (z - p.z) / st; p.z = z;
       if ((pr > 0.5 && z < 0.35) || rem < 0.3 || G.time - p.t > 5) { if (fl) boom(G, p.x, p.y, 0.8, 2, 3, p.team, 2); else boom(G, p.x, p.y, 1.25, 8, 7, p.team, 3); return false; }
       if (pr > 0.6 && z < 0.8) for (const o of G.rbs) { if (o.team === p.team || o.debris || o.fall) continue; for (const r of o.bl) { const [ox, oy] = wpos(o, r); if (Math.hypot(ox - p.x, oy - p.y) < (r.r || RB) + 0.15) { boom(G, p.x, p.y, 1.25, 8, 7, p.team, 3); return false; } } }
     }
