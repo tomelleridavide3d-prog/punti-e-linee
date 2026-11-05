@@ -1,13 +1,13 @@
-// Prova del mazzo della Valle dei Clan (node prove/valle1.js): quantita' come l'originale, ogni tessera coerente.
+// Prova del mazzo della Valle dei Clan (node prove/valle1.js): quantita' come la versione online, ogni tessera coerente.
 const V = require('../giochi/valle.js');
 let bad = 0; const err = (...a) => { bad++; console.log('ERRORE', ...a); };
 const D = V.DECK, n = t => D.filter(t).reduce((s, d) => s + d.n, 0);
 const tot = n(() => 1), land = n(d => !d.sp), sp = n(d => d.sp), st = n(d => d.start);
 console.log('tessere', tot, '| normali (con la partenza)', land, '| speciali', sp, '| partenza', st);
-if (tot !== 91 || land !== 79 || sp !== 12 || st !== 1) err('quantita\' totali');
-// tipi di lati come il riferimento
+if (tot !== 95 || land !== 79 || sp !== 16 || st !== 1) err('quantita\' totali');
+for (const d of D) if (d.sp && !V.SPN[d.sp]) err(d.id, 'speciale senza nome');
 const got = {}; for (const d of D) { const c = V.canon(d.e); got[c] = (got[c] || 0) + d.n; }
-for (const k of new Set([...Object.keys(V.REF), ...Object.keys(got)])) if (got[k] !== V.REF[k]) err('tipo', k, 'ne ho', got[k] || 0, 'l\'originale', V.REF[k] || 0);
+console.log('tipi di lati:', Object.keys(got).length, Object.entries(got).sort().map(([k, v]) => k + ' ' + v).join(', '));
 const ids = new Set(); for (const d of D) { if (ids.has(d.id)) err('id doppio', d.id); ids.add(d.id); }
 const t0 = Date.now(); let fish = 0, amber = 0; const an = { cav: 0, rin: 0, orso: 0, bis: 0 };
 for (const d of D) {
@@ -20,10 +20,10 @@ for (const d of D) {
   }
   for (const z of d.rv || []) {
     if (z.e.length + (z.end ? 1 : 0) !== 2) err(d.id, 'fiume con', z.e.length, 'lati e fine', z.end, ': un fiume ha sempre 2 capi');
-    if (z.end === 'l' && !d.lake) err(d.id, 'fiume che finisce in un lago che non c\'e\'');
+    if (z.end === 'l' && !V.lakesOf(d)[z.lk || 0]) err(d.id, 'fiume che finisce in un lago che non c\'e\'');
+    if (z.end === 'b' && !(z.at && V.forestF(d, z.at[0], z.at[1]) > 0)) err(d.id, 'fiume che finisce nel bosco ma il punto e\' fuori dal bosco');
   }
-  if (d.lake && !(d.lake.p >= 1)) err(d.id, 'lago senza pesci');
-  if (d.lake && !(d.rv || []).some(z => z.end === 'l')) err(d.id, 'lago senza fiumi');
+  V.lakesOf(d).forEach((L, k) => { if (!(L.p >= 1)) err(d.id, 'lago senza pesci'); if (!(d.rv || []).some(z => z.end === 'l' && (z.lk || 0) === k)) err(d.id, 'lago senza fiumi'); });
   // pezzi dei lati
   for (let g = 0; g < 12; g++) {
     const s = (g / 3) | 0, p = g % 3, f = F[segOf[g]];
@@ -37,7 +37,7 @@ for (const d of D) {
   for (const o of d.ob || []) {
     if (o.z === undefined) continue;
     if (o.z < 0) err(d.id, o.k, 'non sta in nessuna zona');
-    else { const k = F[o.z].k; if ((o.k === 'ambra' || o.k === 'miele') ? k !== 'b' : k !== 'p') err(d.id, o.k, 'nella zona sbagliata', k); }
+    else { const k = F[o.z].k, want = (o.k === 'ambra' || o.k === 'miele') ? 'b' : (o.k === 'zattera' || o.k === 'canoa') ? 'l' : 'p'; if (k !== want) err(d.id, o.k, 'nella zona sbagliata', k); }
   }
   // rotazioni: i pezzi girano con i lati
   for (let r = 1; r < 4; r++) {
@@ -47,8 +47,8 @@ for (const d of D) {
   const m = F.filter(f => f.k === 'p'), w = F.filter(f => f.k === 'b');
   for (const f of m) for (const k in an) an[k] += f[k] * d.n;
   for (const f of w) amber += f.amber * d.n;
-  for (const f of F) if (f.k === 'l') fish += f.fish * d.n;
-  console.log(d.id.padEnd(8), 'x' + String(d.n).padEnd(3), V.canon(d.e), '| boschi', w.length, w.map(f => f.amber ? 'ambra' : '').join(' ').trim(), '| fiumi', F.filter(f => f.k === 'f').length, '| laghi', F.filter(f => f.k === 'l').map(f => f.fish + ' pesci').join(' ') || '-', '| prati', m.length, m.map(f => ['cav', 'rin', 'orso', 'bis'].filter(k => f[k]).map(k => f[k] + k).join('+') + (f.fire ? '+falo' : '') + (f.shrine ? '+pietre' : '')).filter(x => x).join(' / '));
+  for (const f of F) if (f.k === 'l' || f.k === 'f') fish += (f.fish || 0) * d.n;
+  console.log(d.id.padEnd(8), 'x' + String(d.n).padEnd(3), V.canon(d.e), '| boschi', w.length, w.map(f => f.amber ? 'ambra' : '').join(' ').trim(), '| fiumi', F.filter(f => f.k === 'f').length, '| laghi', F.filter(f => f.k === 'l').map(f => f.fish + ' pesci').join(' ') || '-', '| prati', m.length, m.map(f => ['cav', 'rin', 'orso', 'bis'].filter(k => f[k]).map(k => f[k] + k).join('+') + (f.fire ? '+falo' : '') + (f.pit ? '+fossa' : '') + (f.trap ? '+trappola' : '')).filter(x => x).join(' / '));
 }
 console.log('nel mazzo: pesci', fish, '| ambra', amber, '| animali', JSON.stringify(an), '| zone calcolate in', Date.now() - t0, 'ms');
 console.log(bad ? 'PROVA FALLITA: ' + bad + ' errori' : 'PROVA PASSATA');

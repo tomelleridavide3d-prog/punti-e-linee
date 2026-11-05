@@ -4,7 +4,7 @@ const N = +(process.argv[2] || 20), NP = +(process.argv[3] || 2);
 let bad = 0; const err = (...a) => { bad++; console.log('ERRORE', ...a); };
 const st = { forest: 0, river: 0, fpts: 0, rpts: 0, meadow: 0, mpts: 0, huts: 0, hpts: 0, bonus: 0, discard: 0, turns: 0, ms: 0, moves: 0, score: [], win: Array(NP).fill(0), tiles: 0, msMax: 0 };
 for (let k = 0; k < N; k++) {
-  const G = V.newGame({ n: NP, seed: 1000 + k, amberMan: !!process.env.AMB });
+  const G = V.newGame({ n: NP, seed: 1000 + k, amberMan: true });
   let guard = 0;
   while (G.ph !== 'end' && guard++ < 400) {
     const t0 = Date.now(), m = V.aiMove(G, { noise: G.cur === 0 ? 0 : 0, seed: k });
@@ -12,6 +12,7 @@ for (let k = 0; k < N; k++) {
     if (!m) { err('nessuna mossa'); break; }
     if (!V.place(G, m.x, m.y, m.r)) { err('posto non valido'); break; }
     if (!V.meeple(G, m.m)) { err('omino non valido'); break; }
+    if (G.ph === 'totem' && !V.totem(G, m.sh)) { err('sciamano non valido'); break; }
     // controlli: omini e palafitte sempre giusti
     const pcs = V.pieces(G);
     G.P.forEach((p, i) => {

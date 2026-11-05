@@ -13,9 +13,10 @@
   doc.querySelector('details[data-k="n"]').open = true; doc.querySelector('details[data-k="n"] .opts button[data-v="2"]').click();
   doc.querySelector('#vgGo').click(); await sleep(200);
   const U = () => w.VG.U, G = () => U().G, N = window.__N || +(new URLSearchParams(location.search).get('n') || 0) || 999;
-  let mine = 0, guard = 0, errs = 0;
+  let mine = 0, guard = 0, errs = 0, totems = 0;
   while (G().ph !== 'end' && guard++ < 3000) {
     if (G().cur !== 0 || U().busy) { await sleep(60); continue; }
+    if (G().ph === 'totem') { doc.querySelector('#vgAlt').click(); totems++; await sleep(30); continue; }
     if (G().ph === 'tile' && !U().sel) {
       if (mine >= N && !window.__M) break;
       const m = w.VE.aiMove(G(), { noise: 4, seed: 3 });
@@ -40,7 +41,7 @@
   }
   await sleep(window.__M ? 600 : 1800);
   const g = G();
-  out.push('fase ' + g.ph + ', miei turni ' + mine + ', tessere ' + g.tiles.length + ', punti ' + g.P.map(p => p.n + ' ' + p.sc).join(' / '));
+  out.push('fase ' + g.ph + ', sciamano ' + totems + ', miei turni ' + mine + ', tessere ' + g.tiles.length + ', punti ' + g.P.map(p => p.n + ' ' + p.sc).join(' / '));
   if (g.ph === 'end') { await sleep(1500); const p = doc.querySelector('#vgPanel h2'); out.push('riquadro: ' + (p ? p.textContent : 'NESSUNO')); if (!p) errs++; }
   out.push(errs ? 'PROVA FALLITA' : 'PROVA PASSATA');
   return out.join('\n');

@@ -37,9 +37,10 @@
   function rotDef(D, r) {
     r = ((r % 4) + 4) % 4; if (!r) return D;
     const re = a => a.map(e => (e + r) % 4), e = [0, 1, 2, 3].map(i => D.e[(i - r + 4) % 4]).join('');
-    const lake = D.lake && Object.assign({}, D.lake, (([x, y]) => ({ x, y }))(rp(D.lake.x, D.lake.y, r)));
+    const rl = L => Object.assign({}, L, (([x, y]) => ({ x, y }))(rp(L.x, L.y, r)));
+    const lake = D.lake && rl(D.lake), lakes = D.lakes && D.lakes.map(rl);
     return Object.assign({}, D, {
-      e, fz: (D.fz || []).map(re), lake,
+      e, fz: (D.fz || []).map(re), lake, lakes,
       rv: (D.rv || []).map(z => Object.assign({}, z, { e: re(z.e) }, z.at ? { at: rp(z.at[0], z.at[1], r) } : {})),
       ob: (D.ob || []).map(o => { const [x, y] = rp(o.x, o.y, r); return Object.assign({}, o, { x, y }); }),
     });
@@ -76,10 +77,12 @@
   }
 
   // ---- fiumi: curve di Bezier dal mezzo di un lato (fine dentro la tessera: lago, sorgente, bosco) ----
-  const lakeOf = D => D.lake ? Object.assign({ x: 100, y: 100, r: 42 }, D.lake) : null;
+  const lakesOf = D => (D.lakes || (D.lake ? [D.lake] : [])).map(L => Object.assign({ x: 100, y: 100, r: 42 }, L));
+  const lakeOf = D => lakesOf(D)[0] || null;
   function rivers(D) {
-    const out = [], L = lakeOf(D);
+    const out = [], LS = lakesOf(D);
     (D.rv || []).forEach((z, zi) => {
+      const L = LS[z.lk || 0];
       let s;
       if (z.e.length === 2 && !z.end) {
         const [a, b] = z.e, A = MID[a], B = MID[b], Ln = (a + 2) % 4 === b ? 66 : 55;
@@ -98,61 +101,133 @@
   const bez = (s, t) => { const u = 1 - t; return [0, 1].map(i => u * u * u * s[0][i] + 3 * u * u * t * s[1][i] + 3 * u * t * t * s[2][i] + t * t * t * s[3][i]); };
   const bezA = (s, t) => { const a = bez(s, Math.max(0, t - 0.01)), b = bez(s, Math.min(1, t + 0.01)); return Math.atan2(b[1] - a[1], b[0] - a[0]); };
   function waterPts(D, R) {   // punti dell'acqua (per tenere lontani erba, alberi e animali); sotto il bosco no: li' il fiume nasce tra gli alberi
-    const p = [], L = lakeOf(D);
+    const p = [], LS = lakesOf(D);
     for (const r of R) for (const s of r.segs) for (let i = 0; i <= 30; i++) { const q = bez(s, i / 30); if (forestF(D, q[0], q[1]) < 2) p.push([q[0], q[1], RW / 2 + 5]); }
-    if (L) p.push([L.x, L.y, L.r * 1.12 + 5]);
+    for (const L of LS) p.push([L.x, L.y, L.r * 1.12 + 5]);
     for (const r of R) if (r.z.end === 's') { const a = r.z.at || [100, 100]; p.push([a[0], a[1], 24]); }
     return p;
   }
   const nearWater = (W, x, y, m) => W.some(q => Math.hypot(x - q[0], y - q[1]) < q[2] + m);
 
-  // ---- IL MAZZO ----
-  // Lati N E S O: b bosco, p prato, f fiume. Tipi di lati e quantita' come l'originale (91 tessere: 79 normali con quella
-  // di partenza + 12 speciali); il contenuto (pesci SOLO nei laghi, animali, ambra) segue le immagini del riferimento.
-  // ob: cav cavallo (il cervo), rin rinoceronte lanoso (il mammut), orso (la tigre: mangia un cavallo), bis bisonte (l'uro,
-  // solo sulle speciali), ambra (la pepita), falo, miele, pietre (speciali), ces cespugli, sas sassi, monte (decorazioni).
-  const T = (id, n, e, o = {}) => Object.assign({ id, n, e }, o);
+  // ---- IL MAZZO (come la versione online, edizione nuova: 1 partenza + 78 normali + 16 speciali, ogni tessera diversa) ----
+  // Ricavato tessera per tessera dalle immagini del gioco online (BGA, img/tiles.jpg): lati, boschi, fiumi, laghi, pesci
+  // (anche nei fiumi), animali e ambra (= il menhir). Disegni, nomi e posizioni sono nostri.
+  // Lati N E S O: b bosco, p prato, f fiume. ob: cav cavallo (cervo, 1), bis bisonte (uro, 2), rin rinoceronte lanoso
+  // (mammut, 3), orso (tigre: toglie un cavallo), ambra (menhir: chiudendo il bosco con un omino dentro si pesca una speciale),
+  // miele (funghi: +3 al bosco), falo (incendio), zattera, canoa, rete (trappola), fossa, totem (sciamano), ces, sas, monte.
+  const T = (id, e, o = {}) => Object.assign({ id, n: 1, e }, o);
   const LK = (x, y, r, p) => ({ x, y, r, p });
+  const O = (k, x, y, s, f) => Object.assign({ k, x, y }, s ? { s } : {}, f ? { f } : {});
   const DECK = [
-    T('bbbb', 1, 'bbbb', { fz: [[0], [1], [2], [3]], ob: [{ k: 'ambra', x: 132, y: 24 }] }),
-    T('bbbp', 4, 'bbbp', { fz: [[0, 1], [2]], ob: [{ k: 'ambra', x: 160, y: 40 }, { k: 'cav', x: 54, y: 122 }] }),
-    T('bbbf', 4, 'bbbf', { fz: [[0, 1, 2]], lake: LK(64, 100, 36, 1), rv: [{ e: [3], end: 'l' }], ob: [{ k: 'ambra', x: 170, y: 104 }] }),
-    T('bbpp', 10, 'bbpp', { fz: [[0, 1]], ob: [{ k: 'ambra', x: 152, y: 44 }, { k: 'rin', x: 70, y: 154 }] }),
-    T('bbpf', 1, 'bbpf', { fz: [[0, 1]], lake: LK(76, 116, 36, 1), rv: [{ e: [3], end: 'l' }], ob: [{ k: 'ambra', x: 156, y: 42 }] }),
-    T('bbfp', 4, 'bbfp', { fz: [[0, 1]], lake: LK(76, 102, 38, 2), rv: [{ e: [2], end: 'l' }] }),
-    T('bbff', 7, 'bbff', { fz: [[0, 1]], rv: [{ e: [3, 2] }], ob: [{ k: 'ambra', x: 152, y: 44 }, { k: 'rin', x: 132, y: 150, s: 0.85 }] }),
-    T('bpbp', 3, 'bpbp', { fz: [[0, 2]], ob: [{ k: 'ambra', x: 100, y: 96 }, { k: 'cav', x: 170, y: 150, s: 0.75, f: -1 }] }),
-    T('bpbf', 2, 'bpbf', { fz: [[0, 2]], rv: [{ e: [3], end: 'b' }], ob: [{ k: 'ambra', x: 104, y: 36 }, { k: 'cav', x: 172, y: 120, s: 0.75, f: -1 }] }),
-    T('bppp', 4, 'bppp', { fz: [[0]], ob: [{ k: 'cav', x: 100, y: 152 }] }),
-    T('bppf', 1, 'bppf', { fz: [[0]], lake: LK(110, 116, 40, 1), rv: [{ e: [3], end: 'l' }] }),
-    T('bpfp', 2, 'bpfp', { fz: [[0]], lake: LK(110, 108, 38, 1), rv: [{ e: [2], end: 'l' }], ob: [{ k: 'orso', x: 40, y: 165, s: 0.85 }] }),
-    T('bpff', 3, 'bpff', { fz: [[0]], lake: LK(104, 106, 38, 2), rv: [{ e: [3], end: 'l' }, { e: [2], end: 'l' }], ob: [{ k: 'rin', x: 164, y: 180, s: 0.72, f: -1 }] }),
-    T('bfbf', 5, 'bfbf', { fz: [[0], [2]], lake: LK(100, 100, 32, 1), rv: [{ e: [1], end: 'l' }, { e: [3], end: 'l' }], ob: [{ k: 'cav', x: 160, y: 80, s: 0.72, f: -1 }] }),
-    T('bfpp', 2, 'bfpp', { fz: [[0]], lake: LK(96, 112, 38, 1), rv: [{ e: [1], end: 'l' }], ob: [{ k: 'cav', x: 40, y: 178, s: 0.8 }, { k: 'sas', x: 154, y: 158 }] }),
-    T('bfpf', 2, 'bfpf', { fz: [[0]], rv: [{ e: [3, 1], wig: 30 }] }),
-    T('bffp', 3, 'bffp', { fz: [[0]], rv: [{ e: [1, 2] }], ob: [{ k: 'cav', x: 62, y: 150 }] }),
-    T('pppp', 2, 'pppp', { ob: [{ k: 'cav', x: 104, y: 86 }, { k: 'ces', x: 52, y: 152 }, { k: 'ces', x: 150, y: 164 }, { k: 'sas', x: 82, y: 170 }] }),
-    T('ppff', 5, 'ppff', { rv: [{ e: [3, 2] }], ob: [{ k: 'orso', x: 146, y: 96, f: -1 }, { k: 'ces', x: 46, y: 44 }] }),
-    T('pfpf', 4, 'pfpf', { rv: [{ e: [3, 1] }], ob: [{ k: 'cav', x: 100, y: 64 }, { k: 'orso', x: 104, y: 176, s: 0.9 }] }),
-    T('start', 1, 'pfpf', { start: 1, rv: [{ e: [3, 1] }], ob: [{ k: 'monte', x: 62, y: 58 }, { k: 'cav', x: 150, y: 64, s: 0.8, f: -1 }, { k: 'cav', x: 96, y: 178, s: 0.8 }] }),
-    T('pfff', 7, 'pfff', { lake: LK(100, 104, 40, 1), rv: [{ e: [1], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }], ob: [{ k: 'orso', x: 100, y: 52, s: 0.9 }] }),
-    T('ffff', 2, 'ffff', { rv: [{ e: [0, 3] }, { e: [1, 2] }], ob: [{ k: 'cav', x: 150, y: 66, s: 0.85, f: -1 }, { k: 'orso', x: 64, y: 160, s: 0.85 }] }),
-    // ---- 12 speciali: si pescano chiudendo un bosco con l'ambra ----
-    T('falo1', 1, 'pfpf', { sp: 'falo', rv: [{ e: [3, 1] }], ob: [{ k: 'falo', x: 52, y: 52 }, { k: 'cav', x: 140, y: 62, s: 0.85 }, { k: 'orso', x: 104, y: 176, s: 0.9 }] }),
-    T('falo2', 1, 'ppff', { sp: 'falo', rv: [{ e: [3, 2] }], ob: [{ k: 'orso', x: 140, y: 82, f: -1 }, { k: 'falo', x: 156, y: 156 }] }),
-    T('falo3', 1, 'pfff', { sp: 'falo', lake: LK(100, 108, 38, 1), rv: [{ e: [1], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }], ob: [{ k: 'orso', x: 58, y: 52, s: 0.85 }, { k: 'falo', x: 150, y: 44 }] }),
-    T('miele1', 1, 'bbpp', { sp: 'miele', fz: [[0, 1]], ob: [{ k: 'ambra', x: 152, y: 44 }, { k: 'miele', x: 176, y: 128 }] }),
-    T('miele2', 1, 'bpbp', { sp: 'miele', fz: [[0], [2]], ob: [{ k: 'miele', x: 100, y: 22 }, { k: 'cav', x: 100, y: 118 }] }),
-    T('miele3', 1, 'bppp', { sp: 'miele', fz: [[0]], deep: [0], ob: [{ k: 'miele', x: 100, y: 34 }, { k: 'cav', x: 100, y: 180, s: 0.9 }] }),
-    T('bis1', 1, 'ffff', { sp: 'bis', lake: LK(100, 100, 36, 2), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }], ob: [{ k: 'cav', x: 44, y: 62, s: 0.7 }, { k: 'cav', x: 160, y: 182, s: 0.7, f: -1 }, { k: 'bis', x: 160, y: 62, s: 0.7, f: -1 }] }),
-    T('bis2', 1, 'bpff', { sp: 'bis', fz: [[0]], lake: LK(104, 106, 38, 2), rv: [{ e: [3], end: 'l' }, { e: [2], end: 'l' }], ob: [{ k: 'rin', x: 164, y: 180, s: 0.72, f: -1 }, { k: 'bis', x: 40, y: 184, s: 0.62 }] }),
-    T('bis3', 1, 'bfpp', { sp: 'bis', fz: [[0]], lake: LK(96, 112, 38, 1), rv: [{ e: [1], end: 'l' }], ob: [{ k: 'cav', x: 40, y: 178, s: 0.8 }, { k: 'bis', x: 156, y: 180, s: 0.8, f: -1 }] }),
-    T('pietre1', 1, 'bbbp', { sp: 'pietre', fz: [[0, 1, 2]], ob: [{ k: 'ambra', x: 170, y: 104 }, { k: 'pietre', x: 54, y: 104 }] }),
-    T('pietre2', 1, 'pppp', { sp: 'pietre', ob: [{ k: 'cav', x: 100, y: 76 }, { k: 'pietre', x: 100, y: 150 }, { k: 'ces', x: 40, y: 40 }] }),
-    T('pietre3', 1, 'pppf', { sp: 'pietre', lake: LK(112, 84, 38, 1), rv: [{ e: [3], end: 'l' }], ob: [{ k: 'rin', x: 124, y: 182, s: 0.85 }, { k: 'pietre', x: 44, y: 160 }] }),
+    T('start', 'pbbf', { start: 1, fz: [[1, 2]], lake: LK(74, 104, 40, 1), rv: [{ e: [3], end: 'l' }], ob: [O('ambra', 152, 142), O('bis', 82, 40, 0.8), O('monte', 160, 54)] }),
+    T('n00', 'ppff', { rv: [{ e: [3, 2] }], ob: [O('cav', 150, 172)] }),
+    T('n01', 'pffp', { rv: [{ e: [1, 2] }], ob: [O('cav', 66, 122), O('ces', 112, 58)] }),
+    T('n02', 'ffff', { rv: [{ e: [0, 1] }, { e: [3, 2] }], ob: [O('cav', 168, 40, 0.6, -1), O('orso', 36, 170, 0.6)] }),
+    T('n03', 'fbbb', { fz: [[3, 2], [1]], rv: [{ e: [0], end: 'b', at: [36, 124] }], ob: [O('orso', 112, 112, 0.8)] }),
+    T('n04', 'ffff', { lake: LK(100, 100, 40, 2), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }], ob: [O('cav', 44, 58, 0.65), O('cav', 46, 182, 0.65)] }),
+    T('n05', 'fpff', { lake: LK(110, 96, 40, 1), rv: [{ e: [0], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }], ob: [O('cav', 44, 180, 0.65)] }),
+    T('n06', 'bppb', { fz: [[0, 3]], ob: [O('cav', 124, 178)] }),
+    T('n07', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 64, 62)] }),
+    T('n08', 'pffp', { rv: [{ e: [1, 2] }], ob: [O('orso', 64, 56)] }),
+    T('n09', 'pffp', { rv: [{ e: [1, 2], p: 1 }], ob: [O('cav', 150, 58, 0.8, -1), O('ces', 56, 128)] }),
+    T('n10', 'ffbp', { fz: [[2]], rv: [{ e: [0, 1], p: 2 }], ob: [O('bis', 50, 128, 0.85)] }),
+    T('n11', 'bfff', { fz: [[0]], lake: LK(100, 116, 40, 1), rv: [{ e: [1], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }] }),
+    T('n12', 'ffpf', { lake: LK(100, 94, 42, 1), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [3], end: 'l' }], ob: [O('cav', 150, 182, 0.75, -1)] }),
+    T('n13', 'fffp', { lake: LK(106, 100, 40, 2), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [2], end: 'l' }] }),
+    T('n14', 'bppb', { fz: [[0, 3]], ob: [O('ambra', 58, 66), O('orso', 150, 174, 0.85, -1)] }),
+    T('n15', 'ppbb', { fz: [[2, 3]], ob: [O('ambra', 56, 136), O('cav', 150, 56, 0.85, -1)] }),
+    T('n16', 'pffp', { rv: [{ e: [1, 2] }], ob: [O('bis', 72, 92)] }),
+    T('n17', 'fpbf', { fz: [[2]], rv: [{ e: [0, 3] }], ob: [O('bis', 146, 80, 0.85, -1)] }),
+    T('n18', 'ffbb', { fz: [[2, 3]], rv: [{ e: [0, 1] }], ob: [O('ambra', 50, 160), O('bis', 84, 96, 0.85)] }),
+    T('n19', 'fppf', { lake: LK(122, 128, 40, 1), rv: [{ e: [0], end: 'l' }, { e: [3], end: 'l' }], ob: [O('rin', 58, 66, 0.75), O('cav', 158, 52, 0.7, -1)] }),
+    T('n20', 'fffp', { lake: LK(96, 86, 42, 1), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [2], end: 'l' }], ob: [O('orso', 42, 172, 0.7)] }),
+    T('n21', 'pfpf', { lake: LK(100, 96, 42, 1), rv: [{ e: [1], end: 'l' }, { e: [3], end: 'l' }], ob: [O('cav', 54, 178, 0.75)] }),
+    T('n22', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 76, 46), O('orso', 150, 172, 0.85, -1)] }),
+    T('n23', 'fpbf', { fz: [[2]], lake: LK(84, 76, 40, 1), rv: [{ e: [0], end: 'l' }, { e: [3], end: 'l' }], ob: [O('bis', 156, 108, 0.75, -1)] }),
+    T('n24', 'ffbp', { fz: [[2]], rv: [{ e: [0, 1] }], ob: [O('cav', 168, 40, 0.6, -1)] }),
+    T('n25', 'fbbf', { fz: [[1, 2]], rv: [{ e: [3, 0] }] }),
+    T('n26', 'pfff', { lake: LK(100, 112, 40, 1), rv: [{ e: [1], end: 'l' }, { e: [2], end: 'l' }, { e: [3], end: 'l' }], ob: [O('bis', 160, 50, 0.75, -1)] }),
+    T('n27', 'fbfp', { fz: [[1]], lake: LK(80, 108, 42, 1), rv: [{ e: [0], end: 'l' }, { e: [2], end: 'l' }], ob: [O('cav', 124, 58, 0.65, -1)] }),
+    T('n28', 'ffpf', { lake: LK(100, 104, 42, 1), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [3], end: 'l' }] }),
+    T('n29', 'ppfb', { fz: [[3]], rv: [{ e: [2], end: 's', at: [100, 44] }], ob: [O('cav', 160, 178, 0.8, -1)] }),
+    T('n30', 'bffp', { fz: [[0]], rv: [{ e: [1, 2], p: 1 }] }),
+    T('n31', 'bffb', { fz: [[0, 3]], rv: [{ e: [1, 2] }], ob: [O('ambra', 54, 56)] }),
+    T('n32', 'pfbb', { fz: [[2, 3]], lake: LK(110, 74, 40, 1), rv: [{ e: [1], end: 'l' }], ob: [O('ambra', 52, 152)] }),
+    T('n33', 'bfpf', { fz: [[0]], lake: LK(100, 112, 40, 3), rv: [{ e: [1], end: 'l' }, { e: [3], end: 'l' }] }),
+    T('n34', 'pbbf', { fz: [[1, 2]], lake: LK(112, 84, 38, 2), rv: [{ e: [3], end: 'l' }] }),
+    T('n35', 'fpbp', { fz: [[2]], lake: LK(94, 94, 42, 1), rv: [{ e: [0], end: 'l' }], ob: [O('orso', 162, 48, 0.75, -1)] }),
+    T('n36', 'bbfb', { fz: [[0, 1, 3]], lake: LK(98, 124, 34, 1), rv: [{ e: [2], end: 'l' }], ob: [O('ambra', 110, 40)] }),
+    T('n37', 'fbbb', { fz: [[1, 2, 3]], lake: LK(110, 76, 38, 2), rv: [{ e: [0], end: 'l' }], ob: [O('ambra', 62, 150)] }),
+    T('n38', 'fbfb', { fz: [[1], [3]], rv: [{ e: [0, 2], p: 1 }] }),
+    T('n39', 'fbfb', { fz: [[1], [3]], rv: [{ e: [0, 2] }], ob: [O('cav', 132, 178, 0.55, -1)] }),
+    T('n40', 'fbfb', { fz: [[1], [3]], rv: [{ e: [0, 2] }], ob: [O('orso', 70, 44, 0.55)] }),
+    T('n41', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 70, 46), O('cav', 150, 172, 0.85, -1)] }),
+    T('n42', 'bpbp', { fz: [[0], [2]], ob: [O('ambra', 112, 34)] }),
+    T('n43', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 110, 40)] }),
+    T('n44', 'pbbp', { fz: [[1, 2]], ob: [O('ambra', 166, 120)] }),
+    T('n45', 'ppbb', { fz: [[2, 3]], ob: [O('ambra', 52, 150), O('bis', 150, 52, 0.85, -1)] }),
+    T('n46', 'pbbp', { fz: [[1, 2]], ob: [O('ambra', 160, 144)] }),
+    T('n47', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 62, 60), O('cav', 150, 176, 0.8, -1)] }),
+    T('n48', 'bpbf', { fz: [[0], [2]], rv: [{ e: [3], end: 'b', at: [116, 34] }], ob: [O('ambra', 148, 26)] }),
+    T('n49', 'bffb', { fz: [[0, 3]], rv: [{ e: [1, 2] }], ob: [O('ambra', 50, 46), O('cav', 134, 100, 0.7, -1)] }),
+    T('n50', 'fbfb', { fz: [[1], [3]], lake: LK(96, 132, 34, 2), rv: [{ e: [0], end: 'l' }, { e: [2], end: 'l' }], ob: [O('ambra', 168, 64)] }),
+    T('n51', 'ffbb', { fz: [[2, 3]], rv: [{ e: [0], end: 'b', at: [40, 128] }, { e: [1], end: 'b', at: [134, 168] }], ob: [O('ambra', 70, 160)] }),
+    T('n52', 'bffb', { fz: [[0, 3]], rv: [{ e: [1, 2] }], ob: [O('ambra', 56, 60)] }),
+    T('n53', 'pbpb', { fz: [[1], [3]], ob: [O('cav', 116, 172, 0.75)] }),
+    T('n54', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 140, 48)] }),
+    T('n55', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 100, 46)] }),
+    T('n56', 'bbpp', { fz: [[0, 1]], ob: [O('ambra', 150, 50), O('cav', 56, 172, 0.85)] }),
+    T('n57', 'pppp', { ob: [O('rin', 100, 124)] }),
+    T('n58', 'pppp', { ob: [O('cav', 80, 64), O('ces', 116, 150), O('sas', 70, 150)] }),
+    T('n59', 'pfpf', { rv: [{ e: [3, 1] }], ob: [O('rin', 142, 178, 0.8, -1)] }),
+    T('n60', 'pfpf', { rv: [{ e: [3, 1] }], ob: [O('cav', 104, 56), O('ces', 40, 36)] }),
+    T('n61', 'pfpf', { rv: [{ e: [3, 1] }], ob: [O('bis', 72, 50, 0.85)] }),
+    T('n62', 'fpbp', { fz: [[2]], rv: [{ e: [0], end: 'b', at: [96, 168] }] }),
+    T('n63', 'bbpp', { fz: [[0, 1]], ob: [O('cav', 54, 100, 0.85)] }),
+    T('n64', 'fbfb', { fz: [[1], [3]], rv: [{ e: [0, 2] }], ob: [O('ambra', 168, 62)] }),
+    T('n65', 'pbpb', { fz: [[1, 3]], ob: [O('ambra', 100, 104), O('cav', 102, 40, 0.65)] }),
+    T('n66', 'bppp', { fz: [[0]], ob: [O('cav', 150, 176, 0.9, -1)] }),
+    T('n67', 'ppbp', { fz: [[2]], ob: [O('bis', 120, 74)] }),
+    T('n68', 'fbfb', { fz: [[1], [3]], rv: [{ e: [0, 2], p: 1 }], ob: [O('cav', 132, 178, 0.55, -1)] }),
+    T('n69', 'pfbf', { fz: [[2]], rv: [{ e: [3, 1] }] }),
+    T('n70', 'pfbf', { fz: [[2]], rv: [{ e: [3, 1], p: 1 }], ob: [O('cav', 70, 58, 0.8)] }),
+    T('n71', 'fpfp', { rv: [{ e: [0, 2] }], ob: [O('cav', 54, 84, 0.85)] }),
+    T('n72', 'pfpf', { rv: [{ e: [3, 1] }], ob: [O('cav', 70, 54, 0.85), O('orso', 146, 174, 0.85, -1)] }),
+    T('n73', 'pfpf', { rv: [{ e: [3, 1] }], ob: [O('orso', 150, 174, 0.85, -1)] }),
+    T('n74', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 112, 64), O('orso', 108, 176, 0.85)] }),
+    T('n75', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 92, 60)] }),
+    T('n76', 'bbpb', { fz: [[0, 1, 3]], ob: [O('ambra', 70, 60)] }),
+    T('n77', 'pbpp', { fz: [[1]], ob: [O('rin', 80, 152)] }),
+    // ---- 16 speciali (si pescano chiudendo un bosco con l'ambra e almeno un omino dentro) ----
+    T('s_zattera', 'ffpf', { sp: 'zattera', lake: LK(96, 100, 42, 1), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [3], end: 'l' }], ob: [O('zattera', 124, 70)] }),
+    T('s_rete', 'bppp', { sp: 'rete', fz: [[0]], ob: [O('rete', 100, 136)] }),
+    T('s_piu1', 'pbbp', { sp: 'piu', fz: [[1, 2]], ob: [O('ambra', 146, 146), O('rin', 62, 56, 0.75), O('orso', 52, 120, 0.7)] }),
+    T('s_miele1', 'bbfb', { sp: 'miele', fz: [[0, 1, 3]], rv: [{ e: [2], end: 'b', at: [118, 44] }], ob: [O('miele', 70, 38)] }),
+    T('s_piu2', 'ffbb', { sp: 'piu', fz: [[2, 3]], rv: [{ e: [0, 1] }], ob: [O('rin', 148, 64, 0.65, -1)] }),
+    T('s_falo', 'pppp', { sp: 'falo', ob: [O('falo', 76, 84), O('orso', 144, 156)] }),
+    T('s_piu3', 'fffp', { sp: 'piu', lake: LK(96, 110, 40, 1), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [2], end: 'l' }], ob: [O('bis', 40, 156, 0.65), O('orso', 164, 174, 0.62, -1)] }),
+    T('s_piu4', 'ppbp', { sp: 'piu', fz: [[2]], ob: [O('rin', 58, 96, 0.8), O('bis', 150, 62, 0.8, -1)] }),
+    T('s_piu5', 'fbbf', { sp: 'piu', fz: [[1, 2]], lake: LK(80, 104, 42, 3), rv: [{ e: [0], end: 'l' }, { e: [3], end: 'l' }] }),
+    T('s_fossa', 'bbpp', { sp: 'fossa', fz: [[0, 1]], ob: [O('fossa', 70, 140)] }),
+    T('s_canoa', 'ffpf', { sp: 'canoa', lake: LK(96, 100, 44, 1), rv: [{ e: [0], end: 'l' }, { e: [1], end: 'l' }, { e: [3], end: 'l' }], ob: [O('canoa', 100, 84)] }),
+    T('s_piu6', 'ffff', { sp: 'piu', lakes: [LK(140, 64, 32, 2), LK(62, 138, 32, 2)], rv: [{ e: [0], end: 'l', lk: 0 }, { e: [1], end: 'l', lk: 0 }, { e: [3], end: 'l', lk: 1 }, { e: [2], end: 'l', lk: 1 }], ob: [O('cav', 44, 50, 0.6), O('cav', 160, 180, 0.6, -1)] }),
+    T('s_piu7', 'fppb', { sp: 'piu', fz: [[3]], lake: LK(110, 104, 42, 2), rv: [{ e: [0], end: 'l' }], ob: [O('cav', 160, 172, 0.7, -1)] }),
+    T('s_piu8', 'fppf', { sp: 'piu', lake: LK(112, 92, 44, 1), rv: [{ e: [0], end: 'l' }, { e: [3], end: 'l' }], ob: [O('bis', 56, 170, 0.65), O('rin', 160, 172, 0.68, -1)] }),
+    T('s_miele2', 'pbbf', { sp: 'miele', fz: [[1, 2]], lake: LK(84, 80, 42, 2), rv: [{ e: [3], end: 'l' }], ob: [O('miele', 112, 166)] }),
+    T('s_totem', 'ffbp', { sp: 'totem', fz: [[2]], rv: [{ e: [0, 1], p: 1 }], ob: [O('totem', 64, 76)] }),
   ];
+  const SPN = {   // nomi e spiegazioni delle speciali
+    zattera: ['Zattera', 'A fine partita il suo sistema di fiumi vale 1 punto in piu\' per ogni lago.'],
+    canoa: ['Canoa', 'Subito: 2 punti per ogni lago del suo sistema di fiumi.'],
+    rete: ['Trappola', 'Subito: conti gli animali del prato qui intorno; poi non valgono piu\'.'],
+    fossa: ['Fossa', 'A fine partita gli animali del prato qui intorno valgono doppio.'],
+    totem: ['Totem dello sciamano', 'Subito: puoi riprenderti un tuo omino dalla mappa.'],
+    miele: ['Alveare', 'Quando il bosco si chiude vale 3 punti in piu\'.'],
+    falo: ['Incendio', 'A fine partita gli orsi del suo prato scappano: i cavalli valgono tutti.'],
+    piu: ['Valle ricca', 'Piu\' animali e piu\' pesci del solito.'],
+  };
   // tipi di lati e quantita' dell'originale (lettere del riferimento: f bosco, m prato, r fiume; a partire dal bosco, senso orario)
-  const REF = { ffff: 1, fffm: 5, fffr: 4, ffmm: 11, ffmr: 1, ffrm: 4, ffrr: 7, fmfm: 4, fmfr: 2, fmmm: 5, fmmr: 1, fmrm: 2, fmrr: 4, frfr: 5, frmm: 3, frmr: 2, frrm: 3, mmmm: 3, mmmr: 1, mmrr: 6, mrmr: 6, mrrr: 8, rrrr: 3 };
+  const REF_2002 = { ffff: 1, fffm: 5, fffr: 4, ffmm: 11, ffmr: 1, ffrm: 4, ffrr: 7, fmfm: 4, fmfr: 2, fmmm: 5, fmmr: 1, fmrm: 2, fmrr: 4, frfr: 5, frmm: 3, frmr: 2, frrm: 3, mmmm: 3, mmmr: 1, mmrr: 6, mrmr: 6, mrrr: 8, rrrr: 3 };
   const canon = e => { const m = e.replace(/./g, c => ({ b: 'f', p: 'm', f: 'r' })[c]); let best = m; for (let r = 1; r < 4; r++) { const s = m.slice(r) + m.slice(0, r); if (s < best) best = s; } return best; };
 
   // ---- zone di una tessera, calcolate dalla STESSA geometria del disegno ----
@@ -160,19 +235,18 @@
   // Zone: { k: 'b' bosco | 'f' fiume | 'l' lago | 'p' prato, s: pezzi, pt: punto per l'omino, ... }
   const GN = 80, GC = S / GN;
   function feats(D) {
-    const R = rivers(D), L = lakeOf(D), F = [], segOf = new Array(12).fill(-1);
+    const R = rivers(D), LS = lakesOf(D), F = [], segOf = new Array(12).fill(-1);
     (D.fz || []).forEach((z, zi) => {
       const f = { k: 'b', zi, s: [], amber: 0, honey: 0, pt: null };
       for (const e of z) f.s.push(e * 3, e * 3 + 1, e * 3 + 2);
       let bv = -1e9; for (let y = 8; y < S; y += 8) for (let x = 8; x < S; x += 8) { const v = zoneF(D, zi, x, y) - (D.fz.length > 1 ? 0 : 0); if (v > bv) { bv = v; f.pt = [x, y]; } }
       F.push(f);
     });
-    let lakeI = -1;
-    if (L) { lakeI = F.length; F.push({ k: 'l', fish: L.p || 0, rv: [], pt: [L.x, L.y + L.r * 0.55] }); }
+    const lakeI = LS.map(L => { F.push({ k: 'l', fish: L.p || 0, rv: [], pt: [L.x, L.y + L.r * 0.55], lx: L.x, ly: L.y }); return F.length - 1; });
     for (const r of R) {
-      const f = { k: 'f', zi: r.zi, s: r.z.e.map(e => e * 3 + 1), end: r.z.end || null, lake: r.z.end === 'l' ? lakeI : -1 };
+      const f = { k: 'f', zi: r.zi, s: r.z.e.map(e => e * 3 + 1), end: r.z.end || null, lake: r.z.end === 'l' ? lakeI[r.z.lk || 0] : -1, fish: r.z.p || 0 };
       const t = r.z.end ? 0.3 : 0.5, q = bez(r.segs[0], t); f.pt = [q[0], q[1]];
-      if (f.lake >= 0) F[lakeI].rv.push(F.length);
+      if (f.lake >= 0) F[f.lake].rv.push(F.length);
       F.push(f);
     }
     F.forEach((f, i) => { if (f.s) for (const s of f.s) segOf[s] = i; });
@@ -184,7 +258,7 @@
     for (let j = 0; j < GN; j++) for (let i = 0; i < GN; i++) {
       const x = (i + 0.5) * GC, y = (j + 0.5) * GC;
       let b = forestF(D, x, y) > -1;
-      if (!b && L) b = Math.hypot(x - L.x, y - L.y) < L.r * 1.1 + 3;
+      if (!b) b = LS.some(L => Math.hypot(x - L.x, y - L.y) < L.r * 1.1 + 3);
       if (!b) b = sp.some(a => Math.hypot(x - a[0], y - a[1]) < 17);
       if (!b) for (const q of W) if (Math.abs(x - q[0]) < 16 && Math.abs(y - q[1]) < 16 && Math.hypot(x - q[0], y - q[1]) < RW / 2 + 3) { b = true; break; }
       blk[j * GN + i] = b ? 1 : 0;
@@ -210,7 +284,7 @@
     };
     const sidePt = (s, fr) => s === 0 ? [fr * S, 2] : s === 1 ? [S - 2, fr * S] : s === 2 ? [S - fr * S, S - 2] : [2, S - fr * S];
     const mOf = new Map();   // componente -> zona di prato
-    const meadow = c => { if (!mOf.has(c)) { mOf.set(c, F.length); F.push({ k: 'p', s: [], cav: 0, rin: 0, orso: 0, bis: 0, fire: 0, shrine: 0, c, pt: null }); } return mOf.get(c); };
+    const meadow = c => { if (!mOf.has(c)) { mOf.set(c, F.length); F.push({ k: 'p', s: [], cav: 0, rin: 0, orso: 0, bis: 0, fire: 0, pit: 0, trap: 0, c, pt: null }); } return mOf.get(c); };
     for (let s = 0; s < 4; s++) for (let p = 0; p < 3; p++) {
       const g = s * 3 + p; if (segOf[g] >= 0) continue;
       const fr = [0.2, 0.5, 0.8][p], [x, y] = sidePt(s, fr), c = compNear(x, y);
@@ -223,10 +297,14 @@
         let bi = -1, bv = -1e9; F.forEach((f, i) => { if (f.k === 'b') { const v = zoneF(D, f.zi, o.x, o.y); if (v > bv) { bv = v; bi = i; } } });
         if (bi >= 0) F[bi][o.k === 'ambra' ? 'amber' : 'honey']++;
         o.z = bi;
-      } else if (['cav', 'rin', 'orso', 'bis', 'falo', 'pietre'].includes(o.k)) {
+      } else if (['cav', 'rin', 'orso', 'bis', 'falo', 'fossa', 'rete', 'totem'].includes(o.k)) {
         const c = compNear(o.x, o.y - 6), fi = c >= 0 ? meadow(c) : -1;
-        if (fi >= 0) { const f = F[fi]; if (o.k === 'falo') f.fire++; else if (o.k === 'pietre') f.shrine++; else f[o.k]++; }
+        if (fi >= 0) { const f = F[fi]; if (o.k === 'falo') f.fire++; else if (o.k === 'fossa') f.pit++; else if (o.k === 'rete') f.trap++; else if (o.k !== 'totem') f[o.k]++; }
         o.z = fi;
+      } else if (o.k === 'zattera' || o.k === 'canoa') {   // sul lago piu' vicino
+        let bi = -1, bd = 1e9; F.forEach((f, i) => { if (f.k === 'l') { const d = Math.hypot(f.lx - o.x, f.ly - o.y); if (d < bd) { bd = d; bi = i; } } });
+        if (bi >= 0) F[bi][o.k === 'zattera' ? 'raft' : 'canoe'] = 1;
+        o.z = bi;
       }
     }
     // punto dell'omino nel prato: la casella piu' lontana dai muri e dagli animali
@@ -251,19 +329,21 @@
   const byId = Object.fromEntries(DECK.map(d => [d.id, d]));
 
   const VE_GAME = {};
-  // ---- LA PARTITA (regole come l'originale) ----
-  // G = { deck, sp (speciali), at {"x,y": i}, tiles [{x, y, id, r, F}], nd (zone di tutte le tessere: gid = i * 16 + j),
-  //       par/spar (unioni: zone e sistemi di fiumi+laghi), P [{ n, sc, men, huts }], cur, ph 'tile'|'meeple'|'end',
-  //       hand (tessera in mano), bon (turno della speciale), want (ambra presa in questo turno), last, ev (cose da mostrare) }
+  // ---- LA PARTITA (regole della versione online, edizione nuova) ----
+  // G = { deck, sp (speciali), at {"x,y": i}, tiles [{x, y, id, r, F}], nd (zone: gid = i * 16 + j), own (animali di ogni pezzo di prato),
+  //       par/spar (unioni: zone e sistemi di fiumi+laghi), P [{ n, sc, men, huts }], cur, ph 'tile'|'meeple'|'totem'|'end',
+  //       hand, bon (turno della speciale), want, last, ev (cose da mostrare), small2 (bosco di 2 tessere = 2 punti) }
   function rng32(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
-  const MEN = 5, HUTS = 2, PTS = { cav: 2, rin: 2, bis: 2 };
+  const MEN = 5, HUTS = 3, PTS = { cav: 1, bis: 2, rin: 3 };   // cervo 1, uro 2, mammut 3
   const key = (x, y) => x + ',' + y, DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+  const ANIMS = ['cav', 'rin', 'orso', 'bis'];
   function newGame(o = {}) {
     const R = rng32(o.seed || 1), sh = a => { for (let i = a.length - 1; i > 0; i--) { const j = (R() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
     const deck = [], sp = [];
     for (const d of DECK) if (!d.start) for (let k = 0; k < d.n; k++) (d.sp ? sp : deck).push(d.id);
     const n = o.n || 2;
-    const G = { seed: o.seed || 1, amberMan: !!o.amberMan, deck: sh(deck), sp: sh(sp), at: {}, tiles: [], nd: [], par: [], spar: [], cur: 0, ph: 'tile', hand: null, bon: false, want: false, last: -1, ev: [], turn: 0, R: (R() * 1e9) | 0,
+    const G = { seed: o.seed || 1, amberMan: o.amberMan !== false, small2: o.small2 !== false, deck: sh(deck), sp: sh(sp), at: {}, tiles: [], nd: [], own: [], par: [], spar: [],
+      cur: 0, ph: 'tile', hand: null, bon: false, want: false, last: -1, ev: [], turn: 0, shOpts: null,
       P: Array.from({ length: n }, (_, i) => ({ n: (o.names || [])[i] || 'Giocatore ' + (i + 1), sc: 0, men: MEN, huts: HUTS })) };
     putTile(G, 0, 0, 'start', 0);
     draw(G);
@@ -301,16 +381,18 @@
     }
   }
   function putTile(G, x, y, id, r) {
-    const i = G.tiles.length, D = byId[id], { F } = featsR(D, r);
+    const i = G.tiles.length, D = byId[id], { F, segOf } = featsR(D, r);
     G.tiles.push({ x, y, id, r, F }); G.at[key(x, y)] = i;
     F.forEach((f, j) => {
       const g = i * 16 + j;
       G.par[g] = g; G.spar[g] = g;
-      G.nd[g] = { k: f.k, open: f.s ? f.s.length : 0, t: [i], amber: f.amber || 0, honey: f.honey || 0, fish: f.fish || 0, lakes: f.k === 'f' && f.lake >= 0 ? [i * 16 + f.lake] : [],
-        cav: f.cav || 0, rin: f.rin || 0, orso: f.orso || 0, bis: f.bis || 0, fire: f.fire || 0, shrine: f.shrine || 0, men: [], huts: [], done: 0, sfish: f.k === 'l' ? f.fish : 0 };
+      G.nd[g] = { k: f.k, open: f.s ? f.s.length : 0, np: 1, amber: f.amber || 0, honey: f.honey || 0, rf: f.k === 'f' ? f.fish || 0 : 0,
+        lakes: f.k === 'f' && f.lake >= 0 ? [i * 16 + f.lake] : [], cav: f.cav || 0, rin: f.rin || 0, orso: f.orso || 0, bis: f.bis || 0,
+        fire: f.fire || 0, pit: f.pit || 0, men: [], huts: [], done: 0,
+        sfish: f.fish || 0, slakes: f.k === 'l' ? 1 : 0, sraft: f.raft || 0 };
+      if (f.k === 'p') G.own[g] = { cav: f.cav || 0, rin: f.rin || 0, orso: f.orso || 0, bis: f.bis || 0, cov: 0 };
     });
     F.forEach((f, j) => { if (f.k === 'f' && f.lake >= 0) sunion(G, i * 16 + j, i * 16 + f.lake); });
-    const { segOf } = featsR(D, r);
     for (let s = 0; s < 4; s++) {
       const ni = G.at[key(x + DX[s], y + DY[s])]; if (ni === undefined) continue;
       const nt = G.tiles[ni], ns = featsR(byId[nt.id], nt.r).segOf;
@@ -327,14 +409,13 @@
   function union(G, a, b) {
     a = find(G.par, a); b = find(G.par, b); if (a === b) return;
     const A = G.nd[a], B = G.nd[b]; G.par[b] = a;
-    A.open += B.open; for (const t of B.t) if (!A.t.includes(t)) A.t.push(t);
-    for (const k of ['amber', 'honey', 'cav', 'rin', 'orso', 'bis', 'fire', 'shrine']) A[k] += B[k];
+    for (const k of ['open', 'np', 'amber', 'honey', 'rf', 'cav', 'rin', 'orso', 'bis', 'fire', 'pit']) A[k] += B[k];
     for (const l of B.lakes) if (!A.lakes.includes(l)) A.lakes.push(l);
     A.men.push(...B.men);
   }
   function sunion(G, a, b) {
     a = find(G.spar, a); b = find(G.spar, b); if (a === b) return;
-    const A = G.nd[a], B = G.nd[b]; G.spar[b] = a; A.sfish += B.sfish; A.huts.push(...B.huts);
+    const A = G.nd[a], B = G.nd[b]; G.spar[b] = a; A.sfish += B.sfish; A.slakes += B.slakes; A.sraft += B.sraft; A.huts.push(...B.huts);
   }
   // ---- turno ----
   function place(G, x, y, r) {
@@ -352,38 +433,72 @@
     return out;
   }
   const winners = men => { const c = {}; for (const m of men) c[m.p] = (c[m.p] || 0) + 1; const mx = Math.max(0, ...Object.values(c)); return Object.keys(c).filter(p => c[p] === mx).map(Number); };
-  const riverPts = (G, R) => R.t.length + R.lakes.reduce((s, l) => s + G.nd[l].fish, 0);
-  const forestPts = R => 2 * R.t.length + 2 * R.honey;
-  function meadowPts(R) {
-    const orsi = R.fire ? 0 : R.orso;
-    return PTS.cav * Math.max(0, R.cav - orsi) + PTS.rin * R.rin + PTS.bis * R.bis;
+  const riverPts = (G, R) => R.np + R.rf + R.lakes.reduce((s, l) => s + byLake(G, l), 0);   // tessere + pesci del fiume + pesci dei laghi in fondo
+  const byLake = (G, l) => { const t = G.tiles[(l / 16) | 0]; return t.F[l % 16].fish || 0; };
+  const forestPts = (G, R) => (G.small2 && R.np === 2 ? 2 : 2 * R.np) + 3 * R.honey;   // alveari (funghi): 3 punti ciascuno
+  const animalPts = (a, dbl = null) => {   // a = { cav, rin, orso, bis, fire }; dbl = stessi campi per gli animali doppi (fossa)
+    const d = dbl || { cav: 0, rin: 0, orso: 0, bis: 0 }, T = a.fire ? 0 : a.orso + d.orso;
+    const rn = Math.min(T, a.cav), rd = Math.min(T - rn, d.cav);   // l'orso si mangia prima il cavallo che vale meno
+    return PTS.cav * (a.cav - rn) + 2 * PTS.cav * (d.cav - rd) + PTS.bis * a.bis + 2 * PTS.bis * d.bis + PTS.rin * a.rin + 2 * PTS.rin * d.rin;
+  };
+  const meadowPts = R => animalPts(R);
+  // pezzi di prato di una zona, con la loro tessera (per trappola e fossa)
+  function meadowParts(G, rg) { const out = []; for (let g = 0; g < G.nd.length; g++) if (G.nd[g] && G.nd[g].k === 'p' && find(G.par, g) === rg) out.push(g); return out; }
+  const near = (G, a, b) => { const A = G.tiles[(a / 16) | 0], B = G.tiles[(b / 16) | 0]; return Math.abs(A.x - B.x) <= 1 && Math.abs(A.y - B.y) <= 1; };
+  function meadowFinal(G, rg) {   // punti del prato a fine partita: la fossa raddoppia gli animali delle 8 tessere intorno
+    const R = G.nd[rg], parts = meadowParts(G, rg), pits = parts.filter(g => G.tiles[(g / 16) | 0].F[g % 16].pit);
+    if (!pits.length) return animalPts(R);
+    const a = { cav: 0, rin: 0, orso: 0, bis: 0, fire: R.fire }, d = { cav: 0, rin: 0, orso: 0, bis: 0 };
+    for (const g of parts) { const o = G.own[g]; if (o.cov) continue; const t = pits.some(p => near(G, p, g)) ? d : a; for (const k of ANIMS) t[k] += o[k]; }
+    return animalPts(a, d);
   }
-  function meeple(G, o) {   // o = { j, k } oppure null; poi si contano le zone chiuse e si passa al turno dopo
+  function meeple(G, o) {   // o = { j, k } oppure null; poi si contano le zone chiuse e i poteri della speciale
     if (G.ph !== 'meeple') return false;
-    const i = G.last, P = G.P[G.cur];
+    const i = G.last, P = G.P[G.cur], T = G.tiles[i], D = byId[T.id];
     if (o) {
       if (!meepleOpts(G).some(m => m.j === o.j && m.k === o.k)) return false;
-      const g = i * 16 + o.j, f = G.tiles[i].F[o.j], m = { p: G.cur, i, j: o.j };
-      if (o.k === 'man') { if (f.k === 'p' && f.shrine) m.sh = 1; root(G, g).men.push(m); P.men--; }
+      const g = i * 16 + o.j, m = { p: G.cur, i, j: o.j };
+      if (o.k === 'man') { root(G, g).men.push(m); P.men--; }
       else { sroot(G, g).huts.push(m); P.huts--; }
       G.ev.push({ t: 'put', p: G.cur, i, j: o.j, k: o.k });
     }
     // zone chiuse dalla tessera
     const seen = new Set();
-    G.tiles[i].F.forEach((f, j) => {
+    T.F.forEach((f, j) => {
       if (f.k !== 'b' && f.k !== 'f') return;
       const rg = find(G.par, i * 16 + j); if (seen.has(rg)) return; seen.add(rg);
       const R = G.nd[rg]; if (R.open > 0 || R.done) return;
       R.done = 1;
-      const pts = f.k === 'b' ? forestPts(R) : riverPts(G, R), win = winners(R.men);
+      const pts = f.k === 'b' ? forestPts(G, R) : riverPts(G, R), win = winners(R.men);
       for (const p of win) G.P[p].sc += pts;
       G.ev.push({ t: 'score', k: f.k, g: rg, pts, win, men: R.men.slice() });
       const had = R.men.length; for (const m of R.men) G.P[m.p].men++;
       R.men = [];
-      if (f.k === 'b' && R.amber > 0 && !G.bon && G.sp.length && (!G.amberMan || had)) G.want = true;   // amberMan: serve un raccoglitore nel bosco (edizione nuova)
+      if (f.k === 'b' && R.amber > 0 && !G.bon && G.sp.length && (!G.amberMan || had)) G.want = true;   // ambra: serve un omino nel bosco
     });
+    // poteri delle speciali che valgono subito
+    if (D.sp === 'canoa') T.F.forEach((f, j) => { if (f.canoe) { const pts = 2 * sroot(G, i * 16 + j).slakes; G.P[G.cur].sc += pts; G.ev.push({ t: 'score', k: 'canoa', g: i * 16 + j, pts, win: [G.cur], men: [] }); } });
+    if (D.sp === 'rete') T.F.forEach((f, j) => {
+      if (!f.trap) return;
+      const rg = find(G.par, i * 16 + j), R = G.nd[rg], a = { cav: 0, rin: 0, orso: 0, bis: 0, fire: R.fire };
+      for (const g of meadowParts(G, rg)) { if (!near(G, i * 16 + j, g)) continue; const ow = G.own[g]; if (ow.cov) continue; for (const k of ANIMS) { a[k] += ow[k]; R[k] -= ow[k]; } ow.cov = 1; }
+      const pts = animalPts(a); G.P[G.cur].sc += pts; G.ev.push({ t: 'score', k: 'rete', g: i * 16 + j, pts, win: [G.cur], men: [] });
+    });
+    if (D.sp === 'totem') {
+      const mine = pieces(G).filter(m => m.k === 'man' && m.p === G.cur);
+      if (mine.length) { G.ph = 'totem'; G.shOpts = mine; return true; }
+    }
     next(G);
     return true;
+  }
+  function totem(G, m) {   // lo sciamano: riprendi (o no) un tuo omino, senza punti
+    if (G.ph !== 'totem') return false;
+    if (m) {
+      const R = root(G, m.i * 16 + m.j), k = R.men.findIndex(q => q.p === G.cur && q.i === m.i && q.j === m.j);
+      if (k < 0) return false;
+      R.men.splice(k, 1); G.P[G.cur].men++; G.ev.push({ t: 'back', p: G.cur, i: m.i, j: m.j });
+    }
+    G.shOpts = null; next(G); return true;
   }
   function next(G) {
     G.last = -1; G.turn++;
@@ -392,25 +507,26 @@
     G.cur = (G.cur + 1) % G.P.length;
     if (!draw(G)) finish(G);
   }
-  function finish(G) {   // fine: fiumi e boschi aperti non valgono niente; si contano prati e palafitte
+  function finish(G) {   // fine: fiumi e boschi aperti non valgono niente; si contano palafitte e prati
     G.ph = 'end'; G.hand = null;
     const seen = new Set(), sseen = new Set();
+    for (let g = 0; g < G.nd.length; g++) {
+      if (!G.nd[g] || (G.nd[g].k !== 'f' && G.nd[g].k !== 'l')) continue;
+      const sg = find(G.spar, g), S2 = G.nd[sg];
+      if (S2.huts.length && !sseen.has(sg)) { sseen.add(sg); const win = winners(S2.huts), pts = S2.sfish + S2.sraft * S2.slakes; for (const p of win) G.P[p].sc += pts; G.ev.push({ t: 'score', k: 'h', g: sg, pts, win, men: S2.huts.slice(), end: 1 }); }
+    }
     for (let g = 0; g < G.nd.length; g++) {
       if (!G.nd[g]) continue;
       const rg = find(G.par, g), R = G.nd[rg];
       if (R.k === 'p' && R.men.length && !seen.has(rg)) {
         seen.add(rg);
-        const sh = R.men.filter(m => m.sh), win = winners(sh.length ? sh : R.men), pts = meadowPts(R);
+        const win = winners(R.men), pts = meadowFinal(G, rg);
         for (const p of win) G.P[p].sc += pts;
         G.ev.push({ t: 'score', k: 'p', g: rg, pts, win, men: R.men.slice(), end: 1 });
       }
-      if ((G.nd[g].k === 'f' || G.nd[g].k === 'l')) {
-        const sg = find(G.spar, g), S2 = G.nd[sg];
-        if (S2.huts.length && !sseen.has(sg)) { sseen.add(sg); const win = winners(S2.huts), pts = S2.sfish; for (const p of win) G.P[p].sc += pts; G.ev.push({ t: 'score', k: 'h', g: sg, pts, win, men: S2.huts.slice(), end: 1 }); }
-      }
     }
   }
-  // tutti gli omini sulla mappa: [{ p, i, j, k: 'man'|'hut', sh }]
+  // tutti gli omini sulla mappa: [{ p, i, j, k: 'man'|'hut' }]
   function pieces(G) {
     const out = [], seen = new Set(), sseen = new Set();
     for (let g = 0; g < G.nd.length; g++) {
@@ -425,7 +541,8 @@
     const C = Object.assign({}, G);
     C.deck = G.deck.slice(); C.sp = G.sp.slice(); C.at = Object.assign({}, G.at); C.tiles = G.tiles.slice(); C.par = G.par.slice(); C.spar = G.spar.slice(); C.ev = [];
     C.P = G.P.map(p => Object.assign({}, p));
-    C.nd = G.nd.map(n => n && Object.assign({}, n, { t: n.t.slice(), lakes: n.lakes.slice(), men: n.men.slice(), huts: n.huts.slice() }));
+    C.nd = G.nd.map(n => n && Object.assign({}, n, { lakes: n.lakes.slice(), men: n.men.slice(), huts: n.huts.slice() }));
+    C.own = G.own.map(o => o && Object.assign({}, o));
     return C;
   }
   // ---- IL COMPUTER: prova ogni posto, rotazione e omino, e sceglie la mossa che lo mette meglio rispetto al piu' forte degli altri ----
@@ -441,35 +558,45 @@
         if (R.men.length && !R.done) {
           const win = winners(R.men);
           if (win.includes(p)) {
-            if (R.k === 'p') v += meadowPts(R) * (0.75 + 0.25 * late) + 1.2 * (1 - late);
+            if (R.k === 'p') v += meadowPts(R) * (0.75 + 0.25 * late) + 1.2 * (1 - late) + R.pit * 2;
             else {
               const pc = clamp(0.9 - 0.13 * R.open, 0.05, 0.9) * clamp(left / (R.open * 4 + 1), 0, 1);
-              v += (R.k === 'b' ? forestPts(R) + (R.amber ? 3 : 0) : riverPts(G, R)) * pc;
+              v += (R.k === 'b' ? forestPts(G, R) + (R.amber ? 3 : 0) : riverPts(G, R)) * pc;
             }
           }
         }
       }
       const nd = G.nd[g];
-      if (nd.k === 'f' || nd.k === 'l') { const sg = find(G.spar, g); if (!sseen.has(sg)) { sseen.add(sg); const S2 = G.nd[sg]; if (S2.huts.length && winners(S2.huts).includes(p)) v += S2.sfish * (0.85 + 0.15 * late) + 1.5 * (1 - late); } }
+      if (nd.k === 'f' || nd.k === 'l') { const sg = find(G.spar, g); if (!sseen.has(sg)) { sseen.add(sg); const S2 = G.nd[sg]; if (S2.huts.length && winners(S2.huts).includes(p)) v += (S2.sfish + S2.sraft * S2.slakes) * (0.85 + 0.15 * late) + 1.5 * (1 - late); } }
     }
     v += P.men * (1.6 * (1 - late) + 0.2) + P.huts * (2.2 * (1 - late));
     return v;
   }
   function utility(G, p) { let best = -1e9; for (let q = 0; q < G.P.length; q++) if (q !== p) best = Math.max(best, value(G, q)); return value(G, p) - best; }
-  function aiMove(G, opt = {}) {   // opt: { noise (0 = perfetto), seed }
+  function bestTotem(G, p) {   // quale omino riprendere con lo sciamano (o nessuno)
+    let best = null, bu = -1e9;
+    for (const m of [null, ...G.shOpts]) { const C = clone(G); totem(C, m); const u = utility(C, p); if (u > bu) { bu = u; best = m; } }
+    return { m: best, u: bu };
+  }
+  function aiMove(G, opt = {}) {   // opt: { noise (0 = perfetto), seed } -> { x, y, r, m, sh }
     const p = G.cur, R = rng32((opt.seed || 7) + G.turn * 131), noise = opt.noise || 0, all = [];
     for (const s of spots(G)) for (const r of s.r) {
       const C = clone(G); place(C, s.x, s.y, r);
       const ms = [null, ...meepleOpts(C)];
-      for (const m of ms) { const C2 = ms.length > 1 ? clone(C) : C; meeple(C2, m); all.push({ x: s.x, y: s.y, r, m, u: utility(C2, p) + (noise ? (R() - 0.5) * noise : 0) }); }
+      for (const m of ms) {
+        const C2 = ms.length > 1 ? clone(C) : C; meeple(C2, m);
+        let sh = null, u;
+        if (C2.ph === 'totem') { const b = bestTotem(C2, p); sh = b.m; u = b.u; } else u = utility(C2, p);
+        all.push({ x: s.x, y: s.y, r, m, sh, u: u + (noise ? (R() - 0.5) * noise : 0) });
+      }
     }
     all.sort((a, b) => b.u - a.u);
     return all[0];
   }
 
-  Object.assign(VE_GAME, { newGame, fits, spots, place, meepleOpts, meeple, pieces, clone, aiMove, value, utility, root, sroot, find, frontier, draw, rng32, meadowPts, riverPts, forestPts, winners, MEN, HUTS });
+  Object.assign(VE_GAME, { newGame, fits, spots, place, meepleOpts, meeple, totem, pieces, clone, aiMove, bestTotem, value, utility, root, sroot, find, frontier, draw, rng32, meadowPts, meadowFinal, animalPts, riverPts, forestPts, winners, MEN, HUTS, PTS });
 
-  const VE = { S, MID, NRM, CORN, RW, RB, clamp, hash, fbm, rp, rotDef, zoneF, forestF, lakeOf, rivers, bez, bezA, waterPts, nearWater, segDist, DECK, REF, canon, feats, featsR, edges, byId };
+  const VE = { S, MID, NRM, CORN, RW, RB, clamp, hash, fbm, rp, rotDef, zoneF, forestF, lakeOf, rivers, bez, bezA, waterPts, nearWater, segDist, DECK, SPN, lakesOf, canon, feats, featsR, edges, byId };
   Object.assign(VE, VE_GAME);
   glob.VE = VE;
   if (typeof module !== 'undefined' && module.exports) module.exports = VE;
@@ -477,7 +604,7 @@
 // ==END VA ENGINE==
 
 if (typeof document !== 'undefined') (() => {
-  const { S, MID, NRM, RW, clamp, hash, fbm, rotDef, zoneF, forestF, lakeOf, rivers, bez, bezA, waterPts, nearWater } = VE;
+  const { S, MID, NRM, RW, clamp, hash, fbm, rotDef, zoneF, forestF, lakeOf, lakesOf, rivers, bez, bezA, waterPts, nearWater } = VE;
   const TAU = Math.PI * 2, INK = '#2a2118';
   const CPU = typeof CQ_CPU !== 'undefined' ? CQ_CPU : { willReadFrequently: true };
   const cache = new Map();
@@ -549,29 +676,29 @@ if (typeof document !== 'undefined') (() => {
     g.closePath();
   }
   function water(g, D, R, rnd) {
-    const L = lakeOf(D), springs = R.filter(r => r.z.end === 's').map(r => r.z.at || [100, 100]), seed = strSeed(D.id || 'x');
+    const LS = lakesOf(D), springs = R.filter(r => r.z.end === 's').map(r => r.z.at || [100, 100]), seed = strSeed(D.id || 'x');
     const line = (w, c) => {
       g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round';
       for (const r of R) for (const s of r.segs) { g.beginPath(); g.moveTo(s[0][0], s[0][1]); g.bezierCurveTo(s[1][0], s[1][1], s[2][0], s[2][1], s[3][0], s[3][1]); g.stroke(); }
     };
     const pools = (off, c) => {
       g.fillStyle = c;
-      if (L) { lakePath(g, L.x, L.y, L.r, off, seed); g.fill(); }
+      LS.forEach((L, k) => { lakePath(g, L.x, L.y, L.r, off, seed + k * 17); g.fill(); });
       for (const a of springs) { lakePath(g, a[0], a[1], 13, off * 0.7, seed + 9); g.fill(); }
     };
     line(RW + 13, 'rgba(40,80,30,.35)'); pools(7, 'rgba(40,80,30,.35)');      // ombra della riva
     line(RW + 8, '#d9d49c'); pools(4.5, '#d9d49c');                           // sabbia
     line(RW, '#3f97d3'); line(RW * 0.5, 'rgba(120,200,240,.55)');             // acqua del fiume
-    pools(0, '#3f97d3'); if (L) { g.fillStyle = 'rgba(120,200,240,.5)'; lakePath(g, L.x, L.y, L.r, -12, seed); g.fill(); }
+    pools(0, '#3f97d3'); LS.forEach((L, k) => { g.fillStyle = 'rgba(120,200,240,.5)'; lakePath(g, L.x, L.y, L.r, -12, seed + k * 17); g.fill(); });
     // riflessi (lontani dai lati della tessera e dal lago)
     g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1.4; g.lineCap = 'round';
     for (const r of R) for (const s of r.segs) for (let i = 0; i < 4; i++) {
       const t = 0.18 + i * 0.2 + rnd() * 0.05, q = bez(s, t), a = bezA(s, t), side = (i % 2 ? 1 : -1) * RW * 0.22;
       const x = q[0] - Math.sin(a) * side, y = q[1] + Math.cos(a) * side;
-      if (x < 12 || x > S - 12 || y < 12 || y > S - 12 || (L && Math.hypot(x - L.x, y - L.y) < L.r + 6) || forestF(D, x, y) > -2) continue;
+      if (x < 12 || x > S - 12 || y < 12 || y > S - 12 || LS.some(L => Math.hypot(x - L.x, y - L.y) < L.r + 6) || forestF(D, x, y) > -2) continue;
       g.beginPath(); g.moveTo(x - Math.cos(a) * 3.5, y - Math.sin(a) * 3.5); g.lineTo(x + Math.cos(a) * 3.5, y + Math.sin(a) * 3.5); g.stroke();
     }
-    if (L) {
+    for (const L of LS) {
       for (let i = 0; i < 4; i++) { const a = i * 1.6 + 0.4, x = L.x + Math.cos(a) * L.r * 0.62, y = L.y + Math.sin(a) * L.r * 0.55; g.beginPath(); g.arc(x, y, 4.5, Math.PI * 1.1, Math.PI * 1.6); g.stroke(); }
       reeds(g, D, L, R, seed);
     }
@@ -617,11 +744,17 @@ if (typeof document !== 'undefined') (() => {
     g.fillStyle = '#1d140c'; g.beginPath(); g.arc(5.6, -0.9, 0.9, 0, TAU); g.fill();
     g.restore();
   }
-  function fishes(g, D) {   // i pesci stanno SOLO nei laghi (come nell'originale): si contano a colpo d'occhio
-    const L = lakeOf(D); if (!L || !L.p) return;
-    const n = L.p;
-    if (n === 1) { fish(g, L.x - 2, L.y - 1, -0.35, 1.15); return; }
-    for (let i = 0; i < n; i++) { const a = i / n * TAU + 0.6; fish(g, L.x + Math.cos(a) * L.r * 0.42, L.y + Math.sin(a) * L.r * 0.36, a + Math.PI / 2, 1.05); }
+  function fishes(g, D, R) {   // pesci nei laghi e nei fiumi: si contano a colpo d'occhio
+    for (const L of lakesOf(D)) {
+      const n = L.p || 0; if (!n) continue;
+      if (n === 1) { fish(g, L.x - 2, L.y - 1, -0.35, 1.15); continue; }
+      for (let i = 0; i < n; i++) { const a = i / n * TAU + 0.6; fish(g, L.x + Math.cos(a) * L.r * 0.42, L.y + Math.sin(a) * L.r * 0.36, a + Math.PI / 2, 1.05); }
+    }
+    for (const r of R) {
+      const n = r.z.p || 0; if (!n) continue;
+      const s0 = r.segs[0];
+      for (let i = 0; i < n; i++) { const t = n === 1 ? 0.5 : 0.32 + 0.36 * i / (n - 1), q = bez(s0, t), a = bezA(s0, t); fish(g, q[0], q[1], a + (i % 2 ? Math.PI : 0), 0.95); }
+    }
   }
 
   // ---- alberi (griglia periodica, anche fuori dai lati del bosco) ----
@@ -826,8 +959,54 @@ if (typeof document !== 'undefined') (() => {
     g.fillStyle = '#8fd0ff'; g.strokeStyle = '#2b5f8a'; g.lineWidth = 0.9;
     g.beginPath(); for (let i = 0; i < 10; i++) { const a = i / 10 * TAU - Math.PI / 2, r = i % 2 ? 2 : 4.6; g.lineTo(x + Math.cos(a) * r, y - 3 + Math.sin(a) * r); } g.closePath(); g.fill(); g.stroke();
   }
+  function raft(g, x, y) {   // zattera di tronchi legati
+    g.save(); g.translate(x, y); g.rotate(-0.35);
+    g.fillStyle = 'rgba(10,40,70,.35)'; g.fillRect(-15, -9, 32, 22);
+    for (let i = 0; i < 5; i++) { const yy = -10 + i * 4.4; g.fillStyle = i % 2 ? '#9a6a3a' : '#8b5a2b'; g.strokeStyle = INK; g.lineWidth = 0.9; g.beginPath(); g.roundRect(-16, yy, 32, 4.2, 2); g.fill(); g.stroke(); g.fillStyle = '#c8955a'; g.beginPath(); g.ellipse(16, yy + 2.1, 1.6, 2, 0, 0, TAU); g.fill(); }
+    g.strokeStyle = '#e2cf9a'; g.lineWidth = 1.4; for (const xx of [-9, 9]) { g.beginPath(); g.moveTo(xx, -11); g.lineTo(xx, 11); g.stroke(); }
+    g.restore();
+  }
+  function canoe(g, x, y) {   // canoa scavata in un tronco, con il remo
+    g.save(); g.translate(x, y); g.rotate(-0.12);
+    g.fillStyle = 'rgba(10,40,70,.35)'; g.beginPath(); g.ellipse(2, 4, 30, 6, 0, 0, TAU); g.fill();
+    g.fillStyle = '#7a4a24'; g.strokeStyle = INK; g.lineWidth = 1.3; g.beginPath(); g.moveTo(-30, -2); g.quadraticCurveTo(0, 10, 30, -2); g.quadraticCurveTo(0, 2, -30, -2); g.closePath(); g.fill(); g.stroke();
+    g.fillStyle = '#4a2a12'; g.beginPath(); g.moveTo(-24, -1.5); g.quadraticCurveTo(0, 5, 24, -1.5); g.quadraticCurveTo(0, 1, -24, -1.5); g.fill();
+    g.strokeStyle = '#c8955a'; g.lineWidth = 1.8; g.beginPath(); g.moveTo(10, -14); g.lineTo(18, 8); g.stroke();
+    g.fillStyle = '#c8955a'; g.beginPath(); g.ellipse(18.5, 9, 2.4, 4.5, -0.35, 0, TAU); g.fill();
+    g.restore();
+  }
+  function trap(g, x, y) {   // trappola di caccia: recinto di pali appuntiti
+    g.fillStyle = 'rgba(70,45,20,.35)'; g.beginPath(); g.ellipse(x, y, 22, 11, 0, 0, TAU); g.fill();
+    g.fillStyle = '#4a3420'; g.beginPath(); g.ellipse(x, y, 15, 7, 0, 0, TAU); g.fill();
+    const P = []; for (let i = 0; i < 11; i++) { const a = i / 11 * TAU; P.push([x + Math.cos(a) * 18, y + Math.sin(a) * 9]); }
+    P.sort((a, b) => a[1] - b[1]);
+    for (const [px, py] of P) { g.strokeStyle = INK; g.lineWidth = 3.4; g.beginPath(); g.moveTo(px, py); g.lineTo(px + (x - px) * 0.12, py - 11); g.stroke(); g.strokeStyle = '#b07a44'; g.lineWidth = 2; g.stroke(); }
+    g.strokeStyle = '#e2cf9a'; g.lineWidth = 1; g.beginPath(); g.ellipse(x, y - 6, 17, 8, 0, Math.PI * 0.1, Math.PI * 0.9); g.stroke();
+  }
+  function pit(g, x, y) {   // fossa nascosta con le punte
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x, y + 1, 20, 11, 0, 0, TAU); g.fill();
+    const gr = g.createRadialGradient(x, y, 2, x, y, 18); gr.addColorStop(0, '#1e140a'); gr.addColorStop(1, '#5a3c1e');
+    g.fillStyle = gr; g.strokeStyle = INK; g.lineWidth = 1.2; g.beginPath(); g.ellipse(x, y, 18, 9.5, 0, 0, TAU); g.fill(); g.stroke();
+    for (let i = 0; i < 9; i++) { const px = x - 12 + i * 3, py = y + 3 - Math.abs(i - 4) * 0.4; g.fillStyle = '#d8c290'; g.beginPath(); g.moveTo(px - 1.3, py); g.lineTo(px, py - 9 + (i % 2) * 2); g.lineTo(px + 1.3, py); g.fill(); }
+    g.strokeStyle = 'rgba(120,160,60,.9)'; g.lineWidth = 1.4; for (let i = 0; i < 6; i++) { const a = i / 6 * TAU; g.beginPath(); g.moveTo(x + Math.cos(a) * 18, y + Math.sin(a) * 9.5); g.lineTo(x + Math.cos(a) * 22, y + Math.sin(a) * 11 - 3); g.stroke(); }
+  }
+  function totemPole(g, x, y) {   // totem dello sciamano: palo intagliato con le piume
+    g.fillStyle = 'rgba(0,0,0,.25)'; g.beginPath(); g.ellipse(x + 2, y + 1, 9, 3, 0, 0, TAU); g.fill();
+    g.fillStyle = '#8b5a2b'; g.strokeStyle = INK; g.lineWidth = 1.3; g.beginPath(); g.roundRect(x - 5.5, y - 34, 11, 34, 3); g.fill(); g.stroke();
+    for (const [yy, c] of [[-30, '#c0303a'], [-19, '#2f6fb0'], [-8, '#e8b33a']]) {
+      g.fillStyle = c; g.fillRect(x - 5.5, yy, 11, 2.4);
+      g.fillStyle = '#f3e7cc'; g.beginPath(); g.arc(x - 2.2, yy + 5, 1.3, 0, TAU); g.arc(x + 2.2, yy + 5, 1.3, 0, TAU); g.fill();
+      g.fillStyle = INK; g.fillRect(x - 2.4, yy + 7.6, 4.8, 1.2);
+    }
+    for (const [dx, a, c] of [[-4, -0.6, '#c0303a'], [0, 0, '#f3e7cc'], [4, 0.6, '#2f6fb0']]) { g.save(); g.translate(x + dx, y - 34); g.rotate(a); g.fillStyle = c; g.strokeStyle = INK; g.lineWidth = 0.8; g.beginPath(); g.ellipse(0, -7, 2.4, 7.5, 0, 0, TAU); g.fill(); g.stroke(); g.restore(); }
+  }
   function obj(g, o) {
     const k = o.k;
+    if (k === 'zattera') return raft(g, o.x, o.y);
+    if (k === 'canoa') return canoe(g, o.x, o.y);
+    if (k === 'rete') return trap(g, o.x, o.y);
+    if (k === 'fossa') return pit(g, o.x, o.y);
+    if (k === 'totem') return totemPole(g, o.x, o.y);
     if (k === 'ambra') amber(g, o.x, o.y);
     else if (k === 'ces') bush(g, o.x, o.y);
     else if (k === 'sas') { rock(g, o.x - 5, o.y, 5, 3.4); rock(g, o.x + 4, o.y + 2, 3.6, 2.6); rock(g, o.x + 1, o.y - 4, 2.6, 2); }
@@ -901,7 +1080,7 @@ if (typeof document !== 'undefined') (() => {
     g.save(); g.beginPath(); g.rect(0, 0, S, S); g.clip();
     meadowBits(g, D, R, W, rnd);
     water(g, D, R, rnd);
-    fishes(g, D);
+    fishes(g, D, R);
     trees(g, D, W);
     const ob = (D.ob || []).slice().sort((a, b) => a.y - b.y);
     for (const o of ob) obj(g, o);
@@ -994,14 +1173,16 @@ if (typeof document !== 'undefined') (() => {
 
   // ---- scelte prima della partita (tendine, una aperta alla volta) ----
   function setup() {
-    const S = U.set = U.set || { n: 1, lv: 2 };
+    const S = U.set = U.set || { n: 1, lv: 2, s2: 1 };
     const p = panel(`<h2>La Valle dei Clan</h2><p>Metti le tessere, manda i tuoi omini nei boschi, nei fiumi e nei prati.</p>
       <details class="vgD" data-k="n"><summary>Avversari <span></span></summary><div class="opts"></div></details>
       <details class="vgD" data-k="lv"><summary>Livello <span></span></summary><div class="opts"></div></details>
+      <details class="vgD" data-k="s2"><summary>Bosco di 2 tessere <span></span></summary><div class="opts"></div></details>
       <button class="vgBtn" style="width:100%;margin-top:10px" id="vgGo">Gioca</button><button class="vgBtn alt" style="width:100%;margin-top:8px" id="vgOut">Esci</button>`);
     p.querySelector('#vgOut').onclick = () => stop();
     const fill = () => p.querySelectorAll('.vgD').forEach(d => {
-      const k = d.dataset.k, vals = k === 'n' ? [1, 2, 3, 4] : [0, 1, 2, 3], lab = v => k === 'n' ? (v === 1 ? '1 computer' : v + ' computer') : LEVELS[v].n;
+      const k = d.dataset.k, vals = k === 'n' ? [1, 2, 3, 4] : k === 's2' ? [1, 0] : [0, 1, 2, 3];
+      const lab = v => k === 'n' ? (v === 1 ? '1 computer' : v + ' computer') : k === 's2' ? (v ? '2 punti' : '4 punti') : LEVELS[v].n;
       d.querySelector('summary span').textContent = lab(S[k]);
       d.querySelector('.opts').innerHTML = vals.map(v => `<button data-v="${v}" class="${v === S[k] ? 'on' : ''}">${lab(v)}</button>`).join('');
       d.querySelectorAll('.opts button').forEach(b => b.onclick = () => { S[k] = +b.dataset.v; d.open = false; fill(); });
@@ -1015,7 +1196,7 @@ if (typeof document !== 'undefined') (() => {
 
   function newGame() {
     const n = U.set.n + 1, names = [U.opt.name || 'Tu', ...AIN.slice(0, n - 1)];
-    U.G = E.newGame({ n, seed: (Math.random() * 1e9) | 0, names });
+    U.G = E.newGame({ n, seed: (Math.random() * 1e9) | 0, names, small2: !!U.set.s2 });
     U.ai = [false, ...Array(n - 1).fill(true)];
     U.evI = U.G.ev.length; U.sel = null; U.mo = null; U.fl = []; U.cam = { x: 0.5, y: 0.5, z: Math.min(130, Math.min(U.W, U.H) / 4.2) };
     bars(); flow();
@@ -1036,15 +1217,18 @@ if (typeof document !== 'undefined') (() => {
         U.sel = { x: m.x, y: m.y, rs: [m.r], ri: 0, ai: 1, t: performance.now() }; hand(G.hand, m.r); redraw();
         setTimeout(() => {
           E.place(G, m.x, m.y, m.r); U.sel = null; follow(m.x, m.y);
-          setTimeout(() => { E.meeple(G, m.m); U.busy = false; flow(); }, m.m ? 520 : 260);
+          setTimeout(() => { E.meeple(G, m.m); if (G.ph === 'totem') E.totem(G, m.sh); U.busy = false; flow(); }, m.m ? 520 : 260);
           redraw();
         }, 650);
       }, 550 + Math.random() * 350);
       return;
     }
     U.busy = false;
+    if (G.ph === 'totem') { msg('Sciamano: vuoi riprenderti un omino?', 'Tocca un tuo omino sulla mappa, oppure Nessuno'); buttons(); redraw(); return; }
     U.spots = E.spots(G);
-    msg(G.bon ? 'Tessera speciale!' : 'Tocca a te', 'Tocca un posto illuminato'); buttons(); redraw();
+    const spn = E.SPN[E.byId[G.hand].sp];
+    if (spn) msg('Tessera speciale: ' + spn[0], spn[1]); else msg(G.bon ? 'Tessera speciale!' : 'Tocca a te', 'Tocca un posto illuminato');
+    buttons(); redraw();
   }
   function msg(a, b) { U.root.querySelector('#vgMsg').innerHTML = a + (b ? '<small>' + b + '</small>' : ''); }
   function buttons() {
@@ -1053,6 +1237,7 @@ if (typeof document !== 'undefined') (() => {
     ok.style.display = al.style.display = mine ? '' : 'none';
     if (!mine) return;
     if (G.ph === 'tile') { ok.textContent = 'Conferma'; ok.disabled = !U.sel; al.textContent = 'Gira'; al.disabled = !U.sel || U.sel.rs.length < 2; }
+    else if (G.ph === 'totem') { ok.textContent = 'Riprendi'; ok.disabled = !U.mo; al.textContent = 'Nessuno'; al.disabled = false; }
     else { ok.textContent = U.mo ? (U.mo.k === 'hut' ? 'Metti la palafitta' : 'Metti l\'omino') : 'Avanti'; ok.disabled = false; al.textContent = 'Nessuno'; al.disabled = !U.mo; }
   }
   function ok() {
@@ -1060,14 +1245,16 @@ if (typeof document !== 'undefined') (() => {
     if (G.ph === 'tile' && U.sel) {
       const s = U.sel; E.place(G, s.x, s.y, s.rs[s.ri]); U.sel = null; hand(null);
       U.mopts = E.meepleOpts(G); U.mo = null;
-      if (!U.mopts.length) { E.meeple(G, null); flow(); return; }
+      if (!U.mopts.length) { E.meeple(G, null); U.mo = null; flow(); return; }
       msg('Vuoi mettere un omino?', 'Tocca un cerchio sulla tessera, oppure Avanti'); buttons(); redraw();
-    } else if (G.ph === 'meeple') { E.meeple(G, U.mo); flow(); }
+    } else if (G.ph === 'meeple') { E.meeple(G, U.mo); U.mo = null; flow(); }
+    else if (G.ph === 'totem' && U.mo) { E.totem(G, U.mo); U.mo = null; flow(); }
   }
   function alt() {
     const G = U.G; if (U.busy) return;
     if (G.ph === 'tile' && U.sel) { U.sel.ri = (U.sel.ri + 1) % U.sel.rs.length; hand(G.hand, U.sel.rs[U.sel.ri]); redraw(); }
     else if (G.ph === 'meeple') { U.mo = null; buttons(); redraw(); }
+    else if (G.ph === 'totem') { E.totem(G, null); U.mo = null; flow(); }
   }
   function tapAt(sx, sy) {
     const G = U.G; if (!G || U.busy || U.ai[G.cur] || G.ph === 'end') return;
@@ -1080,6 +1267,10 @@ if (typeof document !== 'undefined') (() => {
       const t = G.tiles[G.last]; let best = null, bd = 0.2;
       for (const o of U.mopts) { const p = optPt(t, o), d = Math.hypot(wx - t.x - p[0] / 200, wy - t.y - p[1] / 200); if (d < bd) { bd = d; best = o; } }
       if (best) { U.mo = U.mo && U.mo.j === best.j && U.mo.k === best.k ? null : best; buttons(); redraw(); }
+    } else if (G.ph === 'totem') {
+      let best = null, bd = 0.25;
+      for (const m of G.shOpts) { const t = G.tiles[m.i], p = optPt(t, m), d = Math.hypot(wx - t.x - p[0] / 200, wy - t.y - p[1] / 200); if (d < bd) { bd = d; best = m; } }
+      if (best) { U.mo = U.mo === best ? null : best; buttons(); redraw(); }
     }
   }
   const optPt = (t, o) => { const p = t.F[o.j].pt; return o.k === 'hut' && t.F[o.j].k === 'f' ? [p[0] + 14, p[1] + 10] : p; };
@@ -1108,7 +1299,7 @@ if (typeof document !== 'undefined') (() => {
   function toast(t, ms = 1800) { const d = U.root.querySelector('#vgToast'); d.textContent = t; d.classList.add('on'); clearTimeout(U.tt); U.tt = setTimeout(() => d.classList.remove('on'), ms); }
 
   // ---- cose successe: punti che volano, speciali ----
-  const NAMEK = { b: 'Bosco chiuso', f: 'Fiume chiuso', p: 'Prato', h: 'Palafitta' };
+  const NAMEK = { b: 'Bosco chiuso', f: 'Fiume chiuso', p: 'Prato', h: 'Palafitta', canoa: 'Canoa', rete: 'Trappola' };
   function eventsShow() {
     const G = U.G;
     for (; U.evI < G.ev.length; U.evI++) {
@@ -1191,6 +1382,15 @@ if (typeof document !== 'undefined') (() => {
       const t = G.tiles[m.i], f = t.F[m.j], p = optPt(t, m); tileT(t.x, t.y);
       if (m.k === 'hut') A.hut(g, p[0], p[1] + 14, COL[m.p], 1.05);
       else A.meeple(g, p[0], p[1] + 16, COL[m.p], f.k === 'p' ? 'cacc' : f.k === 'b' ? 'racc' : 'pesca', 1.05);
+    }
+    // sciamano: anello sui miei omini
+    if (G.ph === 'totem' && !U.ai[G.cur] && G.shOpts) {
+      for (const m of G.shOpts) {
+        const t = G.tiles[m.i], p = optPt(t, m), on = U.mo === m; tileT(t.x, t.y);
+        g.strokeStyle = on ? '#ffd970' : `rgba(255,255,255,${0.5 + 0.4 * pulse})`; g.lineWidth = on ? 7 : 4;
+        g.beginPath(); g.arc(p[0], p[1] + 4, 26, 0, Math.PI * 2); g.stroke();
+      }
+      anim = true;
     }
     // scelta dell'omino sulla tessera appena messa
     if (G.ph === 'meeple' && !U.ai[G.cur]) {

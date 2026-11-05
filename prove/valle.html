@@ -16,9 +16,9 @@
 (() => {
   const dpr = 2, W = 412, TS = 120, GAP = 12, COLS = 3, LH = 46;
   const normal = VE.DECK.filter(d => !d.sp), special = VE.DECK.filter(d => d.sp);
-  const SPN = { falo: 'Falo\': scaccia gli orsi dal prato', miele: 'Alveare: +2 al bosco chiuso', bis: 'Bisonte: 2 punti, l\'orso non lo mangia', pietre: 'Cerchio di pietre: conta solo il cacciatore messo qui' };
+  const SPN = Object.fromEntries(Object.entries(VE.SPN).map(([k, v]) => [k, v[0] + ': ' + v[1]]));
   const rows = a => Math.ceil(a.length / COLS);
-  const H = 70 + rows(normal) * (TS + LH) + 60 + rows(special) * (TS + LH) + 150;
+  const H = 70 + rows(normal) * (TS + LH) + 60 + rows(special) * (TS + LH) + 300;
   const cv = document.getElementById('cv'); cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   const g = cv.getContext('2d'); g.scale(dpr, dpr);
   g.fillStyle = '#241c15'; g.fillRect(0, 0, W, H);
@@ -27,7 +27,9 @@
     const F = VE.feats(d).F, out = [];
     const nb = F.filter(f => f.k === 'b').length; if (nb) out.push(nb === 1 ? 'bosco' : nb + ' boschi');
     if (F.some(f => f.k === 'b' && f.amber)) out.push('ambra');
-    const L = F.find(f => f.k === 'l'); if (L) out.push('lago ' + L.fish + (L.fish > 1 ? ' pesci' : ' pesce'));
+    const LL = F.filter(f => f.k === 'l'), L = LL[0]; LL.forEach(L => out.push('lago ' + L.fish + (L.fish > 1 ? ' pesci' : ' pesce')));
+    const rf = F.filter(f => f.k === 'f').reduce((a, f) => a + (f.fish || 0), 0); if (rf) out.push(rf + (rf > 1 ? ' pesci' : ' pesce') + ' nel fiume');
+    if (d.sp) out.unshift(VE.SPN[d.sp][0]);
     const rv = d.rv || []; if (rv.some(z => z.end === 'b')) out.push('nasce nel bosco');
     else if (rv.length && !L) out.push(rv.length > 1 ? rv.length + ' fiumi' : 'fiume');
     const a = {}; for (const f of F) if (f.k === 'p') for (const k in AN) if (f[k]) a[k] = (a[k] || 0) + f[k];
@@ -53,12 +55,12 @@
     return y0 + rows(list) * (TS + LH);
   };
   g.fillStyle = '#f4ead8'; g.font = '600 20px system-ui'; g.fillText('La Valle dei Clan', 12, 30);
-  g.font = '13px system-ui'; g.globalAlpha = 0.75; g.fillText('tutte le tessere: 79 normali + 12 speciali', 12, 52); g.globalAlpha = 1;
+  g.font = '13px system-ui'; g.globalAlpha = 0.75; g.fillText('tutte le tessere: 1 partenza + 78 normali + 16 speciali', 12, 52); g.globalAlpha = 1;
   let y = grid(normal, 70);
-  g.fillStyle = '#f4ead8'; g.font = '600 16px system-ui'; g.fillText('Tessere speciali (si pescano chiudendo', 12, y + 22); g.fillText('un bosco con l\'ambra)', 12, y + 42);
+  g.fillStyle = '#f4ead8'; g.font = '600 16px system-ui'; g.fillText('Tessere speciali (bosco chiuso con l\'ambra', 12, y + 22); g.fillText('e almeno un omino dentro)', 12, y + 42);
   y = grid(special, y + 60);
   g.font = '12.5px system-ui'; g.globalAlpha = 0.85;
-  Object.values(SPN).forEach((t, i) => g.fillText(t, 12, y + 20 + i * 20));
+  Object.values(SPN).forEach((t, i) => wrap(t, 12, y + 20 + i * 34, W - 24));
   g.globalAlpha = 1;
   window.__img = cv.toDataURL('image/jpeg', 0.88);
 })();
