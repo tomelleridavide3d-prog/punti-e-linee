@@ -3228,7 +3228,7 @@ function cqNetBox() {
   // si ridisegna SOLO se e' cambiato qualcosa (24-10-2026): prima a ogni "sono qui" di ogni party (ogni 10 s ciascuno) il riquadro si rifaceva
   // da zero e un tocco su Entra che cadeva in quel momento andava perso ("devo premere due volte"); si perdeva anche il nome che si stava scrivendo
   const html = `<div class="netBox">`
-    + (invs.length ? invs.map(([k, v]) => v.g === 'bc' ? `<div class="invBox netRow"><span>🃏 <b>${esc(v.n)}</b> ti sfida a Briscola</span><button class="btn primary" type="button" data-join="${esc(k)}" data-bc="${esc(v.n)}">Gioca</button></div>` : `<div class="invBox netRow"><span>✉️ <b>${esc(v.n)}</b> ti invita al suo party</span><button class="btn primary" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '')
+    + (invs.length ? invs.map(([k, v]) => v.g === 'ch' ? `<div class="invBox netRow"><span>♟️ <b>${esc(v.n)}</b> ti sfida a scacchi</span><button class="btn primary" type="button" data-join="${esc(k)}">Gioca</button></div>` : v.g === 'bc' ? `<div class="invBox netRow"><span>🃏 <b>${esc(v.n)}</b> ti sfida a Briscola</span><button class="btn primary" type="button" data-join="${esc(k)}" data-bc="${esc(v.n)}">Gioca</button></div>` : `<div class="invBox netRow"><span>✉️ <b>${esc(v.n)}</b> ti invita al suo party</span><button class="btn primary" type="button" data-join="${esc(k)}">Entra</button></div>`).join('') : '')
     + `<b>🎉 Gioca con gli amici</b><button class="btn primary" id="netNew" type="button">🎉 Crea un party</button>`
     + `<label class="pvt"><input type="checkbox" id="netPriv"${store.settings.partyPriv ? ' checked' : ''}> 🔒 Solo su invito <span class="hint" style="margin:0">(lo vede solo chi inviti)</span></label>`
     + (sets.length ? '<div class="hint">Party aperti:</div>' + sets.map(([k, v]) => `<div class="netRow"><span>${v.p ? '🔒 ' : ''}Party di <b>${esc(v.h)}</b> · ${cqGame(v.g)[2]} ${esc(cqGame(v.g)[1])} · ${v.n || 1} dentro</span>${mine.includes(k) ? '' : `<button class="btn" type="button" data-join="${esc(k)}">Entra</button>`}</div>`).join('') : '<div class="hint">Nessun party aperto dagli amici in questo momento.</div>')
@@ -3600,8 +3600,9 @@ function cqReception() {
     + `<details class="gList gTav" id="tgList"${cq.tgOpen ? ' open' : ''}><summary>🎲 Scegli un gioco da tavola</summary>`
     + `<button class="gcard hg" type="button" id="tgBc"><span class="gi" style="background:#2f7a45">🃏</span><span><div class="gt">Briscola</div><div class="gs">Carte napoletane, 1 contro 1: contro il Conte o sfida un amico.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgSc"><span class="gi" style="background:#2f6a8a">🧹</span><span><div class="gt">Scopa</div><div class="gs">Carte napoletane, 1 contro 1: prese, scope e primiera, si vince a 11.</div></span></button>`
+    + `<button class="gcard hg" type="button" id="tgCh"><span class="gi" style="background:#6b4a2a">♟️</span><span><div class="gt">Scacchi</div><div class="gs">Pezzi di legno, 1 contro 1: contro il Conte a 6 livelli o sfida un amico, con l'orologio.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button></details>`;
-  $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots;
+  $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots; $('#tgCh').onclick = tgScacchi;
   // la tendina dei giochi da tavola resta aperta tornando indietro (Indietro, ← Hotel dei Giochi)
   $('#tgList').ontoggle = () => { cq.tgOpen = $('#tgList').open; };
   cqGameCardsOn();
@@ -3805,7 +3806,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()) && !(window.GR && GR.busy()));
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()) && !(window.CHS && CHS.busy()) && !(window.GR && GR.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -3990,9 +3991,9 @@ function invWatch() {
   cq.invU = F.onChildAdded(F.ref(F.db, 'pinv/' + k), sn => {
     const v = sn.val(); F.remove(sn.ref).catch(() => {});
     if (!v || !v.c || Date.now() - (v.t || 0) > 30 * 60000) return;
-    cq.invites[v.c] = { n: String(v.n || '?').slice(0, 14), t: v.t, g: v.g === 'bc' ? 'bc' : '' };
+    cq.invites[v.c] = { n: String(v.n || '?').slice(0, 14), t: v.t, g: v.g === 'bc' || v.g === 'ch' ? v.g : '' };
     beep(988, 0.1, 0.04); beep(1319, 0.16, 0.04, 0.1);
-    cqToast((v.g === 'bc' ? '🃏 <b>' + esc(v.n) + '</b> ti sfida a Briscola! ' : '✉️ <b>' + esc(v.n) + '</b> ti invita al suo party! ') + (cq.net ? '' : 'Lo trovi in alto nella reception: <b>' + (v.g === 'bc' ? 'Gioca' : 'Entra') + '</b>.'));
+    cqToast((v.g === 'bc' ? '🃏 <b>' + esc(v.n) + '</b> ti sfida a Briscola! ' : v.g === 'ch' ? '♟️ <b>' + esc(v.n) + '</b> ti sfida a scacchi! ' : '✉️ <b>' + esc(v.n) + '</b> ti invita al suo party! ') + (cq.net ? '' : 'Lo trovi in alto nella reception: <b>' + (v.g === 'bc' || v.g === 'ch' ? 'Gioca' : 'Entra') + '</b>.'));
     if ($('#lbNet')) cqNetBox();
   });
 }
@@ -4030,6 +4031,13 @@ function frPicker(el, onPick, extra) {
 }
 // BRISCOLA dalla reception: contro il Conte, oppure sfida a un amico = un party "solo su invito" con l'invito g: 'bc'; appena l'amico entra
 // nella hall parte la sfida al tavolino (bcWantCheck) e lui la accetta da solo (l'aveva gia' accettata dall'invito: bcAutoOk in briscola.js)
+// SCACCHI dalla reception (giochi/scacchi.js, CHS.reception): contro il Conte con livello/colore/orologio, o sfida a un amico (party solo su invito, g 'ch')
+function tgScacchi() {
+  cqCloseTask(); $('#tkTitle').textContent = '♟️ Scacchi';
+  if (window.CHS) CHS.reception($('#tkBody')); else $('#tkBody').innerHTML = '<p>Gli scacchi non si sono caricati: ricarica la pagina.</p>';
+  $('#tkHint').textContent = ''; $('#tkClose').hidden = true; $('#cqTask').hidden = false;
+  $('#tkBack').hidden = false; $('#tkBack').onclick = cqReception;
+}
 // Scopa dalla reception: contro il Conte; con gli amici si gioca al tavolino del salotto (🃏 Carte -> Scopa)
 function tgScopa() {
   cqCloseTask(); $('#tkTitle').textContent = '🧹 Scopa';
@@ -4363,6 +4371,7 @@ function cqHallTick(dt) {
   if (window.DA) DA.tick(G, dt);   // freccette (pulsante sulla linea di tiro, sfide, lavagna dei record)
   if (window.BI) BI.tick(G, dt); if (window.AH) AH.tick(G, dt);   // biliardo e air hockey (giochi/lib/tavolo.js)
   if (window.SC) SC.tick(G, dt);   // scopa al tavolino (sfide e chi guarda)
+  if (window.CHS) CHS.tick(G, dt);   // scacchi al tavolino (sfide, chi guarda, sfida dalla reception)
   if (window.GR) GR.tick(G, dt);   // gru dei peluche (pulsante, annunci dei leggendari, papera che squittisce)
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
   for (const c of G.chars) {
@@ -6948,6 +6957,7 @@ applyPrefs(); render();
 <script src="giochi/biliardo.js"></script>
 <script src="giochi/airhockey.js"></script>
 <script src="giochi/scopa.js"></script>
+<script src="giochi/scacchi.js"></script>
 <script src="giochi/pesca.js"></script>
 </body>
 </html>

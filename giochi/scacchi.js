@@ -684,6 +684,10 @@ window.CH = (() => {
       V.mate = E.status(V.p) === 'mate' ? V.p.s : null;
       V.sel = -1; V.tg = new Map(); marks();
       if (!o2.quiet) snd(E.inCheck(V.p) ? 'check' : kind);
+      if (V.mate != null) {   // scacco matto: il re battuto barcolla e cade, quello che vince fa un saltello
+        const ki = E.I64[V.p.k[V.mate]], kw = E.I64[V.p.k[1 - V.mate]], ke = V.el[ki], we = V.el[kw];
+        setTimeout(() => { if (ke && V.el[ki] === ke) { ke.classList.add('chFall'); ke.style.transform = tr(ki) + ' rotate(' + (V.mate ? 78 : -78) + 'deg)'; } if (we && V.el[kw] === we) we.classList.add('chHop'); }, 450);
+      }
     }
     V.size = size; V.sync = sync; V.el0 = B; V.marks = marks; V.select = select;
     V.setFlip = f => { if (V.flip === !!f) return; V.flip = !!f; drawSquares(); rebuild(); marks(); };
@@ -848,6 +852,10 @@ window.CH = (() => {
 .chP.chGone{opacity:0}
 .chP.chNo{animation:chNo .28s}
 @keyframes chNo{0%,100%{margin-left:0}25%{margin-left:-3px}75%{margin-left:3px}}
+.chP.chFall{transform-origin:50% 88%;transition:transform 1.1s cubic-bezier(.55,0,.75,1.45);animation:chWob .45s}
+@keyframes chWob{0%,100%{rotate:0deg}30%{rotate:-9deg}65%{rotate:7deg}}
+.chP.chHop{animation:chHop .5s 3 ease-out}
+@keyframes chHop{0%,100%{translate:0 0}40%{translate:0 -22%}}
 .chP.chPop{animation:chPop .35s}
 @keyframes chPop{0%{scale:1.35}100%{scale:1}}
 .chDot::after{content:'';position:absolute;left:34%;top:34%;width:32%;height:32%;border-radius:50%;background:rgba(0,0,0,.16)}
@@ -874,4 +882,263 @@ window.CH = (() => {
     document.head.appendChild(css);
   }
   return { E, art, artUrl, board, screen, snd, THEMES, fmt, idxOf, CADENZE, newClock, colorOf, seatOf, left, apply, flag, finish, LEVELS, aiOpts, think, cancelThink };
+})();
+
+// ==== SCACCHI NELL'HOTEL (tavolino del salotto e reception) col modulo comune giochi/lib/tavolo.js, id 'ch' ====
+// Chi sfida fa da banco: tiene la partita e l'orologio (cq/<set>/ch/<banco>/{s,a,w}). Le mosse dell'amico arrivano come { k: 'mv', u, el }
+// (el = tempo che ha pensato misurato sul suo telefono: il banco lo usa per non fargli pagare il ritardo della rete, al massimo 1,5 s di sconto).
+// L'amico vede subito la sua mossa (la applica in locale) e il banco la conferma. Patta proposta { k: 'dr' } / rifiutata { k: 'dn' }, abbandono { k: 'rs' }.
+window.CHS = (() => {
+  if (typeof cqTable !== 'function') return null;
+  const st = () => store.settings;
+  let pend = null;   // scelte per la prossima partita contro il computer: { ck, lv, wc }
+  const LV = k => CH.LEVELS.find(l => l.k === k) || CH.LEVELS[2];
+  const ada = () => Math.max(0, Math.min(100, st().chAda == null ? 30 : st().chAda));
+  const force = lv => lv === 'ada' ? ada() : LV(lv).s;
+  const lvTxt = lv => LV(lv).e + ' ' + LV(lv).n + (lv === 'ada' ? ' · forza ' + Math.round(ada()) : '');
+  const ckTxt = k => { const c = CH.CADENZE.find(x => x.k === k); return c && k !== '0' ? '⏱️ ' + c.n : 'senza orologio'; };
+  function newMatch(S0) {
+    const pd = pend; pend = null;
+    const f = S0.f == null ? 0 : 1 - S0.f, ck0 = S0.ck0 != null ? S0.ck0 : pd ? pd.ck : '0', lv = S0.lv || (pd && pd.lv) || 'med';
+    const wc = S0.wc != null && S0.mv ? 1 - S0.wc : pd && pd.wc != null ? pd.wc : f;   // rivincita: colori invertiti
+    return { mv: [], wc, ck0, lv, ck: CH.newClock(ck0), win: null, why: '', res: '', dro: -1, sc: S0.sc || [0, 0], pub: Date.now(), cnt: 0 };
+  }
+  function done(S) { if (S.ph === 'end' && !S.cnt) { S.cnt = 1; if (S.win >= 0) S.sc[S.win]++; } S.pub = Date.now(); }
+  // sul banco: azione del posto seat; true = da pubblicare
+  function act(T, seat, a) {
+    const S = T.S, now = Date.now(); if (S.ph !== 'play') return false;
+    if (a.k === 'mv') {
+      let at = now;
+      if (a.el != null && S.ck && S.ck.at && seat !== T.me && S.ai < 0) { const he = now - S.ck.at; at = S.ck.at + Math.max(he - 1500, Math.min(he, +a.el || 0)); }
+      if (!CH.apply(S, seat, a.u, at)) return false;
+      if (S.ck && S.ck.at && S.ph === 'play') S.ck.at = now;
+      if (S.dro >= 0 && S.dro !== seat) S.dro = -1;   // muovere = rifiutare la patta proposta dall'altro
+      done(S); return true;
+    }
+    if (a.k === 'rs') { CH.finish(S, 1 - seat, 'resign', '🏳️ ' + esc(S.n[seat]) + ' abbandona'); done(S); return true; }
+    if (a.k === 'dr') { if (S.dro === 1 - seat) CH.finish(S, -1, 'agree', '🤝 Patta d\'accordo'); else if (S.dro < 0) S.dro = seat; else return false; done(S); return true; }
+    if (a.k === 'dn') { if (S.dro !== 1 - seat) return false; S.dro = -1; S.drn = (S.drn || 0) + 1; done(S); return true; }
+    if (a.k === 'tm') { if (!CH.flag(S, now)) return false; done(S); return true; }
+    return false;
+  }
+  // il Conte: pensa nel Worker; la mossa arriva dopo e si conferma con commit
+  const SAY = {
+    start: ['Che vinca il migliore!', 'Prego, si accomodi.', 'Una partitina, che piacere.'],
+    check: ['Scacco!', 'Scacco, mio caro.', 'Attento al re…'],
+    took: ['Grazie del regalo!', 'Questo lo prendo io.', 'Gnam.'],
+    lost: ['Ahi, ahi…', 'Questa non l\'avevo vista.', 'Mmh, ben giocata.'],
+    win: ['Scacco matto! Ritenti, sarà più fortunato.', 'Matto! Una rivincita?'],
+    lose: ['Complimenti, mi ha battuto!', 'Bravo, bravissimo!']
+  };
+  const say = (T, k) => { if (!T.S || T.S.ai < 0 || !T.scr) return; const l = SAY[k]; T.say = { t: l[Math.floor(Math.random() * l.length)], u: Date.now() + 3500 }; render(T); setTimeout(() => CHT.T === T && render(T), 3600); };
+  function aiTurn(T) {
+    const S = T.S, ai = S.ai; if (S.ph !== 'play' || ai < 0) return null;
+    if (S.dro === 1 - ai) {   // patta proposta: la accetta solo se sta perdendo (o la partita e' ferma da tanto)
+      const p = CH.E.replay(S.mv); let v = CH.E.evaluate(p); if (p.s !== CH.colorOf(S, ai)) v = -v;
+      const ok = v < -180 || (S.mv.length > 120 && Math.abs(v) < 50);
+      if (!ok) { T.say = { t: 'No, grazie: la partita è ancora lunga!', u: Date.now() + 3000 }; }
+      return { k: ok ? 'dr' : 'dn' };
+    }
+    if (CH.colorOf(S, ai) !== (S.mv.length & 1)) return null;
+    const key = S.g + ':' + S.mv.length; if (T.aiK === key) return null; T.aiK = key;
+    const left = S.ck ? CH.left(S, CH.colorOf(S, ai), Date.now()) : 0;
+    const o = CH.aiOpts(force(S.lv), S.ck ? left / 30 + S.ck.i * 0.7 : 0), t0 = Date.now();
+    T.think = 1; render(T);
+    CH.think(S.mv.slice(), o, r => {
+      if (CHT.T !== T || T.aiK !== key) return;
+      setTimeout(() => {
+        T.think = 0;
+        if (CHT.T !== T || T.aiK !== key || T.S.ph !== 'play' || !r || !r.m) return;
+        const before = CH.E.board64(CH.E.replay(T.S.mv)), to = CH.idxOf(r.m.slice(2, 4)), cap = before[to];
+        if (act(T, ai, { k: 'mv', u: r.m })) {
+          CHT.commit();
+          const p = CH.E.replay(T.S.mv);
+          if (T.S.ph === 'end') { if (T.S.win === ai) say(T, 'win'); else if (T.S.win === T.me) say(T, 'lose'); }
+          else if (CH.E.inCheck(p) && Math.random() < 0.5) say(T, 'check');
+          else if (cap && 'QRqr'.includes(cap) && Math.random() < 0.6) say(T, 'took');
+        }
+      }, Math.max(0, (S.ck ? 100 : 550) - (Date.now() - t0)));
+    });
+    return null;
+  }
+  // ---- visuale ----
+  const hostNow = T => T.host ? Date.now() : (T.S.pub || Date.now()) + (Date.now() - (T.rcv || Date.now()));
+  function view(T) {
+    const r = T.root; r.classList.add('chRoot');
+    T.scr = CH.screen(r, { theme: st().chTh || 'verde', side: () => T.me >= 0 && T.S.ph === 'play' ? CH.colorOf(T.S, T.me) : -1, onMove: u => myMove(T, u) });
+    const msg = document.createElement('div'); msg.className = 'chMsg'; T.scr.W.insertBefore(msg, T.scr.btns); T.msg = msg;
+    const b = (t, f) => { const e = document.createElement('button'); e.type = 'button'; e.textContent = t; e.onclick = f; T.scr.btns.appendChild(e); return e; };
+    T.bRs = b('🏳️ Abbandona', () => { if (T.S.ph === 'play' && T.me >= 0 && confirm('Abbandoni la partita?')) CHT.act({ k: 'rs' }); });
+    T.bDr = b('½ Patta', () => { const S = T.S; if (S.ph !== 'play' || T.me < 0) return; if (S.dro === 1 - T.me || (S.dro < 0 && confirm('Proponi la patta?'))) CHT.act({ k: 'dr' }); });
+    b('🎨', () => { const k = Object.keys(CH.THEMES), n = k[(k.indexOf(T.scr.V.theme) + 1) % k.length]; st().chTh = n; saveStore(); T.scr.V.setTheme(n); }).className = 'chSm';
+    T.ro = () => { if (T.scr) T.scr.fit(); }; window.addEventListener('resize', T.ro);
+    T.scr.fit();
+    T.iv = setInterval(() => clockTick(T), 100);
+    T.lowS = -1;
+    if (T.S.ai >= 0) setTimeout(() => say(T, 'start'), 600);
+    CH.snd('start');
+  }
+  function myMove(T, u) {
+    const S = T.S;
+    if (T.host) { CHT.act({ k: 'mv', u }); return; }
+    const el = S.ck && S.ck.at ? hostNow(T) - S.ck.at : null;
+    CHT.act({ k: 'mv', u, el });
+    // la vedo subito; se il banco non la conferma entro 6 s torno allo stato che ha lui
+    const S2 = JSON.parse(JSON.stringify(S)); if (!CH.apply(S2, T.me, u, hostNow(T))) return;
+    const v = S.v; T.S = S2; render(T);
+    clearTimeout(T.pt); T.pt = setTimeout(() => { if (CHT.T === T && T.S.v === v && T.raw && T.raw.s) { try { T.S = JSON.parse(T.raw.s.m); render(T); } catch {} } }, 6000);
+  }
+  function clockTick(T) {
+    if (CHT.T !== T || !T.scr) return;
+    const S = T.S; if (!S.ck) { if (!T.noCk) { T.noCk = 1; T.scr.clock(null); } return; }
+    const now = hostNow(T), c = S.mv.length & 1;
+    if (S.ph === 'play' && S.ck.at) {
+      if (T.host) {   // il banco controlla la bandierina (all'amico mezzo secondo in piu' per il ritardo della rete)
+        const remote = S.ai < 0 && CH.seatOf(S, c) !== T.me;
+        if (CH.left(S, c, now - (remote ? 500 : 0)) <= 0 && CH.flag(S, now - (remote ? 500 : 0))) { done(S); CHT.commit(); return; }
+      } else if (CH.left(S, c, now) < -1500 && Date.now() - (T.tmT || 0) > 2000) { T.tmT = Date.now(); CHT.act({ k: 'tm' }); }
+      // ultimi 10 secondi del mio orologio: un tic al secondo
+      if (T.me >= 0 && CH.colorOf(S, T.me) === c) { const l = CH.left(S, c, now), s = Math.ceil(l / 1000); if (l < 10000 && l > 0 && s !== T.lowS) { T.lowS = s; CH.snd('tick'); } }
+    }
+    T.scr.clock([CH.left(S, 0, now), CH.left(S, 1, now)], S.ph === 'play' && S.ck.at ? c : -1);
+  }
+  function render(T) {
+    const S = T.S; if (!T.scr || !S.mv) return;
+    if (T.lastV !== S.v) { T.lastV = S.v; T.rcv = Date.now(); }
+    const me = T.me, bottom = me >= 0 ? CH.colorOf(S, me) : 0;
+    const nm = c => { const s = CH.seatOf(S, c); return esc(String(S.n[s] || '?').replace(' 🎩', '')); };
+    const sub = c => { const s = CH.seatOf(S, c); if (s === S.ai) return T.say && T.say.u > Date.now() ? '💬 ' + esc(T.say.t) : T.think ? 'sta pensando…' : lvTxt(S.lv); return s === me ? 'tu' : ''; };
+    T.scr.render({ moves: S.mv, bottom, names: [nm(0), nm(1)], subs: [sub(0), sub(1)], avs: [0, 1].map(c => CH.seatOf(S, c) === S.ai ? '🎩' : c ? '♚' : '♔'), over: S.ph !== 'play' });
+    clockTick(T);
+    // pulsanti e scritte
+    const play = S.ph === 'play' && me >= 0;
+    T.bRs.hidden = T.bDr.hidden = me < 0;
+    T.bRs.disabled = !play; T.bDr.disabled = !play || S.dro === me;
+    T.bDr.textContent = S.dro === me ? '½ Proposta…' : S.dro === 1 - me ? '🤝 Accetta patta' : '½ Patta';
+    T.bDr.classList.toggle('chHot', play && S.dro === 1 - me);
+    let m = '';
+    if (play && S.dro === 1 - me) m = '🤝 <b>' + esc(S.n[1 - me]) + '</b> propone la patta: accetta o continua a giocare <button type="button" data-k="dn">No, grazie</button>';
+    else if (S.ph === 'play' && S.dro >= 0 && me < 0) m = '🤝 ' + esc(S.n[S.dro]) + ' propone la patta';
+    else if (me < 0) m = '👀 Stai guardando ' + esc(S.n[0]) + ' contro ' + esc(S.n[1]);
+    if (T.watch) m += (m ? ' · ' : '') + '👀 ' + T.watch;
+    if (T.msg.dataset.m !== m) { T.msg.dataset.m = m; T.msg.innerHTML = m; const n = T.msg.querySelector('[data-k=dn]'); if (n) n.onclick = () => CHT.act({ k: 'dn' }); }
+    // fine partita: riquadro comune (titolo, motivo, rivincita) dopo il matto al rallentatore
+    if (S.ph === 'end') {
+      if (T.endK !== S.g) {
+        T.endK = S.g; T.endOn = 0;
+        if (me >= 0) CH.snd(S.win === -1 ? 'draw' : S.win === me ? 'win' : 'lose');
+        if (me >= 0 && S.ai >= 0 && T.adaG !== S.g) { T.adaG = S.g; score(S, me); }
+        setTimeout(() => { if (CHT.T === T && T.S.ph === 'end' && T.endK === S.g) { T.endOn = 1; render(T); } }, S.res === 'mate' ? 1700 : 600);
+      }
+      if (T.endOn) CHT.endBox(endTxt(T));
+    } else CHT.endBox('');
+  }
+  function endTxt(T) {
+    const S = T.S, n = Math.ceil(S.mv.length / 2);
+    return (n ? n + (n === 1 ? ' mossa' : ' mosse') + ' · ' : '') + 'al tavolo ' + esc(S.n[0]) + ' <b>' + S.sc[0] + '</b> – <b>' + S.sc[1] + '</b> ' + esc(S.n[1])
+      + (S.ai >= 0 && S.lv === 'ada' ? '<br>🧠 Forza del Conte adesso: <b>' + Math.round(ada()) + '</b>' : '');
+  }
+  // contro il computer: risultati per livello e livello adattivo (salvati sul telefono)
+  function score(S, me) {
+    const r = S.win === -1 ? 2 : S.win === me ? 0 : 1, t = st().chSt || (st().chSt = {}), a = t[S.lv] || (t[S.lv] = [0, 0, 0]); a[r]++;
+    if (S.lv === 'ada' && S.mv.length >= 6) st().chAda = Math.max(0, Math.min(100, ada() + [9, -7, 2][r]));
+    saveStore();
+  }
+  const CHT = cqTable({
+    id: 'ch', title: 'Scacchi', emoji: '♟️', aiName: 'Il Conte 🎩', rule: S => S && S.ck0 != null ? ckTxt(S.ck0) : '',
+    near: () => false, newMatch, act, aiTurn, aiDelay: 150, view, render,
+    inv: S => { S.ck0 = pend && pend.ck ? pend.ck : '0'; pend = null; },
+    drop: T => { clearInterval(T.iv); clearTimeout(T.pt); if (T.ro) window.removeEventListener('resize', T.ro); T.scr = null; },
+  });
+  // ---- scelte: avversario, livello, colore, orologio ----
+  function chips(name, items, def) { return `<div class="chC" data-n="${name}">` + items.map(([v, t]) => `<button type="button" data-v="${v}"${v === def ? ' class="on"' : ''}>${t}</button>`).join('') + '</div>'; }
+  function options(box, ai) {
+    const sv = st().chOpt || {}, rec = st().chSt || {};
+    const lv = CH.LEVELS.map(l => [l.k, l.e + ' ' + l.n + (rec[l.k] ? ' <small>' + rec[l.k][0] + '-' + rec[l.k][1] + '</small>' : '')]);
+    box.innerHTML = (ai ? '<h4>Livello</h4>' + chips('lv', lv, sv.lv || 'med') + '<p class="chAd">🧠 Adattivo: il Conte diventa più forte quando vinci e più debole quando perdi (adesso forza <b>' + Math.round(ada()) + '</b> su 100).</p><h4>Giochi con</h4>' + chips('wc', [['0', '♔ Bianco'], ['1', '♚ Nero'], ['r', '🎲 A caso']], sv.wc || 'r') : '')
+      + '<h4>Orologio</h4>' + chips('ck', CH.CADENZE.map(c => [c.k, c.n]), (ai ? sv.ckA : sv.ck) || (ai ? '0' : '5+3'));
+    box.querySelectorAll('.chC').forEach(g => g.onclick = e => { const b = e.target.closest('button'); if (!b) return; g.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b)); });
+    return () => {
+      const v = n => { const b = box.querySelector(`.chC[data-n=${n}] .on`); return b && b.dataset.v; };
+      const o = { ck: v('ck') }; if (ai) { o.lv = v('lv'); o.wcK = v('wc'); o.wc = o.wcK === 'r' ? (Math.random() < 0.5 ? 0 : 1) : +o.wcK; }
+      const keep = st().chOpt || (st().chOpt = {}); if (ai) { keep.lv = o.lv; keep.wc = o.wcK; keep.ckA = o.ck; } else keep.ck = o.ck; saveStore();
+      return o;
+    };
+  }
+  function vsAI(o) { pend = { ck: o.ck, lv: o.lv, wc: o.wc === 0 ? 0 : 1 }; CHT.startAI(); }
+  function modal(html) {
+    const old = document.getElementById('tvModal'); if (old) old.remove();
+    const m = document.createElement('div'); m.id = 'tvModal'; m.innerHTML = `<div class="tvBox chBox">${html}</div>`; document.body.appendChild(m); return m;
+  }
+  // dal tavolino: con chi? (gli amici seduti o il Conte), poi le scelte
+  function pickSeated() {
+    const G = cq.g, N = cq.net, busy = new Set(); CHT.games().forEach(x => x.S.p.forEach(p => p && busy.add(p)));
+    const fr = G && N ? G.chars.filter(c => c.remote && c.alive && c.sit != null && !busy.has(c.sid)) : [];
+    const m = modal(`<h2>♟️ Scacchi al tavolino</h2><p>Con chi giochi?</p>${fr.map((c, i) => `<button type="button" data-k="f${i}">⚔️ ${esc(c.name)}</button>`).join('') || '<p style="opacity:.7">Nessun amico seduto al tavolino: invita qualcuno a sedersi!</p>'}<button type="button" data-k="ai">🎩 Il Conte (computer)</button><button type="button" data-k="x">Annulla</button>`);
+    m.querySelectorAll('[data-k]').forEach(b => b.onclick = () => {
+      const k = b.dataset.k; m.remove();
+      if (k === 'ai') setup(true, o => vsAI(o));
+      else if (k[0] === 'f') { const c = fr[+k.slice(1)]; if (c) setup(false, o => { pend = { ck: o.ck }; CHT.challenge(c); }, c.name); }
+    });
+  }
+  function setup(ai, go, who) {
+    const m = modal(`<h2>♟️ ${ai ? 'Contro il Conte' : 'Sfida a ' + esc(who || '')}</h2><div class="chOpts"></div><button type="button" class="pr" data-k="go">${ai ? '▶ Gioca' : '⚔️ Sfida'}</button><button type="button" data-k="x">Annulla</button>`);
+    const get = options(m.querySelector('.chOpts'), ai);
+    m.querySelector('[data-k=go]').onclick = () => { const o = get(); m.remove(); go(o); };
+    m.querySelector('[data-k=x]').onclick = () => m.remove();
+  }
+  // reception (Giochi da tavola): contro il Conte o sfida a un amico (party solo su invito, la sfida parte quando entra)
+  let want = null;
+  function reception(body) {
+    body.innerHTML = '<p class="lead" style="margin-top:0">Gli scacchi veri, 1 contro 1: tocca un pezzo e vedi dove può andare. Contro il Conte a 6 livelli o contro un amico, con l\'orologio.</p><div class="chOpts chRc"></div><button class="btn primary go" type="button" id="chAI">🎩 Gioca contro il Conte</button>'
+      + '<div class="rcSec">✉️ Sfida un amico</div><div class="chOpts chRc" id="chFrO"></div><div id="chFr"></div><p class="hint">L\'amico riceve la sfida nel gioco (e sul telefono, se ha gli avvisi accesi). Quando entra nel tuo party si apre la scacchiera. Dentro un party potete anche sedervi al tavolino del salotto: <b>🎲 Tavolino</b> → <b>♟️ Scacchi</b>.</p>';
+    const get = options(body.querySelector('.chOpts'), true), getF = options(body.querySelector('#chFrO'), false);
+    body.querySelector('#chAI').onclick = () => { const o = get(); cqCloseTask(); vsAI(o); };
+    frPicker(body.querySelector('#chFr'), async fr => {
+      const o = getF();
+      if (!cq.net && !(await cqPartyNew(true, true))) return;
+      want = { k: fr.k, n: fr.n, ck: o.ck, t: Date.now() };
+      invSend(fr, 'ch'); cqCloseTask();
+      cqToast('♟️ Sfida a scacchi mandata a <b>' + esc(fr.n) + '</b>! Appena entra nel tuo party si apre la scacchiera.');
+    });
+  }
+  function wantCheck() {
+    const W = want, N = cq.net, G = cq.g; if (!W || !N || !G || !G.hall) return;
+    if (Date.now() - W.t > 15 * 60000) { want = null; return; }
+    const sid = Object.keys(N.pl || {}).find(x => x !== N.sid && nameKey(N.pl[x].name) === W.k); if (!sid || CHT.busy() || CHT.T) return;
+    want = null; pend = { ck: W.ck }; CHT.challenge({ sid, name: N.pl[sid].name });
+  }
+  // hall: sfide e chi guarda, pulsante "👀 Guarda gli scacchi" vicino al tavolino
+  const baseTick = CHT.tick; let wt = 0;
+  CHT.tick = (G, dt) => {
+    baseTick(G, dt);
+    if ((wt -= dt) > 0) return; wt = 0.3;
+    if (want) wantCheck();
+    const box = document.getElementById('ciack'); if (!box) return;
+    let b = document.getElementById('chWatchB');
+    if (!b) { b = document.createElement('button'); b.id = 'chWatchB'; b.className = 'btn tvHallB'; b.type = 'button'; b.hidden = true; b.textContent = '👀 Guarda gli scacchi'; b.style.bottom = '356px'; box.appendChild(b); }
+    const N = cq.net, gs = CHT.games().filter(x => !x.S.p.includes(N && N.sid)), near = cq.map === 'hotel' && typeof CQ_SALA !== 'undefined' && Math.hypot(cq.x - CQ_SALA.x, cq.y - CQ_SALA.y) < 4.2;
+    const show = !!(G && G.hall && near && gs.length && !CHT.T && cq.sit == null && cqHallFree());
+    if (b.hidden === show) b.hidden = !show;
+    b.onclick = () => { const x = gs[0]; if (x) CHT.watch(x.key); };
+  };
+  if (!document.getElementById('chsCss')) {
+    const css = document.createElement('style'); css.id = 'chsCss';
+    css.textContent = `
+.chRoot{background:radial-gradient(ellipse at 50% 40%,#34302b 0%,#262421 60%,#1a1816 100%)!important}
+.chRoot .tvX{bottom:10px;right:10px}
+.chMsg{min-height:0;font-size:13px;color:#d8d3c6;text-align:center;line-height:1.35}.chMsg:empty{display:none}
+.chMsg button{margin-left:6px;padding:4px 9px;border-radius:8px;border:none;background:#4a4640;color:#fff;font-weight:700}
+.chBtns button.chSm{flex:0 0 48px}.chBtns button.chHot{background:#81b64c;box-shadow:0 2px 0 #557a2e;animation:chHot 1s infinite}
+@keyframes chHot{50%{filter:brightness(1.2)}}
+.chBtns button:disabled{opacity:.45}
+#tvModal .chBox h4{margin:10px 0 5px;font-size:12px;color:#c9b48a;text-transform:uppercase;letter-spacing:.05em}
+.chC{display:flex;flex-wrap:wrap;gap:5px}
+#tvModal .chC button,.chRc .chC button{display:inline-block;width:auto;margin:0;padding:7px 9px;border-radius:9px;border:2px solid #6a4a2a;background:#4a3020;color:#fff;font-weight:700;font-size:13px}
+#tvModal .chC button.on,.chRc .chC button.on{border-color:#e0b84a;background:#3e8a4a}
+.chC small{opacity:.75;font-weight:600}.chAd{font-size:12px!important;opacity:.8;margin:6px 0!important}
+.chRc h4{margin:10px 0 5px;font-size:12px;opacity:.8;text-transform:uppercase}`;
+    document.head.appendChild(css);
+  }
+  return Object.assign(CHT, { pickSeated, reception, setup, ada, aiTurn, move: u => CHT.T && myMove(CHT.T, u) });
 })();

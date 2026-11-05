@@ -7,6 +7,7 @@
 window.cqTable = cfg => {
   let T = null;
   const L = { un: [], N: null, tabs: {}, ms: {}, asked: {}, acc: {}, inv: null, uiT: 0 };
+  const rule = S => typeof cfg.rule === 'function' ? cfg.rule(S) : cfg.rule;   // regola fissa o calcolata dalla sfida (cfg.rule(S))
   const P = (N, k) => `cq/${N.code}/${cfg.id}/${k}`;
   const myName = () => String(store.settings.myName || 'Io').slice(0, 14);
   function publish() { const N = cq.net; if (N && T && T.key) cqNetPut(P(N, T.key) + '/s', { m: JSON.stringify(T.S), ts: Date.now() }); }
@@ -69,6 +70,7 @@ window.cqTable = cfg => {
     const N = cq.net; if (!N) return;
     close();
     T = { key: N.sid, host: true, me: 0, S: { ph: 'inv', p: [N.sid, c.sid], n: [myName(), String(c.name || 'Amico').slice(0, 14)], ai: -1, v: 1, ts0: Date.now(), f: 1, bet: bet || 0 } };
+    if (cfg.inv) cfg.inv(T.S);   // il gioco aggiunge le sue scelte alla sfida (es. l'orologio degli scacchi)
     N.F.onDisconnect(cqNetRef(P(N, N.sid))).remove();
     publish();
     modal(`<h2>${cfg.emoji} Sfida a ${cfg.title}</h2><p>Aspetto la risposta di <b>${esc(T.S.n[1])}</b>…</p><button type="button" data-k="x">Annulla</button>`, k => { if (k === 'x' && T && T.S.ph === 'inv') close(); });
@@ -135,7 +137,7 @@ window.cqTable = cfg => {
         beep(880, 0.08, 0.04); beep(1175, 0.12, 0.04, 0.1);
         const c = cqBank().coins, poor = S.bet > 0 && c < S.bet;
         const bet = S.bet ? `<p>🪙 Posta: <b>${S.bet}</b> monete a testa, chi vince ne prende <b>${2 * S.bet}</b>.${poor ? ' Ma tu ne hai solo ' + c + '…' : ''}</p>` : '';
-        modal(`<h2>${cfg.emoji} Sfida a ${cfg.title}!</h2><p><b>${esc(S.n[0])}</b> ti sfida a ${cfg.title}${cfg.rule ? ': ' + cfg.rule : ''}.</p>${bet}` + (poor ? '<button type="button" data-k="poor">😅 Non ho abbastanza monete</button>' : `<button class="pr" type="button" data-k="ok">✅ Accetta</button><button type="button" data-k="no">❌ No</button>`), k => {
+        modal(`<h2>${cfg.emoji} Sfida a ${cfg.title}!</h2><p><b>${esc(S.n[0])}</b> ti sfida a ${cfg.title}${rule(S) ? ': ' + rule(S) : ''}.</p>${bet}` + (poor ? '<button type="button" data-k="poor">😅 Non ho abbastanza monete</button>' : `<button class="pr" type="button" data-k="ok">✅ Accetta</button><button type="button" data-k="no">❌ No</button>`), k => {
           L.inv = null; L.acc[key] = k === 'ok' ? S.ts0 : 0;
           N.F.push(cqNetRef(P(N, key) + '/a'), { s: N.sid, m: JSON.stringify({ k }) }).catch(() => {});
         });
@@ -172,7 +174,7 @@ window.cqTable = cfg => {
     const fr = cq.net ? G.chars.filter(c => c.remote && c.alive && !busyS.has(c.sid)) : [];
     const list = fr.map((c, i) => `<button type="button" data-k="f${i}">⚔️ Sfida ${esc(c.name)}</button>`).join('');
     const wl = gs.map((x, i) => `<button type="button" data-k="w${i}">👀 Guarda ${esc(x.S.n[0])} contro ${esc(x.S.n[1])}</button>`).join('');
-    modal(`<h2>${cfg.emoji} ${cfg.title}</h2>${cfg.rule ? '<p>' + cfg.rule + '</p>' : ''}${list}<button type="button" data-k="ai">🎩 ${cfg.aiName} (computer)</button>${wl}<button type="button" data-k="x">Annulla</button>`, k => {
+    modal(`<h2>${cfg.emoji} ${cfg.title}</h2>${rule({}) ? '<p>' + rule({}) + '</p>' : ''}${list}<button type="button" data-k="ai">🎩 ${cfg.aiName} (computer)</button>${wl}<button type="button" data-k="x">Annulla</button>`, k => {
       if (k === 'ai') stake(cfg.aiName, startAI);
       else if (k[0] === 'f') { const c = fr[+k.slice(1)]; if (c) stake(c.name, b => challenge(c, b)); }
       else if (k[0] === 'w') { const x = gs[+k.slice(1)]; if (x) watch(x.key); }

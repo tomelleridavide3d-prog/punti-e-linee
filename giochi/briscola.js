@@ -581,8 +581,9 @@ function modalClose() { const m = document.getElementById('bcModal'); if (m) m.r
 function pick() {
   const N = cq.net, Gm = cq.g; if (!Gm || !Gm.hall) return;
   if (window.SC && !pick.chosen) {   // Scopa (giochi/scopa.js): si sceglie il gioco prima dell'avversario
-    modal(`<h2>🃏 Carte al tavolino</h2><p>A cosa giocate?</p><button type="button" data-k="bc" class="bcPick">🃏 Briscola</button><button type="button" data-k="sc" class="bcPick">🧹 Scopa</button><button type="button" data-k="x">Annulla</button>`, k => {
-      if (k === 'bc') { pick.chosen = 1; pick(); pick.chosen = 0; } else if (k === 'sc') SC.pickSeated();
+    // Scacchi (giochi/scacchi.js, window.CHS) nella stessa scelta del tavolino
+    modal(`<h2>🎲 Giochi al tavolino</h2><p>A cosa giocate?</p><button type="button" data-k="bc" class="bcPick">🃏 Briscola</button><button type="button" data-k="sc" class="bcPick">🧹 Scopa</button>${window.CHS ? '<button type="button" data-k="ch" class="bcPick">♟️ Scacchi</button>' : ''}<button type="button" data-k="x">Annulla</button>`, k => {
+      if (k === 'bc') { pick.chosen = 1; pick(); pick.chosen = 0; } else if (k === 'sc') SC.pickSeated(); else if (k === 'ch' && window.CHS) CHS.pickSeated();
     });
     return;
   }
@@ -653,7 +654,7 @@ BC.hud = salon => {
   if (cq.net !== L.N) resub();
   L.hudT = performance.now();
   const N = cq.net, open = !!(T && (T.root || T.S.ph === 'inv')), near = Math.hypot(cq.x - CQ_SALA.x, cq.y - CQ_SALA.y) < 4.2;
-  const cb = btn('bcHallB', '🃏 Carte', pick), show = !!(salon && cq.sit != null && !open);
+  const cb = btn('bcHallB', window.CHS ? '🎲 Tavolino' : '🃏 Carte', pick), show = !!(salon && cq.sit != null && !open);
   if (cb.hidden === show) cb.hidden = !show;
   let wk = null; if (!open && near) for (const [k, t] of Object.entries(L.tabs)) { const S = parse(k, t); if (S && S.ph !== 'inv' && !S.gone && !S.p.includes(N && N.sid)) { wk = k; break; } }
   const wb = btn('bcWatchB', '👀 Guarda le carte', () => wk && watch(wk)), sw = !!wk && !!salon;
