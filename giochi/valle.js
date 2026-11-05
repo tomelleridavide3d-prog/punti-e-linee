@@ -172,8 +172,8 @@
     };
     line(RW + 13, 'rgba(40,80,30,.35)'); pools(7, 'rgba(40,80,30,.35)');      // ombra della riva
     line(RW + 8, '#d9d49c'); pools(4.5, '#d9d49c');                           // sabbia
-    line(RW, '#3f97d3'); pools(0, '#3f97d3');                                 // acqua
-    line(RW * 0.5, 'rgba(120,200,240,.55)'); pools(-12, 'rgba(120,200,240,.5)');
+    line(RW, '#3f97d3'); line(RW * 0.5, 'rgba(120,200,240,.55)');             // acqua del fiume
+    pools(0, '#3f97d3'); pools(-12, 'rgba(120,200,240,.5)');                  // laghi e sorgenti sopra (la striscia chiara finisce alla riva)
     // riflessi (lontani dai lati della tessera)
     g.strokeStyle = 'rgba(255,255,255,.7)'; g.lineWidth = 1.4; g.lineCap = 'round';
     for (const r of R) for (const s of r.segs) for (let i = 0; i < 4; i++) {

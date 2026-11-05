@@ -33,7 +33,7 @@
   };
   const MAP = [['a', 'b', 'c', 'd'], ['e', 'f', 'g', 'h'], ['i', 'j', 'k', 'l']];
   const dpr = 2, W = 412, TS = 80, ox = 6, oy = 46;
-  const H = 1330;
+  const H = 1190;
   const cv = document.getElementById('cv'); cv.width = W * dpr; cv.height = H * dpr; cv.style.width = W + 'px'; cv.style.height = H + 'px';
   const g = cv.getContext('2d'); g.scale(dpr, dpr);
   // tavolo
@@ -117,8 +117,8 @@
   g.fillStyle = '#f4ead8'; g.font = '600 15px system-ui'; g.fillText('Omini del clan', 14, Y); Y += 8;
   box(10, Y, W - 20, 96);
   const roles = [['pesca', C.rosso], ['racc', C.blu], ['pesca', C.giallo], ['racc', C.verde], ['pesca', C.viola]];
-  roles.forEach(([r, c], i) => VA.meeple(g, 40 + i * 52, Y + 78, c, r, 1.35));
-  VA.meeple(g, 316, Y + 74, C.giallo, 'cacc', 1.2);
+  roles.forEach(([r, c], i) => VA.meeple(g, 34 + i * 48, Y + 78, c, r, 1.35));
+  VA.meeple(g, 330, Y + 74, C.giallo, 'cacc', 1.2);
   g.fillStyle = '#f4ead8'; g.font = '12px system-ui'; g.globalAlpha = 0.8;
   g.fillText('pescatore, raccoglitrice, ...', 14, Y + 112); g.fillText('cacciatore sdraiato', 290, Y + 112); g.globalAlpha = 1;
   window.__img = cv.toDataURL('image/jpeg', 0.9);
