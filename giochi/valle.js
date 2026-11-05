@@ -13,7 +13,7 @@
 // ==VA ENGINE==
 // Motore della Valle dei Clan: geometria delle tessere (la stessa del disegno), mazzo, zone di ogni tessera.
 // In node: require('giochi/valle.js') restituisce il motore (senza disegni).
-(function (root) {
+(function (glob) {
   const S = 200;
   const MID = [[100, 0], [200, 100], [100, 200], [0, 100]], NRM = [[0, 1], [-1, 0], [0, -1], [1, 0]];
   const CORN = [[200, 0], [200, 200], [0, 200], [0, 0]];   // angolo alla FINE del lato (senso orario)
@@ -250,8 +250,228 @@
   const edges = (D, r) => { r = ((r % 4) + 4) % 4; return [0, 1, 2, 3].map(i => D.e[(i - r + 4) % 4]).join(''); };
   const byId = Object.fromEntries(DECK.map(d => [d.id, d]));
 
+  const VE_GAME = {};
+  // ---- LA PARTITA (regole come l'originale) ----
+  // G = { deck, sp (speciali), at {"x,y": i}, tiles [{x, y, id, r, F}], nd (zone di tutte le tessere: gid = i * 16 + j),
+  //       par/spar (unioni: zone e sistemi di fiumi+laghi), P [{ n, sc, men, huts }], cur, ph 'tile'|'meeple'|'end',
+  //       hand (tessera in mano), bon (turno della speciale), want (ambra presa in questo turno), last, ev (cose da mostrare) }
+  function rng32(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+  const MEN = 5, HUTS = 2, PTS = { cav: 2, rin: 2, bis: 2 };
+  const key = (x, y) => x + ',' + y, DX = [0, 1, 0, -1], DY = [-1, 0, 1, 0];
+  function newGame(o = {}) {
+    const R = rng32(o.seed || 1), sh = a => { for (let i = a.length - 1; i > 0; i--) { const j = (R() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a; };
+    const deck = [], sp = [];
+    for (const d of DECK) if (!d.start) for (let k = 0; k < d.n; k++) (d.sp ? sp : deck).push(d.id);
+    const n = o.n || 2;
+    const G = { seed: o.seed || 1, deck: sh(deck), sp: sh(sp), at: {}, tiles: [], nd: [], par: [], spar: [], cur: 0, ph: 'tile', hand: null, bon: false, want: false, last: -1, ev: [], turn: 0, R: (R() * 1e9) | 0,
+      P: Array.from({ length: n }, (_, i) => ({ n: (o.names || [])[i] || 'Giocatore ' + (i + 1), sc: 0, men: MEN, huts: HUTS })) };
+    putTile(G, 0, 0, 'start', 0);
+    draw(G);
+    return G;
+  }
+  const find = (par, a) => { while (par[a] !== a) { par[a] = par[par[a]]; a = par[a]; } return a; };
+  const root = (G, g) => G.nd[find(G.par, g)];
+  const sroot = (G, g) => G.nd[find(G.spar, g)];
+  function fits(G, x, y, id, r) {
+    if (G.at[key(x, y)] !== undefined) return false;
+    const e = edges(byId[id], r); let any = false;
+    for (let s = 0; s < 4; s++) {
+      const ni = G.at[key(x + DX[s], y + DY[s])]; if (ni === undefined) continue;
+      const t = G.tiles[ni]; if (edges(byId[t.id], t.r)[(s + 2) % 4] !== e[s]) return false; any = true;
+    }
+    return any;
+  }
+  function frontier(G) {
+    const out = new Set();
+    for (const t of G.tiles) for (let s = 0; s < 4; s++) { const k = key(t.x + DX[s], t.y + DY[s]); if (G.at[k] === undefined) out.add(k); }
+    return [...out].map(k => k.split(',').map(Number));
+  }
+  function spots(G, id = G.hand) {   // [{ x, y, r: [rotazioni valide] }]
+    const out = [];
+    for (const [x, y] of frontier(G)) { const rs = []; for (let r = 0; r < 4; r++) if (fits(G, x, y, id, r)) rs.push(r); if (rs.length) out.push({ x, y, r: rs }); }
+    return out;
+  }
+  function draw(G) {   // pesca: una tessera che non si puo' mettere da nessuna parte si scarta
+    for (;;) {
+      const pile = G.bon ? G.sp : G.deck;
+      if (!pile.length) { G.hand = null; return false; }
+      const id = pile.pop();
+      if (spots(G, id).length) { G.hand = id; G.ph = 'tile'; return true; }
+      G.ev.push({ t: 'discard', id });
+    }
+  }
+  function putTile(G, x, y, id, r) {
+    const i = G.tiles.length, D = byId[id], { F } = featsR(D, r);
+    G.tiles.push({ x, y, id, r, F }); G.at[key(x, y)] = i;
+    F.forEach((f, j) => {
+      const g = i * 16 + j;
+      G.par[g] = g; G.spar[g] = g;
+      G.nd[g] = { k: f.k, open: f.s ? f.s.length : 0, t: [i], amber: f.amber || 0, honey: f.honey || 0, fish: f.fish || 0, lakes: f.k === 'f' && f.lake >= 0 ? [i * 16 + f.lake] : [],
+        cav: f.cav || 0, rin: f.rin || 0, orso: f.orso || 0, bis: f.bis || 0, fire: f.fire || 0, shrine: f.shrine || 0, men: [], huts: [], done: 0, sfish: f.k === 'l' ? f.fish : 0 };
+    });
+    F.forEach((f, j) => { if (f.k === 'f' && f.lake >= 0) sunion(G, i * 16 + j, i * 16 + f.lake); });
+    const { segOf } = featsR(D, r);
+    for (let s = 0; s < 4; s++) {
+      const ni = G.at[key(x + DX[s], y + DY[s])]; if (ni === undefined) continue;
+      const nt = G.tiles[ni], ns = featsR(byId[nt.id], nt.r).segOf;
+      for (let p = 0; p < 3; p++) {
+        const a = i * 16 + segOf[s * 3 + p], b = ni * 16 + ns[((s + 2) % 4) * 3 + (2 - p)];
+        const ra = root(G, a), rb = root(G, b);
+        if (ra.k === 'b' || ra.k === 'f') { ra.open--; rb.open--; }
+        union(G, a, b);
+        if (ra.k === 'f') sunion(G, a, b);
+      }
+    }
+    return i;
+  }
+  function union(G, a, b) {
+    a = find(G.par, a); b = find(G.par, b); if (a === b) return;
+    const A = G.nd[a], B = G.nd[b]; G.par[b] = a;
+    A.open += B.open; for (const t of B.t) if (!A.t.includes(t)) A.t.push(t);
+    for (const k of ['amber', 'honey', 'cav', 'rin', 'orso', 'bis', 'fire', 'shrine']) A[k] += B[k];
+    for (const l of B.lakes) if (!A.lakes.includes(l)) A.lakes.push(l);
+    A.men.push(...B.men);
+  }
+  function sunion(G, a, b) {
+    a = find(G.spar, a); b = find(G.spar, b); if (a === b) return;
+    const A = G.nd[a], B = G.nd[b]; G.spar[b] = a; A.sfish += B.sfish; A.huts.push(...B.huts);
+  }
+  // ---- turno ----
+  function place(G, x, y, r) {
+    if (G.ph !== 'tile' || !fits(G, x, y, G.hand, r)) return false;
+    G.last = putTile(G, x, y, G.hand, r); G.hand = null; G.ph = 'meeple';
+    return true;
+  }
+  function meepleOpts(G) {   // [{ j, k: 'man'|'hut' }] sulla tessera appena messa
+    const i = G.last, P = G.P[G.cur], out = []; if (i < 0) return out;
+    G.tiles[i].F.forEach((f, j) => {
+      const g = i * 16 + j;
+      if (P.men > 0 && (f.k === 'b' || f.k === 'f' || f.k === 'p')) { const R = root(G, g); if (!R.men.length && !R.done) out.push({ j, k: 'man' }); }
+      if (P.huts > 0 && (f.k === 'f' || f.k === 'l')) { if (!sroot(G, g).huts.length) out.push({ j, k: 'hut' }); }
+    });
+    return out;
+  }
+  const winners = men => { const c = {}; for (const m of men) c[m.p] = (c[m.p] || 0) + 1; const mx = Math.max(0, ...Object.values(c)); return Object.keys(c).filter(p => c[p] === mx).map(Number); };
+  const riverPts = (G, R) => R.t.length + R.lakes.reduce((s, l) => s + G.nd[l].fish, 0);
+  const forestPts = R => 2 * R.t.length + 2 * R.honey;
+  function meadowPts(R) {
+    const orsi = R.fire ? 0 : R.orso;
+    return PTS.cav * Math.max(0, R.cav - orsi) + PTS.rin * R.rin + PTS.bis * R.bis;
+  }
+  function meeple(G, o) {   // o = { j, k } oppure null; poi si contano le zone chiuse e si passa al turno dopo
+    if (G.ph !== 'meeple') return false;
+    const i = G.last, P = G.P[G.cur];
+    if (o) {
+      if (!meepleOpts(G).some(m => m.j === o.j && m.k === o.k)) return false;
+      const g = i * 16 + o.j, f = G.tiles[i].F[o.j], m = { p: G.cur, i, j: o.j };
+      if (o.k === 'man') { if (f.k === 'p' && f.shrine) m.sh = 1; root(G, g).men.push(m); P.men--; }
+      else { sroot(G, g).huts.push(m); P.huts--; }
+      G.ev.push({ t: 'put', p: G.cur, i, j: o.j, k: o.k });
+    }
+    // zone chiuse dalla tessera
+    const seen = new Set();
+    G.tiles[i].F.forEach((f, j) => {
+      if (f.k !== 'b' && f.k !== 'f') return;
+      const rg = find(G.par, i * 16 + j); if (seen.has(rg)) return; seen.add(rg);
+      const R = G.nd[rg]; if (R.open > 0 || R.done) return;
+      R.done = 1;
+      const pts = f.k === 'b' ? forestPts(R) : riverPts(G, R), win = winners(R.men);
+      for (const p of win) G.P[p].sc += pts;
+      G.ev.push({ t: 'score', k: f.k, g: rg, pts, win, men: R.men.slice() });
+      for (const m of R.men) G.P[m.p].men++;
+      R.men = [];
+      if (f.k === 'b' && R.amber > 0 && !G.bon && G.sp.length) G.want = true;
+    });
+    next(G);
+    return true;
+  }
+  function next(G) {
+    G.last = -1; G.turn++;
+    if (G.want && !G.bon) { G.want = false; G.bon = true; if (draw(G)) { G.ev.push({ t: 'bonus', p: G.cur, id: G.hand }); return; } }
+    G.bon = false; G.want = false;
+    G.cur = (G.cur + 1) % G.P.length;
+    if (!draw(G)) finish(G);
+  }
+  function finish(G) {   // fine: fiumi e boschi aperti non valgono niente; si contano prati e palafitte
+    G.ph = 'end'; G.hand = null;
+    const seen = new Set(), sseen = new Set();
+    for (let g = 0; g < G.nd.length; g++) {
+      if (!G.nd[g]) continue;
+      const rg = find(G.par, g), R = G.nd[rg];
+      if (R.k === 'p' && R.men.length && !seen.has(rg)) {
+        seen.add(rg);
+        const sh = R.men.filter(m => m.sh), win = winners(sh.length ? sh : R.men), pts = meadowPts(R);
+        for (const p of win) G.P[p].sc += pts;
+        G.ev.push({ t: 'score', k: 'p', g: rg, pts, win, men: R.men.slice(), end: 1 });
+      }
+      if ((G.nd[g].k === 'f' || G.nd[g].k === 'l')) {
+        const sg = find(G.spar, g), S2 = G.nd[sg];
+        if (S2.huts.length && !sseen.has(sg)) { sseen.add(sg); const win = winners(S2.huts), pts = S2.sfish; for (const p of win) G.P[p].sc += pts; G.ev.push({ t: 'score', k: 'h', g: sg, pts, win, men: S2.huts.slice(), end: 1 }); }
+      }
+    }
+  }
+  // tutti gli omini sulla mappa: [{ p, i, j, k: 'man'|'hut', sh }]
+  function pieces(G) {
+    const out = [], seen = new Set(), sseen = new Set();
+    for (let g = 0; g < G.nd.length; g++) {
+      if (!G.nd[g]) continue;
+      const rg = find(G.par, g); if (!seen.has(rg)) { seen.add(rg); for (const m of G.nd[rg].men) out.push(Object.assign({ k: 'man', z: G.nd[rg].k }, m)); }
+      const sg = find(G.spar, g); if (!sseen.has(sg)) { sseen.add(sg); for (const m of G.nd[sg].huts) out.push(Object.assign({ k: 'hut' }, m)); }
+    }
+    return out;
+  }
+  // ---- copia veloce (per il computer che prova le mosse) ----
+  function clone(G) {
+    const C = Object.assign({}, G);
+    C.deck = G.deck.slice(); C.sp = G.sp.slice(); C.at = Object.assign({}, G.at); C.tiles = G.tiles.slice(); C.par = G.par.slice(); C.spar = G.spar.slice(); C.ev = [];
+    C.P = G.P.map(p => Object.assign({}, p));
+    C.nd = G.nd.map(n => n && Object.assign({}, n, { t: n.t.slice(), lakes: n.lakes.slice(), men: n.men.slice(), huts: n.huts.slice() }));
+    return C;
+  }
+  // ---- IL COMPUTER: prova ogni posto, rotazione e omino, e sceglie la mossa che lo mette meglio rispetto al piu' forte degli altri ----
+  function value(G, p) {
+    const left = G.deck.length, tot = 78, late = 1 - left / tot, P = G.P[p];
+    let v = P.sc;
+    const seen = new Set(), sseen = new Set();
+    for (let g = 0; g < G.nd.length; g++) {
+      if (!G.nd[g]) continue;
+      const rg = find(G.par, g);
+      if (!seen.has(rg)) {
+        seen.add(rg); const R = G.nd[rg];
+        if (R.men.length && !R.done) {
+          const win = winners(R.men);
+          if (win.includes(p)) {
+            if (R.k === 'p') v += meadowPts(R) * (0.75 + 0.25 * late) + 1.2 * (1 - late);
+            else {
+              const pc = clamp(0.9 - 0.13 * R.open, 0.05, 0.9) * clamp(left / (R.open * 4 + 1), 0, 1);
+              v += (R.k === 'b' ? forestPts(R) + (R.amber ? 3 : 0) : riverPts(G, R)) * pc;
+            }
+          }
+        }
+      }
+      const nd = G.nd[g];
+      if (nd.k === 'f' || nd.k === 'l') { const sg = find(G.spar, g); if (!sseen.has(sg)) { sseen.add(sg); const S2 = G.nd[sg]; if (S2.huts.length && winners(S2.huts).includes(p)) v += S2.sfish * (0.85 + 0.15 * late) + 1.5 * (1 - late); } }
+    }
+    v += P.men * (1.6 * (1 - late) + 0.2) + P.huts * (2.2 * (1 - late));
+    return v;
+  }
+  function utility(G, p) { let best = -1e9; for (let q = 0; q < G.P.length; q++) if (q !== p) best = Math.max(best, value(G, q)); return value(G, p) - best; }
+  function aiMove(G, opt = {}) {   // opt: { noise (0 = perfetto), seed }
+    const p = G.cur, R = rng32((opt.seed || 7) + G.turn * 131), noise = opt.noise || 0, all = [];
+    for (const s of spots(G)) for (const r of s.r) {
+      const C = clone(G); place(C, s.x, s.y, r);
+      const ms = [null, ...meepleOpts(C)];
+      for (const m of ms) { const C2 = ms.length > 1 ? clone(C) : C; meeple(C2, m); all.push({ x: s.x, y: s.y, r, m, u: utility(C2, p) + (noise ? (R() - 0.5) * noise : 0) }); }
+    }
+    all.sort((a, b) => b.u - a.u);
+    return all[0];
+  }
+
+  Object.assign(VE_GAME, { newGame, fits, spots, place, meepleOpts, meeple, pieces, clone, aiMove, value, utility, root, sroot, find, frontier, draw, rng32, meadowPts, riverPts, forestPts, winners, MEN, HUTS });
+
   const VE = { S, MID, NRM, CORN, RW, RB, clamp, hash, fbm, rp, rotDef, zoneF, forestF, lakeOf, rivers, bez, bezA, waterPts, nearWater, segDist, DECK, REF, canon, feats, featsR, edges, byId };
-  root.VE = VE;
+  Object.assign(VE, VE_GAME);
+  glob.VE = VE;
   if (typeof module !== 'undefined' && module.exports) module.exports = VE;
 })(typeof window !== 'undefined' ? window : globalThis);
 // ==END VA ENGINE==
@@ -692,4 +912,332 @@ if (typeof document !== 'undefined') (() => {
 
   const COLORS = { rosso: '#d8453a', blu: '#3a78d6', giallo: '#f0bf2c', verde: '#3fa24c', viola: '#8e5bd0' };
   window.VA = { S, tile, animal, amber, fish, meeple, hut, rotDef, forestF, COLORS, shade };
+})();
+
+// ==== LA VALLE DEI CLAN: schermo di gioco (window.VG) ====
+// Mappa su un canvas che si ridisegna SOLO quando cambia qualcosa (niente requestAnimationFrame sempre acceso:
+// il giro di disegno parte per le animazioni e si ferma da solo). Un dito trascina, due dita ingrandiscono.
+if (typeof document !== 'undefined') (() => {
+  const E = window.VE, A = window.VA, TB = 224;   // misura delle tessere in cache
+  const COL = [A.COLORS.rosso, A.COLORS.blu, A.COLORS.giallo, A.COLORS.verde, A.COLORS.viola];
+  const AIN = ['Nonna Selce', 'Zio Tuono', 'Piccola Lince', 'Vecchio Gufo'];
+  const LEVELS = [{ n: 'Principiante', noise: 30 }, { n: 'Facile', noise: 15 }, { n: 'Medio', noise: 6 }, { n: 'Difficile', noise: 0 }];
+  let U = null;
+
+  const css = `
+  #vgRoot{position:fixed;inset:0;z-index:90;background:radial-gradient(ellipse at 50% 40%,#4a3a2a,#1b140e);color:#f4ead8;font:15px system-ui,sans-serif;touch-action:none;user-select:none;-webkit-user-select:none;overflow:hidden}
+  #vgRoot canvas.map{position:absolute;inset:0;width:100%;height:100%}
+  #vgTop{position:absolute;left:0;right:0;top:0;display:flex;gap:5px;padding:8px 8px 0;pointer-events:none}
+  .vgP{flex:1 1 0;min-width:0;display:flex;align-items:center;gap:4px;background:rgba(20,14,8,.74);border:2px solid transparent;border-radius:12px;padding:3px 7px 3px 3px;transition:border-color .25s,transform .25s}
+  .vgP>div{min-width:0;flex:1}
+  .vgP.on{border-color:#ffd970;transform:translateY(1px)}
+  .vgP canvas{width:20px;height:27px;flex:none}
+  .vgP b{font-size:17px;text-align:right;flex:none}
+  .vgP .nm{font-size:12px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .vgP .st{font-size:11px;opacity:.8;white-space:nowrap;display:flex;align-items:center;gap:2px}
+  .vgP .st i{display:inline-block;width:10px;height:13px;background-size:contain;background-repeat:no-repeat;background-position:center;margin-right:3px}
+  .vgP.bump b{animation:vgB .5s}
+  @keyframes vgB{40%{transform:scale(1.5);color:#ffe27a}}
+  #vgLeft{position:absolute;left:50%;transform:translateX(-50%);bottom:104px;background:rgba(20,14,8,.66);border-radius:10px;padding:3px 10px;font-size:12px;opacity:.9;pointer-events:none}
+  #vgBot{position:absolute;left:8px;right:8px;bottom:8px;display:flex;align-items:center;gap:10px;background:rgba(20,14,8,.82);border-radius:16px;padding:8px;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+  #vgHand{width:76px;height:76px;flex:none;border-radius:6px;box-shadow:0 3px 10px rgba(0,0,0,.6);transition:transform .25s}
+  #vgMsg{flex:1;font-size:14px;line-height:1.3}
+  #vgMsg small{display:block;opacity:.7;font-size:12px;margin-top:2px}
+  .vgBtns{display:flex;flex-direction:column;gap:6px}
+  .vgBtn{background:#e9c46a;color:#2a1c0c;border:0;border-radius:11px;padding:9px 13px;font:600 14px system-ui;min-width:96px}
+  .vgBtn.alt{background:rgba(255,255,255,.14);color:#f4ead8}
+  .vgBtn:disabled{opacity:.35}
+  #vgToast{position:absolute;left:50%;top:22%;transform:translate(-50%,-10px);background:rgba(20,14,8,.88);border:2px solid #ffd970;border-radius:14px;padding:10px 16px;font:600 16px system-ui;opacity:0;transition:opacity .3s,transform .3s;pointer-events:none;text-align:center}
+  #vgToast.on{opacity:1;transform:translate(-50%,0)}
+  #vgPanel{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(10,7,4,.55)}
+  #vgPanel .box{background:#2c2118;border-radius:18px;padding:18px;width:min(340px,88vw);box-shadow:0 10px 40px rgba(0,0,0,.6)}
+  #vgPanel h2{margin:0 0 4px;font-size:22px}
+  #vgPanel p{margin:4px 0 14px;opacity:.75;font-size:13px}
+  .vgD{background:rgba(255,255,255,.08);border-radius:12px;margin:8px 0}
+  .vgD summary{list-style:none;padding:11px 13px;display:flex;justify-content:space-between;font-weight:600}
+  .vgD summary::-webkit-details-marker{display:none}
+  .vgD summary span{opacity:.8;font-weight:400}
+  .vgD .opts{display:flex;flex-wrap:wrap;gap:6px;padding:0 10px 10px}
+  .vgD .opts button{background:rgba(255,255,255,.12);color:#f4ead8;border:0;border-radius:9px;padding:8px 11px;font:14px system-ui}
+  .vgD .opts button.on{background:#e9c46a;color:#2a1c0c;font-weight:600}
+  .vgRes{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
+  .vgRes b{margin-left:auto;font-size:18px}
+  #vgClose{position:absolute;right:10px;bottom:104px;background:rgba(20,14,8,.72);color:#f4ead8;border:0;border-radius:10px;padding:6px 10px;font:13px system-ui}
+  `;
+
+  // ---- piccola tela con l'omino di un colore (per le barre dei giocatori) ----
+  let ICO = null;
+  function icons() {
+    if (ICO) return ICO;
+    const mk = f => { const c = document.createElement('canvas'); c.width = 40; c.height = 52; const g = c.getContext('2d'); f(g); return c.toDataURL(); };
+    ICO = { m: mk(g => A.meeple(g, 18, 47, '#d8cbb4', 'racc', 0.95)), h: mk(g => A.hut(g, 20, 48, '#d8cbb4', 0.9)) };
+    return ICO;
+  }
+  function chip(col) { const c = document.createElement('canvas'); c.width = 44; c.height = 60; const g = c.getContext('2d'); g.scale(1.15, 1.15); A.meeple(g, 19, 48, col, 'racc', 0.95); return c; }
+
+  function start(opt = {}) {
+    if (!document.getElementById('vgCss')) { const s = document.createElement('style'); s.id = 'vgCss'; s.textContent = css; document.head.appendChild(s); }
+    if (U) U.root.remove();
+    const root = document.createElement('div'); root.id = 'vgRoot';
+    root.innerHTML = '<canvas class="map"></canvas><div id="vgTop"></div><div id="vgLeft"></div><div id="vgToast"></div>' +
+      '<div id="vgBot"><canvas id="vgHand" width="152" height="152"></canvas><div id="vgMsg"></div><div class="vgBtns"><button class="vgBtn" id="vgOk"></button><button class="vgBtn alt" id="vgAlt"></button></div></div>';
+    document.body.appendChild(root);
+    U = { root, cv: root.querySelector('canvas.map'), opt, G: null, cam: { x: 0.5, y: 0.5, z: 110 }, sel: null, mo: null, mopts: [], fl: [], evI: 0, busy: false, raf: 0, dirty: true, t0: performance.now() };
+    U.g = U.cv.getContext('2d');
+    addEventListener('resize', resize); resize();
+    touch();
+    root.querySelector('#vgOk').onclick = () => ok();
+    root.querySelector('#vgAlt').onclick = () => alt();
+    setup();
+  }
+
+  // ---- scelte prima della partita (tendine, una aperta alla volta) ----
+  function setup() {
+    const S = U.set = U.set || { n: 1, lv: 2 };
+    const p = panel(`<h2>La Valle dei Clan</h2><p>Metti le tessere, manda i tuoi omini nei boschi, nei fiumi e nei prati.</p>
+      <details class="vgD" data-k="n"><summary>Avversari <span></span></summary><div class="opts"></div></details>
+      <details class="vgD" data-k="lv"><summary>Livello <span></span></summary><div class="opts"></div></details>
+      <button class="vgBtn" style="width:100%;margin-top:10px" id="vgGo">Gioca</button>`);
+    const fill = () => p.querySelectorAll('.vgD').forEach(d => {
+      const k = d.dataset.k, vals = k === 'n' ? [1, 2, 3, 4] : [0, 1, 2, 3], lab = v => k === 'n' ? (v === 1 ? '1 computer' : v + ' computer') : LEVELS[v].n;
+      d.querySelector('summary span').textContent = lab(S[k]);
+      d.querySelector('.opts').innerHTML = vals.map(v => `<button data-v="${v}" class="${v === S[k] ? 'on' : ''}">${lab(v)}</button>`).join('');
+      d.querySelectorAll('.opts button').forEach(b => b.onclick = () => { S[k] = +b.dataset.v; d.open = false; fill(); });
+    });
+    p.querySelectorAll('.vgD').forEach(d => d.addEventListener('toggle', () => { if (d.open) p.querySelectorAll('.vgD').forEach(o => { if (o !== d) o.open = false; }); }));
+    fill();
+    p.querySelector('#vgGo').onclick = () => { closePanel(); newGame(); };
+  }
+  function panel(html) { closePanel(); const d = document.createElement('div'); d.id = 'vgPanel'; d.innerHTML = '<div class="box">' + html + '</div>'; U.root.appendChild(d); return d; }
+  function closePanel() { const d = U.root.querySelector('#vgPanel'); if (d) d.remove(); }
+
+  function newGame() {
+    const n = U.set.n + 1, names = [U.opt.name || 'Tu', ...AIN.slice(0, n - 1)];
+    U.G = E.newGame({ n, seed: (Math.random() * 1e9) | 0, names });
+    U.ai = [false, ...Array(n - 1).fill(true)];
+    U.evI = U.G.ev.length; U.sel = null; U.mo = null; U.fl = []; U.cam = { x: 0.5, y: 0.5, z: Math.min(130, Math.min(U.W, U.H) / 4.2) };
+    bars(); flow();
+  }
+
+  // ---- giro della partita ----
+  function flow() {
+    const G = U.G; U.sel = null; U.mo = null; U.mopts = [];
+    eventsShow();
+    bars();
+    if (G.ph === 'end') { setTimeout(results, 1400); hand(null); msg('Fine della partita', 'Si contano i prati e le palafitte'); buttons(); redraw(); return; }
+    hand(G.hand, 0);
+    if (U.ai[G.cur]) {
+      msg(G.P[G.cur].n + ' sta pensando…', G.bon ? 'Tessera speciale' : ''); buttons(); redraw();
+      U.busy = true;
+      setTimeout(() => {
+        const m = E.aiMove(G, { noise: LEVELS[U.set.lv].noise, seed: G.seed });
+        U.sel = { x: m.x, y: m.y, rs: [m.r], ri: 0, ai: 1, t: performance.now() }; hand(G.hand, m.r); redraw();
+        setTimeout(() => {
+          E.place(G, m.x, m.y, m.r); U.sel = null; follow(m.x, m.y);
+          setTimeout(() => { E.meeple(G, m.m); U.busy = false; flow(); }, m.m ? 520 : 260);
+          redraw();
+        }, 650);
+      }, 550 + Math.random() * 350);
+      return;
+    }
+    U.busy = false;
+    U.spots = E.spots(G);
+    msg(G.bon ? 'Tessera speciale!' : 'Tocca a te', 'Tocca un posto illuminato'); buttons(); redraw();
+  }
+  function msg(a, b) { U.root.querySelector('#vgMsg').innerHTML = a + (b ? '<small>' + b + '</small>' : ''); }
+  function buttons() {
+    const ok = U.root.querySelector('#vgOk'), al = U.root.querySelector('#vgAlt'), G = U.G;
+    const mine = G && !U.ai[G.cur] && !U.busy && G.ph !== 'end';
+    ok.style.display = al.style.display = mine ? '' : 'none';
+    if (!mine) return;
+    if (G.ph === 'tile') { ok.textContent = 'Conferma'; ok.disabled = !U.sel; al.textContent = 'Gira'; al.disabled = !U.sel || U.sel.rs.length < 2; }
+    else { ok.textContent = U.mo ? (U.mo.k === 'hut' ? 'Metti la palafitta' : 'Metti l\'omino') : 'Avanti'; ok.disabled = false; al.textContent = 'Nessuno'; al.disabled = !U.mo; }
+  }
+  function ok() {
+    const G = U.G; if (U.busy || U.ai[G.cur]) return;
+    if (G.ph === 'tile' && U.sel) {
+      const s = U.sel; E.place(G, s.x, s.y, s.rs[s.ri]); U.sel = null; hand(null);
+      U.mopts = E.meepleOpts(G); U.mo = null;
+      if (!U.mopts.length) { E.meeple(G, null); flow(); return; }
+      msg('Vuoi mettere un omino?', 'Tocca un cerchio sulla tessera, oppure Avanti'); buttons(); redraw();
+    } else if (G.ph === 'meeple') { E.meeple(G, U.mo); flow(); }
+  }
+  function alt() {
+    const G = U.G; if (U.busy) return;
+    if (G.ph === 'tile' && U.sel) { U.sel.ri = (U.sel.ri + 1) % U.sel.rs.length; hand(G.hand, U.sel.rs[U.sel.ri]); redraw(); }
+    else if (G.ph === 'meeple') { U.mo = null; buttons(); redraw(); }
+  }
+  function tapAt(sx, sy) {
+    const G = U.G; if (!G || U.busy || U.ai[G.cur] || G.ph === 'end') return;
+    const [wx, wy] = toWorld(sx, sy), tx = Math.floor(wx), ty = Math.floor(wy);
+    if (G.ph === 'tile') {
+      if (U.sel && U.sel.x === tx && U.sel.y === ty) { alt(); return; }
+      const s = U.spots.find(s => s.x === tx && s.y === ty);
+      if (s) { U.sel = { x: tx, y: ty, rs: s.r, ri: 0 }; hand(G.hand, s.r[0]); msg('Gira o conferma', s.r.length > 1 ? 'Tocca ancora la tessera per girarla' : 'Va bene solo cosi\''); buttons(); redraw(); }
+    } else if (G.ph === 'meeple') {
+      const t = G.tiles[G.last]; let best = null, bd = 0.2;
+      for (const o of U.mopts) { const p = optPt(t, o), d = Math.hypot(wx - t.x - p[0] / 200, wy - t.y - p[1] / 200); if (d < bd) { bd = d; best = o; } }
+      if (best) { U.mo = U.mo && U.mo.j === best.j && U.mo.k === best.k ? null : best; buttons(); redraw(); }
+    }
+  }
+  const optPt = (t, o) => { const p = t.F[o.j].pt; return o.k === 'hut' && t.F[o.j].k === 'f' ? [p[0] + 14, p[1] + 10] : p; };
+
+  // ---- barre dei giocatori ----
+  function bars() {
+    const G = U.G, top = U.root.querySelector('#vgTop'); if (!G) { top.innerHTML = ''; return; }
+    if (top.children.length !== G.P.length) {
+      top.innerHTML = '';
+      G.P.forEach((p, i) => { const d = document.createElement('div'); d.className = 'vgP'; d.appendChild(chip(COL[i])); d.insertAdjacentHTML('beforeend', '<div><div class="nm"></div><div class="st"></div></div><b>0</b>'); top.appendChild(d); });
+    }
+    G.P.forEach((p, i) => {
+      const d = top.children[i], b = d.querySelector('b');
+      d.classList.toggle('on', i === G.cur && G.ph !== 'end');
+      d.querySelector('.nm').textContent = p.n;
+      const I = icons(); d.querySelector('.st').innerHTML = p.men + '<i style="background-image:url(' + I.m + ')"></i>' + p.huts + '<i style="background-image:url(' + I.h + ')"></i>';
+      if (+b.textContent !== p.sc) { b.textContent = p.sc; d.classList.remove('bump'); void d.offsetWidth; d.classList.add('bump'); }
+    });
+    U.root.querySelector('#vgLeft').textContent = G.deck.length + (G.deck.length === 1 ? ' tessera' : ' tessere') + ' nel mazzo';
+  }
+  function hand(id, r) {
+    const c = U.root.querySelector('#vgHand'), g = c.getContext('2d'); g.clearRect(0, 0, 152, 152);
+    c.style.visibility = id ? 'visible' : 'hidden'; if (!id) return;
+    g.drawImage(A.tile(E.byId[id], r || 0, 152), 0, 0);
+  }
+  function toast(t, ms = 1800) { const d = U.root.querySelector('#vgToast'); d.textContent = t; d.classList.add('on'); clearTimeout(U.tt); U.tt = setTimeout(() => d.classList.remove('on'), ms); }
+
+  // ---- cose successe: punti che volano, speciali ----
+  const NAMEK = { b: 'Bosco chiuso', f: 'Fiume chiuso', p: 'Prato', h: 'Palafitta' };
+  function eventsShow() {
+    const G = U.G;
+    for (; U.evI < G.ev.length; U.evI++) {
+      const e = G.ev[U.evI];
+      if (e.t === 'score') {
+        const i = (e.g / 16) | 0, j = e.g % 16, t = G.tiles[i], p = t.F[j].pt;
+        U.fl.push({ x: t.x + p[0] / 200, y: t.y + p[1] / 200, txt: (e.win.length ? '+' + e.pts : '0'), sub: NAMEK[e.k], col: e.win.length ? COL[e.win[0]] : '#aaa', t: performance.now() + (e.end ? (U.fl.length * 700) : 0) });
+      } else if (e.t === 'bonus') toast('Ambra! ' + G.P[e.p].n + ' pesca una tessera speciale');
+    }
+    if (U.fl.length) loop();
+  }
+  function results() {
+    const G = U.G, ord = G.P.map((p, i) => ({ p, i })).sort((a, b) => b.p.sc - a.p.sc);
+    const won = ord[0].i === 0 || ord[0].p.sc === G.P[0].sc;
+    const p = panel(`<h2>${won ? 'Hai vinto!' : ord[0].p.n + ' vince'}</h2><p>La valle e' completa.</p>` +
+      ord.map(o => `<div class="vgRes"><canvas width="44" height="60" style="width:22px;height:30px"></canvas>${o.p.n}<b>${o.p.sc}</b></div>`).join('') +
+      '<button class="vgBtn" style="width:100%;margin-top:14px" id="vgAgain">Rivincita</button><button class="vgBtn alt" style="width:100%;margin-top:8px" id="vgSet">Cambia scelte</button>');
+    p.querySelectorAll('.vgRes canvas').forEach((c, k) => { const g = c.getContext('2d'); g.scale(1.15, 1.15); A.meeple(g, 19, 48, COL[ord[k].i], 'racc', 0.95); });
+    p.querySelector('#vgAgain').onclick = () => { closePanel(); newGame(); };
+    p.querySelector('#vgSet').onclick = () => setup();
+  }
+
+  // ---- mappa ----
+  function resize() { const d = Math.min(3, devicePixelRatio || 1); U.dpr = d; U.W = innerWidth; U.H = innerHeight; U.cv.width = U.W * d; U.cv.height = U.H * d; redraw(); }
+  const toScreen = (wx, wy) => [U.W / 2 + (wx - U.cam.x) * U.cam.z, U.H / 2 - 40 + (wy - U.cam.y) * U.cam.z];
+  const toWorld = (sx, sy) => [U.cam.x + (sx - U.W / 2) / U.cam.z, U.cam.y + (sy - U.H / 2 + 40) / U.cam.z];
+  function follow(x, y) {   // tiene in vista la tessera appena messa
+    const [sx, sy] = toScreen(x + 0.5, y + 0.5), m = U.cam.z * 0.7;
+    if (sx < m || sx > U.W - m || sy < 70 + m || sy > U.H - 110 - m) { U.cam.x += (x + 0.5 - U.cam.x) * 0.6; U.cam.y += (y + 0.5 - U.cam.y) * 0.6; }
+  }
+  function redraw() { U.dirty = true; loop(); }
+  function loop() { if (!U.raf) U.raf = requestAnimationFrame(frame); }
+  function frame(now) {
+    U.raf = 0;
+    const anim = render(now);
+    if (anim) loop();
+  }
+  function render(now) {
+    const g = U.g, d = U.dpr, z = U.cam.z, G = U.G;
+    g.setTransform(d, 0, 0, d, 0, 0); g.clearRect(0, 0, U.W, U.H);
+    if (!G) return false;
+    let anim = false;
+    const k = z / 200, tileT = (x, y) => { const [sx, sy] = toScreen(x, y); g.setTransform(d * k, 0, 0, d * k, sx * d, sy * d); };
+    // ombra sotto le tessere
+    g.save(); g.shadowColor = 'rgba(0,0,0,.5)'; g.shadowBlur = 14 * d; g.shadowOffsetY = 4 * d; g.fillStyle = '#000';
+    for (const t of G.tiles) { const [sx, sy] = toScreen(t.x, t.y); if (sx > U.W || sy > U.H || sx + z < 0 || sy + z < 0) continue; g.fillRect(sx + 1, sy + 1, z - 2, z - 2); }
+    g.restore();
+    for (const t of G.tiles) {
+      const [sx, sy] = toScreen(t.x, t.y); if (sx > U.W || sy > U.H || sx + z < 0 || sy + z < 0) continue;
+      g.drawImage(A.tile(E.byId[t.id], t.r, TB), sx, sy, z + 0.6, z + 0.6);
+    }
+    g.strokeStyle = 'rgba(0,0,0,.10)'; g.lineWidth = 0.7;
+    for (const t of G.tiles) { const [sx, sy] = toScreen(t.x, t.y); g.strokeRect(sx + 0.35, sy + 0.35, z - 0.7, z - 0.7); }
+    // posti illuminati (turno mio)
+    const pulse = 0.5 + 0.5 * Math.sin(now / 380);
+    if (G.ph === 'tile' && !U.ai[G.cur] && U.spots && !U.busy) {
+      for (const s of U.spots) {
+        if (U.sel && U.sel.x === s.x && U.sel.y === s.y) continue;
+        const [sx, sy] = toScreen(s.x, s.y);
+        g.save(); g.shadowColor = 'rgba(255,214,90,.9)'; g.shadowBlur = 12 * d;
+        g.fillStyle = `rgba(255,226,120,${0.1 + 0.08 * pulse})`; g.beginPath(); g.roundRect(sx + z * 0.06, sy + z * 0.06, z * 0.88, z * 0.88, z * 0.1); g.fill();
+        g.setLineDash([z * 0.09, z * 0.06]); g.strokeStyle = 'rgba(255,222,110,.95)'; g.lineWidth = 2; g.stroke(); g.restore();
+      }
+      anim = true;
+    }
+    // tessera scelta (mia o del computer)
+    if (U.sel && G.hand) {
+      const s = U.sel, [sx, sy] = toScreen(s.x, s.y), r = s.rs[s.ri];
+      const a = s.ai ? Math.min(1, (now - s.t) / 300) : 1, sc = s.ai ? 0.85 + 0.15 * a : 1;
+      g.save(); g.globalAlpha = a; g.shadowColor = 'rgba(255,214,90,.95)'; g.shadowBlur = 18 * d;
+      const w = z * sc, o = (z - w) / 2;
+      g.drawImage(A.tile(E.byId[G.hand], r, TB), sx + o, sy + o, w, w); g.restore();
+      g.strokeStyle = '#ffd970'; g.lineWidth = 2.5; g.strokeRect(sx + o, sy + o, w, w);
+      if (a < 1) anim = true;
+      if (!s.ai && s.rs.length > 1) { g.fillStyle = 'rgba(20,14,8,.7)'; g.beginPath(); g.arc(sx + z - 14, sy + 14, 11, 0, Math.PI * 2); g.fill(); g.strokeStyle = '#ffd970'; g.lineWidth = 2; g.beginPath(); g.arc(sx + z - 14, sy + 14, 6, -2.4, 1.9); g.stroke(); g.beginPath(); g.moveTo(sx + z - 14 + 6 * Math.cos(1.9) + 3, sy + 14 + 6 * Math.sin(1.9) - 1); g.lineTo(sx + z - 14 + 6 * Math.cos(1.9), sy + 14 + 6 * Math.sin(1.9)); g.lineTo(sx + z - 14 + 6 * Math.cos(1.9) - 1, sy + 14 + 6 * Math.sin(1.9) - 4); g.stroke(); }
+    }
+    // omini e palafitte
+    const P = E.pieces(G).sort((a, b) => (G.tiles[a.i].y - G.tiles[b.i].y) || (G.tiles[a.i].F[a.j].pt[1] - G.tiles[b.i].F[b.j].pt[1]));
+    for (const m of P) {
+      const t = G.tiles[m.i], f = t.F[m.j], p = optPt(t, m); tileT(t.x, t.y);
+      if (m.k === 'hut') A.hut(g, p[0], p[1] + 14, COL[m.p], 1.05);
+      else A.meeple(g, p[0], p[1] + 16, COL[m.p], f.k === 'p' ? 'cacc' : f.k === 'b' ? 'racc' : 'pesca', 1.05);
+    }
+    // scelta dell'omino sulla tessera appena messa
+    if (G.ph === 'meeple' && !U.ai[G.cur]) {
+      const t = G.tiles[G.last];
+      for (const o of U.mopts) {
+        const p = optPt(t, o), on = U.mo && U.mo.j === o.j && U.mo.k === o.k; tileT(t.x, t.y);
+        if (on) { o.k === 'hut' ? A.hut(g, p[0], p[1] + 14, COL[G.cur], 1.05) : A.meeple(g, p[0], p[1] + 16, COL[G.cur], t.F[o.j].k === 'p' ? 'cacc' : t.F[o.j].k === 'b' ? 'racc' : 'pesca', 1.05); continue; }
+        g.fillStyle = `rgba(255,255,255,${0.55 + 0.25 * pulse})`; g.strokeStyle = COL[G.cur]; g.lineWidth = 5;
+        g.beginPath(); g.arc(p[0], p[1], 19, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.save(); g.globalAlpha = 0.75; o.k === 'hut' ? A.hut(g, p[0], p[1] + 9, COL[G.cur], 0.55) : A.meeple(g, p[0] - 1, p[1] + 11, COL[G.cur], 'racc', 0.6); g.restore();
+      }
+      anim = true;
+    }
+    // punti che volano
+    g.setTransform(d, 0, 0, d, 0, 0);
+    U.fl = U.fl.filter(f => now - f.t < 1700);
+    for (const f of U.fl) {
+      const a = (now - f.t) / 1700; if (a < 0) { anim = true; continue; }
+      const [sx, sy] = toScreen(f.x, f.y), y = sy - 18 - a * 46;
+      g.globalAlpha = a < 0.8 ? 1 : (1 - a) / 0.2;
+      g.font = '800 26px system-ui'; g.textAlign = 'center'; g.lineWidth = 5; g.strokeStyle = 'rgba(20,14,8,.85)'; g.strokeText(f.txt, sx, y); g.fillStyle = f.col; g.fillText(f.txt, sx, y);
+      g.font = '600 12px system-ui'; g.lineWidth = 4; g.strokeText(f.sub, sx, y + 16); g.fillStyle = '#fff'; g.fillText(f.sub, sx, y + 16);
+      g.globalAlpha = 1; g.textAlign = 'left'; anim = true;
+    }
+    return anim;
+  }
+
+  // ---- gesti: un dito trascina, due ingrandiscono, tocco = scelta ----
+  function touch() {
+    const pts = new Map(); let moved = 0, last = null, pinch = null;
+    const cv = U.cv;
+    cv.addEventListener('pointerdown', e => { cv.setPointerCapture(e.pointerId); pts.set(e.pointerId, [e.clientX, e.clientY]); if (pts.size === 1) { moved = 0; last = [e.clientX, e.clientY]; } if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch = { d: Math.hypot(a[0] - b[0], a[1] - b[1]), z: U.cam.z }; moved = 99; } });
+    cv.addEventListener('pointermove', e => {
+      if (!pts.has(e.pointerId)) return; pts.set(e.pointerId, [e.clientX, e.clientY]);
+      if (pts.size === 2 && pinch) {
+        const [a, b] = [...pts.values()], dd = Math.hypot(a[0] - b[0], a[1] - b[1]), mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2;
+        const [wx, wy] = toWorld(mx, my); U.cam.z = E.clamp(pinch.z * dd / pinch.d, 45, 260);
+        const [nx, ny] = toWorld(mx, my); U.cam.x += wx - nx; U.cam.y += wy - ny; redraw(); return;
+      }
+      if (pts.size === 1 && last) {
+        const dx = e.clientX - last[0], dy = e.clientY - last[1]; moved += Math.abs(dx) + Math.abs(dy);
+        if (moved > 8) { U.cam.x -= dx / U.cam.z; U.cam.y -= dy / U.cam.z; redraw(); }
+        last = [e.clientX, e.clientY];
+      }
+    });
+    const up = e => { if (!pts.has(e.pointerId)) return; pts.delete(e.pointerId); if (pts.size < 2) pinch = null; if (!pts.size) { if (moved <= 8) tapAt(e.clientX, e.clientY); last = null; } else last = [...pts.values()][0]; };
+    cv.addEventListener('pointerup', up); cv.addEventListener('pointercancel', up);
+    cv.addEventListener('wheel', e => { e.preventDefault(); const [wx, wy] = toWorld(e.clientX, e.clientY); U.cam.z = E.clamp(U.cam.z * (e.deltaY < 0 ? 1.12 : 0.89), 45, 260); const [nx, ny] = toWorld(e.clientX, e.clientY); U.cam.x += wx - nx; U.cam.y += wy - ny; redraw(); }, { passive: false });
+  }
+
+  window.VG = { start, get U() { return U; }, tapAt, ok, alt, toScreen };
 })();
