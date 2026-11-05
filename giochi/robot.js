@@ -6,7 +6,7 @@
 // chi atterra a pancia in su resta indifeso e poi si raddrizza con un colpo di molla. I pezzi colpiti si rompono e quello che resta
 // attaccato solo a loro cade a terra. BANCO DI PROVA: guidi nello scantinato con un manichino da buttare nella fossa o fare a pezzi.
 (() => {
-  const W = 36, H = 36, ARX = 18, ARY = 18, ARR = 11, AX0 = ARX - ARR, AX1 = ARX + ARR, AY0 = ARY - ARR, AY1 = ARY + ARR;   // la discarica: radura rotonda (centro ARX, ARY, raggio ARR) fra i cumuli
+  const W = 56, H = 56, ARX = 28, ARY = 28, ARR = 11, AX0 = ARX - ARR, AX1 = ARX + ARR, AY0 = ARY - ARR, AY1 = ARY + ARR;   // la discarica: radura rotonda (centro ARX, ARY, raggio ARR) fra i cumuli
   const B = 0.8, RB = 0.43, BS = B / 0.5, GN = 7, GC = 3, MAXW = 45, GRAV = 16;   // un blocco = 0,8 caselle; BS = scala del disegno dei pezzi (disegnati per 0,5)
   const PIT = null;
   const RT = 90;   // durata di un round (s)
@@ -26,16 +26,17 @@
     cannone: { n: 'Cannone', w: 2, hp: 8, dir: 1, top: 1, wpn: 'tap', cd: 2.2, d: 'Spara lontano e spinge… anche te all\'indietro (il rinculo ti fa girare se è di lato!). Va sopra un telaio (o da solo).' },
     fiamma: { n: 'Fiamma', w: 1, hp: 6, dir: 1, top: 1, wpn: 'hold', d: 'Tieni premuto: getto di fuoco corto che brucia i pezzi. Il gas finisce e si ricarica. Va sopra un telaio (o da sola).' },
     taser: { n: 'Taser', w: 1.5, hp: 8, dir: 1, top: 1, wpn: 'tap', cd: 4, d: 'Scarica elettrica corta davanti: BLOCCA LE RUOTE di chi prende per 1,5 s (non scappa e non spinge). Si ricarica in 4 s. Va sopra un telaio (o da solo).' },
-    razzo: { n: 'Razzi', lb: 'Razzi', w: 2, hp: 8, dir: 1, top: 1, wpn: 'tap', cd: 1, am: 2, d: '2 razzi per round: partono piano, accelerano e INSEGUONO un po\' il bersaglio; esplodono e colpiscono più pezzi insieme, spingendo via.' },
+    razzo: { n: 'Torretta lanciarazzi', lb: 'Razzi', w: 2.5, hp: 10, top: 1, wpn: 'tap', cd: 1.6, am: 4, d: 'Torretta militare che GIRA DA SOLA verso il nemico: ogni tocco spara 2 razzi a parabola che lo inseguono e gli ricadono addosso dall\'alto. 4 razzi per round. Contro i razzi servono i Flare.' },
+    flare: { n: 'Flare', w: 1, hp: 6, top: 1, wpn: 'tap', cd: 1.5, am: 2, d: 'Contromisura contro i razzi: tocca 🎆 e lanci una pioggia di flare accesi per 1,5 s. Un razzo che ti arriva vicino mentre sono accesi ha il 60% di farsi ingannare: conta il TEMPISMO (né troppo presto né troppo tardi). 2 lanci per round.' },
     dischi: { n: 'Lanciadischi', lb: 'Dischi', w: 2, hp: 10, dir: 1, top: 1, wpn: 'tap', cd: 2, d: 'Spara una lama rotante che RIMBALZA sui rottami e sui robot (fino a 4 volte): puoi colpire di sponda.' },
     mina: { n: 'Mine', lb: 'Mine', w: 1.5, hp: 8, dir: 1, top: 1, wpn: 'tap', cd: 0.8, am: 3, d: '3 mine per round: tocca e ne lasci una per terra dalla parte dove punta il pezzo. Dopo 1 s si arma e scoppia quando ci passa l\'avversario (tu no). Girala per scegliere dove cadono.' },
     nos: { n: 'NOS', w: 1.5, hp: 8, dir: 1, top: 1, wpn: 'nos', d: 'Bombola di nitro: un TURBO di 4 secondi, una volta sola per partita. Va sopra un telaio; lo scarico punta dove la giri (toccala di nuovo).' }
   };
   const BH = { telaio: 0.3 };
   const PDIR = [[1, 0], [0, 1], [-1, 0], [0, -1]], GDIR = [[0, -1], [1, 0], [0, 1], [-1, 0]], POFF = B / 2 + B / 6, PR = 0.3;   // corazza: verso (u, v), verso nella griglia, distanza dal centro del blocco, raggio per gli urti
-  const PAL = ['telaio', 'corazza', 'ruota', 'cingolo', 'cuneo', 'pala', 'sega', 'martello', 'cannone', 'fiamma', 'taser', 'razzo', 'dischi', 'mina', 'nos'];
-  const WPN = ['pala', 'sega', 'martello', 'cannone', 'fiamma', 'taser', 'razzo', 'dischi', 'mina', 'nos'], WICO = { pala: '⏫', sega: '🪚', martello: '🔨', cannone: '💣', fiamma: '🔥', taser: '⚡', razzo: '🚀', dischi: '💿', mina: '🧨', nos: '💨' };
-  const CDK = { martello: 'm', pala: 'p', cannone: 'c', taser: 'T', razzo: 'R', dischi: 'D', mina: 'M' };   // iniziale dei tempi di ricarica in b.cd
+  const PAL = ['telaio', 'corazza', 'ruota', 'cingolo', 'cuneo', 'pala', 'sega', 'martello', 'cannone', 'fiamma', 'taser', 'razzo', 'flare', 'dischi', 'mina', 'nos'];
+  const WPN = ['pala', 'sega', 'martello', 'cannone', 'fiamma', 'taser', 'razzo', 'flare', 'dischi', 'mina', 'nos'], WICO = { flare: '🎆', pala: '⏫', sega: '🪚', martello: '🔨', cannone: '💣', fiamma: '🔥', taser: '⚡', razzo: '🚀', dischi: '💿', mina: '🧨', nos: '💨' };
+  const CDK = { flare: 'F', martello: 'm', pala: 'p', cannone: 'c', taser: 'T', razzo: 'R', dischi: 'D', mina: 'M' };   // iniziale dei tempi di ricarica in b.cd
   const TEAM = ['#e0662e', '#2e86d8', '#7a6656'];   // io, l'avversario, i robot rottamati
   const now = () => performance.now() / 1000;
   const angN = a => { a %= 2 * Math.PI; return a < 0 ? a + 2 * Math.PI : a; };
@@ -110,14 +111,14 @@
     if (t !== 'junk') return; const { S, poly, bx, cyl, glow, g, TW } = K, sh = cqShade;
     const z00 = jH(x, y), z10 = jH(x + 1, y), z11 = jH(x + 1, y + 1), z01 = jH(x, y + 1), zm = (z00 + z10 + z11 + z01) / 4;
     if (zm > 0.02) {
-      const base = (x + y) % 2 ? '#3b3129' : '#382e27', hz = (u, v) => z00 * (1 - u) * (1 - v) + z10 * u * (1 - v) + z11 * u * v + z01 * (1 - u) * v;
+      const fd = clamp(1 - (Math.hypot(x + 0.5 - ARX, y + 0.5 - ARY) - ARR - 8) / 10, 0.1, 1), base = sh((x + y) % 2 ? '#3b3129' : '#382e27', fd), hz = (u, v) => z00 * (1 - u) * (1 - v) + z10 * u * (1 - v) + z11 * u * v + z01 * (1 - u) * v;
       poly([S(x, y + 1, z01), S(x + 1, y + 1, z11), S(x + 1, y + 1, 0), S(x, y + 1, 0)], sh(base, 0.62));
       poly([S(x + 1, y, z10), S(x + 1, y + 1, z11), S(x + 1, y + 1, 0), S(x + 1, y, 0)], sh(base, 0.46));
       poly([S(x, y, z00), S(x + 1, y, z10), S(x + 1, y + 1, z11), S(x, y + 1, z01)], sh(base, clamp(0.95 + (z00 - z11) * 0.45 + (z01 - z10) * 0.15, 0.55, 1.45)));
-      for (let i = 0; i < 6; i++) { const u = 0.1 + 0.8 * hsh(x, y, 40 + i), v = 0.1 + 0.8 * hsh(x, y, 50 + i), c = sh(JCOL[Math.floor(hsh(x, y, 60 + i) * JCOL.length)], 0.7), w = 0.06 + 0.1 * hsh(x, y, 70 + i), z = hz(u, v);
+      for (let i = 0; i < 6; i++) { const u = 0.1 + 0.8 * hsh(x, y, 40 + i), v = 0.1 + 0.8 * hsh(x, y, 50 + i), c = sh(JCOL[Math.floor(hsh(x, y, 60 + i) * JCOL.length)], 0.7 * fd), w = 0.06 + 0.1 * hsh(x, y, 70 + i), z = hz(u, v);
         poly([S(x + u - w, y + v, z + 0.02), S(x + u, y + v - w * 0.6, z + 0.05), S(x + u + w, y + v, z + 0.02), S(x + u, y + v + w * 0.6, z)], c); }
       const cu = x + 0.5, cv = y + 0.5;
-      if (!o.lamp && !o.fire && o.wreck == null && hsh(x, y, 80) < 0.62) {
+      if (!o.lamp && !o.fire && o.wreck == null && fd > 0.55 && hsh(x, y, 80) < 0.62) {
         const kind = JKIND[Math.floor(hsh(x, y, 81) * JKIND.length)], zz = zm - 0.05, c = JCOL[Math.floor(hsh(x, y, 82) * JCOL.length)];
         if (kind === 0) { cyl(cu, cv, 0.3, zz, zz + 0.14, '#1c1c20'); cyl(cu, cv, 0.3, zz + 0.14, zz + 0.28, '#232328'); const [Xh, Yh] = S(cu, cv, zz + 0.28); g.fillStyle = '#0a0a0c'; g.beginPath(); g.ellipse(Xh, Yh, 0.13 * TW * 0.707, 0.13 * TW * 0.35, 0, 0, 7); g.fill(); }   // gomme
         else if (kind === 1) { cyl(cu, cv, 0.24, zz, zz + 0.62, c); cyl(cu, cv, 0.25, zz + 0.2, zz + 0.25, sh(c, 0.7)); cyl(cu, cv, 0.25, zz + 0.45, zz + 0.5, sh(c, 0.7)); }   // bidone
@@ -138,13 +139,13 @@
   let SKY = null;
   function skyDraw(g, CXc, CYc, tx, ty, TW) {
     const w = cq.w / (cq.vz || 1), h = cq.h / (cq.vz || 1);
-    if (!SKY || SKY.w !== w || SKY.h !== h) { const cv = document.createElement('canvas'), d = Math.min(2, cq.dpr); cv.width = Math.round(w * d); cv.height = Math.round(h * d); const c = cv.getContext('2d'); c.scale(d, d); const gr = c.createRadialGradient(w / 2, h * 0.45, Math.min(w, h) * 0.2, w / 2, h * 0.5, Math.max(w, h) * 0.8); gr.addColorStop(0, '#2a2c34'); gr.addColorStop(1, '#0c0d12'); c.fillStyle = gr; c.fillRect(0, 0, w, h); SKY = { cv, w, h }; }
+    if (!SKY || SKY.w !== w || SKY.h !== h) { const cv = document.createElement('canvas'), d = Math.min(2, cq.dpr); cv.width = Math.round(w * d); cv.height = Math.round(h * d); const c = cv.getContext('2d'); c.scale(d, d); const gr = c.createRadialGradient(w / 2, h * 0.45, Math.min(w, h) * 0.2, w / 2, h * 0.5, Math.max(w, h) * 0.8); gr.addColorStop(0, '#120f0d'); gr.addColorStop(1, '#080706'); c.fillStyle = gr; c.fillRect(0, 0, w, h); SKY = { cv, w, h }; }
     g.drawImage(SKY.cv, 0, 0, w, h);
     if (tx == null) return;
     const Uz = TW * 0.575, S = (x, y, z = 0) => [tx + (x - y) * TW / 2, ty + (x + y) * TW / 4 - z * Uz];
     const poly = (pts, col) => { g.beginPath(); pts.forEach(([a, b], i) => i ? g.lineTo(a, b) : g.moveTo(a, b)); g.closePath(); g.fillStyle = col; g.fill(); };
     const box = (x0, y0, x1, y1, z0, z1, col) => { poly([S(x0, y1, z1), S(x1, y1, z1), S(x1, y1, z0), S(x0, y1, z0)], cqShade(col, 0.74)); poly([S(x1, y1, z1), S(x1, y0, z1), S(x1, y0, z0), S(x1, y1, z0)], cqShade(col, 0.55)); poly([S(x0, y0, z1), S(x1, y0, z1), S(x1, y1, z1), S(x0, y1, z1)], cqShade(col, 1.06)); };
-    poly([S(-12, -12), S(W + 12, -12), S(W + 12, H + 12), S(-12, H + 12)], '#16120f');
+    poly([S(-12, -12), S(W + 12, -12), S(W + 12, H + 12), S(-12, H + 12)], '#0d0a08');
   }
 
   // ======================= IL PROGETTO (griglia 7x7, cabina al centro) =======================
@@ -231,7 +232,7 @@
   function startMatch(G, opp) { pubRobot().catch(() => {}); resetWorld(G); G.mt = { id: Math.random(), r: 0, w: [0, 0], opp: opp || null }; U.mode = 'drive'; shopUI(G, false); nextRound(G); driveUI(G, true); hum(0, false, false); }
   function nextRound(G) {
     const m = G.mt; m.r++; m.ph = 'intro'; m.t0 = G.time; m.sd = 0; m.left = RT; m.res = null;
-    G.rbs = []; G.proj = []; G.hams = []; G.mines = []; G.cT = {}; G.rl = 1; G.rlT = 1; G.sawOn = 0; G.sawZ = 0; G.flp = null;
+    G.rbs = []; G.proj = []; G.hams = []; G.mines = []; G.flr = []; G.rq = []; G.cT = {}; G.rl = 1; G.rlT = 1; G.sawOn = 0; G.sawZ = 0; G.flp = null;
     const dz = m.dz ? m.dz.map(s => cleanD(JSON.parse(s))) : null, me = makeBody(dz ? dz[0] : myD(), ARX - 6.5, ARY, 0, 0); me.uid = 'me'; G.mine = me;
     const op = makeBody(dz ? dz[1] : m.opp ? cleanD(m.opp.d) : DUMMY, ARX + 6.5, ARY, Math.PI, 1); op.uid = 'dm' + (G.dmN = (G.dmN || 0) + 1); op.dummy = m.live ? 0 : 1; G.dummy = op;
     op.look = m.live ? (m.fc ? cqLookOf(m.fc) : null) : m.opp ? m.opp.look : null; G.rin = null;
@@ -240,7 +241,7 @@
   }
   const friend = G => G.chars.find(c => c !== G.me && c.sid && (G.guest || c.remote));
   const oppName = G => { const m = G.mt, MT = G.mine ? G.mine.team : 0; return m && m.live && m.nm ? m.nm[1 - MT] : m && m.opp ? 'Robot di ' + m.opp.n : 'Manichino'; };
-  function resetWorld(G) { G.mines = []; G.rbs = []; G.proj = []; G.hams = []; G.mine = null; G.dummy = null; G.pv = 0; G.gdeb = null; G.rl = 1; G.rlT = 1; G.sawOn = 0; G.sawZ = 0; G.flp = null; G.rin = null; }
+  function resetWorld(G) { G.mines = []; G.flr = []; G.rq = []; G.rbs = []; G.proj = []; G.hams = []; G.mine = null; G.dummy = null; G.pv = 0; G.gdeb = null; G.rl = 1; G.rlT = 1; G.sawOn = 0; G.sawZ = 0; G.flp = null; G.rin = null; }
   function endMatch(G) { const m = G.mt; if (m && m.live) { if (G.guest) cqNetSend({ k: 'bye' }); G.lv = { h: 0, g: null }; U.rdy = 0; } resetWorld(G); G.mt = null; }
 
   // ======================= DAL VIVO (1 contro 1 con un amico del set) =======================
@@ -278,7 +279,7 @@
     if (o.k === 'bye') { if (G.mt && G.mt.live) { endMatch(G); U.msg = { t: G.time, s: '👋 ' + f.name + ' è uscito dalla sfida' }; goDrive(G); } return; }
     const m = G.mt, b = G.dummy; if (!m || !m.live || m.ph !== 'fight' || !b) return;
     if (o.k === 'in') G.rin = { d: Array.isArray(o.d) ? [+o.d[0] || 0, +o.d[1] || 0] : null, h: o.h | 0, at: performance.now() };
-    else if (o.k === 'tp' && Array.isArray(o.w)) { for (const k of o.w) if (['martello', 'cannone', 'pala', 'nos', 'taser', 'mina', 'razzo', 'dischi'].includes(k)) b.inp[k] = true; }
+    else if (o.k === 'tp' && Array.isArray(o.w)) { for (const k of o.w) if (['martello', 'cannone', 'pala', 'nos', 'taser', 'mina', 'razzo', 'dischi', 'flare'].includes(k)) b.inp[k] = true; }
     else if (o.k === 'tn' && !b.ko && !b.flip) { b.turn = { to: angN(b.a + Math.PI), t: G.time }; b.rev = false; }
   }
   // stato di un robot: posizione, velocita', altezza, salute di ogni blocco (i:salute, b = brucia, s = colpo del martello/pala)
@@ -292,7 +293,7 @@
     const m = G.mt; if (!m || !m.live || !G.mine || !G.dummy) return x;
     x.mt = { id: m.id, r: m.r, w: m.w, ph: m.ph, t0: r2(m.t0), left: r2(m.left || 0), sd: m.sd, res: m.res, live: 1, nm: m.nm }; if (m.ph === 'intro' || G.time % 2 < 0.15) x.mt.dz = m.dz;
     x.rb = [G.mine, G.dummy].map(b => packB(G, b)); x.rl = r2(G.rl); x.sz = r2(G.sawZ || 0); x.fp = G.flp ? [G.flp.st, r2(G.flp.t)] : 0;
-    x.pj = G.proj.map(q => [r2(q.x), r2(q.y), r2(q.z), r2(q.dx), r2(q.dy), r2(q.t), q.k || 0, r2(q.v || 0)]); x.mn = (G.mines || []).map(m => [r2(m.x), r2(m.y), m.team, r2(m.t)]);
+    x.pj = G.proj.map(q => [r2(q.x), r2(q.y), r2(q.z), r2(q.dx), r2(q.dy), r2(q.t), q.k || 0, r2(q.v || 0), r2(q.sl || 0)]); x.fr = (G.flr || []).map(f => [r2(f.x), r2(f.y), r2(f.z), r2(f.t), f.team]); x.mn = (G.mines || []).map(m => [r2(m.x), r2(m.y), m.team, r2(m.t)]);
     x.db = G.rbs.filter(b => b.debris).slice(-24).map(b => [b.bl[0].t, r2(b.x), r2(b.y), r2(b.a), r2(b.z || 0), b.fall ? r2(b.fall) : 0]);
     const n = G.evN || 0; x.ev = G.evs.filter(e => e.sq > n - 30 && e.tm > G.time - 0.6).map(e => [e.sq, e[0], r2(e[1]), r2(e[2]), typeof e[3] === 'number' ? r2(e[3]) : e[3], e[4]]);
     return x;
@@ -330,7 +331,7 @@
     if (!G.mine || !G.dummy || !x.rb || m.bR !== L.r) return;
     for (const s of x.rb) unpackB(G, s[0] === 1 ? G.mine : G.dummy, s, s[0] === 1);
     G.rl = x.rl; G.sawZ = x.sz; G.flp = x.fp ? { st: x.fp[0], t: x.fp[1] } : null;
-    G.proj = (x.pj || []).map(a => ({ x: a[0], y: a[1], z: a[2], dx: a[3], dy: a[4], t: a[5], k: a[6] || undefined, v: a[7] || undefined })); G.mines = (x.mn || []).map(a => ({ x: a[0], y: a[1], team: a[2], t: a[3] }));
+    G.proj = (x.pj || []).map(a => ({ x: a[0], y: a[1], z: a[2], dx: a[3], dy: a[4], t: a[5], k: a[6] || undefined, v: a[7] || undefined, sl: a[8] || 0 })); G.flr = (x.fr || []).map(a => ({ x: a[0], y: a[1], z: a[2], t: a[3], team: a[4] })); G.mines = (x.mn || []).map(a => ({ x: a[0], y: a[1], team: a[2], t: a[3] }));
     const C = G.gdebC || (G.gdebC = {}); G.gdeb = (x.db || []).map((a, i) => { const k = i + a[0], o = C[k] || (C[k] = { uid: 'gd' + k, debris: 1, team: 0, R: RB, act: {}, cd: {}, ro: 0, wa: 0, bl: [{ gx: GC, gy: GC, t: a[0], d: 0, hp: 1, mx: 1, fl: -9, burn: 0, lu: 0, lv: 0, r: RB }] }); o.x = a[1]; o.y = a[2]; o.a = a[3]; o.z = a[4]; o.fall = a[5]; return o; });
     for (const e of x.ev || []) if (e[0] > (G.evSeen || 0)) { G.evSeen = e[0]; G.evs.push([e[1], e[2], e[3], e[4], e[5]]); if (G.evs.length > 80) G.evs.shift(); }
   }
@@ -349,7 +350,7 @@
     }
     const S = op.ns; if (S) { const age = Math.min(0.3, (performance.now() - S.at) / 1000 + 0.05), k = Math.min(1, dt * 14), tx = S.x + S.vx * age, ty = S.y + S.vy * age, ta = S.a + S.w * age;
       if (Math.hypot(tx - op.x, ty - op.y) > 2) { op.x = tx; op.y = ty; op.a = ta; } else { op.x += (tx - op.x) * k; op.y += (ty - op.y) * k; op.a = angN(op.a + angD(ta, op.a) * k); } op.vx = S.vx; op.vy = S.vy; op.w = S.w; }
-    for (const q of G.proj) { q.x += q.dx * (q.v || 11) * dt; q.y += q.dy * (q.v || 11) * dt; }
+    for (const q of G.proj) { q.x += q.dx * (q.v || 11) * dt; q.y += q.dy * (q.v || 11) * dt; if (q.sl) q.z = Math.max(0, q.z + q.sl * (q.v || 11) * dt); }
     for (const b of G.rbs) b.wa = (b.wa || 0) + (Math.cos(b.a) * b.vx + Math.sin(b.a) * b.vy) * dt * 4;
     if (!me.ko) { cq.x = me.x; cq.y = me.y; }
   }
@@ -544,14 +545,15 @@
     for (const q of b.bl) if (q.t === 'mina' && inp.mina && q.am > 0 && !(b.cd['M' + q.gx + q.gy] > T)) { b.cd['M' + q.gx + q.gy] = T + PZ.mina.cd; q.am--; q.sw = T; const [x, y] = wpos(b, q), fa = b.a + q.d * Math.PI / 2;
       let mx = x + Math.cos(fa) * 0.8 * BS, my = y + Math.sin(fa) * 0.8 * BS; const dc = Math.hypot(mx - ARX, my - ARY); if (dc > ARR - 0.5) { mx = ARX + (mx - ARX) * (ARR - 0.5) / dc; my = ARY + (my - ARY) * (ARR - 0.5) / dc; }
       (G.mines || (G.mines = [])).push({ x: mx, y: my, team: b.team, t: T }); ev(G, 'mdrop', mx, my, 0, b.team); break; }
-    // RAZZI: uno per tocco (2 per pezzo e per round)
-    for (const q of b.bl) if (q.t === 'razzo' && inp.razzo && q.am > 0 && !(b.cd['R' + q.gx + q.gy] > T)) { b.cd['R' + q.gx + q.gy] = T + PZ.razzo.cd; q.am--; q.sw = T; const [x, y] = wpos(b, q), fa = b.a + q.d * Math.PI / 2;
-      G.proj.push({ k: 'rk', x: x + Math.cos(fa) * 0.45 * BS, y: y + Math.sin(fa) * 0.45 * BS, z: (b.z || 0) + 0.32, ang: fa, dx: Math.cos(fa), dy: Math.sin(fa), v: 2.5, t: T, own: b, team: b.team }); impulse(b, -Math.cos(fa) * 2, -Math.sin(fa) * 2, x - b.x, y - b.y); ev(G, 'rkt', x, y, fa, b.team); break; }
+    // TORRETTA LANCIARAZZI: ogni tocco 2 razzi a parabola (4 per torretta e per round) verso il robot avversario piu' vicino
+    if (inp.razzo) { const tg = enemyOf(G, b); if (tg) for (const q of b.bl) if (q.t === 'razzo' && q.am > 0 && !(b.cd['R' + q.gx + q.gy] > T)) { b.cd['R' + q.gx + q.gy] = T + PZ.razzo.cd; q.sw = T; const n = Math.min(2, q.am); q.am -= n; for (let k = 0; k < n; k++) (G.rq || (G.rq = [])).push({ t: T + k * 0.22, b, q, tg: tg.uid, k }); break; } }
+    // FLARE (a pulsante)
+    if (inp.flare) for (const q of b.bl) if (q.t === 'flare' && q.am > 0 && !(b.cd['F' + q.gx + q.gy] > T)) { b.cd['F' + q.gx + q.gy] = T + PZ.flare.cd; q.sw = T; flareFire(G, b, q); break; }
     // LANCIADISCHI
     for (const q of b.bl) if (q.t === 'dischi' && inp.dischi && !(b.cd['D' + q.gx + q.gy] > T)) { b.cd['D' + q.gx + q.gy] = T + PZ.dischi.cd; q.sw = T; const [x, y] = wpos(b, q), fa = b.a + q.d * Math.PI / 2;
       G.proj.push({ k: 'dk', x: x + Math.cos(fa) * 0.5 * BS, y: y + Math.sin(fa) * 0.5 * BS, z: (b.z || 0) + 0.3, dx: Math.cos(fa), dy: Math.sin(fa), v: 8.5, t: T, own: b, team: b.team, nb: 0, hT: -9 }); ev(G, 'dsk', x, y, 0, b.team); }
     if (inp.nos && !b.nosUsed && b.bl.some(q => q.t === 'nos')) { b.nosUsed = 1; b.nosT = T + 4; ev(G, 'nos', b.x, b.y, 0, b.team); }
-    inp.martello = inp.cannone = inp.pala = inp.nos = inp.taser = inp.mina = inp.razzo = inp.dischi = false;
+    inp.martello = inp.cannone = inp.pala = inp.nos = inp.taser = inp.mina = inp.razzo = inp.dischi = inp.flare = false;
   }
   // martello (colpo secco) e pala (lancio in aria): scattano un attimo dopo il tocco
   function hammers(G) {
@@ -572,17 +574,38 @@
       for (const [r, d] of near) { hit = 1; if (!o.debris) hurt(G, o, r, dmg * (1 - 0.5 * d / R), null); }
       if (hit) { const dx = o.x - x, dy = o.y - y, d = Math.hypot(dx, dy) || 1, k = push * Math.min(1.5, 20 / (o.M || 10)); o.vx += dx / d * k; o.vy += dy / d * k; launch(G, o, o.debris ? 3 : up, (Math.random() - 0.5) * 3); } }
   }
-  // razzo: accelera e gira un po' verso il robot avversario piu' vicino (1,7 rad al secondo: si puo' schivare)
+  const enemyOf = (G, b) => { let best = null, bd = 1e9; for (const o of G.rbs) { if (o.team === b.team || o.debris || o.fall || o.ko || !o.bl.length) continue; const d = Math.hypot(o.x - b.x, o.y - b.y); if (d < bd) { bd = d; best = o; } } return best; };
+  // i razzi in coda escono dalla torretta (il secondo 0,22 s dopo), un po' aperti a destra e a sinistra
+  function launchQ(G) {
+    if (!G.rq || !G.rq.length) return;
+    G.rq = G.rq.filter(L => { if (G.time < L.t) return true; const { b, q } = L; if (b.ko || !b.bl.includes(q)) return false; const tg = G.rbs.find(o => o.uid === L.tg) || enemyOf(G, b); if (!tg) return false;
+      const [x, y] = wpos(b, q), ang = Math.atan2(tg.y - y, tg.x - x) + (L.k ? 0.35 : -0.35), z0 = (b.z || 0) + 0.6, d = Math.hypot(tg.x - x, tg.y - y);
+      G.proj.push({ k: 'rk', x, y, z: z0, z0, ang, dx: Math.cos(ang), dy: Math.sin(ang), v: 7.5, t: G.time, own: b, team: b.team, tg: tg.uid, trav: 0, H: 2.2 + 0.22 * d, sl: 1 }); ev(G, 'rkt', x, y, L.k, b.team); return false; });
+  }
+  // razzo a parabola: insegue il bersaglio (o il flare che l'ha ingannato) e gli ricade addosso dall'alto
   function rocketStep(G, p, dt) {
-    for (let s = 0; s < 3; s++) { const h = dt / 3; p.v = Math.min(9, p.v + 10 * h);
-      if (G.time - p.t > 0.15) { let tg = null, td = 99; for (const o of G.rbs) { if (o.team === p.team || o.debris || o.fall || o.ko || !o.bl.length) continue; const d = Math.hypot(o.x - p.x, o.y - p.y); if (d < td) { td = d; tg = o; } }
-        if (tg) p.ang += clamp(angD(Math.atan2(tg.y - p.y, tg.x - p.x), p.ang), -1.7 * h, 1.7 * h); }
-      p.dx = Math.cos(p.ang); p.dy = Math.sin(p.ang); p.x += p.dx * p.v * h; p.y += p.dy * p.v * h;
-      if (Math.hypot(p.x - ARX, p.y - ARY) > ARR - 0.2 || G.time - p.t > 2.6) { boom(G, p.x, p.y, 1.1, 8, 5, p.team); return false; }
-      for (const o of G.rbs) { if (o.team === p.team || o.debris || o.fall || Math.abs((o.z || 0) + 0.3 - p.z) > 0.8) continue; for (const r of o.bl) { const [ox, oy] = wpos(o, r); if (Math.hypot(ox - p.x, oy - p.y) < (r.r || RB) + 0.12) { boom(G, p.x, p.y, 1.25, 10, 7, p.team, 4); return false; } } }
+    for (let s = 0; s < 3; s++) { const h = dt / 3, fl = p.dec && (G.flr || []).includes(p.dec) ? p.dec : null; let tx = p.lx, ty = p.ly;
+      if (fl) { tx = fl.x; ty = fl.y; } else { const o = G.rbs.find(o => o.uid === p.tg && !o.fall && o.bl.length); if (o) { tx = o.x; ty = o.y; flareCheck(G, p, o); } }
+      if (tx == null) { tx = p.x + p.dx; ty = p.y + p.dy; } p.lx = tx; p.ly = ty;
+      p.ang += clamp(angD(Math.atan2(ty - p.y, tx - p.x), p.ang), -2.4 * h, 2.4 * h); p.dx = Math.cos(p.ang); p.dy = Math.sin(p.ang);
+      const st = p.v * h; p.x += p.dx * st; p.y += p.dy * st; p.trav += st;
+      const rem = Math.hypot(tx - p.x, ty - p.y), pr = p.trav / (p.trav + rem), zt = p.z0 * (1 - pr) + p.H * 4 * pr * (1 - pr), z = p.z + clamp(zt - p.z, -9 * h, 9 * h); p.sl = (z - p.z) / st; p.z = z;
+      if ((pr > 0.5 && z < 0.35) || rem < 0.3 || G.time - p.t > 5) { if (fl) boom(G, p.x, p.y, 0.8, 2, 3, p.team, 2); else boom(G, p.x, p.y, 1.25, 8, 7, p.team, 3); return false; }
+      if (pr > 0.6 && z < 0.8) for (const o of G.rbs) { if (o.team === p.team || o.debris || o.fall) continue; for (const r of o.bl) { const [ox, oy] = wpos(o, r); if (Math.hypot(ox - p.x, oy - p.y) < (r.r || RB) + 0.15) { boom(G, p.x, p.y, 1.25, 8, 7, p.team, 3); return false; } } }
     }
     return true;
   }
+  // FLARE: quando un razzo nemico arriva a 4,5 caselle il robot lancia i flare (2 lanci per pezzo e per round); ogni razzo ha il 60% di farsi ingannare
+  function flareCheck(G, p, o) {
+    if (p.fc || !(o.flT > G.time - 1.5) || Math.hypot(p.x - o.x, p.y - o.y) > 4.5) return; p.fc = 1;
+    if (Math.random() < 0.6) { const c = (G.flr || []).filter(f => f.team === o.team && G.time - f.t < 2); if (c.length) { p.dec = c[Math.floor(Math.random() * c.length)]; ev(G, 'decoy', p.x, p.y, 0, p.team); } }
+  }
+  function flareFire(G, o, q) {
+    { q.am--; o.flT = G.time; const [x, y] = wpos(o, q);
+      for (let i = 0; i < 6; i++) { const a = o.a + Math.PI + (i - 2.5) * 0.5; (G.flr || (G.flr = [])).push({ x, y, z: (o.z || 0) + 0.6, vx: Math.cos(a) * (2 + Math.random()), vy: Math.sin(a) * (2 + Math.random()), vz: 3 + Math.random() * 2, t: G.time, team: o.team }); }
+      ev(G, 'flare', x, y, 0, o.team); }
+  }
+  function flaresTick(G, h) { if (!G.flr || !G.flr.length) return; for (const f of G.flr) { f.x += f.vx * h; f.y += f.vy * h; f.z = Math.max(0, f.z + f.vz * h); f.vz -= 5 * h; f.vx *= 1 - h * 0.8; f.vy *= 1 - h * 0.8; } G.flr = G.flr.filter(f => G.time - f.t < 2.6); }
   // disco: rimbalza sui rottami intorno alla radura e sui robot (non sul suo), al massimo 4 volte
   function discStep(G, p, dt) {
     for (let s = 0; s < 3; s++) { const h = dt / 3; p.x += p.dx * p.v * h; p.y += p.dy * p.v * h;
@@ -638,6 +661,7 @@
     zap: () => { swp(2400, 700, 0.22, 0.05, 0, 'sawtooth'); swp(1700, 2600, 0.12, 0.03, 0.05, 'square'); noise(0.2, 0.08, 5000, 0, 'highpass'); },
     boom: () => { noise(0.9, 0.4, 220); swp(140, 30, 0.7, 0.18, 0, 'sine'); for (let i = 0; i < 6; i++) swp(1200 + Math.random() * 1500, 300, 0.12, 0.015, 0.05 + i * 0.05, 'triangle'); },
     whoosh: () => { noise(0.6, 0.15, 1400, 0, 'bandpass', 1.2); swp(300, 900, 0.5, 0.03, 0, 'sawtooth'); },
+    flare: () => { noise(0.6, 0.14, 3200, 0, 'highpass'); for (let i = 0; i < 5; i++) swp(700 + i * 200, 1600, 0.12, 0.025, i * 0.07, 'triangle'); },
     tink: k => { swp(2600 + k * 600, 1800, 0.07, 0.03 + k * 0.02, 0, 'triangle'); noise(0.06, 0.05, 4000, 0, 'highpass'); },
     win: () => { [523, 659, 784, 1046].forEach((f, i) => swp(f, f, 0.25, 0.04, 0.3 + i * 0.12, 'triangle')); }
   };
@@ -759,11 +783,13 @@
       const rdy = !(b.cd && b.cd['T' + q.gx + q.gy] > T), a2 = q.sw != null ? T - q.sw : 9; if ((rdy && Math.sin(t * 9 + q.gx * 3) > 0.6) || (a2 >= 0 && a2 < 0.25)) { g.strokeStyle = a2 >= 0 && a2 < 0.25 ? '#ffffff' : '#9ad8ff'; g.lineWidth = Math.max(1.5, TW / 40); g.beginPath(); for (let i = 0; i <= 5; i++) { const [Xz, Yz] = S(0.37 + (i % 2 ? 0.03 : -0.01), -0.09 + i * 0.036, 0.2 + (Math.random() - 0.5) * 0.05); i ? g.lineTo(Xz, Yz) : g.moveTo(Xz, Yz); } g.stroke(); } }
     else if (q.t === 'mina') { box(F, -h, 0.1, -0.17, 0.17, 0.04, 0.26, dim('#4a5a3a')); box(F, 0.1, 0.24, -0.12, 0.12, 0.04, 0.1, '#26282e'); box(F, -0.2, 0.06, -0.15, 0.15, 0.26, 0.28, '#e8b830');
       const n = q.am != null ? q.am : 3; for (let i = 0; i < n; i++) { const zc = 0.29 + i * 0.065, disc = (z, c) => poly(Array.from({ length: 12 }, (_, k) => { const a = k / 12 * 6.2832; return S(-0.07 + Math.cos(a) * 0.12, Math.sin(a) * 0.12, z); }), c); disc(zc, '#1a1c20'); disc(zc + 0.05, dim('#3a3c42')); const [Xm, Ym] = S(-0.07, 0, zc + 0.051); g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc(Xm, Ym, Math.max(1.5, TW * 0.025 * BS), 0, 7); g.fill(); } }
-    else if (q.t === 'razzo') { box(F, -h, 0.04, -0.17, 0.17, 0.04, 0.2, dim('#4a505a'));
-      for (const [k, v] of [[0, -0.09], [1, 0.09]]) { const Rb = 0.065, N = 8, V = []; for (let i = 0; i < N; i++) { const a = i / N * 6.2832; V.push([-0.2, v + Math.cos(a) * Rb, 0.27 + Math.sin(a) * Rb]); } for (let i = 0; i < N; i++) { const a = i / N * 6.2832; V.push([0.26, v + Math.cos(a) * Rb, 0.27 + Math.sin(a) * Rb]); }
-        const Fc = [Array.from({ length: N }, (_, i) => i), Array.from({ length: N }, (_, i) => N + i)]; for (let i = 0; i < N; i++) Fc.push([i, (i + 1) % N, N + (i + 1) % N, N + i]); solid(F, V, Fc, dim('#5a6a4a'));
-        if ((q.am != null ? q.am : 2) > k) { box(F, 0.26, 0.31, v - 0.045, v + 0.045, 0.225, 0.315, '#e8e0d0'); box(F, 0.31, 0.35, v - 0.03, v + 0.03, 0.24, 0.3, '#c8382e'); } else { const [Xm, Ym] = S(0.265, v, 0.27); g.fillStyle = '#0c0c10'; g.beginPath(); g.ellipse(Xm, Ym, TW * 0.035 * BS, TW * 0.05 * BS, 0, 0, 7); g.fill(); } }
-      box(F, -0.1, 0.1, -0.03, 0.03, 0.2, 0.22, '#e8b830'); }
+    else if (q.t === 'razzo') { box(F, -0.2, 0.2, -0.2, 0.2, 0.04, 0.16, dim('#3a4030')); box(F, -0.12, 0.12, -0.12, 0.12, 0.16, 0.24, dim('#4a5038'));
+      const G2 = cq.g, en = G2 && !o.noPilot && G2.rbs ? enemyOf(G2, b) : null, [px, py] = wpos(b, q), rel = en ? angD(Math.atan2(en.y - py, en.x - px), b.a + q.d * Math.PI / 2) : -0.6, c = Math.cos(rel), s = Math.sin(rel), R2 = ([u, v, z]) => [u * c - v * s, u * s + v * c, z];
+      const V = [[-0.17, -0.16, 0.26], [-0.17, 0.16, 0.26], [0.2, 0.16, 0.38], [0.2, -0.16, 0.38], [-0.17, -0.16, 0.46], [-0.17, 0.16, 0.46], [0.2, 0.16, 0.58], [0.2, -0.16, 0.58]].map(R2);
+      solid(F, V, [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [2, 3, 7, 6], [1, 2, 6, 5], [0, 3, 7, 4]], dim('#5a6a40'));
+      const n = q.am != null ? q.am : 4; [[-0.075, 0.43], [0.075, 0.43], [-0.075, 0.53], [0.075, 0.53]].forEach(([v, z], k) => { const [u2, v2] = R2([0.205, v, z]), [Xm, Ym] = S(u2, v2, z); g.fillStyle = k < n ? '#c8382e' : '#0c0c10'; g.beginPath(); g.arc(Xm, Ym, Math.max(1.5, TW * 0.03 * BS), 0, 7); g.fill(); }); }
+    else if (q.t === 'flare') { box(F, -0.2, 0.2, -0.17, 0.17, 0.04, 0.2, dim('#3a4a3a')); const n = q.am != null ? q.am : 2;
+      [-0.08, 0.08].forEach((v, k) => { box(F, -0.1, 0.06, v - 0.055, v + 0.055, 0.2, 0.36, '#2a2e30'); box(F, -0.1, 0.06, v - 0.055, v + 0.055, 0.36, 0.39, k < n ? '#ff8a2a' : '#141416'); }); }
     else if (q.t === 'dischi') { box(F, -h, 0.12, -0.18, 0.18, 0.04, 0.2, dim('#5a4a6a')); box(F, -h, 0.2, -0.2, -0.15, 0.2, 0.26, '#3a3e48'); box(F, -h, 0.2, 0.15, 0.2, 0.2, 0.26, '#3a3e48');
       if (!(b.cd && b.cd['D' + q.gx + q.gy] > T)) { const spin = t * 3, R = 0.15, pts = []; for (let i = 0; i < 16; i++) { const a = spin + i / 16 * 6.2832, r = i % 2 ? R : R + 0.04; pts.push(S(0.02 + Math.cos(a) * r, Math.sin(a) * r, 0.25)); } poly(pts, dim('#d8dce4')); const [Xc, Yc] = S(0.02, 0, 0.251); g.fillStyle = '#5a4a6a'; g.beginPath(); g.ellipse(Xc, Yc, TW * 0.04 * BS, TW * 0.02 * BS, 0, 0, 7); g.fill(); } }
     else if (q.t === 'cabina') {
@@ -803,7 +829,7 @@
       if (dist < D.R + P.R + 0.4 && sp < 0.5 && inp.thr > 0.5) { A.stuck += 0.12; if (A.stuck > 1.1) { A.mode = 'back'; A.until = G.time + 0.6 + Math.random() * 0.6; A.stuck = 0; } } else A.stuck = Math.max(0, A.stuck - 0.06);
       if (Math.random() < 0.01) { A.mode = 'wait'; A.until = G.time + 0.6 + Math.random() * 0.8; }
     }
-    const front = Math.abs(diff) < 0.6 && dist < D.R + P.R + 0.3; inp.sega = front; inp.fiamma = front; if (front && Math.random() < 0.25) inp.martello = true; if (front && Math.random() < 0.3) inp.pala = true; if (Math.abs(diff) < 0.2 && dist < 7 && Math.random() < 0.12) inp.cannone = true; if (front && Math.random() < 0.3) inp.taser = true; if (Math.abs(diff) < 0.8 && dist > 3 && Math.random() < 0.05) inp.razzo = true; if (Math.abs(diff) < 0.25 && dist < 10 && Math.random() < 0.1) inp.dischi = true; if (Math.abs(diff) > 2.3 && dist < 4.5 && Math.random() < 0.1) inp.mina = true;
+    const front = Math.abs(diff) < 0.6 && dist < D.R + P.R + 0.3; inp.sega = front; inp.fiamma = front; if (front && Math.random() < 0.25) inp.martello = true; if (front && Math.random() < 0.3) inp.pala = true; if (Math.abs(diff) < 0.2 && dist < 7 && Math.random() < 0.12) inp.cannone = true; if (front && Math.random() < 0.3) inp.taser = true; if (dist > 3 && Math.random() < 0.04) inp.razzo = true; if (G.proj.some(p => p.k === 'rk' && p.tg === D.uid && Math.hypot(p.x - D.x, p.y - D.y) < 5.5) && Math.random() < 0.35) inp.flare = true; if (Math.abs(diff) < 0.25 && dist < 10 && Math.random() < 0.1) inp.dischi = true; if (Math.abs(diff) > 2.3 && dist < 4.5 && Math.random() < 0.1) inp.mina = true;
     if (dist > 7 && Math.abs(diff) < 0.3 && Math.random() < 0.02) inp.nos = true;
   }
 
@@ -831,9 +857,9 @@
   // razzo (con la scia di fumo) e disco in volo
   function proj2(g, p, P3, sx, sy, TW, T) {
     const z = p.z || 0.3; g.fillStyle = 'rgba(0,0,0,.3)'; g.beginPath(); g.ellipse(sx(p.x, p.y), sy(p.x, p.y), TW * 0.12, TW * 0.06, 0, 0, 7); g.fill();
-    if (p.k === 'rk') { const tr = p.tr || (p.tr = []); if (!tr.length || T - tr[tr.length - 1][2] > 0.03) { tr.push([p.x, p.y, T]); if (tr.length > 14) tr.shift(); }
-      for (const [x, y, t0] of tr) { const a = T - t0; if (a > 0.5) continue; const [X, Y] = P3(x, y, z + a * 0.4); g.fillStyle = 'rgba(150,150,156,' + (0.45 * (1 - a / 0.5)).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, TW * (0.05 + a * 0.18), 0, 7); g.fill(); }
-      const [Xb, Yb] = P3(p.x - p.dx * 0.28, p.y - p.dy * 0.28, z), [Xf, Yf] = P3(p.x + p.dx * 0.18, p.y + p.dy * 0.18, z);
+    if (p.k === 'rk') { const tr = p.tr || (p.tr = []); if (!tr.length || T - tr[tr.length - 1][2] > 0.03) { tr.push([p.x, p.y, T, z]); if (tr.length > 18) tr.shift(); }
+      for (const [x, y, t0, z1] of tr) { const a = T - t0; if (a > 0.6) continue; const [X, Y] = P3(x, y, z1 + a * 0.3); g.fillStyle = 'rgba(160,160,166,' + (0.45 * (1 - a / 0.6)).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, TW * (0.05 + a * 0.2), 0, 7); g.fill(); }
+      const sl = p.sl || 0, [Xb, Yb] = P3(p.x - p.dx * 0.28, p.y - p.dy * 0.28, z - sl * 0.28), [Xf, Yf] = P3(p.x + p.dx * 0.18, p.y + p.dy * 0.18, z + sl * 0.18);
       g.fillStyle = Math.random() < 0.5 ? '#ffd24a' : '#ff7a2a'; g.beginPath(); g.arc(Xb, Yb, TW * (0.05 + Math.random() * 0.04), 0, 7); g.fill();
       g.lineCap = 'round'; g.strokeStyle = '#e8e0d0'; g.lineWidth = Math.max(3, TW * 0.09); g.beginPath(); g.moveTo(Xb, Yb); g.lineTo(Xf, Yf); g.stroke(); g.strokeStyle = '#c8382e'; g.lineWidth = Math.max(3, TW * 0.1); g.beginPath(); g.moveTo(Xf, Yf); g.lineTo(Xf + (Xf - Xb) * 0.1, Yf + (Yf - Yb) * 0.1); g.stroke(); g.lineCap = 'butt'; }
     else { const R = 0.2, sp = T * 22, pts = []; for (let i = 0; i < 18; i++) { const a = sp + i / 18 * 6.2832, r = i % 2 ? R : R + 0.05; pts.push(P3(p.x + Math.cos(a) * r, p.y + Math.sin(a) * r, z)); }
@@ -961,7 +987,8 @@
     if (t === 'cannone') { rr(-h * 0.6, -h * 0.1, s * 0.6, h * 1.1, 6, '#4a505a'); rr(-h * 0.2, -h, s * 0.2, h * 1.3, 4, '#2e323a'); g.fillStyle = '#1a1c22'; g.fillRect(-h * 0.26, -h, s * 0.26, 7); return; }
     if (t === 'taser') { rr(-h * 0.6, -h * 0.1, s * 0.6, h * 1.1, 6, '#34405a'); rr(-h * 0.5, h * 0.1, s * 0.5, h * 0.4, 4, '#e8b830'); g.fillStyle = '#c8ccd4'; for (const xx of [-0.32, 0.18]) g.fillRect(xx * h, -h, s * 0.07, h * 1.0); g.strokeStyle = '#7ac8ff'; g.lineWidth = 3; g.beginPath(); g.moveTo(-0.28 * h, -h + 4); for (let i = 1; i <= 4; i++) g.lineTo(-0.28 * h + i * 0.13 * h, -h + (i % 2 ? 10 : 2)); g.stroke(); return; }
     if (t === 'mina') { rr(-h * 0.7, -h * 0.4, s * 0.7, h * 1.3, 6, '#4a5a3a'); g.fillStyle = '#2a2c30'; g.beginPath(); g.arc(0, -h * 0.55, h * 0.38, 0, 7); g.fill(); g.fillStyle = '#ff3a2a'; g.beginPath(); g.arc(0, -h * 0.55, 4, 0, 7); g.fill(); return; }
-    if (t === 'razzo') { rr(-h * 0.7, -h * 0.1, s * 0.7, h * 1.1, 6, '#4a505a'); for (const xx of [-0.45, 0.1]) { rr(xx * h, -h, s * 0.17, h * 1.4, 4, '#5a6a4a'); g.fillStyle = '#c8382e'; g.fillRect(xx * h, -h, s * 0.17, 7); } return; }
+    if (t === 'razzo') { g.fillStyle = '#3a4030'; g.beginPath(); g.arc(0, 0, h * 0.75, 0, 7); g.fill(); rr(-h * 0.5, -h * 0.85, s * 0.5, h * 1.2, 5, '#5a6a40'); g.fillStyle = '#c8382e'; for (const [xx, yy] of [[-0.22, -0.6], [0.22, -0.6], [-0.22, -0.2], [0.22, -0.2]]) { g.beginPath(); g.arc(xx * h, yy * h, 5, 0, 7); g.fill(); } return; }
+    if (t === 'flare') { rr(-h * 0.7, -h * 0.5, s * 0.7, h * 1.2, 6, '#3a4a3a'); g.fillStyle = '#ff8a2a'; for (const xx of [-0.3, 0.3]) { g.beginPath(); g.arc(xx * h, -h * 0.05, h * 0.22, 0, 7); g.fill(); } return; }
     if (t === 'dischi') { rr(-h * 0.7, -h * 0.1, s * 0.7, h * 1.1, 6, '#5a4a6a'); g.fillStyle = '#d8dce4'; g.beginPath(); for (let i = 0; i <= 16; i++) { const a = i / 16 * 6.2832, r = i % 2 ? h * 0.5 : h * 0.62; g.lineTo(Math.cos(a) * r, -h * 0.3 + Math.sin(a) * r); } g.fill(); g.fillStyle = '#5a4a6a'; g.beginPath(); g.arc(0, -h * 0.3, 5, 0, 7); g.fill(); return; }
     if (t === 'fiamma') { rr(-h * 0.6, -h * 0.1, s * 0.6, h * 1.1, 8, '#c8382e'); g.fillStyle = '#3a3e48'; g.fillRect(-5, -h, 10, h * 0.95); g.fillStyle = '#3a8aff'; g.beginPath(); g.arc(0, -h + 4, 5, 0, 7); g.fill(); }
   }
@@ -981,7 +1008,7 @@
 
   // ======================= IL BANCO DI PROVA (guidare) =======================
   function goDrive(G) {
-    const d = myD(); G.mines = []; G.rbs = G.rbs.filter(b => b !== G.mine && !(b.fall && !b.dummy)); G.rl = 1; G.rlT = 1; G.sawOn = 0;
+    const d = myD(); G.mines = []; G.flr = []; G.rq = []; G.rbs = G.rbs.filter(b => b !== G.mine && !(b.fall && !b.dummy)); G.rl = 1; G.rlT = 1; G.sawOn = 0;
     const b = makeBody(d, SPAWN[0][0], SPAWN[0][1], SPAWN[0][2], 0); b.uid = 'me'; G.mine = b; G.rbs.unshift(b);
     if (!G.dummy || G.dummy.ko) spawnDummy(G);
     U.mode = 'drive'; shopUI(G, false); driveUI(G, true); SFX.go(); cq.x = b.x; cq.y = b.y; pubRobot().catch(() => {});
@@ -1024,7 +1051,7 @@
     const b = G.mine; if (!b) return; const d = cqDir(), inp = b.inp;
     if (G.mt && G.mt.ph !== 'fight') { inp.thr = 0; inp.steer = 0; inp.sega = inp.fiamma = false; U.tap = null; return; }
     steerTo(b, d, inp);
-    inp.sega = !!U.hold.sega; inp.fiamma = !!U.hold.fiamma; if (U.tap) { for (const k of ['martello', 'cannone', 'pala', 'nos', 'taser', 'mina', 'razzo', 'dischi']) if (U.tap[k]) inp[k] = true; U.tap = null; }
+    inp.sega = !!U.hold.sega; inp.fiamma = !!U.hold.fiamma; if (U.tap) { for (const k of ['martello', 'cannone', 'pala', 'nos', 'taser', 'mina', 'razzo', 'dischi', 'flare']) if (U.tap[k]) inp[k] = true; U.tap = null; }
     if (cq.keys[' ']) { inp.sega = inp.fiamma = true; inp.martello = inp.cannone = inp.pala = inp.taser = inp.dischi = true; }
     if (cq.keys.r && !U.rK && !b.ko && !b.flip) b.turn = { to: angN(b.a + Math.PI), t: G.time }; U.rK = !!cq.keys.r;
   }
@@ -1051,7 +1078,7 @@
     const h = dt * (!live && now() - U.slowT < 1.1 ? 0.3 : 1);   // (dal vivo niente fermo immagine ne' rallentatore: l'amico non li avrebbe)
     if (G.mt && G.mt.live) remoteInput(G, G.dummy); else if (G.dummy) dummyAI(G, G.dummy, h);
     for (const b of G.rbs) if (!b.debris) weapons(G, b, h);
-    hammers(G); projectiles(G, h); burning(G, h); physics(G, h); mines(G); matchTick(G);
+    launchQ(G); hammers(G); projectiles(G, h); flaresTick(G, h); burning(G, h); physics(G, h); mines(G); matchTick(G);
     G.rl = clamp((G.rl == null ? 1 : G.rl) + clamp((G.rlT == null ? 1 : G.rlT) - G.rl, -h / 1.2, h / 1.2), 0, 1);
     for (const b of G.rbs) b.wa = (b.wa || 0) + (Math.cos(b.a) * b.vx + Math.sin(b.a) * b.vy) * h * 4;
     const D = G.dummy; if (!G.mt && D && D.ko && G.time - D.koT > 2.6) { spawnDummy(G); U.msg = { t: G.time, s: '🎯 Ecco un altro manichino!' }; }
@@ -1096,7 +1123,9 @@
       else if (k === 'rend') { const w = a; U.fx.push({ k: 'big', t: T + 0.8, d: 2.9, s: w === MT ? '🏆 ROUND A TE!' : w === 1 - MT ? '💥 ROUND A ' + oppName(G).toUpperCase() : '🤝 PAREGGIO', s2: b, c: w === MT ? '#ffd24a' : w === 1 - MT ? '#ff9a8a' : '#f2f2f6' }); if (w === MT) setTimeout(() => SFX.win(), 800); }
       else if (k === 'zap') { SFX.zap(); U.fx.push({ k: 'zap', x0: a[0], y0: a[1], x1: x, y1: y, t: T }); if (b >= 0) U.fx.push({ k: 'txt', x, y, t: T, s: b === MT ? '⚡ RUOTE BLOCCATE!' : '⚡ BLOCCATO!', c: '#9ad8ff' }); }
       else if (k === 'boom') { SFX.boom(); U.shake = Math.max(U.shake, 1.3); U.fx.push({ k: 'ring', x, y, t: T, R: a || 1.2 }); U.fx.push({ k: 'smoke', x, y, t: T }); for (let i = 0; i < 30; i++) U.parts.push({ x: x + (Math.random() - 0.5) * 0.6, y: y + (Math.random() - 0.5) * 0.6, z: 0.2, vx: (Math.random() - 0.5) * 8, vy: (Math.random() - 0.5) * 8, vz: 2 + Math.random() * 5, t: T, life: 0.5 + Math.random() * 0.5, c: ['#fff0a0', '#ffb030', '#ff6a2a', '#3a3a40'][i % 4], sz: 2 + Math.random() * 3 }); }
-      else if (k === 'rkt') { SFX.whoosh(); U.fx.push({ k: 'smoke', x, y, t: T }); }
+      else if (k === 'flare') { SFX.flare(); U.fx.push({ k: 'txt', x, y, t: T, s: '🎆 FLARE!', c: '#ffe08a' }); }
+      else if (k === 'decoy') { U.fx.push({ k: 'txt', x, y, t: T, s: '🎯 INGANNATO!', c: '#ffd24a' }); }
+      else if (k === 'rkt') { SFX.whoosh(); U.fx.push({ k: 'smoke', x, y, t: T }); if (b !== MT && !a) { U.fx.push({ k: 'big', t: T, s: '⚠️ RAZZI IN ARRIVO!', s2: (G.mine && G.mine.bl.some(q => q.t === 'flare' && q.am > 0)) ? 'Lancia i flare 🎆 al momento giusto!' : '', c: '#ff8a5a', d: 1.4 }); SFX.no(); } }
       else if (k === 'dsk') { SFX.tink(1); }
       else if (k === 'tink') { SFX.tink(a ? 1 : 0); for (let i = 0; i < 5; i++) U.parts.push({ x, y, z: 0.3, vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4, vz: 1 + Math.random() * 2, t: T, life: 0.3, c: '#fff0a0', sp: 1 }); }
       else if (k === 'mdrop') { SFX.clank(0.2); }
@@ -1168,6 +1197,7 @@
       for (const b of G.rbs) if (!b.debris && !b.fall) for (const q of b.bl) { const hk = q.mx ? q.hp / q.mx : 1; if (hk > 0.45) continue; const [x, y] = wpos(b, q), sd = ((q.gx * 7 + q.gy * 13) % 10) / 10, z0 = (b.z || 0) + 0.45;
         for (let i = 0; i < 3; i++) { const ph = (T * 0.7 + sd + i / 3) % 1, [X, Y] = P3(x + Math.sin(sd * 9 + ph * 3) * 0.15, y - ph * 0.2, z0 + ph * 1.3); g.fillStyle = 'rgba(' + (hk < 0.2 ? '38,36,40' : '120,120,126') + ',' + (0.5 * (1 - ph)).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, TW * (0.06 + ph * 0.16) * BS, 0, 7); g.fill(); }
         if (hk < 0.2) { const fl = 0.5 + 0.5 * Math.sin(T * 31 + sd * 40), [X, Y] = P3(x, y, z0); g.fillStyle = 'rgba(255,' + Math.round(120 + fl * 90) + ',40,' + (0.5 + fl * 0.4).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, TW * (0.04 + fl * 0.04) * BS, 0, 7); g.fill(); } }
+      for (const f of G.flr || []) { const a = G.time - f.t; if (a > 2.6) continue; const k = 1 - a / 2.6, [X, Y] = P3(f.x, f.y, f.z); g.fillStyle = 'rgba(255,220,140,' + (0.35 * k).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, TW * 0.3 * k + 2, 0, 7); g.fill(); g.fillStyle = Math.random() < 0.5 ? '#fffbe0' : '#ffe08a'; g.beginPath(); g.arc(X, Y, Math.max(2, TW * 0.06), 0, 7); g.fill(); }
       for (const [fx0, fy0, ph, zb] of JUNK.flies) { const k = Math.max(0, Math.sin(T * 1.1 + ph * 3)), al = k * k * k; if (al < 0.05) continue; const x = fx0 + Math.sin(T * 0.4 + ph) * 0.5, y = fy0 + Math.cos(T * 0.33 + ph * 2) * 0.5, [X, Y] = P3(x, y, jH(x, y) + zb + Math.sin(T * 0.9 + ph) * 0.2);
         g.fillStyle = 'rgba(210,255,120,' + (0.22 * al).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, Math.max(3, TW * 0.11), 0, 7); g.fill(); g.fillStyle = 'rgba(240,255,190,' + (0.9 * al).toFixed(2) + ')'; g.beginPath(); g.arc(X, Y, Math.max(1.2, TW * 0.03), 0, 7); g.fill(); }
       for (const [fx, fy] of JUNK.fires) { const z0 = jH(fx, fy) + 0.7;
@@ -1190,5 +1220,5 @@
     }
   };
   cqEachFrame(() => { const G = cq.g; if (!G || G.mode !== 'robot' || G.phase !== 'play') { if (document.getElementById('r2Shop') || document.getElementById('r2W') || document.getElementById('r2Top')) { shopUI(G || {}, false); driveUI(G || {}, false); } if (HUM.o) hum(0, false, false); if (U.mode && (!G || G.mode !== 'robot')) U.mode = ''; } });
-  window.__robot = { boom, mines, covered, liveSnap, liveApply, liveEv, guestLive, startLive, liveReady, friend, pubRobot, boardUI, pickUI, thumbOf, endMatch, simStep, RT, ARX, ARY, ARR, JUNK, jH, startMatch, nextRound, matchTick, rem, AX0, AX1, AY0, AY1, U, PZ, MODELS, MAXW, mirrorCell, wOf, GC, GN, B, BS, PIT, SPAWN, DUMMY, makeBody, mass, linked, statsOf, physics, collide, weapons, hammers, projectiles, breakBlock, hurt, wpos, myD, saveD, cleanD, put, goDrive, goShop, spawnDummy, drawBody, icon, topPiece, myInput, launch };
+  window.__robot = { enemyOf, launchQ, boom, mines, covered, liveSnap, liveApply, liveEv, guestLive, startLive, liveReady, friend, pubRobot, boardUI, pickUI, thumbOf, endMatch, simStep, RT, ARX, ARY, ARR, JUNK, jH, startMatch, nextRound, matchTick, rem, AX0, AX1, AY0, AY1, U, PZ, MODELS, MAXW, mirrorCell, wOf, GC, GN, B, BS, PIT, SPAWN, DUMMY, makeBody, mass, linked, statsOf, physics, collide, weapons, hammers, projectiles, breakBlock, hurt, wpos, myD, saveD, cleanD, put, goDrive, goShop, spawnDummy, drawBody, icon, topPiece, myInput, launch };
 })();
