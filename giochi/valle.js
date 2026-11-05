@@ -962,7 +962,7 @@ if (typeof document !== 'undefined') (() => {
   .vgD .opts button.on{background:#e9c46a;color:#2a1c0c;font-weight:600}
   .vgRes{display:flex;align-items:center;gap:8px;padding:7px 4px;border-bottom:1px solid rgba(255,255,255,.08)}
   .vgRes b{margin-left:auto;font-size:18px}
-  #vgClose{position:absolute;right:10px;bottom:104px;background:rgba(20,14,8,.72);color:#f4ead8;border:0;border-radius:10px;padding:6px 10px;font:13px system-ui}
+  #vgClose{position:absolute;left:10px;bottom:104px;background:rgba(20,14,8,.72);color:#f4ead8;border:0;border-radius:10px;padding:5px 11px;font:13px system-ui}
   `;
 
   // ---- piccola tela con l'omino di un colore (per le barre dei giocatori) ----
@@ -980,7 +980,7 @@ if (typeof document !== 'undefined') (() => {
     if (U) U.root.remove();
     const root = document.createElement('div'); root.id = 'vgRoot';
     root.innerHTML = '<canvas class="map"></canvas><div id="vgTop"></div><div id="vgLeft"></div><div id="vgToast"></div>' +
-      '<div id="vgBot"><canvas id="vgHand" width="152" height="152"></canvas><div id="vgMsg"></div><div class="vgBtns"><button class="vgBtn" id="vgOk"></button><button class="vgBtn alt" id="vgAlt"></button></div></div>';
+      '<button id="vgClose" type="button">Esci</button><div id="vgBot"><canvas id="vgHand" width="152" height="152"></canvas><div id="vgMsg"></div><div class="vgBtns"><button class="vgBtn" id="vgOk"></button><button class="vgBtn alt" id="vgAlt"></button></div></div>';
     document.body.appendChild(root);
     U = { root, cv: root.querySelector('canvas.map'), opt, G: null, cam: { x: 0.5, y: 0.5, z: 110 }, sel: null, mo: null, mopts: [], fl: [], evI: 0, busy: false, raf: 0, dirty: true, t0: performance.now() };
     U.g = U.cv.getContext('2d');
@@ -988,6 +988,7 @@ if (typeof document !== 'undefined') (() => {
     touch();
     root.querySelector('#vgOk').onclick = () => ok();
     root.querySelector('#vgAlt').onclick = () => alt();
+    root.querySelector('#vgClose').onclick = () => { if (U.G && U.G.ph !== 'end' && U.G.tiles.length > 1 && !confirm('Lasci la partita?')) return; stop(); };
     setup();
   }
 
@@ -997,7 +998,8 @@ if (typeof document !== 'undefined') (() => {
     const p = panel(`<h2>La Valle dei Clan</h2><p>Metti le tessere, manda i tuoi omini nei boschi, nei fiumi e nei prati.</p>
       <details class="vgD" data-k="n"><summary>Avversari <span></span></summary><div class="opts"></div></details>
       <details class="vgD" data-k="lv"><summary>Livello <span></span></summary><div class="opts"></div></details>
-      <button class="vgBtn" style="width:100%;margin-top:10px" id="vgGo">Gioca</button>`);
+      <button class="vgBtn" style="width:100%;margin-top:10px" id="vgGo">Gioca</button><button class="vgBtn alt" style="width:100%;margin-top:8px" id="vgOut">Esci</button>`);
+    p.querySelector('#vgOut').onclick = () => stop();
     const fill = () => p.querySelectorAll('.vgD').forEach(d => {
       const k = d.dataset.k, vals = k === 'n' ? [1, 2, 3, 4] : [0, 1, 2, 3], lab = v => k === 'n' ? (v === 1 ? '1 computer' : v + ' computer') : LEVELS[v].n;
       d.querySelector('summary span').textContent = lab(S[k]);
@@ -1239,5 +1241,6 @@ if (typeof document !== 'undefined') (() => {
     cv.addEventListener('wheel', e => { e.preventDefault(); const [wx, wy] = toWorld(e.clientX, e.clientY); U.cam.z = E.clamp(U.cam.z * (e.deltaY < 0 ? 1.12 : 0.89), 45, 260); const [nx, ny] = toWorld(e.clientX, e.clientY); U.cam.x += wx - nx; U.cam.y += wy - ny; redraw(); }, { passive: false });
   }
 
-  window.VG = { start, get U() { return U; }, tapAt, ok, alt, toScreen };
+  function stop() { if (!U) return; removeEventListener('resize', resize); if (U.raf) cancelAnimationFrame(U.raf); U.root.remove(); const cb = U.opt.onExit; U = null; if (cb) cb(); }
+  window.VG = { start, stop, get U() { return U; }, tapAt, ok, alt, toScreen };
 })();
