@@ -4037,7 +4037,7 @@ function frPicker(el, onPick, extra) {
 function tgValle() {
   const go = () => VG.start({ name: store.settings.myName || 'Tu', onExit: () => {} });
   if (window.VG) { go(); return; }
-  const sc = document.createElement('script'); sc.src = 'giochi/valle.js?v=202611061200'; sc.onload = go; sc.onerror = () => alert("La Valle dei Clan non si e' caricata: riprova."); document.head.appendChild(sc);
+  const sc = document.createElement('script'); sc.src = 'giochi/valle.js?v=202611061500'; sc.onload = go; sc.onerror = () => alert("La Valle dei Clan non si e' caricata: riprova."); document.head.appendChild(sc);
 }
 function tgScacchi() {
   cqCloseTask(); $('#tkTitle').textContent = '♟️ Scacchi';

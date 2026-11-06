@@ -425,11 +425,13 @@
   }
   function meepleOpts(G) {   // [{ j, k: 'man'|'hut' }] sulla tessera appena messa
     const i = G.last, P = G.P[G.cur], out = []; if (i < 0) return out;
+    const sys = new Map();   // una sola palafitta per sistema di fiumi (sul lago se c'e'): sono la stessa scelta
     G.tiles[i].F.forEach((f, j) => {
       const g = i * 16 + j;
       if (P.men > 0 && (f.k === 'b' || f.k === 'f' || f.k === 'p')) { const R = root(G, g); if (!R.men.length && !R.done) out.push({ j, k: 'man' }); }
-      if (P.huts > 0 && (f.k === 'f' || f.k === 'l')) { if (!sroot(G, g).huts.length) out.push({ j, k: 'hut' }); }
+      if (P.huts > 0 && (f.k === 'f' || f.k === 'l')) { const sg = find(G.spar, g); if (!G.nd[sg].huts.length && (!sys.has(sg) || f.k === 'l')) sys.set(sg, j); }
     });
+    for (const j of sys.values()) out.push({ j, k: 'hut' });
     return out;
   }
   const winners = men => { const c = {}; for (const m of men) c[m.p] = (c[m.p] || 0) + 1; const mx = Math.max(0, ...Object.values(c)); return Object.keys(c).filter(p => c[p] === mx).map(Number); };
@@ -1203,8 +1205,32 @@ if (typeof document !== 'undefined') (() => {
   }
 
   // ---- giro della partita ----
+  // cerchi delle scelte: partono dal punto della zona e si allontanano tra loro finche' non si toccano piu'
+  const OPT_D = 50;   // distanza minima tra i centri (unita' della tessera; il cerchio ha raggio 21)
+  function layoutOpts(t) {
+    const P = U.mopts.map(o => { const p = optPt(t, o); return [E.clamp(p[0], 26, 174), E.clamp(p[1], 26, 174)]; });
+    for (let it = 0; it < 80; it++) {
+      let moved = false;
+      for (let a = 0; a < P.length; a++) for (let b = a + 1; b < P.length; b++) {
+        let dx = P[b][0] - P[a][0], dy = P[b][1] - P[a][1], d = Math.hypot(dx, dy);
+        if (d >= OPT_D) continue;
+        if (d < 0.01) { dx = 1; dy = 0.3; d = Math.hypot(dx, dy); }
+        const push = (OPT_D - d) / 2 + 0.5, ux = dx / d, uy = dy / d;
+        P[a][0] -= ux * push; P[a][1] -= uy * push; P[b][0] += ux * push; P[b][1] += uy * push; moved = true;
+      }
+      for (const p of P) { p[0] = E.clamp(p[0], 26, 174); p[1] = E.clamp(p[1], 26, 174); }
+      if (!moved) break;
+    }
+    U.optPos = P;
+  }
+  function zoomTo(t) {   // la tessera appena messa ben grande al centro, per scegliere con comodo
+    U.zBack = U.cam.z;
+    U.cam.z = Math.max(U.cam.z, Math.min(240, Math.min(U.W, U.H - 190) / 1.9));
+    U.cam.x = t.x + 0.5; U.cam.y = t.y + 0.5;
+  }
   function flow() {
-    const G = U.G; U.sel = null; U.mo = null; U.mopts = [];
+    const G = U.G; U.sel = null; U.mo = null; U.mopts = []; U.optPos = null;
+    if (U.zBack) { U.cam.z = U.zBack; U.zBack = 0; }
     eventsShow();
     bars();
     if (G.ph === 'end') { setTimeout(results, 1400); hand(null); msg('Fine della partita', 'Si contano i prati e le palafitte'); buttons(); redraw(); return; }
@@ -1244,7 +1270,7 @@ if (typeof document !== 'undefined') (() => {
     const G = U.G; if (U.busy || U.ai[G.cur]) return;
     if (G.ph === 'tile' && U.sel) {
       const s = U.sel; E.place(G, s.x, s.y, s.rs[s.ri]); U.sel = null; hand(null);
-      U.mopts = E.meepleOpts(G); U.mo = null;
+      U.mopts = E.meepleOpts(G); U.mo = null; layoutOpts(G.tiles[G.last]); zoomTo(G.tiles[G.last]);
       if (!U.mopts.length) { E.meeple(G, null); U.mo = null; flow(); return; }
       msg('Vuoi mettere un omino?', 'Tocca un cerchio sulla tessera, oppure Avanti'); buttons(); redraw();
     } else if (G.ph === 'meeple') { E.meeple(G, U.mo); U.mo = null; flow(); }
@@ -1265,7 +1291,7 @@ if (typeof document !== 'undefined') (() => {
       if (s) { U.sel = { x: tx, y: ty, rs: s.r, ri: 0 }; hand(G.hand, s.r[0]); msg('Gira o conferma', s.r.length > 1 ? 'Tocca ancora la tessera per girarla' : 'Va bene solo cosi\''); buttons(); redraw(); }
     } else if (G.ph === 'meeple') {
       const t = G.tiles[G.last]; let best = null, bd = 0.2;
-      for (const o of U.mopts) { const p = optPt(t, o), d = Math.hypot(wx - t.x - p[0] / 200, wy - t.y - p[1] / 200); if (d < bd) { bd = d; best = o; } }
+      U.mopts.forEach((o, k) => { const p = U.optPos ? U.optPos[k] : optPt(t, o), d = Math.hypot(wx - t.x - p[0] / 200, wy - t.y - p[1] / 200); if (d < bd) { bd = d; best = o; } });
       if (best) { U.mo = U.mo && U.mo.j === best.j && U.mo.k === best.k ? null : best; buttons(); redraw(); }
     } else if (G.ph === 'totem') {
       let best = null, bd = 0.25;
@@ -1395,13 +1421,13 @@ if (typeof document !== 'undefined') (() => {
     // scelta dell'omino sulla tessera appena messa
     if (G.ph === 'meeple' && !U.ai[G.cur]) {
       const t = G.tiles[G.last];
-      for (const o of U.mopts) {
-        const p = optPt(t, o), on = U.mo && U.mo.j === o.j && U.mo.k === o.k; tileT(t.x, t.y);
-        if (on) { o.k === 'hut' ? A.hut(g, p[0], p[1] + 14, COL[G.cur], 1.05) : A.meeple(g, p[0], p[1] + 16, COL[G.cur], t.F[o.j].k === 'p' ? 'cacc' : t.F[o.j].k === 'b' ? 'racc' : 'pesca', 1.05); continue; }
+      U.mopts.forEach((o, k) => {
+        const p = U.optPos ? U.optPos[k] : optPt(t, o), on = U.mo && U.mo.j === o.j && U.mo.k === o.k; tileT(t.x, t.y);
+        if (on) { o.k === 'hut' ? A.hut(g, p[0], p[1] + 14, COL[G.cur], 1.05) : A.meeple(g, p[0], p[1] + 16, COL[G.cur], t.F[o.j].k === 'p' ? 'cacc' : t.F[o.j].k === 'b' ? 'racc' : 'pesca', 1.05); return; }
         g.fillStyle = `rgba(255,255,255,${0.55 + 0.25 * pulse})`; g.strokeStyle = COL[G.cur]; g.lineWidth = 5;
-        g.beginPath(); g.arc(p[0], p[1], 19, 0, Math.PI * 2); g.fill(); g.stroke();
-        g.save(); g.globalAlpha = 0.75; o.k === 'hut' ? A.hut(g, p[0], p[1] + 9, COL[G.cur], 0.55) : A.meeple(g, p[0] - 1, p[1] + 11, COL[G.cur], 'racc', 0.6); g.restore();
-      }
+        g.beginPath(); g.arc(p[0], p[1], 21, 0, Math.PI * 2); g.fill(); g.stroke();
+        g.save(); g.globalAlpha = 0.75; o.k === 'hut' ? A.hut(g, p[0], p[1] + 9, COL[G.cur], 0.55) : (t.F[o.j].k === 'p' ? A.meeple(g, p[0] - 4, p[1] + 4, COL[G.cur], 'cacc', 0.55) : A.meeple(g, p[0] - 1, p[1] + 11, COL[G.cur], t.F[o.j].k === 'b' ? 'racc' : 'pesca', 0.6)); g.restore();
+      });
       anim = true;
     }
     // punti che volano
