@@ -591,10 +591,11 @@ function pick() {
   const N = cq.net, Gm = cq.g; if (!Gm || !Gm.hall) return;
   if (window.SC && !pick.chosen) {   // Scopa (giochi/scopa.js): si sceglie il gioco prima dell'avversario
     // Scacchi (giochi/scacchi.js, window.CHS) nella stessa scelta del tavolino
-    modal(`<h2>🎲 Giochi al tavolino</h2><p>A cosa giocate?</p><button type="button" data-k="bc" class="bcPick">🃏 Briscola</button><button type="button" data-k="sc" class="bcPick">🧹 Scopa</button>${window.CHS ? '<button type="button" data-k="ch" class="bcPick">♟️ Scacchi</button>' : ''}${typeof tgPoker === 'function' ? '<button type="button" data-k="pk" class="bcPick">♠️ Poker</button>' : ''}<button type="button" data-k="x">Annulla</button>`, k => {
+    modal(`<h2>🎲 Giochi al tavolino</h2><p>A cosa giocate?</p><button type="button" data-k="bc" class="bcPick">🃏 Briscola</button><button type="button" data-k="sc" class="bcPick">🧹 Scopa</button>${window.CHS ? '<button type="button" data-k="ch" class="bcPick">♟️ Scacchi</button>' : ''}${typeof tgPoker === 'function' ? '<button type="button" data-k="pk" class="bcPick">♠️ Poker</button>' : ''}${typeof tgSette === 'function' ? '<button type="button" data-k="sm" class="bcPick">🎴 Sette e mezzo</button>' : ''}<button type="button" data-k="x">Annulla</button>`, k => {
       if (k === 'bc' || k === 'sc') return howMany(k);
       if (k === 'ch' && window.CHS) CHS.pickSeated();
       if (k === 'pk' && typeof tgPoker === 'function') tgPoker();   // poker contro i computer (giochi/poker.js)
+      if (k === 'sm' && typeof tgSette === 'function') tgSette();   // sette e mezzo contro i computer (giochi/settemezzo.js)
     });
     return;
   }
