@@ -374,5 +374,229 @@
     pw = Math.max(16, Math.round(pw)); const k = (r ? su + r : 'back') + '_' + pw; let u = urls.get(k); if (u) return u;
     u = (r ? card(su, r, pw, true) : back(pw, true)).toDataURL('image/png'); urls.set(k, u); return u;
   }
-  window.CARTE = { card, back, url, W, H, LAB };
+  // ======== CARTE FRANCESI A 4 COLORI (Poker): CARTE.fr ========
+  // Semi: 'h' cuori (rosso), 'd' quadri (blu), 'c' fiori (verde), 's' picche (nero). Valori 2..14 (11 J, 12 Q, 13 K, 14 A).
+  // Carta logica FW x FH (proporzioni delle carte da poker). Simboli pieni e netti come il poker online, figure disegnate da noi
+  // a mezzo busto con la doppia testa (stesso tratto delle figure napoletane). j = "jumbo": numero enorme + seme grande, per le carte piccole.
+  const FW = 250, FH = 350;
+  const FRC = { h: ['#ff5d63', '#c8102e', '#8e0b20'], d: ['#5a98ff', '#1554c0', '#0e3a86'], c: ['#46c467', '#17803a', '#0f5726'], s: ['#5b616d', '#1b1d22', '#0c0d10'] };
+  const FRL = ['', '', '2', '3', '4', '5', '6', '7', '8', '9', '10', 'J', 'Q', 'K', 'A'];
+  function frShape(g, su) {
+    g.beginPath();
+    if (su === 'h') { g.moveTo(0, 47); g.bezierCurveTo(-18, 30, -50, 8, -50, -18); g.bezierCurveTo(-50, -38, -37, -49, -24, -49); g.bezierCurveTo(-12, -49, -4, -41, 0, -30); g.bezierCurveTo(4, -41, 12, -49, 24, -49); g.bezierCurveTo(37, -49, 50, -38, 50, -18); g.bezierCurveTo(50, 8, 18, 30, 0, 47); }
+    else if (su === 'd') { g.moveTo(0, -50); g.bezierCurveTo(10, -30, 24, -14, 39, 0); g.bezierCurveTo(24, 14, 10, 30, 0, 50); g.bezierCurveTo(-10, 30, -24, 14, -39, 0); g.bezierCurveTo(-24, -14, -10, -30, 0, -50); }
+    else if (su === 's') { g.moveTo(0, -50); g.bezierCurveTo(10, -30, 48, -14, 48, 10); g.bezierCurveTo(48, 27, 35, 35, 23, 35); g.bezierCurveTo(13, 35, 6, 30, 3, 25); g.quadraticCurveTo(5, 41, 17, 50); g.lineTo(-17, 50); g.quadraticCurveTo(-5, 41, -3, 25); g.bezierCurveTo(-6, 30, -13, 35, -23, 35); g.bezierCurveTo(-35, 35, -48, 27, -48, 10); g.bezierCurveTo(-48, -14, -10, -30, 0, -50); }
+    else {
+      for (const [x, y, r] of [[0, -25, 21.5], [-24.5, 6, 21.5], [24.5, 6, 21.5], [0, -1, 13]]) { g.moveTo(x + r, y); g.arc(x, y, r, 0, TAU); }
+      g.moveTo(-3.5, 6); g.quadraticCurveTo(-4, 38, -17, 50); g.lineTo(17, 50); g.quadraticCurveTo(4, 38, 3.5, 6); g.closePath();
+    }
+  }
+  // un seme pieno alto s, centrato in (x, y); flip = capovolto (meta' bassa della carta)
+  function frPip(g, su, x, y, s, flip, flat) {
+    g.save(); g.translate(x, y); if (flip) g.rotate(Math.PI); g.scale(s / 100, s / 100);
+    const [lt, md, dk] = FRC[su];
+    frShape(g, su);
+    if (flat) g.fillStyle = md;
+    else { const q = g.createLinearGradient(-30, -50, 30, 50); q.addColorStop(0, lt); q.addColorStop(.45, md); q.addColorStop(1, dk); g.fillStyle = q; }
+    g.fill();
+    if (!flat && s * K >= 26) {   // riflesso morbido in alto a sinistra
+      g.save(); frShape(g, su); g.clip();
+      ell(g, -20, -26, 17, 11, -0.6); g.fillStyle = 'rgba(255,255,255,.26)'; g.fill();
+      g.restore();
+    }
+    g.restore();
+  }
+  // disposizione dei semi 2..10 (colonne 80/125/170, righe dall'alto 72 al basso 278)
+  const FC = [80, 125, 170], FY = { t: 72, b: 278, m: 175, q1: 123.5, q3: 226.5, r1: 140.7, r2: 209.3, h1: 106.3, h3: 243.7 };
+  const FLAY = {
+    2: [[1, 't'], [1, 'b']], 3: [[1, 't'], [1, 'm'], [1, 'b']],
+    4: [[0, 't'], [2, 't'], [0, 'b'], [2, 'b']], 5: [[0, 't'], [2, 't'], [1, 'm'], [0, 'b'], [2, 'b']],
+    6: [[0, 't'], [2, 't'], [0, 'm'], [2, 'm'], [0, 'b'], [2, 'b']],
+    7: [[0, 't'], [2, 't'], [1, 'q1'], [0, 'm'], [2, 'm'], [0, 'b'], [2, 'b']],
+    8: [[0, 't'], [2, 't'], [1, 'q1'], [0, 'm'], [2, 'm'], [1, 'q3'], [0, 'b'], [2, 'b']],
+    9: [[0, 't'], [2, 't'], [0, 'r1'], [2, 'r1'], [1, 'm'], [0, 'r2'], [2, 'r2'], [0, 'b'], [2, 'b']],
+    10: [[0, 't'], [2, 't'], [1, 'h1'], [0, 'r1'], [2, 'r1'], [0, 'r2'], [2, 'r2'], [1, 'h3'], [0, 'b'], [2, 'b']],
+  };
+  const FPS = { 2: 50, 3: 50, 4: 50, 5: 50, 6: 48, 7: 46, 8: 46, 9: 42, 10: 40 };
+  function frPaper(g) {
+    rr(g, 1, 1, FW - 2, FH - 2, 17);
+    const q = g.createLinearGradient(0, 0, FW, FH); q.addColorStop(0, '#ffffff'); q.addColorStop(1, '#f2f0ea');
+    g.fillStyle = q; g.fill(); g.lineWidth = 2; g.strokeStyle = '#c9c4b6'; g.stroke();
+  }
+  function frRank(g, su, r, x, y, px) {   // numero/lettera centrato in x, base in y, alto circa px
+    g.save(); g.fillStyle = FRC[su][1]; g.font = `800 ${px}px system-ui, "Segoe UI", Roboto, Arial, sans-serif`; g.textAlign = 'center'; g.textBaseline = 'alphabetic';
+    const t = FRL[r], w = g.measureText(t).width, max = px * (t.length > 1 ? .95 : .78);
+    g.translate(x, y); if (w > max) g.scale(max / w, 1); g.fillText(t, 0, 0); g.restore();
+  }
+  function frIndex(g, su, r) {
+    for (const flip of [0, 1]) {
+      g.save(); if (flip) { g.translate(FW, FH); g.rotate(Math.PI); }
+      frRank(g, su, r, 31, 64, 54);
+      frPip(g, su, 31, 91, 32, false, true);
+      g.restore();
+    }
+  }
+  // ---- figure: mezzo busto nella meta' alta del riquadro (48..202 x 38..175), poi la stessa capovolta sotto ----
+  const FT = { h: ['#d3263a', '#8e1022', '#1554c0'], d: ['#2a6fd6', '#163f8a', '#d3263a'], c: ['#23944a', '#145c2c', '#d3263a'], s: ['#3a3f4a', '#1b1d22', '#d3263a'] };
+  const FHAIR = { K: { h: '#8a8f99', d: '#6b3f1f', c: '#3a2618', s: '#b9bdc4' }, Q: { h: '#e2b04a', d: '#7a3a1a', c: '#2e2018', s: '#b5652a' }, J: { h: '#3a2618', d: '#d9a441', c: '#b5652a', s: '#5a3418' } };
+  function frFace(g, cx, cy, kind) {
+    g.strokeStyle = INK; g.lineWidth = 2.4;
+    ell(g, cx, cy, 19, 22); fs(g, SKIN);
+    g.fillStyle = INK; ell(g, cx - 7.5, cy - 2, 2.2, 2.9); g.fill(); ell(g, cx + 7.5, cy - 2, 2.2, 2.9); g.fill();
+    circ(g, cx - 11, cy + 7, 4.2); circ(g, cx + 11, cy + 7, 4.2); g.fillStyle = 'rgba(230,90,70,.28)'; g.fill();
+    g.lineWidth = 1.8; g.beginPath(); g.moveTo(cx, cy - 1); g.quadraticCurveTo(cx - 3, cy + 6, cx + 1, cy + 7); g.stroke();
+    if (kind === 'Q') {   // ciglia e labbra
+      g.beginPath(); g.moveTo(cx - 11, cy - 6); g.lineTo(cx - 13, cy - 8); g.moveTo(cx + 11, cy - 6); g.lineTo(cx + 13, cy - 8); g.stroke();
+      ell(g, cx, cy + 13, 4.5, 2.4); g.fillStyle = '#d23a4a'; g.fill();
+    } else if (kind === 'J') { g.beginPath(); g.moveTo(cx - 5, cy + 12); g.quadraticCurveTo(cx, cy + 16, cx + 5, cy + 12); g.strokeStyle = '#9a3a2a'; g.lineWidth = 2; g.stroke(); }
+    g.strokeStyle = INK; g.lineWidth = 2.6;
+  }
+  function frBust(g, su, kind) {
+    const [robe, dark, alt] = FT[su], HAIR = FHAIR[kind][su], GOLD = '#f2c230';
+    g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 2.6;
+    const cx = 125, cy = 86;
+    // capelli dietro (la regina li ha lunghi fino alle spalle)
+    if (kind === 'Q') { g.beginPath(); g.moveTo(102, 80); g.bezierCurveTo(96, 110, 94, 136, 100, 150); g.lineTo(150, 150); g.bezierCurveTo(156, 136, 154, 110, 148, 80); g.closePath(); fs(g, HAIR); }
+    // spalle e veste
+    const robeP = () => { g.beginPath(); g.moveTo(52, 180); g.bezierCurveTo(54, 146, 78, 126, 106, 121); g.lineTo(144, 121); g.bezierCurveTo(172, 126, 196, 146, 198, 180); g.closePath(); };
+    robeP(); g.fillStyle = robe; g.fill();
+    g.save(); robeP(); g.clip();
+    g.fillStyle = 'rgba(0,0,0,.14)'; g.fillRect(148, 110, 70, 80);
+    if (kind === 'K') { g.fillStyle = GOLD; g.fillRect(117, 120, 16, 70); g.beginPath(); g.moveTo(117, 120); g.lineTo(117, 190); g.moveTo(133, 120); g.lineTo(133, 190); g.stroke(); }
+    if (kind === 'J') { g.fillStyle = GOLD; for (const x of [84, 108, 132, 156]) { g.fillRect(x, 120, 10, 70); g.beginPath(); g.moveTo(x, 120); g.lineTo(x, 190); g.moveTo(x + 10, 120); g.lineTo(x + 10, 190); g.stroke(); } }
+    if (kind === 'Q') { g.fillStyle = alt; g.beginPath(); g.moveTo(100, 121); g.lineTo(150, 121); g.lineTo(146, 152); g.lineTo(104, 152); g.closePath(); g.fill(); g.stroke(); }
+    g.restore(); robeP(); g.stroke();
+    // collo
+    g.beginPath(); g.rect(115, 102, 20, 22); fs(g, SKIN);
+    if (kind === 'Q') {   // scollatura con il bordo d'oro e la collana di perle
+      g.beginPath(); g.moveTo(108, 121); g.lineTo(142, 121); g.lineTo(138, 140); g.lineTo(112, 140); g.closePath(); fs(g, SKIN);
+      g.strokeStyle = GOLD; g.lineWidth = 3.5; g.beginPath(); g.moveTo(106, 120); g.lineTo(111, 142); g.lineTo(139, 142); g.lineTo(144, 120); g.stroke(); g.strokeStyle = INK; g.lineWidth = 2.6;
+      g.fillStyle = '#fffaf0'; for (let i = 0; i <= 8; i++) { const a = Math.PI * (.15 + .7 * i / 8); circ(g, cx + Math.cos(a) * 15, 117 + Math.sin(a) * 9, 2.4); g.fill(); g.lineWidth = 1; g.stroke(); }
+      g.lineWidth = 2.6;
+    }
+    // collo della veste: ermellino per il re, colletto bianco per il fante
+    if (kind === 'K') {
+      g.beginPath(); g.moveTo(80, 132); g.quadraticCurveTo(125, 104, 170, 132); g.quadraticCurveTo(176, 148, 164, 152); g.quadraticCurveTo(125, 134, 86, 152); g.quadraticCurveTo(74, 148, 80, 132); g.closePath(); fs(g, '#fffaf0');
+      ermine(g, 90, 162, 132, 2);
+    } else if (kind === 'J') {
+      g.beginPath(); g.moveTo(104, 124); g.quadraticCurveTo(125, 140, 146, 124); g.quadraticCurveTo(150, 134, 140, 140); g.quadraticCurveTo(125, 146, 110, 140); g.quadraticCurveTo(100, 134, 104, 124); g.closePath(); fs(g, '#fffaf0');
+    }
+    // stemma del seme sul petto
+    circ(g, cx, 163, 12); fs(g, goldH(g, cx - 12, cx + 12));
+    frPip(g, su, cx, 163, 14, false, true);
+    // cosa tiene in mano
+    if (kind === 'K') {   // spada dritta a sinistra
+      const bl = g.createLinearGradient(66, 0, 78, 0); bl.addColorStop(0, '#eef6ff'); bl.addColorStop(.45, '#b9cbe2'); bl.addColorStop(1, '#5f7390');
+      g.beginPath(); g.moveTo(72, 42); g.lineTo(78, 54); g.lineTo(78, 136); g.lineTo(66, 136); g.lineTo(66, 54); g.closePath(); fs(g, bl);
+      g.beginPath(); g.moveTo(72, 56); g.lineTo(72, 132); g.lineWidth = 1.6; g.strokeStyle = '#5f7390'; g.stroke(); g.strokeStyle = INK; g.lineWidth = 2.6;
+      rr(g, 54, 135, 36, 7, 3.5); fs(g, goldH(g, 54, 90));
+      sleeve(g, [[96, 136], [80, 150], [74, 158]], robe);
+      cuff(g, 74, 157); hand(g, 72, 150);
+    } else if (kind === 'Q') {   // un fiore del colore del seme
+      g.beginPath(); g.moveTo(150, 152); g.quadraticCurveTo(162, 120, 168, 92); g.strokeStyle = '#2f7a34'; g.lineWidth = 3; g.stroke();
+      ell(g, 160, 118, 7, 3.5, -0.9); g.fillStyle = '#4fa548'; g.fill(); g.strokeStyle = INK; g.lineWidth = 1.8; g.stroke(); g.lineWidth = 2.6;
+      for (let i = 0; i < 5; i++) { const a = i / 5 * TAU - Math.PI / 2; circ(g, 168 + Math.cos(a) * 7, 88 + Math.sin(a) * 7, 6.5); fs(g, FRC[su][0]); }
+      circ(g, 168, 88, 4.5); fs(g, GOLD);
+      sleeve(g, [[150, 132], [158, 148], [152, 156]], robe);
+      cuff(g, 153, 152); hand(g, 152, 146);
+    } else {   // alabarda a destra
+      g.beginPath(); g.rect(175, 40, 6, 140); fs(g, '#8a5a2c');
+      g.beginPath(); g.moveTo(178, 30); g.lineTo(184, 46); g.lineTo(172, 46); g.closePath(); fs(g, '#c6ceda');
+      g.beginPath(); g.moveTo(181, 50); g.bezierCurveTo(200, 50, 202, 72, 196, 80); g.bezierCurveTo(192, 70, 186, 68, 181, 70); g.closePath(); fs(g, '#c6ceda');
+      g.beginPath(); g.moveTo(175, 54); g.lineTo(164, 60); g.lineTo(175, 64); g.closePath(); fs(g, '#c6ceda');
+      sleeve(g, [[154, 134], [170, 146], [176, 154]], robe);
+      cuff(g, 176, 154); hand(g, 178, 146);
+    }
+    // testa
+    if (kind === 'K') { g.beginPath(); g.moveTo(104, 84); g.bezierCurveTo(98, 70, 108, 56, 125, 56); g.bezierCurveTo(142, 56, 152, 70, 146, 84); g.closePath(); fs(g, HAIR); }
+    frFace(g, cx, cy, kind);
+    if (kind === 'K') {   // barba, baffi e corona
+      g.beginPath(); g.moveTo(106, 88); g.quadraticCurveTo(106, 116, 125, 124); g.quadraticCurveTo(144, 116, 144, 88); g.quadraticCurveTo(140, 104, 125, 104); g.quadraticCurveTo(110, 104, 106, 88); g.closePath(); fs(g, HAIR);
+      g.beginPath(); g.moveTo(125, 95); g.quadraticCurveTo(115, 91, 108, 100); g.quadraticCurveTo(117, 98, 125, 98.5); g.quadraticCurveTo(133, 98, 142, 100); g.quadraticCurveTo(135, 91, 125, 95); g.closePath(); fs(g, HAIR);
+      g.beginPath(); g.moveTo(103, 70); g.lineTo(103, 46); g.lineTo(110, 57); g.lineTo(115, 40); g.lineTo(121, 54); g.lineTo(125, 35); g.lineTo(129, 54); g.lineTo(135, 40); g.lineTo(140, 57); g.lineTo(147, 46); g.lineTo(147, 70); g.closePath(); fs(g, goldH(g, 103, 147));
+      for (const [x, y] of [[103, 46], [115, 40], [125, 35], [135, 40], [147, 46]]) { circ(g, x, y, 2.8); fs(g, '#f7c93a'); }
+      g.beginPath(); g.moveTo(103, 62); g.lineTo(147, 62); g.stroke();
+      circ(g, 113, 66, 2.8); fs(g, alt); circ(g, 125, 66, 3.2); fs(g, robe); circ(g, 137, 66, 2.8); fs(g, alt);
+    } else if (kind === 'Q') {   // capelli sopra e diadema
+      g.beginPath(); g.moveTo(105, 84); g.bezierCurveTo(102, 62, 116, 58, 125, 62); g.bezierCurveTo(134, 58, 148, 62, 145, 84); g.quadraticCurveTo(136, 72, 125, 72); g.quadraticCurveTo(114, 72, 105, 84); g.closePath(); fs(g, HAIR);
+      g.beginPath(); g.moveTo(108, 66); g.lineTo(110, 52); g.lineTo(117, 60); g.lineTo(125, 46); g.lineTo(133, 60); g.lineTo(140, 52); g.lineTo(142, 66); g.quadraticCurveTo(125, 60, 108, 66); g.closePath(); fs(g, goldH(g, 108, 142));
+      circ(g, 125, 46, 3); fs(g, '#fffaf0'); circ(g, 125, 59, 3); fs(g, robe);
+    } else {   // ciuffo e berretto con la piuma
+      g.beginPath(); g.moveTo(106, 84); g.bezierCurveTo(104, 66, 116, 62, 128, 64); g.bezierCurveTo(140, 64, 148, 72, 145, 86); g.quadraticCurveTo(132, 74, 118, 76); g.quadraticCurveTo(110, 77, 106, 84); g.closePath(); fs(g, HAIR);
+      g.beginPath(); g.moveTo(150, 60); g.bezierCurveTo(172, 44, 176, 28, 168, 20); g.bezierCurveTo(162, 36, 152, 48, 140, 58); g.closePath(); fs(g, '#fffaf0');
+      g.beginPath(); g.moveTo(154, 56); g.quadraticCurveTo(164, 40, 168, 22); g.lineWidth = 1.4; g.stroke(); g.lineWidth = 2.6;
+      g.beginPath(); g.moveTo(102, 74); g.bezierCurveTo(98, 50, 152, 44, 150, 68); g.quadraticCurveTo(124, 64, 102, 74); g.closePath(); fs(g, dark);
+      ell(g, 126, 70, 27, 6, -0.1); fs(g, GOLD);
+    }
+  }
+  function frCourt(g, su, r) {
+    const kind = r === 11 ? 'J' : r === 12 ? 'Q' : 'K', x0 = 48, y0 = 38, w = 154, h = 274;
+    rr(g, x0, y0, w, h, 6); g.fillStyle = '#fffaf0'; g.fill();
+    for (const flip of [0, 1]) {
+      g.save(); if (flip) { g.translate(FW, FH); g.rotate(Math.PI); }
+      g.beginPath(); g.rect(x0, y0, w, FH / 2 - y0); g.clip();
+      g.fillStyle = FRC[su][1]; g.globalAlpha = .07; g.fillRect(x0, y0, w, h); g.globalAlpha = 1;
+      frBust(g, su, kind);
+      frPip(g, su, x0 + 15, y0 + 17, 20, false, true);
+      g.restore();
+    }
+    g.beginPath(); g.moveTo(x0, FH / 2); g.lineTo(x0 + w, FH / 2); g.lineWidth = 2; g.strokeStyle = FRC[su][1]; g.stroke();
+    rr(g, x0, y0, w, h, 6); g.lineWidth = 2.4; g.strokeStyle = FRC[su][1]; g.stroke();
+    rr(g, x0 + 4, y0 + 4, w - 8, h - 8, 4); g.lineWidth = 1; g.stroke();
+  }
+  function frCanvas(pw) {
+    const c = document.createElement('canvas'); c.width = pw; c.height = Math.round(pw * FH / FW);
+    const g = c.getContext('2d', CPU); g.scale(pw / FW, c.height / FH); K = pw / FW; return [c, g];
+  }
+  function frCard(su, r, pw, o) {
+    o = o || {}; pw = Math.max(16, Math.round(pw)); const key = 'fr' + su + r + (o.j ? 'j' : '') + '_' + pw; let c = cache.get(key); if (c) return c;
+    const [cv, g] = frCanvas(pw);
+    frPaper(g);
+    if (o.j) {   // jumbo: si legge anche piccolissima
+      frRank(g, su, r, 70, 132, 132);
+      if (r >= 11 && r <= 13) {   // il busto della figura in un riquadro in basso a destra
+        rr(g, 112, 150, 118, 182, 8); g.fillStyle = '#fffaf0'; g.fill();
+        g.save(); rr(g, 112, 150, 118, 182, 8); g.clip(); g.fillStyle = FRC[su][1]; g.globalAlpha = .07; g.fillRect(112, 150, 118, 182); g.globalAlpha = 1;
+        g.translate(171 - 125 * 1.02, 160 - 38 * 1.02); g.scale(1.02, 1.02); frBust(g, su, r === 11 ? 'J' : r === 12 ? 'Q' : 'K'); g.restore();
+        rr(g, 112, 150, 118, 182, 8); g.lineWidth = 2.4; g.strokeStyle = FRC[su][1]; g.stroke();
+        frPip(g, su, 60, 196, 64);
+      }
+      else frPip(g, su, 166, 252, 122);
+    } else {
+      if (r === 14) {
+        if (su === 's') { circ(g, 125, 175, 74); g.lineWidth = 2; g.strokeStyle = '#c9c4b6'; g.stroke(); circ(g, 125, 175, 68); g.lineWidth = 1; g.stroke(); }
+        frPip(g, su, 125, 175, su === 's' ? 116 : 104);
+      } else if (r <= 10) for (const [ci, ry] of FLAY[r]) { const y = FY[ry]; frPip(g, su, FC[ci], y, FPS[r], y > 176); }
+      else frCourt(g, su, r);
+      frIndex(g, su, r);
+    }
+    if (!o.tmp) cache.set(key, cv); return cv;
+  }
+  // dorso: blu notte con la trama d'oro e i quattro semi al centro
+  function frBack(pw, o) {
+    o = o || {}; pw = Math.max(16, Math.round(pw)); const key = 'frback_' + pw; let c = cache.get(key); if (c) return c;
+    const [cv, g] = frCanvas(pw);
+    rr(g, 1, 1, FW - 2, FH - 2, 17); g.fillStyle = '#fbfaf6'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#c9c4b6'; g.stroke();
+    rr(g, 13, 13, FW - 26, FH - 26, 10);
+    const q = g.createRadialGradient(125, 175, 20, 125, 175, 230); q.addColorStop(0, '#2b4a8f'); q.addColorStop(1, '#14244d'); g.fillStyle = q; g.fill();
+    g.save(); g.clip();
+    g.beginPath(); for (let d = -FH; d < FW + FH; d += 22) { g.moveTo(d, 0); g.lineTo(d + FH, FH); g.moveTo(d, FH); g.lineTo(d + FH, 0); }
+    g.strokeStyle = 'rgba(226,180,80,.55)'; g.lineWidth = 1.3; g.stroke();
+    g.fillStyle = '#e2b450'; for (let a = 0; a * 11 <= FW + 11; a++) for (let b = 0; b * 11 <= FH + 11; b++) if ((a + b) % 2 === 0) { circ(g, a * 11, b * 11, 1.6); g.fill(); }
+    g.restore();
+    rr(g, 13, 13, FW - 26, FH - 26, 10); g.lineWidth = 2.5; g.strokeStyle = '#e2b450'; g.stroke();
+    rr(g, 21, 21, FW - 42, FH - 42, 7); g.lineWidth = 1.2; g.stroke();
+    circ(g, 125, 175, 52); g.fillStyle = '#fbfaf6'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#d8a332'; g.stroke();
+    circ(g, 125, 175, 45); g.lineWidth = 1.5; g.strokeStyle = '#14244d'; g.stroke();
+    for (const [su, x, y] of [['s', 125, 152], ['h', 148, 175], ['c', 125, 198], ['d', 102, 175]]) frPip(g, su, x, y, 22, false, true);
+    if (!o.tmp) cache.set(key, cv); return cv;
+  }
+  const frUrls = new Map();
+  function frUrl(su, r, pw, o) {   // r = 0 -> dorso
+    o = o || {}; pw = Math.max(16, Math.round(pw)); const k = (r ? su + r + (o.j ? 'j' : '') : 'back') + '_' + pw; let u = frUrls.get(k); if (u) return u;
+    u = (r ? frCard(su, r, pw, { j: o.j, tmp: true }) : frBack(pw, { tmp: true })).toDataURL('image/png'); frUrls.set(k, u); return u;
+  }
+  const fr = { card: frCard, back: frBack, url: frUrl, pip: frPip, W: FW, H: FH, LAB: FRL, COL: FRC };
+
+  window.CARTE = { card, back, url, W, H, LAB, fr };
 })();
