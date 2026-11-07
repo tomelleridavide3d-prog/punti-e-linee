@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<title>Poker - bozzetto</title>
+<style>
+  html, body { margin: 0; background: #120b07; color: #fff; font-family: system-ui, "Segoe UI", Roboto, sans-serif; }
+  #tv { position: relative; height: 100vh; height: 100dvh; overflow: hidden; user-select: none; -webkit-user-select: none; }
+  #st { position: absolute; left: 0; top: 0; transform-origin: 0 0; }
+  #st canvas.bg { position: absolute; left: 0; top: 0; }
+  .ab { position: absolute; }
+  #top { left: 12px; right: 12px; top: calc(10px + env(safe-area-inset-top)); display: flex; align-items: center; gap: 8px; z-index: 50; }
+  #top button { background: rgba(0,0,0,.35); color: #fff; border: 1px solid rgba(255,255,255,.25); border-radius: 12px; padding: 7px 13px; font: 600 15px system-ui, sans-serif; }
+  #top .info { flex: 1; text-align: center; font: 600 13px/1.25 system-ui, sans-serif; opacity: .9; }
+  #top .info b { display: block; font: 800 15px system-ui, sans-serif; color: #ffe27a; }
+  .seat { position: absolute; width: 0; height: 0; z-index: 20; }
+  .av { position: absolute; left: -27px; top: -27px; width: 54px; height: 54px; border-radius: 50%; box-shadow: 0 0 0 3px #f3e6c4, 0 4px 12px rgba(0,0,0,.55); background: #333; overflow: hidden; }
+  .av canvas { width: 100%; height: 100%; display: block; }
+  .seat.out .av, .seat.out .plate { filter: grayscale(.8) brightness(.6); }
+  .seat.turn .av { box-shadow: 0 0 0 3px #ffe27a, 0 0 18px 4px rgba(255,214,90,.6); }
+  .ring { position: absolute; left: -33px; top: -33px; width: 66px; height: 66px; border-radius: 50%; background: conic-gradient(#ffe27a 0 62%, rgba(255,255,255,.12) 62% 100%); -webkit-mask: radial-gradient(circle, transparent 29px, #000 30px); mask: radial-gradient(circle, transparent 29px, #000 30px); }
+  .plate { position: absolute; left: -46px; width: 92px; top: 25px; background: linear-gradient(#2a1a10, #1a100a); border: 1px solid rgba(243,230,196,.35); border-radius: 10px; text-align: center; padding: 3px 0 4px; box-shadow: 0 3px 8px rgba(0,0,0,.5); }
+  .plate .n { font: 700 12.5px system-ui, sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; padding: 0 4px; }
+  .plate .c { font: 800 13px system-ui, sans-serif; color: #ffe27a; }
+  .tag { position: absolute; left: -40px; width: 80px; top: -48px; text-align: center; font: 800 12px system-ui, sans-serif; letter-spacing: .3px; }
+  .tag span { background: rgba(0,0,0,.55); padding: 3px 8px; border-radius: 9px; }
+  .tag.fold span { color: #c9c4b6; } .tag.raise span { color: #ffb36b; } .tag.call span { color: #9ee6a8; }
+  .hc { position: absolute; top: -30px; }
+  .hc img { position: absolute; width: 24px; border-radius: 3px; box-shadow: 0 2px 4px rgba(0,0,0,.5); }
+  .bet { position: absolute; z-index: 15; display: flex; align-items: flex-end; gap: 4px; transform: translate(-50%, -50%); }
+  .bet span { font: 800 13px system-ui, sans-serif; background: rgba(0,0,0,.45); padding: 2px 7px; border-radius: 8px; color: #fff; }
+  .dbtn { position: absolute; z-index: 16; width: 24px; height: 24px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #fff, #e8e2d2); color: #2b1b12; font: 900 13px/24px system-ui, sans-serif; text-align: center; box-shadow: 0 2px 5px rgba(0,0,0,.5), inset 0 0 0 2px #c9b98f; transform: translate(-50%, -50%); }
+  .cc { position: absolute; z-index: 10; }
+  .cc img, .mine img { display: block; width: 100%; border-radius: 7%/5%; box-shadow: 0 4px 10px rgba(0,0,0,.45); }
+  .slot { position: absolute; z-index: 9; border: 2px dashed rgba(255,255,255,.18); border-radius: 7%/5%; box-sizing: border-box; }
+  .win img { box-shadow: 0 0 0 3px #ffe27a, 0 0 16px 3px rgba(255,214,90,.7) !important; }
+  #pot { z-index: 12; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; gap: 2px; }
+  #pot span { font: 800 14px system-ui, sans-serif; background: rgba(0,0,0,.45); padding: 3px 10px; border-radius: 10px; }
+  #pot span b { color: #ffe27a; }
+  .say { position: absolute; z-index: 30; background: #fdf8ec; color: #2b1b12; font: 600 13px system-ui, sans-serif; padding: 6px 11px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,.4); white-space: nowrap; }
+  .say::before { content: ''; position: absolute; left: 34px; bottom: -6px; border: 6px solid transparent; border-bottom: 0; border-top-color: #fdf8ec; }
+  .mine { position: absolute; z-index: 25; }
+  #hand { z-index: 26; transform: translateX(-50%); font: 800 14px system-ui, sans-serif; background: rgba(20,12,7,.82); border: 1px solid rgba(255,226,122,.55); color: #ffe27a; padding: 5px 13px; border-radius: 12px; white-space: nowrap; }
+  #hand small { color: #fff; font-weight: 600; opacity: .85; }
+  #me { z-index: 26; display: flex; align-items: center; gap: 8px; }
+  #me .av { position: relative; left: 0; top: 0; width: 46px; height: 46px; }
+  #me .t { font: 700 13px/1.2 system-ui, sans-serif; } #me .t b { display: block; font: 800 15px system-ui, sans-serif; color: #ffe27a; }
+  #act { left: 10px; right: 10px; bottom: calc(10px + env(safe-area-inset-bottom)); z-index: 40; }
+  #act .pre { display: flex; gap: 6px; margin-bottom: 7px; }
+  #act .pre button { flex: 1; border: 1px solid rgba(255,255,255,.22); background: rgba(0,0,0,.4); color: #fff; border-radius: 10px; padding: 7px 0; font: 700 13px system-ui, sans-serif; }
+  #act .pre button.on { background: rgba(242,194,48,.25); border-color: #f2c230; color: #ffe27a; }
+  #act .sl { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+  #act input[type=range] { flex: 1; accent-color: #f2c230; height: 28px; }
+  #act .sl .v { min-width: 74px; text-align: right; font: 800 16px system-ui, sans-serif; color: #ffe27a; }
+  #act .main { display: flex; gap: 8px; }
+  #act .main button { flex: 1; border: 0; border-radius: 14px; padding: 14px 0 13px; font: 800 16px system-ui, sans-serif; color: #fff; }
+  #act .f { background: linear-gradient(#7b4a3a, #5c3326); box-shadow: 0 3px 0 #3a1f16; }
+  #act .k { background: linear-gradient(#36a062, #237a47); box-shadow: 0 3px 0 #155231; }
+  #act .r { background: linear-gradient(#f2c230, #d39b17); color: #3a2408 !important; box-shadow: 0 3px 0 #8f6609; }
+  /* galleria sotto il tavolo */
+  #gal { padding: 22px 14px 40px; background: radial-gradient(ellipse at 50% 0%, #2f7d47, #134226 70%); }
+  #gal h2 { font: 800 18px system-ui, sans-serif; margin: 18px 0 8px; }
+  #gal p { margin: 0 0 10px; opacity: .8; font-size: 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; align-items: flex-end; }
+  .row img { border-radius: 7%/5%; box-shadow: 0 5px 12px rgba(0,0,0,.45); }
+  .row figure { margin: 0; text-align: center; font: 700 12px system-ui, sans-serif; }
+</style>
+</head>
+<body>
+<div id="tv"><div id="st"><canvas class="bg" id="bg"></canvas></div></div>
+<div id="gal">
+  <h2>Le carte (grandi, per guardare il disegno)</h2>
+  <div class="row" id="big"></div>
+  <h2>Le figure di tutti i semi</h2>
+  <div class="row" id="figs"></div>
+  <h2>Della misura del tavolo</h2>
+  <p>Normali (le mie carte) e "jumbo" (le carte piccole degli altri allo showdown: numero enorme, si legge al volo).</p>
+  <div class="row" id="small"></div>
+  <h2>Le fiches</h2>
+  <div class="row" id="chips"></div>
+</div>
+<script src="../giochi/lib/carte.js"></script>
+<script src="../giochi/poker.js"></script>
+<script>
+const F = CARTE.fr, A = PKART, dpr = Math.min(3, devicePixelRatio || 1);
+const $ = s => document.querySelector(s);
+const cardImg = (c, w, j) => { const im = new Image(); im.src = c ? F.url(c[1], +c[0], w * dpr, { j }) : F.url('s', 0, w * dpr); im.style.width = w + 'px'; im.draggable = false; return im; };
+// ritratto provvisorio (nell'hotel saranno i personaggi veri, disegnati con cqPlayer)
+function face(col, hat) {
+  const c = document.createElement('canvas'); c.width = c.height = 108; const g = c.getContext('2d');
+  const q = g.createLinearGradient(0, 0, 0, 108); q.addColorStop(0, '#3a4a5c'); q.addColorStop(1, '#1d2633'); g.fillStyle = q; g.fillRect(0, 0, 108, 108);
+  g.fillStyle = col; g.beginPath(); g.ellipse(54, 112, 40, 30, 0, 0, 7); g.fill();
+  g.fillStyle = '#f3c9a0'; g.beginPath(); g.arc(54, 56, 22, 0, 7); g.fill();
+  g.fillStyle = '#2b1b12'; g.beginPath(); g.arc(46, 56, 2.6, 0, 7); g.arc(62, 56, 2.6, 0, 7); g.fill();
+  g.strokeStyle = '#9a3a2a'; g.lineWidth = 2; g.beginPath(); g.arc(54, 63, 6, 0.2, Math.PI - 0.2); g.stroke();
+  g.fillStyle = hat; g.beginPath(); g.ellipse(54, 38, 32, 7, 0, 0, 7); g.fill(); g.fillRect(36, 18, 36, 21);
+  return c;
+}
+// la scena di prova: 6 al tavolo, al turn, tocca a me
+const P = [
+  { n: 'Tu', c: 1860, col: '#c8102e', hat: '#2a2d33' },
+  { n: 'Nonna Pina', c: 940, col: '#7a46b8', hat: '#e8e2d2', out: 1, tag: ['fold', 'Passa'] },
+  { n: 'Rocco', c: 1320, col: '#2f6fd0', hat: '#5a2a14', bet: 120, tag: ['raise', 'Punta 120'] },
+  { n: 'Il Conte', c: 2210, col: '#2a2d33', hat: '#1b1d22', d: 1, bet: 120, tag: ['call', 'Chiama'] },
+  { n: 'Lola', c: 610, col: '#e06a1c', hat: '#d03a32', bet: 120, tag: ['call', 'Chiama'] },
+  { n: 'Il Professore', c: 1460, col: '#2c9a52', hat: '#3a2618', out: 1, tag: ['fold', 'Passa'] },
+];
+const BOARD = ['14h', '8c', '8d', '13d'], MINE = ['14s', '12h'];
+const card = s => [s.slice(0, -1), s.slice(-1)];   // '14h' -> ['14', 'h']
+function build() {
+  // il tavolo si disegna su una misura logica di almeno 380 x 820 e si rimpicciolisce sui telefoni piu' piccoli
+  const tv0 = $('#tv'), tv = $('#st'); [...tv.querySelectorAll(':scope > :not(#bg)')].forEach(e => e.remove());
+  const k = Math.min(1, tv0.clientWidth / 380, tv0.clientHeight / 820), vw = tv0.clientWidth / k, vh = tv0.clientHeight / k;
+  Object.assign(tv.style, { width: vw + 'px', height: vh + 'px', transform: k < 1 ? `scale(${k})` : '' });
+  const actH = 150, myH = 150, topH = 58;
+  const T = { x: 10, y: topH + 26, w: vw - 20, h: vh - topH - 26 - actH - myH + 40, rail: 20 };
+  T.cw = Math.min(64, (T.w - 70) / 5.35);
+  const felt = A.table($('#bg'), vw, vh, T, dpr * k);
+  const el = (cls, html, css) => { const d = document.createElement('div'); d.className = cls; if (html != null) d.innerHTML = html; Object.assign(d.style, css || {}); tv.appendChild(d); return d; };
+  el('ab', `<button type="button">Esci</button><div class="info"><b>Bui 10 / 20</b>salgono fra 3 mani</div><button type="button">Mani</button>`).id = 'top';
+  // carte comuni + piatto
+  const cw = T.cw, ch = cw * F.H / F.W, topSy = T.y + 20, upSy = Math.max(T.y + 0.26 * T.h, topSy + 110), cx = vw / 2, cy = Math.max(T.y + 0.5 * T.h, upSy + 79 + ch / 2), lowSy = Math.max(T.y + 0.78 * T.h, cy + ch / 2 + 54), gap = cw * 0.12, x0 = cx - (5 * cw + 4 * gap) / 2;
+  for (let i = 0; i < 5; i++) {
+    const css = { left: x0 + i * (cw + gap) + 'px', top: cy - ch / 2 + 'px', width: cw + 'px' };
+    if (BOARD[i]) { const d = el('cc' + (i === 0 || i === 1 || i === 2 ? '' : ''), null, css); d.appendChild(cardImg(card(BOARD[i]), cw)); }
+    else el('slot', null, { ...css, height: ch + 'px' });
+  }
+  const pot = el('ab', null, { left: cx + 'px', top: cy + ch / 2 + 10 + 'px' }); pot.id = 'pot';
+  const pim = A.pileImg(640, Math.round(11 * dpr), 3, 7); pim.style.width = pim.width / dpr + 'px'; pot.appendChild(pim);
+  pot.insertAdjacentHTML('beforeend', '<span>Piatto <b>640</b></span>');
+  // posti intorno (5 avversari): sinistra in basso, sinistra in alto, in cima, destra in alto, destra in basso.
+  // Ai lati la puntata sta verso l'interno all'altezza del ritratto, le carte coperte verso il bordo; in cima la puntata sta sotto la targhetta.
+  const SP = [[0, lowSy, 'L'], [0, upSy, 'L'], [0.5, topSy, 'T'], [1, upSy, 'R'], [1, lowSy, 'R']];
+  P.slice(1).forEach((p, k) => {
+    const [u, v, side] = SP[k], dir = side === 'R' ? -1 : 1;
+    const sx = Math.max(50, Math.min(vw - 50, T.x + u * T.w)), sy = v;
+    const s = el('seat' + (p.out ? ' out' : ''), null, { left: sx + 'px', top: sy + 'px' }); s.dataset.g = k;
+    const av = document.createElement('div'); av.className = 'av'; av.appendChild(face(p.col, p.hat)); s.appendChild(av);
+    s.insertAdjacentHTML('beforeend', `<div class="plate"><div class="n">${p.n}</div><div class="c">${A.fmt(p.c)}</div></div>`);
+    if (p.tag) s.insertAdjacentHTML('beforeend', `<div class="tag ${p.tag[0]}"><span>${p.tag[1]}</span></div>`);
+    if (!p.out) { const hc = document.createElement('div'); hc.className = 'hc'; hc.style.left = (side === 'T' ? 22 : side === 'R' ? 14 : -46) + 'px'; for (const [i, dx, r] of [[0, 0, -8], [1, 9, 6]]) { const im = cardImg(null, 24); im.style.left = dx + 'px'; im.style.transform = `rotate(${r}deg)`; hc.appendChild(im); } s.appendChild(hc); }
+    const bx = side === 'T' ? sx : sx + dir * 76, by = side === 'T' ? sy + 82 : sy + 2;
+    if (p.bet) { const b = el('bet', null, { left: bx + 'px', top: by + 'px' }); b.dataset.g = k; const im = A.pileImg(p.bet, Math.round(9 * dpr), 2, 6); im.style.width = im.width / dpr + 'px'; b.appendChild(im); b.insertAdjacentHTML('beforeend', `<span>${A.fmt(p.bet)}</span>`); }
+    if (p.d) el('dbtn', 'D', side === 'T' ? { left: sx + 62 + 'px', top: sy + 40 + 'px' } : { left: sx + dir * 40 + 'px', top: sy + 36 + 'px' }).dataset.g = k;
+    if (p.n === 'Rocco') { const b = el('say', '«Vediamo se hai coraggio»', { left: sx - 44 + 'px', top: sy - 92 + 'px', maxWidth: '116px', whiteSpace: 'normal' }); b.dataset.g = k; }
+  });
+  // le mie carte, il nome della mano, io
+  const mw = Math.min(96, vw * 0.25), mh = mw * F.H / F.W, my = vh - actH - 14 - mh, mx = vw / 2 + 18;
+  MINE.forEach((c, i) => { const d = el('mine', null, { left: mx - mw + i * mw * 0.62 + 'px', top: my + (i ? 4 : 0) + 'px', width: mw + 'px', transform: `rotate(${i ? 7 : -7}deg)` }); d.appendChild(cardImg(card(c), mw)); });
+  const hn = el('ab', 'Doppia coppia <small>assi e otto</small>', { left: mx - mw * 0.2 + 'px', top: my - 36 + 'px' }); hn.id = 'hand';
+  const me = el('ab', `<div class="t">Tu<b>${A.fmt(P[0].c)}</b></div>`, { left: '14px', top: my + mh * 0.32 + 'px' }); me.id = 'me';
+  const av = document.createElement('div'); av.className = 'av'; av.style.boxShadow = '0 0 0 3px #ffe27a, 0 0 18px 4px rgba(255,214,90,.6)'; av.appendChild(face(P[0].col, P[0].hat)); me.prepend(av);
+  // pulsanti
+  const act = el('ab', `<div class="pre"><button type="button">Min</button><button type="button" class="on">1/2 piatto</button><button type="button">Piatto</button><button type="button">All-in</button></div>
+    <div class="sl"><input type="range" min="240" max="1860" value="440"><div class="v">440</div></div>
+    <div class="main"><button type="button" class="f">Passa</button><button type="button" class="k">Chiama 120</button><button type="button" class="r">Rilancia a 440</button></div>`);
+  act.id = 'act';
+  const rg = act.querySelector('input'), rv = act.querySelector('.v'), rb = act.querySelector('.r');
+  rg.oninput = () => { const v = Math.round(rg.value / 20) * 20; rv.textContent = A.fmt(v); rb.textContent = (v >= 1860 ? 'All-in ' : 'Rilancia a ') + A.fmt(v); act.querySelectorAll('.pre button').forEach(b => b.classList.remove('on')); };
+}
+build(); addEventListener('resize', build);
+// dentro l'hotel (reception -> Scegli un gioco da tavola -> Poker) "Esci" chiude il bozzetto; da sola la pagina torna all'hotel
+document.addEventListener('click', e => { const b = e.target.closest('#top button'); if (!b || b.textContent !== 'Esci') return; if (parent !== window) parent.postMessage('pkExit', '*'); else location.href = '../'; });
+// galleria
+const bw = Math.min(150, Math.floor((Math.min(innerWidth, 900) - 50) / 2));
+for (const c of ['14s', '13h', '12d', '11c', '10s', '7h', '9d', '14d']) $('#big').appendChild(cardImg(card(c), bw));
+$('#big').appendChild(cardImg(null, bw));
+const fw = Math.min(110, Math.floor((Math.min(innerWidth, 900) - 50) / 3));
+for (const su of 'hdcs') for (const r of [11, 12, 13]) $('#figs').appendChild(cardImg([String(r), su], fw));
+for (const c of ['14s', '12h']) $('#small').appendChild(cardImg(card(c), 70));
+for (const c of ['14s', '12h', '10d', '13c']) $('#small').appendChild(cardImg(card(c), 46, true));
+for (const [v] of A.CHIPS.slice().reverse()) { const f = document.createElement('figure'), im = A.chip(v, Math.round(22 * dpr)); im.style.width = im.width / dpr + 'px'; f.appendChild(im); f.insertAdjacentHTML('beforeend', '<div>' + A.fmt(v) + '</div>'); $('#chips').appendChild(f); }
+for (const n of [85, 640, 2210]) { const f = document.createElement('figure'), im = A.pileImg(n, Math.round(13 * dpr), 3, 8); im.style.width = im.width / dpr + 'px'; f.appendChild(im); f.insertAdjacentHTML('beforeend', '<div>' + A.fmt(n) + '</div>'); $('#chips').appendChild(f); }
+</script>
+</body>
+</html>

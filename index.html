@@ -3603,7 +3603,7 @@ function cqReception() {
     + `<button class="gcard hg" type="button" id="tgSc"><span class="gi" style="background:#2f6a8a">🧹</span><span><div class="gt">Scopa</div><div class="gs">Carte napoletane, 1 contro 1: prese, scope e primiera, si vince a 11.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgCh"><span class="gi" style="background:#6b4a2a">♟️</span><span><div class="gt">Scacchi</div><div class="gs">Pezzi di legno, 1 contro 1: contro il Conte a 6 livelli o sfida un amico, con l'orologio.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgVa"><span class="gi" style="background:#4f8a34">🏞️</span><span><div class="gt">La Valle dei Clan</div><div class="gs">Gioco di tessere della preistoria: boschi, fiumi e prati, contro il computer. Prima prova.</div></span></button>`
-    + `<button class="gcard hg" type="button" id="tgPk"><span class="gi" style="background:#1d5c35">♠️</span><span><div class="gt">Poker</div><div class="gs">Texas Hold'em con le fiches finte. Per ora solo il bozzetto del tavolo e delle carte da guardare.</div></span></button>`
+    + `<button class="gcard hg" type="button" id="tgPk"><span class="gi" style="background:#1d5c35">♠️</span><span><div class="gt">Poker</div><div class="gs">Texas Hold'em con le fiches finte, da 2 a 8 al tavolo contro i computer. Prima prova.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button></details>`;
   $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots; $('#tgCh').onclick = tgScacchi; $('#tgVa').onclick = tgValle; $('#tgPk').onclick = tgPoker;
   // la tendina dei giochi da tavola resta aperta tornando indietro (Indietro, ← Hotel dei Giochi)
@@ -4035,12 +4035,13 @@ function frPicker(el, onPick, extra) {
 // BRISCOLA dalla reception: contro il Conte, oppure sfida a un amico = un party "solo su invito" con l'invito g: 'bc'; appena l'amico entra
 // nella hall parte la sfida al tavolino (bcWantCheck) e lui la accetta da solo (l'aveva gia' accettata dall'invito: bcAutoOk in briscola.js)
 // SCACCHI dalla reception (giochi/scacchi.js, CHS.reception): contro il Conte con livello/colore/orologio, o sfida a un amico (party solo su invito, g 'ch')
-// POKER (bozzetto): la pagina di prova a tutto schermo dentro l'hotel; "Esci" della pagina manda 'pkExit' e si torna alla reception
+// POKER (giochi/poker.js, window.PK): contro i computer, a tutto schermo; si apre dalla reception e dal tavolino del salotto (briscola.js pick).
+// Le carte francesi sono in giochi/lib/carte.js (CARTE.fr). A OGNI MODIFICA di poker.js o carte.js cambiare il numero ?v= qui sotto.
 function tgPoker() {
-  const f = document.createElement('iframe'); f.src = 'prove/poker.html?v=202611071230'; f.title = 'Poker';
-  f.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:120;background:#120b07';
-  const off = e => { if (e.data === 'pkExit') { removeEventListener('message', off); f.remove(); } };
-  addEventListener('message', off); document.body.appendChild(f);
+  const v = '?v=202611071400', go = () => PK.start({ name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', look: cqLook(), onExit: () => {} });
+  const add = (src, then) => { const sc = document.createElement('script'); sc.src = src + v; sc.onload = then; sc.onerror = () => cqToast("Il poker non si e' caricato: controlla la connessione e riprova."); document.head.appendChild(sc); };
+  const pk = () => window.PK ? go() : add('giochi/poker.js', go);
+  if (window.CARTE && CARTE.fr) pk(); else add('giochi/lib/carte.js', pk);
 }
 // La Valle dei Clan (prototipo): si carica solo quando serve e si gioca a tutto schermo contro il computer
 function tgValle() {
