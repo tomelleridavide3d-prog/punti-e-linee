@@ -160,6 +160,8 @@ function build() {
   rg.oninput = () => { const v = Math.round(rg.value / 20) * 20; rv.textContent = A.fmt(v); rb.textContent = (v >= 1860 ? 'All-in ' : 'Rilancia a ') + A.fmt(v); act.querySelectorAll('.pre button').forEach(b => b.classList.remove('on')); };
 }
 build(); addEventListener('resize', build);
+// dentro l'hotel (reception -> Scegli un gioco da tavola -> Poker) "Esci" chiude il bozzetto; da sola la pagina torna all'hotel
+document.addEventListener('click', e => { const b = e.target.closest('#top button'); if (!b || b.textContent !== 'Esci') return; if (parent !== window) parent.postMessage('pkExit', '*'); else location.href = '../'; });
 // galleria
 const bw = Math.min(150, Math.floor((Math.min(innerWidth, 900) - 50) / 2));
 for (const c of ['14s', '13h', '12d', '11c', '10s', '7h', '9d', '14d']) $('#big').appendChild(cardImg(card(c), bw));
