@@ -3808,7 +3808,7 @@ function cqModeLobby(id) {
 // l'host fa il conto alla rovescia (cq/<set>/hc {n}) quando sono tutti pronti. ----
 const CQ_HALL_DEAD = 3, CQ_HALL_CD = 3, CQ_HALL_MAN = 3;   // MAN = secondi del 3 2 1 dopo "Inizia"
 // pronto = ho premuto "Sono pronto" (chi ha creato il party conta sempre come pronto: decide lui quando iniziare)
-const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()) && !(window.CHS && CHS.busy()) && !(window.GR && GR.busy()));
+const cqHallReady = () => !!(cq.g && cq.g.hall && (cq.ready || (cq.net && cq.net.role === 'host')) && document.visibilityState === 'visible' && !(window.BC && BC.busy()) && !(window.CN && CN.busy()) && !(window.DA && DA.busy()) && !(window.BI && BI.busy()) && !(window.AH && AH.busy()) && !(window.SC && SC.busy()) && !(window.CHS && CHS.busy()) && !(window.GR && GR.busy()));
 // libero di muovermi e fare scherzi nella hall (nessun pannello aperto)
 const cqHallFree = () => !!(cq.g && cq.g.hall && !cq.picking && $('#cqPick').hidden && $('#cqTask').hidden);
 function cqReadySet(on) { cq.ready = !!on; cqHallPub(true); cqHallButtons(); if (on) beep(880, 0.08, 0.04); }
@@ -4379,6 +4379,7 @@ function cqHallTick(dt) {
   if (window.DA) DA.tick(G, dt);   // freccette (pulsante sulla linea di tiro, sfide, lavagna dei record)
   if (window.BI) BI.tick(G, dt); if (window.AH) AH.tick(G, dt);   // biliardo e air hockey (giochi/lib/tavolo.js)
   if (window.SC) SC.tick(G, dt);   // scopa al tavolino (sfide e chi guarda)
+  if (window.CN) CN.tick(G, dt);   // briscola e scopa in 3 e in 4 (giochi/carteN.js, tavolo a piu' posti giochi/lib/tavoloN.js)
   if (window.CHS) CHS.tick(G, dt);   // scacchi al tavolino (sfide, chi guarda, sfida dalla reception)
   if (window.GR) GR.tick(G, dt);   // gru dei peluche (pulsante, annunci dei leggendari, papera che squittisce)
   if (!me.alive && G.time >= me.dead) cqHallLive(me);
@@ -7040,6 +7041,8 @@ applyPrefs(); render();
 <script src="giochi/biliardo.js"></script>
 <script src="giochi/airhockey.js"></script>
 <script src="giochi/scopa.js"></script>
+<script src="giochi/lib/tavoloN.js?v=202611072030"></script>
+<script src="giochi/carteN.js?v=202611072030"></script>
 <script src="giochi/scacchi.js?v=202611052318"></script>
 <script src="giochi/pesca.js"></script>
 </body>

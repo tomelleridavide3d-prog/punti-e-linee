@@ -577,13 +577,23 @@ function modal(html, then) {
   return m;
 }
 function modalClose() { const m = document.getElementById('bcModal'); if (m) m.remove(); }
+// quanti giocatori (giochi/carteN.js, window.CN): in due come sempre, in tre e in quattro solo con amici veri
+function howMany(k) {
+  const two = () => { if (k === 'bc') { pick.chosen = 1; pick(); pick.chosen = 0; } else SC.pickSeated(); };
+  if (!window.CN) return two();
+  const opts = k === 'bc' ? [['2', 'In due'], ['b3', 'In tre'], ['b4', 'In quattro a coppie']] : [['2', 'In due'], ['s3', 'In tre'], ['s4', 'In quattro a coppie'], ['sn', 'Scopone scientifico']];
+  modal('<h2>' + (k === 'bc' ? 'Briscola' : 'Scopa') + '</h2><p>Quanti giocate?</p>' + opts.map(([m, t]) => '<button type="button" data-k="' + m + '" class="bcPick">' + t + '</button>').join('') + '<button type="button" data-k="x">Annulla</button>', m => {
+    if (m === '2') two(); else if (m !== 'x') CN.pickSeated(m);
+  });
+}
 // "🃏 Carte": con chi gioco? (gli amici seduti al tavolino, o il Conte)
 function pick() {
   const N = cq.net, Gm = cq.g; if (!Gm || !Gm.hall) return;
   if (window.SC && !pick.chosen) {   // Scopa (giochi/scopa.js): si sceglie il gioco prima dell'avversario
     // Scacchi (giochi/scacchi.js, window.CHS) nella stessa scelta del tavolino
     modal(`<h2>🎲 Giochi al tavolino</h2><p>A cosa giocate?</p><button type="button" data-k="bc" class="bcPick">🃏 Briscola</button><button type="button" data-k="sc" class="bcPick">🧹 Scopa</button>${window.CHS ? '<button type="button" data-k="ch" class="bcPick">♟️ Scacchi</button>' : ''}<button type="button" data-k="x">Annulla</button>`, k => {
-      if (k === 'bc') { pick.chosen = 1; pick(); pick.chosen = 0; } else if (k === 'sc') SC.pickSeated(); else if (k === 'ch' && window.CHS) CHS.pickSeated();
+      if (k === 'bc' || k === 'sc') return howMany(k);
+      if (k === 'ch' && window.CHS) CHS.pickSeated();
     });
     return;
   }
