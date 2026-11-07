@@ -756,8 +756,8 @@
 
   // ---- GLI ALCHIMISTI: il personaggio di ognuno con il CAPPELLO A PUNTA e la CINTURA DELLE AMPOLLE (disegnati insieme a lui: stessa profondita') ----
   // punto in cima alla testa per ogni personaggio (in unita' di cqPlayer: TW/34; x verso dove guarda)
-  const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49], cetriolo: [1, -52], coconut: [1, -36] };
-  const BELT = { giraffa: -26, bassotto: -10, pinguino: -14, lupo: -20, palma: -14 };
+  const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49], cetriolo: [1, -52], coconut: [1, -36], whippet: [15, -42] };
+  const BELT = { giraffa: -26, bassotto: -10, pinguino: -14, lupo: -20, palma: -14, whippet: -20 };
   const sideOf = (G, c) => G && G.chars.indexOf(c) === 1 ? 1 : 0;
   function wizard(g, X, Y, TW, L, walk, f, s, vials, cos) {
     const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, [hx, hy] = HEAD[L.skin] || HEAD.omino, by = BELT[L.skin] || -13;

@@ -306,8 +306,8 @@
   }
 
   // ======================= I PISTOLERI =======================
-  const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49], cetriolo: [1, -52], coconut: [1, -36] };
-  const BELT = { giraffa: -26, bassotto: -10, pinguino: -14, lupo: -20, palma: -14 };
+  const HEAD = { omino: [0, -39], procione: [4, -40], gatto: [4, -40], regista: [4, -43], guardia: [5, -42], tonno: [6, -44], giraffa: [10, -73], polipo: [4, -40], bruco: [8, -42], bassotto: [14, -29], palma: [3, -40], pinguino: [4, -52], pane: [1, -41], lupo: [17, -49], cetriolo: [1, -52], coconut: [1, -36], whippet: [15, -42] };
+  const BELT = { giraffa: -26, bassotto: -10, pinguino: -14, lupo: -20, palma: -14, whippet: -20 };
   function star(g, x, y, r, c) { g.fillStyle = c; g.beginPath(); for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? r * 0.45 : r; i ? g.lineTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr) : g.moveTo(x + Math.cos(a) * rr, y + Math.sin(a) * rr); } g.closePath(); g.fill(); }
   function hatShape(g, x0, hy, S2, sheriff) {   // cappello da cowboy (unita' del personaggio)
     g.fillStyle = sheriff ? '#e8dcc0' : S2.hat; g.beginPath(); g.ellipse(x0, hy, 17, 4.6, 0, 0, 7); g.fill();

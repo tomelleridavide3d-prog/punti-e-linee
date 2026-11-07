@@ -36,10 +36,10 @@ window.CQX = (() => {
   };
   // punto della testa (tesa del cappello) e della faccia per ogni personaggio
   const HEAD = { omino: [0, -39, 1], procione: [0, -39, 1], gatto: [0, -39, 0.95], regista: [0.5, -40, 1], guardia: [0, -39.5, 1], tonno: [2, -43, 0.9], giraffa: [9, -69, 0.6],
-    polipo: [0, -44, 1], bruco: [7, -39.5, 1], pane: [0, -45, 0.95], lupo: [14, -47.5, 0.6], cetriolo: [0, -53, 0.95], coconut: [0, -36, 0.95], pinguino: [2, -51, 0.72], bassotto: [15, -28, 0.6], palma: [3.5, -50, 0.75],
+    polipo: [0, -44, 1], bruco: [7, -39.5, 1], pane: [0, -45, 0.95], lupo: [14, -47.5, 0.6], cetriolo: [0, -53, 0.95], coconut: [0, -36, 0.95], whippet: [14.5, -41.5, 0.55], pinguino: [2, -51, 0.72], bassotto: [15, -28, 0.6], palma: [3.5, -50, 0.75],
     orsetto: [2, -42, 0.9], papera: [4, -38.5, 0.75], robot: [1, -48, 0.95], fantasma: [1, -43, 1], lumaca: [15, -20, 0.55], drago: [6, -45, 0.8], cocco: [12, -48, 0.6], frate: [1, -47, 0.95], cobra: [4, -52, 0.75], avocado: [1, -43, 0.85] };
   const FACE = { omino: [4, -28.5, 0.95], procione: [4, -29.5, 1], gatto: [4, -29, 1], regista: [4.2, -32.5, 0.85], guardia: [4.7, -31, 0.85], tonno: [6, -33, 1.1], giraffa: [10.5, -65.2, 0.55],
-    polipo: [4.5, -28, 1.1], bruco: [7.7, -31.5, 1], pane: [1.5, -29, 1], lupo: [17.6, -41, 0.6], cetriolo: [2, -36, 1], coconut: [5.2, -24, 0.95], pinguino: [5.8, -45, 0.75], bassotto: [14.5, -22, 0.6], palma: [2.6, -27, 0.7],
+    polipo: [4.5, -28, 1.1], bruco: [7.7, -31.5, 1], pane: [1.5, -29, 1], lupo: [17.6, -41, 0.6], cetriolo: [2, -36, 1], coconut: [5.2, -24, 0.95], whippet: [15.3, -37.3, 0.5], pinguino: [5.8, -45, 0.75], bassotto: [14.5, -22, 0.6], palma: [2.6, -27, 0.7],
     orsetto: [3, -34, 0.9], papera: [5.5, -32, 0.8], robot: [1, -41, 0.9], fantasma: [3.5, -32, 1], lumaca: [15, -30.5, 0.75], drago: [7.5, -39, 0.75], cocco: [14.5, -45.5, 0.55], frate: [1.5, -38, 0.9], cobra: [5, -46, 0.75], avocado: [2.5, -30, 0.85] };
   const HAT_H = { cilindro: 27, mago: 36, strega: 32, chef: 18, torta: 22, nuvola: 24, aureola: 14, sombrero: 15, vichingo: 18, borsalino: 17, corona: 15 };
   const TOP0 = { orsetto: 1.55, papera: 1.35, robot: 1.85, fantasma: 1.5, lumaca: 1.2, drago: 1.75, cocco: 1.65, frate: 1.65, cobra: 1.8, avocado: 1.5 };

@@ -2434,7 +2434,8 @@ const CQ_SKINS = {
   pane: { n: 'Banana bread', col: '#c8843a', d: 'Una banana tra due fette di pane. Ha qualcosa da nascondere.' },
   lupo: { n: 'Lupo T-rex', col: '#8c8a84', d: 'Un lupo cecoslovacco che cammina come un T-rex: braccini corti, zainetto e fiocco rosa. Ti tiene d\'occhio.' },
   cetriolo: { n: 'Mr Cucumber', col: '#3b7428', d: 'Un cetriolo distinto: baffetti, papillon e guanti bianchi. Ha gia\' capito tutto di te.' },
-  coconut: { n: 'Mr Coconut', col: '#6a4024', d: 'Una noce di cocco pelosa con l\'ombrellino da cocktail in testa. In vacanza, ma non si rilassa mai.' }
+  coconut: { n: 'Mr Coconut', col: '#6a4024', d: 'Una noce di cocco pelosa con l\'ombrellino da cocktail in testa. In vacanza, ma non si rilassa mai.' },
+  whippet: { n: 'Whippet drago', col: '#f28dbd', d: 'Una whippet inglese col cappottino da drago rosa e il fiocchetto. Il naso arriva sempre un secondo prima di lei.' }
 };
 // cqSkinDef: personaggi normali (CQ_SKINS) ed esclusivi della gru (CQX.SKINS, giochi/lib/guardaroba.js)
 const cqSkinDef = k => CQ_SKINS[k] || (window.CQX && CQX.SKINS[k]) || null;
@@ -6480,12 +6481,12 @@ function cqName(g, X, Y, name, col) {
 function cqRR(g, x, y, w, h, r) { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); }
 // personaggio: L = aspetto {skin, col, hat}, walk = fase del passo, f = 1 guarda a destra, -1 a sinistra
 // altezza del nome sopra la testa (in larghezze di tessera), secondo il personaggio
-const cqTop = L => window.CQX && (L.ht || CQX.SKINS[L.skin]) && CQX.top(L) ? CQX.top(L) : L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'pinguino' ? 2.2 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' || L.skin === 'lupo' ? 2.0 : L.skin === 'pane' ? 1.8 : L.skin === 'cetriolo' ? 2.05 : L.skin === 'coconut' ? 1.85 : 1.9;
+const cqTop = L => window.CQX && (L.ht || CQX.SKINS[L.skin]) && CQX.top(L) ? CQX.top(L) : L.skin === 'giraffa' ? 2.4 : L.skin === 'bassotto' ? 1.3 : L.skin === 'pinguino' ? 2.2 : L.skin === 'palma' ? 2.05 : L.skin === 'omino' ? (L.hat === 'cilindro' ? 2.2 : 1.85) : L.skin === 'tonno' || L.skin === 'regista' || L.skin === 'lupo' ? 2.0 : L.skin === 'pane' ? 1.8 : L.skin === 'cetriolo' ? 2.05 : L.skin === 'coconut' ? 1.85 : L.skin === 'whippet' ? 1.65 : 1.9;
 const CQ_EYES = {
   pinguino: [[[3.5, -45], [8.2, -45]], 2.8, '#f4f4f4'], bassotto: [[[12.5, -22], [16.5, -22.2]], 2.3, '#a0582a'], palma: [[[0.3, -27], [5, -27.2]], 2.4, '#9a6a3a'],
   gatto: [[[0, -29], [8, -29]], 2.8, '#e08a3a'], regista: [[[1.5, -32.5], [7, -32.5]], 1.9, '#f0c8a0'], guardia: [[[2, -31], [7.5, -31]], 2, '#f0c8a0'],
   tonno: [[[6, -33]], 3.9, '#2f5a8a', '#fff'], giraffa: [[[10.5, -65.2]], 1.9, '#e8b84a'], polipo: [[[1, -28], [8, -28.3]], 3.4, '#d8608a'],
-  bruco: [[[4.5, -31.5], [11, -31.5]], 3.4, '#4f9a34'], pane: [[[-2.5, -29], [5.5, -29]], 2.9, '#f3dca8'], lupo: [[[15.5, -41], [19.8, -41.2]], 1.9, '#8c8a84'], cetriolo: [[[-1.5, -36], [5.5, -36]], 2.7, '#5a9a3a'], coconut: [[[2, -24], [8.5, -24]], 2.7, '#7a4a2a'], procione: [[[0.2, -29.5], [7.8, -29.5]], 2.6, '#2a2e35', '#fff'], omino: [[[0.8, -28.3], [7.2, -28.3]], 2.3, null, '#2a2e35'] };
+  bruco: [[[4.5, -31.5], [11, -31.5]], 3.4, '#4f9a34'], pane: [[[-2.5, -29], [5.5, -29]], 2.9, '#f3dca8'], lupo: [[[15.5, -41], [19.8, -41.2]], 1.9, '#8c8a84'], cetriolo: [[[-1.5, -36], [5.5, -36]], 2.7, '#5a9a3a'], coconut: [[[2, -24], [8.5, -24]], 2.7, '#7a4a2a'], whippet: [[[13.6, -37.1], [17, -37.4]], 1.75, '#d4a97e'], procione: [[[0.2, -29.5], [7.8, -29.5]], 2.6, '#2a2e35', '#fff'], omino: [[[0.8, -28.3], [7.2, -28.3]], 2.3, null, '#2a2e35'] };
 function cqDeadEyes(g, s, f) {
   const E = CQ_EYES[s] || CQ_EYES.omino, r = E[1];
   for (const [x, y] of E[0]) {
@@ -6496,7 +6497,7 @@ function cqDeadEyes(g, s, f) {
 }
 function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
   const u = TW / 34, bob = Math.abs(Math.sin(walk)) * 4 * u, sw = Math.sin(walk) * 4;
-  if (!noShadow) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill(); }
+  if (!noShadow) { g.fillStyle = 'rgba(0,0,0,.28)'; g.beginPath(); if (L.skin === 'whippet') g.ellipse(X - f * 4 * u, Y, 20 * u, 5.5 * u, 0, 0, 7); else g.ellipse(X, Y, 14 * u, 6 * u, 0, 0, 7); g.fill(); }
   g.save(); g.translate(X, Y - bob); g.scale(u, u);
   const ell = (x, y, rx, ry, c, rot) => { g.fillStyle = c; g.beginPath(); g.ellipse(x, y, rx, ry, rot || 0, 0, 7); g.fill(); };
   const bean = c => { g.fillStyle = c; g.beginPath(); g.moveTo(-13, -4); g.lineTo(-13, -26); g.quadraticCurveTo(-13, -40, 0, -40); g.quadraticCurveTo(13, -40, 13, -26); g.lineTo(13, -4); g.quadraticCurveTo(0, 2, -13, -4); g.fill(); };
@@ -6719,6 +6720,81 @@ function cqPlayer(g, X, Y, TW, L, walk, f, noShadow, dead) {
     line(f * -5.8, -34.2, f * 0.4, -32.6, '#6a3a14', 1.5); line(f * 2.6, -33.4, f * 8.6, -35.4, '#6a3a14', 1.5);
     g.strokeStyle = '#6a3a14'; g.lineWidth = 1.3; g.beginPath(); g.moveTo(f * -1, -21.5); g.quadraticCurveTo(f * 2.5, -22.6, f * 6.5, -23.8); g.stroke();
     ell(f * -5.5, -24.5, 1.8, 1, 'rgba(220,110,90,.35)');
+  } else if (s === 'whippet') {
+    // Whippet drago: whippet inglese fulvo (petto e zampine bianche), corpo lungo e snello, muso lunghissimo (lo "snoot"),
+    // cappottino da drago rosa a scaglie (colletto, maniche fino a meta' zampa) con le creste bianche lungo la schiena, fiocchetto rosa; faccia sospettosa. Scelto dall'utente: variante A
+    // con le zampe piu' corte e il corpo piu' lungo e sottile (T = busto allungato dietro, assottigliato e abbassato; H = testa abbassata); poi (07-11) coda all'insu', corpo ancora piu' lungo e snello
+    const fur = '#d4a97e', fd = '#a97f57', fdd = '#7a5a3e', wh = '#f6efe6', pk = '#f28dbd', pkd = '#d6609c', pkl = '#fcc6de', sp = '#fbf6f1';   // creste bianche (scelta dell'utente)
+    const T = (x, y) => [f * (x < 0 ? x * 1.32 : x), (y + 35) * 0.78 - 29], H = (x, y) => [f * x, y + 6], Lg = (x, y) => [f * x, y];
+    const path = (p, M) => { g.beginPath(); for (const q of p) { const a = M(q[0], q[1]); if (q.length === 2) g.lineTo(a[0], a[1]); else if (q.length === 6) { const b = M(q[2], q[3]), e = M(q[4], q[5]); g.bezierCurveTo(a[0], a[1], b[0], b[1], e[0], e[1]); } else { const b = M(q[2], q[3]); g.quadraticCurveTo(a[0], a[1], b[0], b[1]); } } };
+    const fillP = (p, M, c) => { g.fillStyle = c; path(p, M); g.closePath(); g.fill(); };
+    const strokeP = (p, M, c, w) => { g.strokeStyle = c; g.lineWidth = w; g.lineCap = 'round'; g.lineJoin = 'round'; path(p, M); g.stroke(); };
+    const clipP = (p, M) => { g.save(); path(p, M); g.closePath(); g.clip(); };
+    // coda lunga e sottile, all'insu' a falce (scodinzola un po' camminando)
+    const wag = Math.sin(walk * 2) * 0.8;
+    strokeP([[-16, -27], [-22, -28, -23.5 + wag * 0.3, -35], [-24.4 + wag, -40.5, -21.6 + wag, -42.5]], T, fur, 2.1);
+    // zampe: dietro (coscia, garretto) e davanti (dritta); quelle dal lato lontano piu' scure
+    const legH = (dx, k, c) => { strokeP([[-15.8 + dx, -18.4], [-12.2 + dx + k * 0.3, -10.3]], Lg, c, 3.8); strokeP([[-12.2 + dx + k * 0.3, -10.3], [-16.8 + dx + k, -4.9], [-15.6 + dx + k, -1.4]], Lg, c, 2.3); ell(f * (-14.5 + dx + k), -1, 2.4, 1.25, c === fur ? wh : '#e6dccd'); };
+    const legF = (dx, k, c) => { strokeP([[7 + dx, -15.4], [7.5 + dx, -11.9], [8.4 + dx + k, -3.3], [8.8 + dx + k, -1.4]], Lg, c, 2.3); ell(f * (9.9 + dx + k), -1, 2.5, 1.25, c === fur ? wh : '#e6dccd'); };
+    // maniche del cappottino sulle zampe dal lato lontano, snelle fino a meta' zampa e mosse col passo (quelle vicine fanno parte del cappottino)
+    const sleeve = (dh, kh, df, kf, c, sc) => {
+      for (const P of [[[-19.5 + dh, -17], [-17.6 + dh, -11.2, -14.6 + dh + kh, -8.9], [-12.2 + dh + kh, -8.4, -10 + dh + kh, -9.6], [-10.2 + dh, -13.5, -10.5 + dh, -17]],
+        [[5.2 + df, -17], [5.2 + df, -13, 5.9 + df + kf, -8.6], [7.6 + df + kf, -7.6, 9.6 + df + kf, -8.4], [10.4 + df, -12.8, 10.6 + df, -17]]]) {
+        fillP(P, Lg, c); clipP(P, Lg); g.strokeStyle = sc; g.lineWidth = 0.6;
+        for (let r = 0; r < 5; r++) for (let k = 0; k < 13; k++) { g.beginPath(); g.arc(f * (-25 + k * 3.2 + (r % 2) * 1.6), -16 + r * 2.3, 1.7, 0.15, Math.PI - 0.15); g.stroke(); }
+        g.restore(); strokeP(P, Lg, pkd, 1);
+      }
+    };
+    legH(-1.6, sw * 0.6, fd); legF(-1.8, -sw * 0.7, fd); sleeve(-1.6, sw * 0.18, -1.8, -sw * 0.315, '#e07aac', '#cf6198');
+    // collo lungo e arcuato
+    fillP([[4, -33], [6.5, -42, 11, -46], [16.5, -41.5], [13.6, -36, 13, -27]], H, fur);
+    // corpo: torace profondo davanti, vita stretta, groppa arcuata
+    const BODY = [[6, -34], [-5, -35.5, -12, -32], [-17, -30, -17, -25], [-17, -19, -12, -17.5], [-7, -19, -4, -22], [2, -16, 8, -16.5], [13, -18, 13, -25], [13, -31, 11, -34]];
+    fillP(BODY, T, fur);
+    clipP(BODY, T); ell(f * 10.5, T(0, -20)[1], 4.6, 5, wh); ell(0, T(0, -15.5)[1], 22, 2.8, 'rgba(0,0,0,.10)'); g.restore();
+    ell(...T(-12.6, -23), 5.4, 5.1, fur, f * 0.25);   // coscia
+    legH(0, -sw * 0.6, fur); legF(0, sw * 0.7, fur);
+    // cappottino da drago: scaglie, piastre chiare della pancia sul petto, orlo e colletto
+    const kh = -sw * 0.18, kf = sw * 0.315;   // il fondo delle maniche segue ginocchio e gomito
+    const HEM = [[-23.76, -21.59], [-24.04, -16.5, -20.4, -12.6], [-17.2, -9.6, -14.6 + kh, -8.9], [-12.2 + kh, -8.4, -10 + kh, -9.6], [-10.2, -13.5, -8.8, -17.2], [-7.4, -18.8, -5.3, -18.3], [1, -16.6, 4.6, -16.8],
+      [5.2, -13, 5.9 + kf, -8.6], [7.6 + kf, -7.6, 9.6 + kf, -8.4], [10.4, -12.8, 12.4, -17.4], [12.9, -19, 12.8, -21.2], [13.6, -24.5, 13.9, -27.6], [14, -29.3, 12, -30.1], [9.2, -31.3, 5.4, -31.3]];
+    const COAT = [[5.4, -31.3], [2.5, -31.2, -3, -30.9], [-10, -30.9, -16.5, -28.84], [-23.5, -26.27, -23.76, -21.59], ...HEM.slice(1)];   // un pezzo solo: colletto, schiena, coscia, pancia, spalla, petto
+    fillP(COAT, Lg, pk);
+    clipP(COAT, Lg);
+    g.strokeStyle = '#e679b0'; g.lineWidth = 0.6;
+    for (let r = 0; r < 12; r++) for (let c = 0; c < 13; c++) { const x = f * (-25 + c * 3.2 + (r % 2) * 1.6), y = -31.8 + r * 2.26; g.beginPath(); g.arc(x, y, 1.7, 0.15, Math.PI - 0.15); g.stroke(); }
+    ell(f * 12, T(0, -27)[1], 2.8, 4.7, pkl);
+    g.strokeStyle = '#f2a6c8'; g.lineWidth = 0.6; for (const y0 of [-31, -28.6, -26.2, -23.8]) { const y = T(0, y0)[1]; g.beginPath(); g.moveTo(f * 9.6, y); g.lineTo(f * 14.5, y); g.stroke(); }
+    ell(0, -16.2, 26, 2.2, 'rgba(0,0,0,.06)'); ell(...T(-2, -36.6), 12, 1.3, 'rgba(255,255,255,.28)');
+    g.restore();
+    strokeP(HEM, Lg, pkd, 1.2);   // orlo continuo, fino al bordo del colletto
+    // creste lungo la schiena (piccole davanti, grandi in mezzo)
+    for (const [x0, y0, h, a] of [[5.8, -36.6, 2.6, 0.08], [1.1, -37, 3.4, 0], [-3.4, -36.9, 3.8, -0.05], [-7.6, -36.3, 3.6, -0.12], [-11.6, -35.2, 3.2, -0.3], [-15.9, -31.7, 2.7, -0.65], [-17.7, -27.8, 2.1, -1.1]]) {
+      const [x, y] = T(x0, y0); g.save(); g.translate(x, y); g.scale(f, 1); g.rotate(a);
+      g.fillStyle = sp; g.beginPath(); g.moveTo(-2.1, 0.8); g.quadraticCurveTo(-1.2, -h * 0.5, -h * 0.38, -h); g.quadraticCurveTo(0.9, -h * 0.45, 2.1, 0.8); g.closePath(); g.fill();
+      g.strokeStyle = 'rgba(214,96,156,.28)'; g.lineWidth = 0.5; g.beginPath(); g.moveTo(0.9, 0.2); g.quadraticCurveTo(0.3, -h * 0.4, -h * 0.3, -h * 0.85); g.stroke();
+      g.restore();
+    }
+    // testa: cranio stretto, orecchio a rosa piegato indietro, muso lunghissimo
+    fillP([[11.5, -45], [8, -49.8, 4.4, -46.2], [7, -46.4, 9.2, -43.2]], H, fd); strokeP([[10.6, -45.2], [8, -47.6, 5.8, -46.4]], H, fdd, 0.6);
+    // fiocchetto rosa che spunta da dietro la testa (se non ha un cappello della gru)
+    if (!L.ht) {
+      const [bx, by] = H(10.2, -48.5); g.save(); g.translate(bx, by); g.scale(f, 1); g.rotate(0.25);
+      g.fillStyle = '#e2559a'; for (const k of [-1, 1]) { g.beginPath(); g.moveTo(0, 0); g.lineTo(k * 1.6, 2.6); g.lineTo(k * 0.6, 2.9); g.closePath(); g.fill(); }
+      for (const k of [-1, 1]) { g.fillStyle = '#ff86c0'; g.beginPath(); g.moveTo(0, 0); g.quadraticCurveTo(k * 2.6, -3.8, k * 4.5, -1.3); g.quadraticCurveTo(k * 4.3, 1.7, 0, 0); g.fill(); ell(k * 2.6, -0.9, 1, 0.7, '#e86aa8'); }
+      g.strokeStyle = 'rgba(255,255,255,.6)'; g.lineWidth = 0.4; g.lineCap = 'round'; for (const k of [-1, 1]) { g.beginPath(); g.moveTo(k * 1.4, -1.6); g.quadraticCurveTo(k * 2.6, -2.8, k * 3.7, -1.9); g.stroke(); }
+      ell(0, 0, 1.15, 1.1, '#e2559a'); ell(-0.3, -0.35, 0.4, 0.3, 'rgba(255,255,255,.55)');
+      g.restore();
+    }
+    const SNOUT = [[10, -40.5], [8.6, -45.5, 12.5, -47.6], [15.5, -48.4, 20, -44.3, 29, -42.8], [30.7, -41.9, 30.1, -40.2], [24, -39.4, 18, -39.2], [13.5, -39.2, 10, -40.5]];   // testa e muso in un'unica linea: cranio tondo, poi il muso si affusola (profilo che rientra) fino al naso
+    fillP(SNOUT, H, fur);
+    clipP(SNOUT, H); ell(f * 22, -33, 7, 1.3, wh); g.restore();
+    ell(f * 29.6, -35.4, 1.75, 1.45, '#1c1a1a'); ell(f * 29.2, -36.1, 0.55, 0.38, 'rgba(255,255,255,.55)');
+    strokeP([[28.6, -39.9], [24.5, -39.1, 21, -39.7]], H, fdd, 0.75);
+    // occhi sospettosi con le ciglia, sopracciglia sottili e storte (e' una signorina)
+    susEye(f * 13.6, -37.1, 1.75, fur); susEye(f * 17, -37.4, 1.75, fur);
+    for (const [x, y] of [[13.6, -37.1], [17, -37.4]]) { const ly = y - 1.085; g.strokeStyle = '#3a2a20'; g.lineWidth = 0.5; g.lineCap = 'round'; g.beginPath(); g.ellipse(f * x, ly, 1.96, 1.31, 0, 0.62, Math.PI - 0.62); g.stroke(); line(f * (x - 1.6), ly + 0.76, f * (x - 2.6), ly - 0.2, '#3a2a20', 0.5); }   // riga delle ciglia con la codina
+    strokeP([[11.9, -46.2], [13.2, -46.4, 14.4, -45.6]], H, fdd, 0.7); strokeP([[15.6, -45.4], [16.9, -45.9, 18, -45.9]], H, fdd, 0.7);
   } else if (s === 'cetriolo') {
     // Mr Cucumber: cetriolo in piedi, buccia verde scuro con la fascia chiara davanti, righe e bitorzoli, picciolo in cima;
     // baffetti sottili, papillon rosso, guanti bianchi; faccia sospettosa (palpebre mezze chiuse, un sopracciglio giu' e uno su)
