@@ -548,11 +548,61 @@
     const c = document.createElement('canvas'); c.width = pw; c.height = Math.round(pw * FH / FW);
     const g = c.getContext('2d', CPU); g.scale(pw / FW, c.height / FH); K = pw / FW; return [c, g];
   }
+  // DUE COLORI (carte da scala classiche, per Cactus: o.c2): quadri rossi come i cuori, fiori neri come le picche
+  function pal2(on, fn) {
+    if (!on) return fn();
+    const sv = [FRC.d, FRC.c, FT.d, FT.c]; FRC.d = FRC.h; FRC.c = FRC.s; FT.d = FT.h; FT.c = FT.s;
+    try { return fn(); } finally { [FRC.d, FRC.c, FT.d, FT.c] = sv; }
+  }
+  // LA MATTA (jolly, r 15): giullare col cappello a tre punte e i sonagli; su 'x' rossa, 'y' nera
+  function frJoker(g, su, big) {
+    const A = su === 'y' ? ['#5b616d', '#1b1d22'] : ['#e8384a', '#a3122a'], GOLD = '#f2c230';
+    const x0 = 40, y0 = 40, w = 170, h = 270;
+    if (!big) {
+      rr(g, x0, y0, w, h, 8); g.fillStyle = '#fffaf0'; g.fill();
+      g.save(); g.fillStyle = A[1]; g.font = '800 23px system-ui, "Segoe UI", Roboto, Arial, sans-serif'; g.textAlign = 'center';
+      for (const flip of [0, 1]) { g.save(); if (flip) { g.translate(FW, FH); g.rotate(Math.PI); } 'JOLLY'.split('').forEach((ch, i) => g.fillText(ch, 21, 36 + i * 23)); g.restore(); }
+      g.restore();
+    }
+    g.save();
+    if (!big) { rr(g, x0, y0, w, h, 8); g.clip(); g.fillStyle = A[1]; g.globalAlpha = .07; g.fillRect(x0, y0, w, h); g.globalAlpha = 1; }
+    g.translate(125, big ? 186 : 182); const s = big ? 1.72 : 1.42; g.scale(s, s);
+    g.lineJoin = 'round'; g.lineCap = 'round'; g.strokeStyle = INK; g.lineWidth = 2.4 / s * 1.3;
+    // spalle a due colori, con i rombi
+    const body = () => { g.beginPath(); g.moveTo(-64, 90); g.bezierCurveTo(-62, 54, -42, 36, -16, 31); g.lineTo(16, 31); g.bezierCurveTo(42, 36, 62, 54, 64, 90); g.closePath(); };
+    body(); g.fillStyle = A[0]; g.fill();
+    g.save(); body(); g.clip(); g.fillStyle = GOLD; g.fillRect(0, 20, 80, 80);
+    for (const [x, y, c] of [[-30, 60, GOLD], [30, 60, A[0]], [-14, 78, GOLD], [14, 78, A[0]]]) { g.beginPath(); g.moveTo(x, y - 8); g.lineTo(x + 6, y); g.lineTo(x, y + 8); g.lineTo(x - 6, y); g.closePath(); g.fillStyle = c; g.fill(); g.stroke(); }
+    g.restore(); body(); g.stroke();
+    // collo e gorgiera a zig zag
+    g.beginPath(); g.rect(-8, 14, 16, 16); fs(g, SKIN);
+    g.beginPath(); for (let i = 0; i <= 12; i++) { const x = -36 + i * 6, y = i % 2 ? 40 : 24; i ? g.lineTo(x, y) : g.moveTo(x, y); } g.lineTo(30, 30); g.quadraticCurveTo(0, 22, -30, 30); g.closePath(); fs(g, '#fffaf0');
+    // viso col sorriso furbo
+    ell(g, 0, 0, 19, 22); fs(g, SKIN);
+    g.fillStyle = INK; ell(g, -7.5, -2, 2.2, 2.9); g.fill(); ell(g, 7.5, -2, 2.2, 2.9); g.fill();
+    circ(g, -11, 7, 4.2); circ(g, 11, 7, 4.2); g.fillStyle = 'rgba(230,90,70,.3)'; g.fill();
+    g.beginPath(); g.moveTo(-8, 10); g.quadraticCurveTo(0, 18, 9, 9); g.strokeStyle = '#9a3a2a'; g.lineWidth = 2; g.stroke(); g.strokeStyle = INK;
+    // cappello a tre punte (colori alternati) con i sonagli d'oro
+    const tips = [[-50, -2], [5, -66], [50, -2]];
+    g.lineWidth = 2.4 / s * 1.3;
+    g.beginPath(); g.moveTo(-21, -12); g.bezierCurveTo(-34, -42, -54, -34, -50, -2); g.bezierCurveTo(-44, -20, -30, -24, -8, -22); g.closePath(); fs(g, A[0]);
+    g.beginPath(); g.moveTo(21, -12); g.bezierCurveTo(34, -42, 54, -34, 50, -2); g.bezierCurveTo(44, -20, 30, -24, 8, -22); g.closePath(); fs(g, A[0]);
+    g.beginPath(); g.moveTo(-11, -20); g.bezierCurveTo(-14, -48, -4, -62, 5, -66); g.bezierCurveTo(3, -52, 11, -38, 11, -20); g.closePath(); fs(g, GOLD);
+    ell(g, 0, -16, 23, 7); fs(g, GOLD);
+    for (const [x, y] of tips) { circ(g, x, y, 5); fs(g, goldH(g, x - 5, x + 5)); }
+    g.restore();
+    if (!big) { rr(g, x0, y0, w, h, 8); g.lineWidth = 2.4; g.strokeStyle = A[1]; g.stroke(); }
+  }
   function frCard(su, r, pw, o) {
-    o = o || {}; pw = Math.max(16, Math.round(pw)); const key = 'fr' + su + r + (o.j ? 'j' : '') + '_' + pw; let c = cache.get(key); if (c) return c;
+    o = o || {}; pw = Math.max(16, Math.round(pw)); const key = 'fr' + su + r + (o.j ? 'j' : '') + (o.c2 ? 'c2' : '') + '_' + pw; let c = cache.get(key); if (c) return c;
+    const cv = pal2(o.c2, () => frDraw(su, r, pw, o));
+    if (!o.tmp) cache.set(key, cv); return cv;
+  }
+  function frDraw(su, r, pw, o) {
     const [cv, g] = frCanvas(pw);
     frPaper(g);
-    if (o.j) {   // jumbo: si legge anche piccolissima
+    if (r === 15) frJoker(g, su, o.j);
+    else if (o.j) {   // jumbo: si legge anche piccolissima
       frRank(g, su, r, 70, 132, 132);
       if (r >= 11 && r <= 13) {   // il busto della figura in un riquadro in basso a destra
         rr(g, 112, 150, 118, 182, 8); g.fillStyle = '#fffaf0'; g.fill();
@@ -570,11 +620,15 @@
       else frCourt(g, su, r);
       frIndex(g, su, r);
     }
-    if (!o.tmp) cache.set(key, cv); return cv;
+    return cv;
   }
   // dorso: blu notte con la trama d'oro e i quattro semi al centro
   function frBack(pw, o) {
-    o = o || {}; pw = Math.max(16, Math.round(pw)); const key = 'frback_' + pw; let c = cache.get(key); if (c) return c;
+    o = o || {}; pw = Math.max(16, Math.round(pw)); const key = 'frback' + (o.c2 ? 'c2' : '') + '_' + pw; let c = cache.get(key); if (c) return c;
+    const cv = pal2(o.c2, () => frBackDraw(pw));
+    if (!o.tmp) cache.set(key, cv); return cv;
+  }
+  function frBackDraw(pw) {
     const [cv, g] = frCanvas(pw);
     rr(g, 1, 1, FW - 2, FH - 2, 17); g.fillStyle = '#fbfaf6'; g.fill(); g.lineWidth = 2; g.strokeStyle = '#c9c4b6'; g.stroke();
     rr(g, 13, 13, FW - 26, FH - 26, 10);
@@ -589,14 +643,14 @@
     circ(g, 125, 175, 52); g.fillStyle = '#fbfaf6'; g.fill(); g.lineWidth = 4; g.strokeStyle = '#d8a332'; g.stroke();
     circ(g, 125, 175, 45); g.lineWidth = 1.5; g.strokeStyle = '#14244d'; g.stroke();
     for (const [su, x, y] of [['s', 125, 152], ['h', 148, 175], ['c', 125, 198], ['d', 102, 175]]) frPip(g, su, x, y, 22, false, true);
-    if (!o.tmp) cache.set(key, cv); return cv;
+    return cv;
   }
   const frUrls = new Map();
   function frUrl(su, r, pw, o) {   // r = 0 -> dorso
-    o = o || {}; pw = Math.max(16, Math.round(pw)); const k = (r ? su + r + (o.j ? 'j' : '') : 'back') + '_' + pw; let u = frUrls.get(k); if (u) return u;
-    u = (r ? frCard(su, r, pw, { j: o.j, tmp: true }) : frBack(pw, { tmp: true })).toDataURL('image/png'); frUrls.set(k, u); return u;
+    o = o || {}; pw = Math.max(16, Math.round(pw)); const k = (r ? su + r + (o.j ? 'j' : '') : 'back') + (o.c2 ? 'c2' : '') + '_' + pw; let u = frUrls.get(k); if (u) return u;
+    u = (r ? frCard(su, r, pw, { j: o.j, c2: o.c2, tmp: true }) : frBack(pw, { c2: o.c2, tmp: true })).toDataURL('image/png'); frUrls.set(k, u); return u;
   }
-  const fr = { card: frCard, back: frBack, url: frUrl, pip: frPip, W: FW, H: FH, LAB: FRL, COL: FRC };
+  const fr = { card: frCard, back: frBack, url: frUrl, pip: frPip, W: FW, H: FH, LAB: FRL, COL: FRC, joker: true };
 
   window.CARTE = { card, back, url, W, H, LAB, fr };
 })();

@@ -3605,8 +3605,9 @@ function cqReception() {
     + `<button class="gcard hg" type="button" id="tgVa"><span class="gi" style="background:#4f8a34">🏞️</span><span><div class="gt">La Valle dei Clan</div><div class="gs">Gioco di tessere della preistoria: boschi, fiumi e prati, contro il computer. Prima prova.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgPk"><span class="gi" style="background:#1d5c35">♠️</span><span><div class="gt">Poker</div><div class="gs">Texas Hold'em con le fiches finte, da 2 a 8 al tavolo contro i computer. Prima prova.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgSm"><span class="gi" style="background:#8a2a22">🎴</span><span><div class="gt">Sette e mezzo</div><div class="gs">Carte napoletane e fiches finte: chiedi carta senza sballare, il Conte fa il banco. Prima prova.</div></span></button>`
+    + `<button class="gcard hg" type="button" id="tgCt"><span class="gi" style="background:#4f7a2a">🌵</span><span><div class="gt">Cactus</div><div class="gs">Carte da scala e memoria: 4 carte coperte, coppie, scambi e Stop. Contro i computer. Prima prova.</div></span></button>`
     + `<button class="gcard hg" type="button" id="tgDots"><span class="gi" style="background:#3b6fe0">✏️</span><span><div class="gt">Linee e quadrettini birichini</div><div class="gs">Unisci i punti e conquista i quadrati: contro il computer o sfida un amico.</div></span></button></details>`;
-  $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots; $('#tgCh').onclick = tgScacchi; $('#tgVa').onclick = tgValle; $('#tgPk').onclick = tgPoker; $('#tgSm').onclick = tgSette;
+  $('#tgBc').onclick = tgBriscola; $('#tgSc').onclick = tgScopa; $('#tgDots').onclick = tgDots; $('#tgCh').onclick = tgScacchi; $('#tgVa').onclick = tgValle; $('#tgPk').onclick = tgPoker; $('#tgSm').onclick = tgSette; $('#tgCt').onclick = tgCactus;
   // la tendina dei giochi da tavola resta aperta tornando indietro (Indietro, ← Hotel dei Giochi)
   $('#tgList').ontoggle = () => { cq.tgOpen = $('#tgList').open; };
   cqGameCardsOn();
@@ -4052,6 +4053,15 @@ function tgSette() {
   const sm = () => window.SM ? go() : add('giochi/settemezzo.js', go);
   const pk = () => window.PKART ? sm() : add('giochi/poker.js', sm);
   if (window.CARTE && CARTE.fr) pk(); else add('giochi/lib/carte.js', pk);
+}
+// CACTUS (giochi/cactus.js, window.CT): gioco di memoria con le carte da scala, contro i computer; dalla reception e dal tavolino (briscola.js pick).
+// Usa carte.js (CARTE.fr a due colori con la matta) e poker.js (tavolo, classi .pk*). A OGNI MODIFICA di cactus.js o carte.js cambiare il numero ?v= qui sotto.
+function tgCactus() {
+  const v = '?v=202611091900', go = () => CT.start({ name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', look: cqLook(), onExit: () => {} });
+  const add = (src, then) => { const sc = document.createElement('script'); sc.src = src + v; sc.onload = then; sc.onerror = () => cqToast("Cactus non si e' caricato: controlla la connessione e riprova."); document.head.appendChild(sc); };
+  const ct = () => window.CT ? go() : add('giochi/cactus.js', go);
+  const pk = () => window.PKART ? ct() : add('giochi/poker.js', ct);
+  if (window.CARTE && CARTE.fr && CARTE.fr.joker) pk(); else add('giochi/lib/carte.js', pk);
 }
 // La Valle dei Clan (prototipo): si carica solo quando serve e si gioca a tutto schermo contro il computer
 function tgValle() {
