@@ -804,6 +804,7 @@ Richiesta: aggiungere al tavolino del te' della hall (dove ci sono Briscola e Sc
 4. GIOCO DI CARTE "SCARTA TUTTO" (sessione da chiamare col suo nome, da decidere): della famiglia tradizionale (rispondere con stesso colore o numero, chi resta senza carte vince), MA ORIGINALE, NON UNO (marchio Mattel): nome nostro, carte speciali a tema hotel (es. facchino = salta il turno, cameriere = pesca due).
 A inizio di ogni sessione: proporre all'utente come sara' il gioco (aspetto, regole, scelte aperte), poi costruire e provare.
 AGGIUNTI DALL'UTENTE IL 07-11-2026 (dopo le 10 proposte della sessione generale), IN QUESTO ORDINE: 5. SETTE E MEZZO (sessione "Minigioco Sette e mezzo"), 6. DAMA (sessione "Minigioco Dama"), 7. IL LADRO DI CUCCHIAINI (sessione "Minigioco Ladro di cucchiaini"). Il Poker intanto va avanti nella sua sessione; "Scarta tutto" resta in lista. Proposte NON scelte (non farle se non le chiede): Dadi del bugiardo, Tressette, Tavola reale, Domino, Rubamazzo, Asta al buio.
+IL LADRO DI CUCCHIAINI = idea MIA a tema hotel (proposta cosi' il 07-11-2026): "gioco di carte veloce con un RUOLO NASCOSTO: uno di voi e' il ladro e ruba di nascosto dal tavolo; a fine giro si VOTA chi e' stato. Partitina da 5 minuti nello spirito di Ciack US". Solo l'idea: regole, carte e punti da inventare nella sua sessione (proporli con calma da game designer, poi domande).
 
 ## PROSSIMA SESSIONE: "Minigioco Sette e mezzo" (preparata il 07-11-2026 nella sessione generale)
 N. 5 del PIANO GIOCHI DEL TAVOLINO DEL TE'. Dopo: Dama (n. 6), poi Il ladro di cucchiaini (n. 7).
