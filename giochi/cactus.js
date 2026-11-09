@@ -13,10 +13,11 @@ const CTE = (() => {
   function shuffle(a, rnd = Math.random) { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
   const key = (j, k) => j + ':' + k;
   // livelli dei computer: quanto dimenticano a ogni loro turno, quanto spesso ricordano SBAGLIATO, quanto "tirano a indovinare"
+  // rt = quanto ci mettono a buttare una carta uguale (millisecondi, da..a)
   const LV = {
-    1: { fg: 0.2, bad: 0.55, noise: 3, gam: 0.06, stop: 9 },    // Principiante
-    2: { fg: 0.08, bad: 0.45, noise: 1.2, gam: 0.02, stop: 6.5 }, // Medio
-    3: { fg: 0.02, bad: 0.3, noise: 0.3, gam: 0, stop: 5 },       // Esperto
+    1: { fg: 0.2, bad: 0.55, noise: 3, gam: 0.03, stop: 9, rt: [1300, 2500] },    // Principiante
+    2: { fg: 0.08, bad: 0.45, noise: 1.2, gam: 0.008, stop: 6.5, rt: [800, 1600] }, // Medio
+    3: { fg: 0.02, bad: 0.3, noise: 0.3, gam: 0, stop: 5, rt: [500, 1000] },       // Esperto
   };
 
   const push = (G, e) => G.ev.push(e);
@@ -26,6 +27,7 @@ const CTE = (() => {
     const G = {
       P: o.players.map(p => ({ n: p.n, bot: !!p.bot, ch: p.ch || null, slots: [], up: [false, false, false, false], mem: {} })),
       deck: shuffle(deck(), rnd), pile: [], held: null, turn: -1, ph: 'peek', tn: 0, stopBy: -1, over: false, ev: [], lv: o.lv || 2, rnd, res: null,
+      open: false, err: [],   // open = si puo' buttare una carta uguale a quella in cima agli scarti (fino alla prossima pescata); err = chi ha sbagliato su questa carta
     };
     for (let k = 0; k < 4; k++) for (const p of G.P) p.slots.push(G.deck.pop());
     push(G, { t: 'deal' });
@@ -48,33 +50,37 @@ const CTE = (() => {
     return G.deck.pop();
   }
   const has = (G, j, k) => G.P[j] && k >= 0 && k < 4 && G.P[j].slots[k] != null;
-  // a = { k: 'draw' | 'stop' | 'swap' s | 'disc' | 'pair' s | 'J' a [j,k] b [j,k] | 'Q' at [j,k] | 'skip' }
+  const toPile = (G, c) => { G.pile.push(c); G.open = true; G.err = []; };
+  // si puo' buttare adesso? (fra un turno e l'altro, finche' il prossimo non pesca; non dopo aver sbagliato su questa carta)
+  const canThrow = (G, i) => !G.over && G.ph === 'draw' && G.open && G.pile.length > 0 && !G.err.includes(i) && G.P[i].slots.some(c => c != null);
+  // a = { k: 'draw' | 'stop' | 'swap' s | 'disc' | 'J' a [j,k] b [j,k] | 'Q' at [j,k] | 'skip' }; 'throw' s = coppia fuori turno (chiunque)
   function act(G, i, a) {
+    if (a.k === 'throw') {
+      if (!canThrow(G, i) || !has(G, i, a.s)) return false;
+      const p = G.P[i], c = p.slots[a.s], top = G.pile[G.pile.length - 1], ok = same(c, top), wasUp = p.up[a.s];
+      if (ok) { p.slots[a.s] = null; p.up[a.s] = false; G.pile.push(c); forgetAt(G, key(i, a.s)); }
+      else { p.up[a.s] = true; seeAll(G, i, a.s); G.err.push(i); }
+      push(G, { t: 'throw', p: i, s: a.s, c, top, ok, wasUp });
+      return true;
+    }
     if (G.over || i !== G.turn) return false;
     const p = G.P[i];
     if (G.ph === 'draw') {
       if (a.k === 'stop') { if (!canStop(G)) return false; G.stopBy = i; push(G, { t: 'stop', p: i }); endTurn(G); return true; }
       if (a.k !== 'draw') return false;
       const c = draw(G); if (c == null) { finish(G); return true; }
-      G.held = c; G.ph = 'hold'; push(G, { t: 'draw', p: i, c }); return true;
+      G.held = c; G.ph = 'hold'; G.open = false; G.err = []; push(G, { t: 'draw', p: i, c }); return true;
     }
     if (G.ph === 'hold') {
       const d = G.held;
       if (a.k === 'swap') {
         if (!has(G, i, a.s)) return false;
-        const old = p.slots[a.s], wasUp = p.up[a.s]; p.slots[a.s] = d; p.up[a.s] = false; G.held = null; G.pile.push(old);
+        const old = p.slots[a.s], wasUp = p.up[a.s]; p.slots[a.s] = d; p.up[a.s] = false; G.held = null; toPile(G, old);
         forgetAt(G, key(i, a.s)); p.mem[key(i, a.s)] = d;
         push(G, { t: 'swap', p: i, s: a.s, c: d, old, wasUp }); endTurn(G); return true;
       }
-      if (a.k === 'pair') {
-        if (!has(G, i, a.s)) return false;
-        const c = p.slots[a.s], ok = same(c, d), wasUp = p.up[a.s]; G.held = null;
-        if (ok) { p.slots[a.s] = null; p.up[a.s] = false; G.pile.push(c, d); forgetAt(G, key(i, a.s)); }
-        else { p.up[a.s] = true; G.pile.push(d); seeAll(G, i, a.s); }
-        push(G, { t: 'pair', p: i, s: a.s, c, d, ok, wasUp }); endTurn(G); return true;
-      }
       if (a.k === 'disc') {
-        G.held = null; G.pile.push(d); const r = rank(d);
+        G.held = null; toPile(G, d); const r = rank(d);
         const pw = r === 11 && p.slots.some(x => x != null) && G.P.some((q, j) => j !== i && q.slots.some(x => x != null)) ? 'J' : r === 12 ? 'Q' : '';
         push(G, { t: 'disc', p: i, c: d, pw });
         if (pw) { G.ph = pw; return true; }
@@ -161,10 +167,8 @@ const CTE = (() => {
     p.slots.forEach((c, k) => {
       if (c == null) return;
       const b = belief(G, i, i, k), ev = b ? val(b) : EV;
-      // coppia sicura (o che crede sicura): toglie la sua carta
-      if (b && same(b, d)) { const s = -ev - 0.5 + noise(); if (s < best.s) best = { a: { k: 'pair', s: k }, s }; }
-      // tirare a indovinare su una carta che non ricorda (raro, di piu' i principianti)
-      if (!b && G.rnd() < L.gam) { const s = -EV - 1 + noise(); if (s < best.s) best = { a: { k: 'pair', s: k }, s }; }
+      // crede di avere la carta uguale: la scarta e poi butta la sua (coppia fuori turno)
+      if (b && same(b, d) && ev > 0) { const s = -ev - 0.5 + noise(); if (s < best.s) best = { a: { k: 'disc' }, s }; }
       // scambio: la pescata prende il posto della carta
       const s = v - ev - (b ? 0 : 0.6) + noise();
       if (s < best.s) best = { a: { k: 'swap', s: k }, s };
@@ -198,7 +202,18 @@ const CTE = (() => {
     return tg ? { k: 'Q', at: [tg.j, tg.k] } : { k: 'skip' };
   }
   function botMove(G, i) { return G.ph === 'draw' ? botStart(G, i) : G.ph === 'hold' ? botHold(G, i) : botPower(G, i); }
-  return { SU, LV, rank, red, val, same, deck, shuffle, newGame, begin, act, canStop, score, ranking, botMove, key };
+  // coppia fuori turno: quale sua carta butta sulla carta in cima agli scarti (-1 = nessuna). Butta solo se crede che sia uguale
+  // e che valga piu' di 0 (la matta se la tiene); i principianti ogni tanto tirano a indovinare
+  function botThrow(G, i) {
+    if (!canThrow(G, i)) return -1;
+    const top = G.pile[G.pile.length - 1], L = LV[G.lv], p = G.P[i];
+    let pick = -1;
+    p.slots.forEach((c, k) => { if (c == null || pick >= 0) return; const b = belief(G, i, i, k); if (b && same(b, top) && val(b) > 0) pick = k; });
+    if (pick < 0 && G.rnd() < L.gam) { const unk = p.slots.map((c, k) => c != null && !belief(G, i, i, k) ? k : -1).filter(k => k >= 0); if (unk.length) pick = unk[Math.floor(G.rnd() * unk.length)]; }
+    return pick;
+  }
+  const react = (G, rnd = G.rnd) => { const [a, b] = LV[G.lv].rt; return a + (b - a) * rnd(); };
+  return { SU, LV, rank, red, val, same, deck, shuffle, newGame, begin, act, canStop, canThrow, score, ranking, botMove, botThrow, react, key };
 })();
 // ==END CT ENGINE==
 if (typeof module !== 'undefined' && module.exports) module.exports = CTE;
@@ -340,7 +355,8 @@ if (typeof window !== 'undefined') (() => {
   function rules() {
     const ov = overlay(`<div class="pkBox ctRu"><h2>Come si gioca</h2>
       <p>Hai 4 carte coperte. All'inizio guardi le 2 piu' vicine a te: ricordale bene, poi si girano.</p>
-      <p>A ogni turno <b>peschi</b> dal mazzo e scegli: <b>Scambia</b> (la pescata prende il posto di una tua carta, che va negli scarti), <b>Scarta</b>, oppure <b>Coppia</b>: tocchi una tua carta che pensi sia uguale. Se hai ragione scarti tutte e due; se sbagli la tua carta resta scoperta e la vedono tutti.</p>
+      <p>A ogni turno <b>peschi</b> dal mazzo e scegli: <b>Scambia</b> (la pescata prende il posto di una tua carta, che va negli scarti) oppure <b>Scarta</b>.</p>
+      <p><b>Coppia</b>: quando una carta finisce negli scarti, chiunque abbia una carta uguale puo' toccarla e buttarla, finche' il prossimo non pesca. Se sbagli, la tua carta resta scoperta e la vedono tutti.</p>
       <p>Il <b>J</b> scartato ti fa scambiare una tua carta con quella di un altro, la <b>Q</b> ti fa guardare una carta, tua o di un altro.</p>
       <p>Valori: asso 1, dal 2 al 10 il numero, J e Q 10, <b>re rosso 1</b>, <b>re nero 25</b>, <b>matta -5</b>.</p>
       <p>Quando pensi di avere pochi punti, al tuo turno dici <b>Stop</b>: gli altri fanno un ultimo turno, poi si girano le carte. Vince chi ha meno punti.</p>
@@ -516,27 +532,23 @@ if (typeof window !== 'undefined') (() => {
     } else if (e.t === 'swap') {
       const h = U.held, old = U.grid[e.p][e.s]; U.held = null; U.grid[e.p][e.s] = h;
       if (e.p === 0) { shut(h); await wait(260); }
-      raise(h); place(h, slotXY(L, e.p, e.s)); toPile(old); sfx.swish();
+      raise(h); place(h, slotXY(L, e.p, e.s)); toPile(old); U.openAt = Date.now(); sfx.swish();
       if (e.p !== 0) tag(e.p, 'c', 'Scambia');
       await wait(e.p === 0 ? 450 : 650);
-    } else if (e.t === 'pair') {
-      const h = U.held, o = U.grid[e.p][e.s]; U.held = null;
-      const [x, y, w] = slotXY(L, e.p, e.s), wasOpen = o.open;
-      raise(h, 2600); raise(o, 2600);
-      place(h, [x + w * 0.55, y - w * 0.25, w, 8], false, 6); if (!h.open) open(h);
-      place(o, [x, y, w, -4], false, 6);
-      if (!wasOpen) { await wait(250); open(o, true); sfx.flip(); }
-      await wait(wasOpen ? 500 : 1150);
+    } else if (e.t === 'throw') {   // coppia fuori turno: la carta si alza, si gira e va negli scarti (o resta scoperta)
+      const o = U.grid[e.p][e.s], [x, y, w] = slotXY(L, e.p, e.s), wasOpen = o.open;
+      raise(o, 2600); place(o, [x, y, w, -5], false, 8);
+      if (!wasOpen) { await wait(150); open(o, true); sfx.flip(); await wait(1000); } else await wait(380);
       if (e.ok) {
-        stamp('g', 'COPPIA!', NAMEOF(e.p)); sfx.ok(); say(e.p, 'ok', 0.5); await wait(800);
-        U.grid[e.p][e.s] = null; toPile(o); await wait(140); toPile(h);
+        stamp('g', 'COPPIA!', NAMEOF(e.p)); sfx.ok(); say(e.p, 'ok', 0.45);
+        U.grid[e.p][e.s] = null; toPile(o); U.openAt = Date.now(); await wait(750);
       } else {
-        stamp('b', 'SBAGLIATO!', e.p === 0 ? 'La tua carta resta scoperta' : NAMEOF(e.p)); sfx.ko(); say(e.p, 'ko', 0.6); await wait(900);
-        place(o, [x, y, w, 0]); o.el.classList.add('mal'); toPile(h);
+        stamp('b', 'SBAGLIATO!', e.p === 0 ? 'La tua carta resta scoperta' : NAMEOF(e.p)); sfx.ko(); say(e.p, 'ko', 0.6); await wait(750);
+        place(o, [x, y, w, 0]); o.el.classList.add('mal'); await wait(350);
       }
-      plates(); await wait(650);
+      plates();
     } else if (e.t === 'disc') {
-      const h = U.held; U.held = null; toPile(h); sfx.swish();
+      const h = U.held; U.held = null; toPile(h); U.openAt = Date.now(); sfx.swish();
       if (e.p !== 0) tag(e.p, e.pw ? 'w' : 'f', e.pw === 'J' ? 'Scambia col J' : e.pw === 'Q' ? 'Guarda con la Q' : 'Scarta');
       await wait(e.pw ? 650 : 450);
     } else if (e.t === 'jswap') {
@@ -593,7 +605,8 @@ if (typeof window !== 'undefined') (() => {
     E.begin(G); await flush();
     while (U && U.G === G && !G.over) {
       const i = G.turn;
-      if (G.P[i].bot) {
+      if (G.ph === 'draw') { if (await between(G) === 'x') return; }
+      else if (G.P[i].bot) {
         U.S.querySelector('#ctWait').textContent = 'Tocca a ' + G.P[i].n;
         await wait(G.ph === 'draw' ? 450 + Math.random() * 400 : 650 + Math.random() * 500); if (!U || U.G !== G) return;
         E.act(G, i, E.botMove(G, i));
@@ -614,15 +627,43 @@ if (typeof window !== 'undefined') (() => {
     U.S.querySelector('#ctWait').textContent = '';
     end();
   }
-  // i miei comandi: pulsanti in basso + tocchi su carte, mazzo e scarti
-  function ask(mode) {
+  // FRA UN TURNO E L'ALTRO (prima che chi e' di turno peschi): chi ha una carta uguale a quella in cima agli scarti la butta.
+  // I computer la buttano dopo il loro tempo di reazione; il computer di turno aspetta un attimo prima di pescare per lasciarti il tempo.
+  const spd = () => FAST() || (U && U.skip) ? 0.02 : 1;
+  async function between(G) {
+    const i = G.turn, live = () => U && U.G === G, bot = G.P[i].bot;
+    const plan = () => { const t0 = U.openAt || Date.now(); return G.P.map((p, j) => p.bot ? [j, E.botThrow(G, j), t0 + E.react(G) * spd()] : null).filter(x => x && x[1] >= 0); };
+    let P = plan(), tEnd = bot ? Date.now() + (E.canThrow(G, 0) ? 2300 : 450 + Math.random() * 400) * spd() : Infinity;
+    if (bot) U.S.querySelector('#ctWait').textContent = 'Tocca a ' + G.P[i].n;
+    while (live() && G.ph === 'draw' && !G.over) {
+      const now = Date.now(), due = P.filter(x => x[2] <= now).sort((a, b) => a[2] - b[2])[0];
+      if (due) {
+        if (E.act(G, due[0], { k: 'throw', s: due[1] })) { await flush(); if (!live()) return 'x'; if (bot && E.canThrow(G, 0)) tEnd = Math.max(tEnd, Date.now() + 1500 * spd()); }
+        P = plan(); continue;
+      }
+      if (bot && now >= tEnd) { U.S.querySelector('#ctWait').textContent = ''; E.act(G, i, E.botMove(G, i)); return; }
+      const next = Math.max(10, Math.min(tEnd, ...P.map(x => x[2])) - now);
+      let a;
+      if (!bot || E.canThrow(G, 0)) a = await ask(bot ? 'throw' : 'draw', next);
+      else { await wait(next); a = { k: 'tick' }; }
+      if (!live()) return 'x';
+      if (!a || a.k === 'tick') continue;
+      if (a.k === 'throw') { if (E.act(G, 0, a)) { await flush(); if (!live()) return 'x'; if (bot) tEnd = Math.max(tEnd, Date.now() + 1200 * spd()); } P = plan(); continue; }
+      E.act(G, 0, a); return;
+    }
+  }
+  // i miei comandi: pulsanti in basso + tocchi su carte, mazzo e scarti (ms = dopo quanto la domanda scade da sola: { k: 'tick' })
+  function ask(mode, ms) {
     const G = U.G, a = U.S.querySelector('#ctAct'), hint = a.querySelector('.hint'), main = a.querySelector('.main');
     U.skip = false; U.root.classList.remove('pkFast'); U.busy = false;
-    if (mode !== 'peek' && mode !== 'look') { U.seats[0].classList.add('turn'); if (mode === 'draw') sfx.turn(); }
+    if (mode !== 'peek' && mode !== 'look' && mode !== 'throw') { U.seats[0].classList.add('turn'); if (mode === 'draw' && U.beep !== G.tn) { U.beep = G.tn; sfx.turn(); } }
     const mineAll = () => U.grid[0].map((o, k) => o ? k : -1).filter(k => k >= 0);
     return new Promise(res => {
+      let tm = 0;
       const clean = () => { U.tap = U.tapDeck = U.tapPile = null; U.root.querySelectorAll('.pkC.tap,.pkC.sel').forEach(e => e.classList.remove('tap', 'sel')); U.S.querySelector('#ctDeck').classList.remove('tap'); U.S.querySelector('#ctPileL').classList.remove('tap'); };
-      const done = v => { clean(); a.hidden = true; U.busy = true; U.seats[0].classList.remove('turn'); res(v); };
+      const done = v => { clearTimeout(tm); clean(); a.hidden = true; U.busy = true; U.seats[0].classList.remove('turn'); res(v); };
+      if (ms != null && isFinite(ms)) tm = setTimeout(() => { if (U && U.G === G) done({ k: 'tick' }); }, FAST() ? Math.min(ms, 30) : ms);
+      const throwTaps = () => taps(mineAll().map(k => [0, k]), (j, k) => done({ k: 'throw', s: k }));
       let btn = () => { };
       const btns = list => { main.innerHTML = list.map(([k, t, c]) => `<button type="button" data-k="${k}" class="${c || ''}">${t}</button>`).join(''); main.querySelectorAll('button').forEach(b => b.onclick = () => btn(b.dataset.k)); };
       const taps = (list, fn) => { clean(); list.forEach(([j, k]) => U.grid[j][k] && U.grid[j][k].el.classList.add('tap')); U.tap = o => { for (const [j, k] of list) if (U.grid[j][k] === o) return fn(j, k, o); }; };
@@ -630,22 +671,26 @@ if (typeof window !== 'undefined') (() => {
         clean(); a.hidden = false;
         if (m === 'peek') { hint.textContent = 'Ricorda le tue 2 carte vicine: poi si girano'; btns([['ok', 'Ricordate', 'k']]); btn = () => done(null); }
         else if (m === 'look') { hint.textContent = 'Ecco la carta: ricordala'; btns([['ok', 'Fatto', 'k']]); btn = () => done(null); }
-        else if (m === 'draw') {
-          const can = E.canStop(G);
-          hint.textContent = can ? 'Pesca una carta, o di\' Stop se hai pochi punti' : 'Tocca a te: pesca una carta';
+        else if (m === 'throw') {   // non e' il mio turno: posso solo buttare una mia carta uguale a quella scartata
+          hint.textContent = 'Hai una carta uguale? Toccala per buttarla';
+          btns([]); throwTaps();
+        } else if (m === 'draw') {
+          const can = E.canStop(G), th = E.canThrow(G, 0);
+          if (th) throwTaps();
+          hint.textContent = th ? 'Pesca, o butta una tua carta uguale a quella scartata' : can ? 'Pesca una carta, o di\' Stop se hai pochi punti' : 'Tocca a te: pesca una carta';
           btns(can ? [['d', 'Pesca', 'k'], ['s', 'Stop', 'r']] : [['d', 'Pesca', 'k']]);
           btn = k => done({ k: k === 's' ? 'stop' : 'draw' });
           U.S.querySelector('#ctDeck').classList.add('tap'); U.tapDeck = () => done({ k: 'draw' });
         } else if (m === 'hold') {
           const has = mineAll().length;
-          hint.textContent = has ? 'Cosa fai con questa carta?' : 'Non hai piu\' carte: scartala';
-          btns(has ? [['sw', 'Scambia', 'k'], ['pa', 'Coppia', 'p'], ['di', 'Scarta']] : [['di', 'Scarta']]);
+          hint.textContent = has ? 'Scambiala con una tua carta, o scartala' : 'Non hai piu\' carte: scartala';
+          btns(has ? [['sw', 'Scambia', 'k'], ['di', 'Scarta']] : [['di', 'Scarta']]);
           btn = k => k === 'di' ? done({ k: 'disc' }) : step(k);
           U.S.querySelector('#ctPileL').classList.add('tap'); U.tapPile = () => done({ k: 'disc' });
-        } else if (m === 'sw' || m === 'pa') {
-          hint.textContent = m === 'sw' ? 'Tocca la tua carta da cambiare' : 'Tocca la tua carta uguale a questa';
+        } else if (m === 'sw') {
+          hint.textContent = 'Tocca la tua carta da cambiare';
           btns([['b', 'Indietro']]); btn = () => step('hold');
-          taps(mineAll().map(k => [0, k]), (j, k) => done({ k: m === 'sw' ? 'swap' : 'pair', s: k }));
+          taps(mineAll().map(k => [0, k]), (j, k) => done({ k: 'swap', s: k }));
         } else if (m === 'J') {
           hint.textContent = 'J: tocca una tua carta da dare via';
           btns([['sk', 'Salta']]); btn = () => done({ k: 'skip' });

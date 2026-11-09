@@ -1,5 +1,5 @@
 // Cactus nel browser (Firefox senza finestra): node prove/firefox2.mjs . prove/cactus.html prove/ct2.mjs
-// Gioca partite intere coi TOCCHI VERI (pulsanti, mazzo, carte) con 1-5 computer e i 3 livelli: scambi, coppie, Stop, poteri J e Q,
+// Gioca partite intere coi TOCCHI VERI (pulsanti, mazzo, carte) con 1-5 computer e i 3 livelli: scambi, coppie fuori turno, Stop, poteri J e Q,
 // riquadro finale e Rivincita; poi una foto a meta' partita (senza animazioni veloci) con la carta pescata in mano.
 const SHOT = process.env.CT_SHOT || '';
 const play = `(async () => {
@@ -22,6 +22,9 @@ const play = `(async () => {
       const bs = [...a.querySelectorAll('.main button')], by = k => bs.find(b => b.dataset.k === k);
       const taps = [...document.querySelectorAll('#ctT .pkC.tap')];
       if (by('ok')) { click(by('ok')); continue; }
+      const hint = a.querySelector('.hint').textContent;
+      if (/carta uguale/.test(hint) && taps.length && Math.random() < 0.08) { cov.pair++; click(taps[Math.floor(Math.random() * taps.length)]); continue; }
+      if (/^Hai una carta uguale/.test(hint)) continue;
       if (by('d')) {
         myTurns++;
         if (by('s') && myTurns > 5) { cov.stop++; click(by('s')); continue; }
@@ -30,7 +33,7 @@ const play = `(async () => {
       }
       if (by('sw')) {
         const r = myTurns % 3;
-        if (r === 0) { cov.pair++; click(by('pa')); } else if (r === 1) { cov.swap++; click(by('sw')); } else { cov.disc++; click(by('di')); }
+        if (r === 1) { cov.swap++; click(by('sw')); } else { cov.disc++; click(by('di')); }
         continue;
       }
       if (by('di')) { cov.disc++; click(by('di')); continue; }
@@ -41,7 +44,7 @@ const play = `(async () => {
       if (by('b')) { click(by('b')); continue; }
     }
     const G = CT.U.G;
-    for (const e of G.ev) { if (e.t === 'pair' && e.p === 0) e.ok ? cov.ok++ : cov.ko++; }
+    for (const e of G.ev) { if (e.t === 'throw' && e.p === 0) e.ok ? cov.ok++ : cov.ko++; if (e.t === 'throw' && e.p !== 0) cov.bot = (cov.bot || 0) + (e.ok ? 1 : 0); }
     const all = [...G.deck, ...G.pile, ...G.P.flatMap(p => p.slots.filter(c => c != null))];
     if (!G.over || all.length !== 54 || new Set(all).size !== 54) errs.push('partita ' + cov.games + ': finita ' + G.over + ', carte ' + all.length);
     cov.games++;

@@ -4057,7 +4057,7 @@ function tgSette() {
 // CACTUS (giochi/cactus.js, window.CT): gioco di memoria con le carte da scala, contro i computer; dalla reception e dal tavolino (briscola.js pick).
 // Usa carte.js (CARTE.fr a due colori con la matta) e poker.js (tavolo, classi .pk*). A OGNI MODIFICA di cactus.js o carte.js cambiare il numero ?v= qui sotto.
 function tgCactus() {
-  const v = '?v=202611091900', go = () => CT.start({ name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', look: cqLook(), onExit: () => {} });
+  const v = '?v=202611092030', go = () => CT.start({ name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', look: cqLook(), onExit: () => {} });
   const add = (src, then) => { const sc = document.createElement('script'); sc.src = src + v; sc.onload = then; sc.onerror = () => cqToast("Cactus non si e' caricato: controlla la connessione e riprova."); document.head.appendChild(sc); };
   const ct = () => window.CT ? go() : add('giochi/cactus.js', go);
   const pk = () => window.PKART ? ct() : add('giochi/poker.js', ct);
