@@ -489,11 +489,28 @@ if (typeof window !== 'undefined') (() => {
   const cellC = (B, x, y) => [B.x + (x + 0.5) * B.c, B.y + (y + 0.5) * B.c];
 
   // ---- animazioni: attori + particelle, un solo giro di disegno ----
-  function kick() { if (!U || U.raf) return; U.last = performance.now(); U.raf = requestAnimationFrame(frame); }
-  function frame(t) {
-    if (!U) return; U.raf = 0;
-    const dt = Math.min(0.05, (t - U.last) / 1000) * spd(); U.last = t;
-    for (const a of U.act.slice()) { a.t += dt; const k = Math.min(1, a.t / a.d); if (a.up) a.up(k, dt); if (k >= 1) { U.act.splice(U.act.indexOf(a), 1); if (a.end) a.end(); a.res(); } }
+  // guardia: se il browser smette di dare fotogrammi (scheda nascosta, schermo spento, telefono sotto sforzo)
+  // le animazioni avanzano lo stesso col timer, cosi' il turno non resta mai appeso
+  function kick() {
+    if (!U) return;
+    if (!U.wd) U.wd = setInterval(() => {
+      if (!U) return;
+      if (!U.act.length && !U.pt.length && !(U.shk > 0)) { clearInterval(U.wd); U.wd = 0; return; }
+      if (performance.now() - (U.lastF || 0) > 300) { if (U.raf) cancelAnimationFrame(U.raf); U.raf = 0; frame(performance.now()); }
+    }, 200);
+    if (U.raf || U.inF) return;   // dentro un fotogramma ci pensa la fine del fotogramma a chiedere il prossimo
+    U.last = U.lastF = performance.now(); U.raf = requestAnimationFrame(frame);
+  }
+  // un solo orologio (performance.now): l'ora del fotogramma del browser puo' restare indietro e fermare tutto
+  function frame() {
+    if (!U) return; U.raf = 0; U.inF = true;
+    const now = performance.now(); U.lastF = now;
+    const dt = Math.max(0.001, Math.min(0.05, (now - U.last) / 1000)) * spd(); U.last = now;
+    for (const a of U.act.slice()) {
+      let k = 1;
+      try { a.t += dt; k = Math.min(1, a.t / a.d); if (!(k >= 0)) k = 1; if (a.up) a.up(k, dt); } catch (e) { k = 1; console.error(e); }
+      if (k >= 1) { U.act.splice(U.act.indexOf(a), 1); try { if (a.end) a.end(); } catch (e) { console.error(e); } a.res(); }
+    }
     for (const p of U.pt) {
       p.life += dt; p.x += p.vx * dt; p.y += p.vy * dt;
       if (p.z != null) { p.vz -= (p.gz || 320) * dt; p.z += p.vz * dt; if (p.z < 0) p.life = p.max; }
@@ -501,8 +518,9 @@ if (typeof window !== 'undefined') (() => {
     }
     U.pt = U.pt.filter(p => p.life < p.max);
     if (U.shk > 0) U.shk = Math.max(0, U.shk - dt * 26);
-    draw();
-    if (U.act.length || U.pt.length || U.shk > 0) U.raf = requestAnimationFrame(frame);
+    try { draw(); } catch (e) { console.error(e); }
+    U.inF = false;
+    if (!U.raf && (U.act.length || U.pt.length || U.shk > 0)) U.raf = requestAnimationFrame(frame);
   }
   function actor(o) { return new Promise(res => { if (FAST() || !U) { if (o.up) o.up(1, 0); if (o.end) o.end(); res(); return; } o.t = 0; o.res = res; U.act.push(o); kick(); }); }
   function part(p) { if (FAST() || !U) return; p.life = 0; U.pt.push(p); kick(); }
@@ -817,7 +835,7 @@ if (typeof window !== 'undefined') (() => {
     U.view = me ? 'E' : 'M';
     stamp('h', 'SI SALPA!', me ? 'Inizi tu' : 'Inizia ' + FOES[U.o.lv].n);
     refresh();
-    (async () => { await wait(1300); if (!U || U.G !== G) return; if (me) myTurn(); else foeTurn(); })();
+    (async () => { await wait(1300); if (!U || U.G !== G) return; if (me) myTurn(); else safe(G, foeTurn); })();
   }
   async function setView(v) {
     if (!U || U.view === v) return;
@@ -845,13 +863,22 @@ if (typeof window !== 'undefined') (() => {
     if (!a || !E.act(G, 0, a)) { sfx.no(); return; }
     U.busy = true; U.aim = null; U.sel = null; U.mvDest = null; U.moves = [];
     refresh();
-    (async () => {
+    safe(G, async () => {
       await play();
       if (!U || U.G !== G) return;
       if (G.over) return finish();
       if (U.tool === 'move') U.tool = 'shot';
       await foeTurn();
-    })();
+    });
+  }
+  // se qualcosa va storto a meta' turno la partita riparte da dove dice il motore, invece di restare ferma
+  async function safe(G, fn) {
+    try { await fn(); } catch (e) {
+      console.error(e);
+      if (!U || U.G !== G) return;
+      U.evi = G.ev.length;
+      if (G.over) finish(); else if (G.turn === 0) myTurn(); else safe(G, foeTurn);
+    }
   }
   async function foeTurn() {
     if (!U || !U.G) return;
@@ -863,7 +890,10 @@ if (typeof window !== 'undefined') (() => {
     await setView(a.k === 'move' ? 'E' : 'M');
     await wait(280);
     if (!U || U.G !== G) return;
-    E.act(G, 1, a);
+    if (!E.act(G, 1, a)) {   // mai restare fermi: se la mossa scelta non vale, un colpo su una casella libera
+      const V = G.P[1].V, c = []; for (let id = 0; id < N * N; id++) if (V[id] !== 2 && V[id] !== 4) c.push(id);
+      const id = c[Math.floor(Math.random() * c.length)]; E.act(G, 1, { k: 'shot', x: id % N, y: (id / N) | 0 });
+    }
     await play();
     if (!U || U.G !== G) return;
     if (G.over) return finish();
@@ -876,6 +906,12 @@ if (typeof window !== 'undefined') (() => {
   async function play() {
     const G = U.G;
     while (U && U.G === G && U.evi < G.ev.length) {
+      try { await play1(G); } catch (e) { console.error(e); }
+    }
+    if (U) refresh();
+  }
+  async function play1(G) {
+    {
       const e = G.ev[U.evi++];
       if (e.t === 'fire' && e.k === 'shot') { await shellFx(e); const r = G.ev[U.evi++]; await result(r); }
       else if (e.t === 'fire' && e.k === 'rocket') {
@@ -894,7 +930,6 @@ if (typeof window !== 'undefined') (() => {
       else if (e.t === 'move') await moveFx(e);
       else if (e.t === 'fade') await fadeFx(e);
     }
-    if (U) refresh();
   }
   // proiettile: da sotto (io) o da sopra (il nemico) verso la casella, con l'arco e l'ombra
   function shellFx(e) {
@@ -1169,7 +1204,7 @@ if (typeof window !== 'undefined') (() => {
   }
   function stop(silent) {
     if (!U) return; const cb = U.opt.onExit;
-    removeEventListener('resize', U.onRs); if (U.raf) cancelAnimationFrame(U.raf);
+    removeEventListener('resize', U.onRs); if (U.raf) cancelAnimationFrame(U.raf); if (U.wd) clearInterval(U.wd);
     clearTimeout(U.sayT); U.root.remove(); U = null; if (!silent && cb) cb();
   }
   window.NV = { start, stop, get U() { return U; } };

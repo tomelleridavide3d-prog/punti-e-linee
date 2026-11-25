@@ -4068,7 +4068,7 @@ function tgCactus() {
 function tgNavale() {
   const go = () => NV.start({ name: (store.settings.myName || '').trim().slice(0, 14) || 'Tu', look: cqLook(), onExit: () => {} });
   if (window.NV) { go(); return; }
-  const sc = document.createElement('script'); sc.src = 'giochi/navale.js?v=202611251800'; sc.onload = go; sc.onerror = () => cqToast("La battaglia navale non si e' caricata: controlla la connessione e riprova."); document.head.appendChild(sc);
+  const sc = document.createElement('script'); sc.src = 'giochi/navale.js?v=202611252000'; sc.onload = go; sc.onerror = () => cqToast("La battaglia navale non si e' caricata: controlla la connessione e riprova."); document.head.appendChild(sc);
 }
 // La Valle dei Clan (prototipo): si carica solo quando serve e si gioca a tutto schermo contro il computer
 function tgValle() {
